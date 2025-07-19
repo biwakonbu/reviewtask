@@ -41,7 +41,7 @@ type AISettings struct {
 	UserLanguage      string  `json:"user_language"`       // e.g., "Japanese", "English"
 	OutputFormat      string  `json:"output_format"`       // "json"
 	MaxRetries        int     `json:"max_retries"`         // Validation retry attempts (default: 5)
-	ValidationEnabled bool    `json:"validation_enabled"`  // Enable two-stage validation
+	ValidationEnabled *bool   `json:"validation_enabled"`  // Enable two-stage validation
 	QualityThreshold  float64 `json:"quality_threshold"`   // Minimum score to accept (0.0-1.0)
 	DebugMode         bool    `json:"debug_mode"`          // Enable debug information (PATH, command locations)
 	ClaudePath        string  `json:"claude_path"`         // Custom path to Claude CLI (overrides default search)
@@ -49,6 +49,7 @@ type AISettings struct {
 
 // Default configuration
 func defaultConfig() *Config {
+	validationTrue := true
 	return &Config{
 		PriorityRules: PriorityRules{
 			Critical: "Security vulnerabilities, authentication bypasses, data exposure risks",
@@ -70,7 +71,7 @@ func defaultConfig() *Config {
 			UserLanguage:      "English",
 			OutputFormat:      "json",
 			MaxRetries:        5,
-			ValidationEnabled: true,
+			ValidationEnabled: &validationTrue,
 			QualityThreshold:  0.8,
 			DebugMode:         false,
 			ClaudePath:        "", // Empty means use default search paths
@@ -157,7 +158,12 @@ func mergeWithDefaults(config *Config) {
 		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
 	}
 	
-	// Note: Boolean fields (ValidationEnabled, DebugMode) are NOT merged with defaults
+	// Merge boolean pointer fields
+	if config.AISettings.ValidationEnabled == nil {
+		config.AISettings.ValidationEnabled = defaults.AISettings.ValidationEnabled
+	}
+	
+	// Note: DebugMode is NOT merged with defaults - explicit false values are preserved
 	// The JSON unmarshaling process preserves explicit false values from config file
 	// Only missing fields get default values during initial config creation
 }

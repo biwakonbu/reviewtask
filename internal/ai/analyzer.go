@@ -74,7 +74,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	}
 
 	// Check if validation is enabled in config
-	if a.config.AISettings.ValidationEnabled {
+	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 		fmt.Printf("  🐛 Using validation-enabled path (legacy)\n")
 		return a.GenerateTasksWithValidation(reviews)
 	}
@@ -478,7 +478,7 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 
 // processComment handles a single comment and returns tasks for it
 func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
-	if a.config.AISettings.ValidationEnabled {
+	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 		return a.processCommentWithValidation(ctx)
 	}
 	
