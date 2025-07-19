@@ -265,6 +265,12 @@ Task Splitting Guidelines:
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
+	// Check for very large prompts that might exceed system limits
+	const maxPromptSize = 32 * 1024 // 32KB limit for safety
+	if len(prompt) > maxPromptSize {
+		return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", len(prompt), maxPromptSize)
+	}
+	
 	claudePath, err := a.findClaudeCommand()
 	if err != nil {
 		return nil, fmt.Errorf("claude command not found: %w", err)
