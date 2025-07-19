@@ -202,7 +202,7 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 	
 	output, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("claude code execution failed: %w", err)
+		return nil, fmt.Errorf("claude validation execution failed")
 	}
 	
 	// Parse Claude Code CLI response wrapper
@@ -214,11 +214,11 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 	}
 	
 	if err := json.Unmarshal(output, &claudeResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse claude wrapper response: %w", err)
+		return nil, fmt.Errorf("failed to parse claude response")
 	}
 	
 	if claudeResponse.IsError {
-		return nil, fmt.Errorf("claude returned error: %s", claudeResponse.Result)
+		return nil, fmt.Errorf("claude validation failed")
 	}
 	
 	// Extract JSON from result (may be wrapped in markdown code block)
@@ -252,7 +252,7 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 	}
 	
 	if err := json.Unmarshal([]byte(result), &response); err != nil {
-		return nil, fmt.Errorf("failed to parse validation response: %w\nResult was: %s", err, result)
+		return nil, fmt.Errorf("failed to parse validation response")
 	}
 	
 	// Convert to ValidationResult
