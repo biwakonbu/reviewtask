@@ -14,6 +14,7 @@ After completing the initial setup, follow this exact workflow:
 ## Workflow Steps:
 
 1. **Check Status**: Use `gh-review-task status` to check current task status and identify any tasks in progress
+   - **If all tasks are completed (100% completion rate and no pending tasks)**: Stop here - all work is done!
 
 2. **Identify Task**: 
    - If there's a task with "doing" status, work on that task
@@ -56,6 +57,7 @@ After completing the initial setup, follow this exact workflow:
 
 6. **Continue Workflow**: After committing:
    - Check status again with `gh-review-task status`
+   - If all tasks are completed (100% completion rate), stop here - all work is done!
    - If remaining tasks exist, repeat this entire workflow from step 1
 
 ## Important Notes:
