@@ -15,6 +15,7 @@ type Config struct {
 	PriorityRules   PriorityRules   `json:"priority_rules"`
 	ProjectSpecific ProjectSpecific `json:"project_specific"`
 	TaskSettings    TaskSettings    `json:"task_settings"`
+	AISettings      AISettings      `json:"ai_settings"`
 }
 
 type PriorityRules struct {
@@ -36,8 +37,19 @@ type TaskSettings struct {
 	AutoPrioritize bool   `json:"auto_prioritize"`
 }
 
+type AISettings struct {
+	UserLanguage      string  `json:"user_language"`       // e.g., "Japanese", "English"
+	OutputFormat      string  `json:"output_format"`       // "json"
+	MaxRetries        int     `json:"max_retries"`         // Validation retry attempts (default: 5)
+	ValidationEnabled *bool   `json:"validation_enabled"`  // Enable two-stage validation
+	QualityThreshold  float64 `json:"quality_threshold"`   // Minimum score to accept (0.0-1.0)
+	DebugMode         bool    `json:"debug_mode"`          // Enable debug information (PATH, command locations)
+	ClaudePath        string  `json:"claude_path"`         // Custom path to Claude CLI (overrides default search)
+}
+
 // Default configuration
 func defaultConfig() *Config {
+	validationTrue := true
 	return &Config{
 		PriorityRules: PriorityRules{
 			Critical: "Security vulnerabilities, authentication bypasses, data exposure risks",
@@ -54,6 +66,15 @@ func defaultConfig() *Config {
 		TaskSettings: TaskSettings{
 			DefaultStatus:  "todo",
 			AutoPrioritize: true,
+		},
+		AISettings: AISettings{
+			UserLanguage:      "English",
+			OutputFormat:      "json",
+			MaxRetries:        5,
+			ValidationEnabled: &validationTrue,
+			QualityThreshold:  0.8,
+			DebugMode:         false,
+			ClaudePath:        "", // Empty means use default search paths
 		},
 	}
 }
@@ -122,6 +143,29 @@ func mergeWithDefaults(config *Config) {
 	if config.TaskSettings.DefaultStatus == "" {
 		config.TaskSettings.DefaultStatus = defaults.TaskSettings.DefaultStatus
 	}
+
+	// Merge AI settings
+	if config.AISettings.UserLanguage == "" {
+		config.AISettings.UserLanguage = defaults.AISettings.UserLanguage
+	}
+	if config.AISettings.OutputFormat == "" {
+		config.AISettings.OutputFormat = defaults.AISettings.OutputFormat
+	}
+	if config.AISettings.MaxRetries == 0 {
+		config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
+	}
+	if config.AISettings.QualityThreshold == 0 {
+		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
+	}
+	
+	// Merge boolean pointer fields
+	if config.AISettings.ValidationEnabled == nil {
+		config.AISettings.ValidationEnabled = defaults.AISettings.ValidationEnabled
+	}
+	
+	// Note: DebugMode is NOT merged with defaults - explicit false values are preserved
+	// The JSON unmarshaling process preserves explicit false values from config file
+	// Only missing fields get default values during initial config creation
 }
 
 // GetPriorityPrompt returns the full priority context for AI analysis

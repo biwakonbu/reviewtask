@@ -48,3 +48,6 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Implementation planning documents
+IMPL.md
