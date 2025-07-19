@@ -156,6 +156,10 @@ func mergeWithDefaults(config *Config) {
 	if config.AISettings.QualityThreshold == 0 {
 		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
 	}
+	
+	// Note: Boolean fields (ValidationEnabled, DebugMode) are NOT merged with defaults
+	// The JSON unmarshaling process preserves explicit false values from config file
+	// Only missing fields get default values during initial config creation
 }
 
 // GetPriorityPrompt returns the full priority context for AI analysis

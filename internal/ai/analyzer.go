@@ -7,8 +7,10 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"gh-review-task/internal/config"
 	"gh-review-task/internal/github"
 	"gh-review-task/internal/storage"
@@ -65,15 +67,39 @@ func NewTaskValidator(cfg *config.Config) *TaskValidator {
 }
 
 func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error) {
+	
 	if len(reviews) == 0 {
 		return []storage.Task{}, nil
 	}
 
+	// Check if validation is enabled in config
 	if a.config.AISettings.ValidationEnabled {
+		fmt.Printf("  🐛 Using validation-enabled path (legacy)\n")
 		return a.GenerateTasksWithValidation(reviews)
-	} else {
-		return a.generateTasksLegacy(reviews)
 	}
+
+	// Extract all comments from all reviews
+	var allComments []CommentContext
+	for _, review := range reviews {
+		for _, comment := range review.Comments {
+			allComments = append(allComments, CommentContext{
+				Comment:        comment,
+				SourceReview:   review,
+			})
+		}
+	}
+
+	if len(allComments) == 0 {
+		return []storage.Task{}, nil
+	}
+
+	fmt.Printf("Processing %d comments in parallel...\n", len(allComments))
+	return a.generateTasksParallel(allComments)
+}
+
+type CommentContext struct {
+	Comment      github.Comment
+	SourceReview github.Review
 }
 
 func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]storage.Task, error) {
@@ -281,15 +307,40 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	result := claudeResponse.Result
 	result = strings.TrimSpace(result)
 	
+	// Debug: log first part of response if debug mode is enabled
+	if a.config.AISettings.DebugMode {
+		preview := result
+		if len(preview) > 500 {
+			preview = preview[:500] + "..."
+		}
+		fmt.Printf("  🐛 Claude response preview: %s\n", preview)
+	}
+	
 	// Find JSON array in the response
 	jsonStart := strings.Index(result, "[")
 	jsonEnd := strings.LastIndex(result, "]")
 	
 	if jsonStart == -1 || jsonEnd == -1 || jsonStart >= jsonEnd {
-		return nil, fmt.Errorf("no valid JSON array found in Claude response")
+		// Try to find JSON object instead of array
+		objStart := strings.Index(result, "{")
+		objEnd := strings.LastIndex(result, "}")
+		if objStart != -1 && objEnd != -1 && objStart < objEnd {
+			// Check if it's a single task wrapped in object
+			objContent := result[objStart : objEnd+1]
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
+			}
+			// Wrap single object in array
+			result = "[" + objContent + "]"
+		} else {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("  🐛 Full Claude response: %s\n", result)
+			}
+			return nil, fmt.Errorf("no valid JSON array found in Claude response")
+		}
+	} else {
+		result = result[jsonStart : jsonEnd+1]
 	}
-	
-	result = result[jsonStart : jsonEnd+1]
 	
 	// Parse the actual task array
 	var tasks []TaskRequest
@@ -307,7 +358,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	
 	for _, task := range tasks {
 		storageTask := storage.Task{
-			ID:               fmt.Sprintf("comment-%d-task-%d", task.SourceCommentID, task.TaskIndex),
+			ID:               uuid.New().String(),
 			Description:      task.Description,
 			OriginText:       task.OriginText,
 			Priority:         task.Priority,
@@ -359,6 +410,225 @@ func (a *Analyzer) buildAnalysisPromptWithFeedback(reviews []github.Review) stri
 
 func (a *Analyzer) addValidationFeedback(issues []ValidationIssue) {
 	a.validationFeedback = issues
+}
+
+// generateTasksParallel processes comments in parallel using goroutines
+func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.Task, error) {
+	type commentResult struct {
+		tasks []TaskRequest
+		err   error
+		index int
+	}
+
+	results := make(chan commentResult, len(comments))
+	var wg sync.WaitGroup
+
+	// Process each comment in parallel
+	for i, commentCtx := range comments {
+		wg.Add(1)
+		go func(index int, ctx CommentContext) {
+			defer wg.Done()
+			
+			tasks, err := a.processComment(ctx)
+			results <- commentResult{
+				tasks: tasks,
+				err:   err,
+				index: index,
+			}
+		}(i, commentCtx)
+	}
+
+	// Wait for all goroutines to complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	var allTasks []TaskRequest
+	var errors []error
+
+	for result := range results {
+		if result.err != nil {
+			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
+		} else {
+			allTasks = append(allTasks, result.tasks...)
+		}
+	}
+
+	// Report errors but continue if we have some successful results
+	if len(errors) > 0 {
+		for _, err := range errors {
+			fmt.Printf("  ⚠️  %v\n", err)
+		}
+		if len(allTasks) == 0 {
+			return nil, fmt.Errorf("all comment processing failed")
+		}
+	}
+
+	fmt.Printf("✓ Generated %d tasks from %d comments\n", len(allTasks), len(comments))
+	return a.convertToStorageTasks(allTasks), nil
+}
+
+// processComment handles a single comment and returns tasks for it
+func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
+	if a.config.AISettings.ValidationEnabled {
+		return a.processCommentWithValidation(ctx)
+	}
+	
+	prompt := a.buildCommentPrompt(ctx)
+	return a.callClaudeCode(prompt)
+}
+
+// processCommentWithValidation validates individual comment JSON responses
+func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskRequest, error) {
+	validator := NewTaskValidator(a.config)
+	
+	for attempt := 1; attempt <= validator.maxRetries; attempt++ {
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("    🔄 Comment %d validation attempt %d/%d\n", ctx.Comment.ID, attempt, validator.maxRetries)
+		}
+		
+		prompt := a.buildCommentPrompt(ctx)
+		tasks, err := a.callClaudeCode(prompt)
+		if err != nil {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("    ❌ Comment %d generation failed: %v\n", ctx.Comment.ID, err)
+			}
+			continue
+		}
+		
+		// Stage 1: Format validation for this comment's tasks
+		formatResult, err := validator.validateFormat(tasks)
+		if err != nil {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("    ❌ Comment %d format validation failed: %v\n", ctx.Comment.ID, err)
+			}
+			continue
+		}
+		
+		if !formatResult.IsValid {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("    ⚠️  Comment %d format issues (score: %.2f)\n", ctx.Comment.ID, formatResult.Score)
+			}
+			if attempt == validator.maxRetries {
+				// Use best attempt on final try
+				return formatResult.Tasks, nil
+			}
+			continue
+		}
+		
+		// Stage 2: Content validation for this comment's tasks
+		// Create a mini-review slice for validation context
+		miniReviews := []github.Review{ctx.SourceReview}
+		contentResult, err := validator.validateContent(formatResult.Tasks, miniReviews)
+		if err != nil {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("    ❌ Comment %d content validation failed: %v\n", ctx.Comment.ID, err)
+			}
+			continue
+		}
+		
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("    ✅ Comment %d validation passed (score: %.2f)\n", ctx.Comment.ID, contentResult.Score)
+		}
+		
+		// Return validated tasks
+		return formatResult.Tasks, nil
+	}
+	
+	return nil, fmt.Errorf("comment %d validation failed after %d attempts", ctx.Comment.ID, validator.maxRetries)
+}
+
+// buildCommentPrompt creates a focused prompt for analyzing a single comment
+func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
+	var languageInstruction string
+	if a.config.AISettings.UserLanguage != "" {
+		languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+	}
+	
+	priorityPrompt := a.config.GetPriorityPrompt()
+	
+	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR review comments and generate actionable tasks.
+
+%s
+%s
+
+Analyze this single comment and create actionable tasks if needed:
+
+Review Context:
+- Review ID: %d
+- Reviewer: %s
+- Review State: %s
+
+Comment Details:
+- Comment ID: %d
+- Author: %s
+- File: %s:%d
+- Comment Text: %s
+
+%s
+
+CRITICAL: Return response as JSON array with this EXACT format:
+[
+  {
+    "description": "Actionable task description in specified language",
+    "origin_text": "Original review comment text (preserve exactly)",
+    "priority": "critical|high|medium|low",
+    "source_review_id": %d,
+    "source_comment_id": %d,
+    "file": "%s",
+    "line": %d,
+    "task_index": 0
+  }
+]
+
+Requirements:
+1. PRESERVE original comment text in 'origin_text' field exactly as written
+2. Generate clear, actionable 'description' in the specified user language
+3. SPLIT multiple issues in a single comment into separate tasks
+4. Assign task_index starting from 0 for multiple tasks from same comment
+5. Only create tasks for comments requiring developer action
+6. Consider if this comment has already been resolved in discussion chains
+7. Return empty array [] if no actionable tasks are needed
+
+Task Splitting Guidelines:
+- One comment may contain multiple distinct issues or suggestions
+- Each issue should become a separate task with its own priority
+- All tasks from same comment share the same origin_text and source_comment_id
+- Use task_index to distinguish tasks: 0, 1, 2, etc.`,
+		languageInstruction,
+		priorityPrompt,
+		ctx.SourceReview.ID,
+		ctx.SourceReview.Reviewer,
+		ctx.SourceReview.State,
+		ctx.Comment.ID,
+		ctx.Comment.Author,
+		ctx.Comment.File,
+		ctx.Comment.Line,
+		ctx.Comment.Body,
+		a.buildRepliesContext(ctx.Comment),
+		ctx.SourceReview.ID,
+		ctx.Comment.ID,
+		ctx.Comment.File,
+		ctx.Comment.Line)
+	
+	return prompt
+}
+
+// buildRepliesContext formats reply chain for context
+func (a *Analyzer) buildRepliesContext(comment github.Comment) string {
+	if len(comment.Replies) == 0 {
+		return ""
+	}
+	
+	var repliesContext strings.Builder
+	repliesContext.WriteString("\nReply Chain (for context):\n")
+	for _, reply := range comment.Replies {
+		repliesContext.WriteString(fmt.Sprintf("  - %s: %s\n", reply.Author, reply.Body))
+	}
+	
+	return repliesContext.String()
 }
 
 // findClaudeCommand searches for Claude CLI in order of preference:

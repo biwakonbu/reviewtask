@@ -135,9 +135,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
-	// Save tasks
-	if err := storageManager.SaveTasks(prNumber, tasks); err != nil {
-		return fmt.Errorf("failed to save tasks: %w", err)
+	// Merge tasks with existing ones (preserves task statuses)
+	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
+		return fmt.Errorf("failed to merge tasks: %w", err)
 	}
 
 	fmt.Printf("✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)

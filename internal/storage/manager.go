@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gh-review-task/internal/github"
@@ -291,4 +292,133 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int64, taskIndex int, newStatus string) error {
 	taskID := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
 	return m.UpdateTaskStatus(taskID, newStatus)
+}
+
+// MergeTasks combines new tasks with existing ones, preserving existing task statuses
+func (m *Manager) MergeTasks(prNumber int, newTasks []Task) error {
+	existingTasks, err := m.GetTasksByPR(prNumber)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to load existing tasks: %w", err)
+	}
+	
+	// Create map of existing tasks by source comment ID for quick lookup
+	existingByComment := make(map[int64][]Task)
+	for _, task := range existingTasks {
+		existingByComment[task.SourceCommentID] = append(existingByComment[task.SourceCommentID], task)
+	}
+	
+	var mergedTasks []Task
+	newTasksByComment := make(map[int64][]Task)
+	
+	// Group new tasks by comment ID
+	for _, task := range newTasks {
+		newTasksByComment[task.SourceCommentID] = append(newTasksByComment[task.SourceCommentID], task)
+	}
+	
+	// Process each comment ID
+	allCommentIDs := make(map[int64]bool)
+	for commentID := range existingByComment {
+		allCommentIDs[commentID] = true
+	}
+	for commentID := range newTasksByComment {
+		allCommentIDs[commentID] = true
+	}
+	
+	for commentID := range allCommentIDs {
+		existingForComment := existingByComment[commentID]
+		newForComment := newTasksByComment[commentID]
+		
+		mergedForComment := m.mergeTasksForComment(commentID, existingForComment, newForComment)
+		mergedTasks = append(mergedTasks, mergedForComment...)
+	}
+	
+	return m.SaveTasks(prNumber, mergedTasks)
+}
+
+// mergeTasksForComment handles task merging for a specific comment
+func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []Task {
+	var result []Task
+	
+	if len(existing) == 0 {
+		// No existing tasks, use all new tasks
+		return new
+	}
+	
+	if len(new) == 0 {
+		// No new tasks, mark existing tasks as cancelled if they're not already done
+		for _, task := range existing {
+			if task.Status != "done" && task.Status != "cancelled" {
+				task.Status = "cancelled"
+				task.UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
+			}
+			result = append(result, task)
+		}
+		return result
+	}
+	
+	// Compare origin text to detect content changes
+	existingOriginText := ""
+	if len(existing) > 0 {
+		existingOriginText = existing[0].OriginText
+	}
+	
+	newOriginText := ""
+	if len(new) > 0 {
+		newOriginText = new[0].OriginText
+	}
+	
+	// If origin text changed significantly, cancel old tasks and add new ones
+	if m.hasSignificantTextChange(existingOriginText, newOriginText) {
+		// Cancel existing tasks that aren't done
+		for _, task := range existing {
+			if task.Status != "done" && task.Status != "cancelled" {
+				task.Status = "cancelled"
+				task.UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
+			}
+			result = append(result, task)
+		}
+		
+		// Add new tasks
+		result = append(result, new...)
+		return result
+	}
+	
+	// Content is similar, preserve existing task statuses
+	// Preserve existing tasks and their statuses
+	for _, existingTask := range existing {
+		result = append(result, existingTask)
+	}
+	
+	// Add any genuinely new tasks (beyond existing count)
+	if len(new) > len(existing) {
+		for i := len(existing); i < len(new); i++ {
+			result = append(result, new[i])
+		}
+	}
+	
+	return result
+}
+
+// hasSignificantTextChange determines if comment content changed significantly
+func (m *Manager) hasSignificantTextChange(old, new string) bool {
+	// Simple comparison - consider it significant if strings are notably different
+	// This is a basic implementation; could be enhanced with fuzzy matching
+	if old == "" || new == "" {
+		return old != new
+	}
+	
+	// Remove common markdown and whitespace for comparison
+	cleanOld := strings.TrimSpace(strings.ReplaceAll(old, "\n", " "))
+	cleanNew := strings.TrimSpace(strings.ReplaceAll(new, "\n", " "))
+	
+	// If texts are very different in length, consider it significant
+	if len(cleanOld) > 0 && len(cleanNew) > 0 {
+		ratio := float64(len(cleanNew)) / float64(len(cleanOld))
+		if ratio < 0.5 || ratio > 2.0 {
+			return true
+		}
+	}
+	
+	// If they're completely different, it's significant
+	return cleanOld != cleanNew
 }
