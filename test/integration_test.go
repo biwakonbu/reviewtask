@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"testing"
 
 	"gh-review-task/internal/storage"
@@ -144,7 +145,8 @@ func (sm *TestStatisticsManager) GenerateBranchStatistics(branchName string) (*s
 	for _, prNumber := range prNumbers {
 		tasks, err := sm.storageManager.GetTasksByPR(prNumber)
 		if err != nil {
-			continue
+			// In tests, we should be more explicit about errors
+			return nil, fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
 		}
 		allTasks = append(allTasks, tasks...)
 	}
