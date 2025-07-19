@@ -15,6 +15,7 @@ type Config struct {
 	PriorityRules   PriorityRules   `json:"priority_rules"`
 	ProjectSpecific ProjectSpecific `json:"project_specific"`
 	TaskSettings    TaskSettings    `json:"task_settings"`
+	AISettings      AISettings      `json:"ai_settings"`
 }
 
 type PriorityRules struct {
@@ -36,6 +37,15 @@ type TaskSettings struct {
 	AutoPrioritize bool   `json:"auto_prioritize"`
 }
 
+type AISettings struct {
+	UserLanguage      string  `json:"user_language"`       // e.g., "Japanese", "English"
+	OutputFormat      string  `json:"output_format"`       // "json"
+	MaxRetries        int     `json:"max_retries"`         // Validation retry attempts (default: 5)
+	FallbackEnabled   bool    `json:"fallback_enabled"`    // Enable fallback to dummy tasks
+	ValidationEnabled bool    `json:"validation_enabled"`  // Enable two-stage validation
+	QualityThreshold  float64 `json:"quality_threshold"`   // Minimum score to accept (0.0-1.0)
+}
+
 // Default configuration
 func defaultConfig() *Config {
 	return &Config{
@@ -54,6 +64,14 @@ func defaultConfig() *Config {
 		TaskSettings: TaskSettings{
 			DefaultStatus:  "todo",
 			AutoPrioritize: true,
+		},
+		AISettings: AISettings{
+			UserLanguage:      "English",
+			OutputFormat:      "json",
+			MaxRetries:        5,
+			FallbackEnabled:   true,
+			ValidationEnabled: true,
+			QualityThreshold:  0.8,
 		},
 	}
 }
@@ -121,6 +139,20 @@ func mergeWithDefaults(config *Config) {
 	// Merge task settings
 	if config.TaskSettings.DefaultStatus == "" {
 		config.TaskSettings.DefaultStatus = defaults.TaskSettings.DefaultStatus
+	}
+
+	// Merge AI settings
+	if config.AISettings.UserLanguage == "" {
+		config.AISettings.UserLanguage = defaults.AISettings.UserLanguage
+	}
+	if config.AISettings.OutputFormat == "" {
+		config.AISettings.OutputFormat = defaults.AISettings.OutputFormat
+	}
+	if config.AISettings.MaxRetries == 0 {
+		config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
+	}
+	if config.AISettings.QualityThreshold == 0 {
+		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
 	}
 }
 
