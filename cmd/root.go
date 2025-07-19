@@ -26,7 +26,9 @@ Examples:
   gh-review-task          # Check reviews for current branch's PR
   gh-review-task 123      # Check reviews for PR #123
   gh-review-task status   # Show current task status
-  gh-review-task update task-1 doing  # Update task status`,
+  gh-review-task show     # Show current/next task details
+  gh-review-task show <task-id>  # Show specific task details
+  gh-review-task update <task-id> doing  # Update task status`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runReviewTask,
 }
@@ -38,6 +40,7 @@ func Execute() error {
 func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(showCmd)
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
