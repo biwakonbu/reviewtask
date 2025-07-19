@@ -41,9 +41,10 @@ type AISettings struct {
 	UserLanguage      string  `json:"user_language"`       // e.g., "Japanese", "English"
 	OutputFormat      string  `json:"output_format"`       // "json"
 	MaxRetries        int     `json:"max_retries"`         // Validation retry attempts (default: 5)
-	FallbackEnabled   bool    `json:"fallback_enabled"`    // Enable fallback to dummy tasks
 	ValidationEnabled bool    `json:"validation_enabled"`  // Enable two-stage validation
 	QualityThreshold  float64 `json:"quality_threshold"`   // Minimum score to accept (0.0-1.0)
+	DebugMode         bool    `json:"debug_mode"`          // Enable debug information (PATH, command locations)
+	ClaudePath        string  `json:"claude_path"`         // Custom path to Claude CLI (overrides default search)
 }
 
 // Default configuration
@@ -69,9 +70,10 @@ func defaultConfig() *Config {
 			UserLanguage:      "English",
 			OutputFormat:      "json",
 			MaxRetries:        5,
-			FallbackEnabled:   true,
 			ValidationEnabled: true,
 			QualityThreshold:  0.8,
+			DebugMode:         false,
+			ClaudePath:        "", // Empty means use default search paths
 		},
 	}
 }

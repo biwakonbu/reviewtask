@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -158,136 +159,147 @@ func (a *Analyzer) generateTasksLegacy(reviews []github.Review) ([]storage.Task,
 }
 
 func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
-	var prompt strings.Builder
-	
-	prompt.WriteString("You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.\n\n")
-	
-	// User language configuration
+	var languageInstruction string
 	if a.config.AISettings.UserLanguage != "" {
-		prompt.WriteString(fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage))
+		languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
 	}
 	
-	// Add priority guidelines
-	prompt.WriteString(a.config.GetPriorityPrompt())
-	prompt.WriteString("\n\n")
+	priorityPrompt := a.config.GetPriorityPrompt()
 	
-	// Format specification with origin text preservation
-	prompt.WriteString("CRITICAL: Return response as JSON array with this EXACT format:\n")
-	prompt.WriteString("[\n")
-	prompt.WriteString("  {\n")
-	prompt.WriteString("    \"description\": \"Actionable task description in specified language\",\n")
-	prompt.WriteString("    \"origin_text\": \"Original review comment text (preserve exactly)\",\n")
-	prompt.WriteString("    \"priority\": \"critical|high|medium|low\",\n")
-	prompt.WriteString("    \"source_review_id\": 12345,\n")
-	prompt.WriteString("    \"source_comment_id\": 67890,\n")
-	prompt.WriteString("    \"file\": \"path/to/file.go\",\n")
-	prompt.WriteString("    \"line\": 42,\n")
-	prompt.WriteString("    \"task_index\": 0\n")
-	prompt.WriteString("  }\n")
-	prompt.WriteString("]\n\n")
-	
-	prompt.WriteString("Requirements:\n")
-	prompt.WriteString("1. PRESERVE original comment text in 'origin_text' field exactly as written\n")
-	prompt.WriteString("2. Generate clear, actionable 'description' in the specified user language\n")
-	prompt.WriteString("3. SPLIT multiple issues in a single comment into separate tasks\n")
-	prompt.WriteString("4. Assign task_index starting from 0 for multiple tasks from same comment\n")
-	prompt.WriteString("5. Only create tasks for comments requiring developer action\n")
-	prompt.WriteString("6. Consider comment chains - don't create tasks for resolved issues\n\n")
-	
-	prompt.WriteString("Task Splitting Guidelines:\n")
-	prompt.WriteString("- One comment may contain multiple distinct issues or suggestions\n")
-	prompt.WriteString("- Each issue should become a separate task with its own priority\n")
-	prompt.WriteString("- All tasks from same comment share the same origin_text and source_comment_id\n")
-	prompt.WriteString("- Use task_index to distinguish tasks: 0, 1, 2, etc.\n\n")
-	
-	// Add review data with enhanced metadata
-	prompt.WriteString("PR Reviews to analyze:\n\n")
+	// Build review data
+	var reviewsData strings.Builder
+	reviewsData.WriteString("PR Reviews to analyze:\n\n")
 	
 	for i, review := range reviews {
-		prompt.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
-		prompt.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
-		prompt.WriteString(fmt.Sprintf("State: %s\n", review.State))
+		reviewsData.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
+		reviewsData.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
+		reviewsData.WriteString(fmt.Sprintf("State: %s\n", review.State))
 		
 		if review.Body != "" {
-			prompt.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
+			reviewsData.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
 		}
 		
 		if len(review.Comments) > 0 {
-			prompt.WriteString("Comments:\n")
+			reviewsData.WriteString("Comments:\n")
 			for _, comment := range review.Comments {
-				prompt.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
-				prompt.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
-				prompt.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
-				prompt.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
+				reviewsData.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
+				reviewsData.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
+				reviewsData.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
+				reviewsData.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
 				
 				if len(comment.Replies) > 0 {
-					prompt.WriteString("  Replies:\n")
+					reviewsData.WriteString("  Replies:\n")
 					for _, reply := range comment.Replies {
-						prompt.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
+						reviewsData.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
 					}
 				}
-				prompt.WriteString("\n")
+				reviewsData.WriteString("\n")
 			}
 		}
-		prompt.WriteString("\n")
+		reviewsData.WriteString("\n")
 	}
 	
-	return prompt.String()
+	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
+
+%s
+%s
+
+CRITICAL: Return response as JSON array with this EXACT format:
+[
+  {
+    "description": "Actionable task description in specified language",
+    "origin_text": "Original review comment text (preserve exactly)",
+    "priority": "critical|high|medium|low",
+    "source_review_id": 12345,
+    "source_comment_id": 67890,
+    "file": "path/to/file.go",
+    "line": 42,
+    "task_index": 0
+  }
+]
+
+Requirements:
+1. PRESERVE original comment text in 'origin_text' field exactly as written
+2. Generate clear, actionable 'description' in the specified user language
+3. SPLIT multiple issues in a single comment into separate tasks
+4. Assign task_index starting from 0 for multiple tasks from same comment
+5. Only create tasks for comments requiring developer action
+6. Consider comment chains - don't create tasks for resolved issues
+
+Task Splitting Guidelines:
+- One comment may contain multiple distinct issues or suggestions
+- Each issue should become a separate task with its own priority
+- All tasks from same comment share the same origin_text and source_comment_id
+- Use task_index to distinguish tasks: 0, 1, 2, etc.
+
+%s`, languageInstruction, priorityPrompt, reviewsData.String())
+	
+	return prompt
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
-	// Use proper Claude Code one-shot syntax
-	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
+	claudePath, err := a.findClaudeCommand()
+	if err != nil {
+		return nil, fmt.Errorf("claude command not found: %w", err)
+	}
+	
+	// Use Claude Code CLI with stdin to avoid command line length limits
+	cmd := exec.Command(claudePath, "--output-format", "json")
+	cmd.Stdin = strings.NewReader(prompt)
 	// Ensure the command inherits the current environment including PATH
 	cmd.Env = os.Environ()
-	output, err := cmd.Output()
 	
+	// Debug information if enabled
+	if a.config.AISettings.DebugMode {
+		fmt.Printf("  🐛 Using Claude at: %s\n", claudePath)
+		fmt.Printf("  🐛 PATH: %s\n", os.Getenv("PATH"))
+		fmt.Printf("  🐛 Prompt size: %d characters\n", len(prompt))
+	}
+	
+	output, err := cmd.Output()
 	if err != nil {
-		if a.config.AISettings.FallbackEnabled {
-			fmt.Printf("  ⚠️  Claude Code unavailable, using fallback tasks\n")
-			return a.createFallbackTasks(), nil
-		}
 		return nil, fmt.Errorf("claude code execution failed: %w", err)
 	}
 	
-	// Parse the JSON response
+	// Parse Claude Code CLI response wrapper
+	var claudeResponse struct {
+		Type     string `json:"type"`
+		Subtype  string `json:"subtype"`
+		IsError  bool   `json:"is_error"`
+		Result   string `json:"result"`
+	}
+	
+	if err := json.Unmarshal(output, &claudeResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse claude wrapper response: %w", err)
+	}
+	
+	if claudeResponse.IsError {
+		return nil, fmt.Errorf("claude returned error: %s", claudeResponse.Result)
+	}
+	
+	// Extract JSON from result (may be wrapped in markdown code block or text)
+	result := claudeResponse.Result
+	result = strings.TrimSpace(result)
+	
+	// Find JSON array in the response
+	jsonStart := strings.Index(result, "[")
+	jsonEnd := strings.LastIndex(result, "]")
+	
+	if jsonStart == -1 || jsonEnd == -1 || jsonStart >= jsonEnd {
+		return nil, fmt.Errorf("no valid JSON array found in Claude response")
+	}
+	
+	result = result[jsonStart : jsonEnd+1]
+	
+	// Parse the actual task array
 	var tasks []TaskRequest
-	if err := json.Unmarshal(output, &tasks); err != nil {
-		if a.config.AISettings.FallbackEnabled {
-			fmt.Printf("  ⚠️  Failed to parse Claude response, using fallback tasks\n")
-			return a.createFallbackTasks(), nil
-		}
-		return nil, fmt.Errorf("failed to parse claude response: %w", err)
+	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
+		return nil, fmt.Errorf("failed to parse task array from result: %w\nResult was: %s", err, result)
 	}
 	
 	return tasks, nil
 }
 
-// createFallbackTasks creates dummy tasks for PoC when Claude Code is not available
-func (a *Analyzer) createFallbackTasks() []TaskRequest {
-	return []TaskRequest{
-		{
-			Description:     "Example task: Review and address performance concern",
-			OriginText:      "This looks like it could cause performance issues",
-			Priority:        "high",
-			SourceReviewID:  0,
-			SourceCommentID: 1,
-			File:            "example.go",
-			Line:            1,
-			TaskIndex:       0,
-		},
-		{
-			Description:     "Example task: Fix code style issue",
-			OriginText:      "Please fix the formatting and naming conventions",
-			Priority:        "low",
-			SourceReviewID:  0,
-			SourceCommentID: 2,
-			File:            "example.go",
-			Line:            10,
-			TaskIndex:       0,
-		},
-	}
-}
 
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
@@ -347,4 +359,50 @@ func (a *Analyzer) buildAnalysisPromptWithFeedback(reviews []github.Review) stri
 
 func (a *Analyzer) addValidationFeedback(issues []ValidationIssue) {
 	a.validationFeedback = issues
+}
+
+// findClaudeCommand searches for Claude CLI in order of preference:
+// 1. Custom path from config (claude_path)
+// 2. Environment variable CLAUDE_PATH
+// 3. PATH environment variable (exec.LookPath)
+// 4. Common installation locations
+func (a *Analyzer) findClaudeCommand() (string, error) {
+	// 1. Check custom path in config
+	if a.config.AISettings.ClaudePath != "" {
+		if _, err := os.Stat(a.config.AISettings.ClaudePath); err == nil {
+			return a.config.AISettings.ClaudePath, nil
+		}
+		return "", fmt.Errorf("custom claude path not found: %s", a.config.AISettings.ClaudePath)
+	}
+	
+	// 2. Check environment variable
+	if envPath := os.Getenv("CLAUDE_PATH"); envPath != "" {
+		if _, err := os.Stat(envPath); err == nil {
+			return envPath, nil
+		}
+		return "", fmt.Errorf("CLAUDE_PATH environment variable points to non-existent file: %s", envPath)
+	}
+	
+	// 3. Check PATH
+	if claudePath, err := exec.LookPath("claude"); err == nil {
+		return claudePath, nil
+	}
+	
+	// 4. Check common installation locations
+	homeDir := os.Getenv("HOME")
+	commonPaths := []string{
+		filepath.Join(homeDir, ".claude/local/claude"),           // Local installation
+		filepath.Join(homeDir, ".local/bin/claude"),             // User local bin
+		filepath.Join(homeDir, ".npm-global/bin/claude"),        // npm global with custom prefix
+		"/usr/local/bin/claude",                                 // System-wide installation
+		"/opt/claude/bin/claude",                                // Alternative system location
+	}
+	
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	
+	return "", fmt.Errorf("claude command not found in any search location")
 }
