@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	"gh-review-task/internal/github"
@@ -324,44 +323,7 @@ func (tv *TaskValidator) isValidPriority(priority string) bool {
 	return false
 }
 
-// findClaudeCommand searches for Claude CLI using the same logic as Analyzer
+// findClaudeCommand searches for Claude CLI using the shared utility function
 func (tv *TaskValidator) findClaudeCommand() (string, error) {
-	// 1. Check custom path in config
-	if tv.config.AISettings.ClaudePath != "" {
-		if _, err := os.Stat(tv.config.AISettings.ClaudePath); err == nil {
-			return tv.config.AISettings.ClaudePath, nil
-		}
-		return "", fmt.Errorf("custom claude path not found: %s", tv.config.AISettings.ClaudePath)
-	}
-	
-	// 2. Check environment variable
-	if envPath := os.Getenv("CLAUDE_PATH"); envPath != "" {
-		if _, err := os.Stat(envPath); err == nil {
-			return envPath, nil
-		}
-		return "", fmt.Errorf("CLAUDE_PATH environment variable points to non-existent file: %s", envPath)
-	}
-	
-	// 3. Check PATH
-	if claudePath, err := exec.LookPath("claude"); err == nil {
-		return claudePath, nil
-	}
-	
-	// 4. Check common installation locations
-	homeDir := os.Getenv("HOME")
-	commonPaths := []string{
-		filepath.Join(homeDir, ".claude/local/claude"),           // Local installation
-		filepath.Join(homeDir, ".local/bin/claude"),             // User local bin
-		filepath.Join(homeDir, ".npm-global/bin/claude"),        // npm global with custom prefix
-		"/usr/local/bin/claude",                                 // System-wide installation
-		"/opt/claude/bin/claude",                                // Alternative system location
-	}
-	
-	for _, path := range commonPaths {
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
-		}
-	}
-	
-	return "", fmt.Errorf("claude command not found in any search location")
+	return FindClaudeCommand(tv.config.AISettings.ClaudePath)
 }
