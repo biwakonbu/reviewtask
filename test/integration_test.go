@@ -34,7 +34,7 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	
 	mockStorage.SetTasks(1, []storage.Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655441001",
 			SourceCommentID: 1,
 			Status:          "done",
 			OriginText:      "Task 1",
@@ -43,7 +43,7 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	
 	mockStorage.SetTasks(2, []storage.Task{
 		{
-			ID:              "comment-2-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655442001",
 			SourceCommentID: 2,
 			Status:          "todo",
 			OriginText:      "Task 2",

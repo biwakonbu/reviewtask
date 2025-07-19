@@ -22,7 +22,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	// Setup tasks for each PR
 	mockStorage.SetTasks(1, []storage.Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655441001",
 			Description:     "Add authentication middleware",
 			SourceCommentID: 1,
 			Status:          "done",
@@ -32,7 +32,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 			Priority:        "high",
 		},
 		{
-			ID:              "comment-1-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655441002",
 			Description:     "Add tests for auth",
 			SourceCommentID: 1,
 			Status:          "todo",
@@ -45,7 +45,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	
 	mockStorage.SetTasks(2, []storage.Task{
 		{
-			ID:              "comment-2-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655442001",
 			Description:     "Optimize database queries",
 			SourceCommentID: 2,
 			Status:          "doing",
@@ -58,7 +58,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	
 	mockStorage.SetTasks(3, []storage.Task{
 		{
-			ID:              "comment-3-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655443001",
 			Description:     "Add OAuth support",
 			SourceCommentID: 3,
 			Status:          "todo",
@@ -71,7 +71,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	
 	mockStorage.SetTasks(4, []storage.Task{
 		{
-			ID:              "comment-4-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655444001",
 			Description:     "Update documentation",
 			SourceCommentID: 4,
 			Status:          "done",
@@ -223,14 +223,14 @@ func TestCommandLineWorkflow(t *testing.T) {
 	
 	mockStorage.SetTasks(5, []storage.Task{
 		{
-			ID:              "comment-5-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655445001",
 			SourceCommentID: 5,
 			Status:          "todo",
 			Priority:        "high",
 			OriginText:      "Implement feature",
 		},
 		{
-			ID:              "comment-5-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655445002",
 			SourceCommentID: 5,
 			Status:          "doing",
 			Priority:        "medium",
@@ -240,7 +240,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 	
 	mockStorage.SetTasks(6, []storage.Task{
 		{
-			ID:              "comment-6-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655446001",
 			SourceCommentID: 6,
 			Status:          "done",
 			Priority:        "low",

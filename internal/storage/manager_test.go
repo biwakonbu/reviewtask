@@ -158,7 +158,7 @@ func TestManager_MergeTasks(t *testing.T) {
 	// Create initial tasks
 	existingTasks := []Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440011",
 			Description:     "Existing task 1",
 			SourceCommentID: 1,
 			TaskIndex:       1,
@@ -166,7 +166,7 @@ func TestManager_MergeTasks(t *testing.T) {
 			OriginText:      "Original comment",
 		},
 		{
-			ID:              "comment-1-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655440012",
 			Description:     "Existing task 2",
 			SourceCommentID: 1,
 			TaskIndex:       2,
@@ -183,7 +183,7 @@ func TestManager_MergeTasks(t *testing.T) {
 	// Create new tasks with same comment ID but different content
 	newTasks := []Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440021",
 			Description:     "Updated task 1",
 			SourceCommentID: 1,
 			TaskIndex:       1,
@@ -191,7 +191,7 @@ func TestManager_MergeTasks(t *testing.T) {
 			OriginText:      "Original comment", // Same origin text
 		},
 		{
-			ID:              "comment-1-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655440022",
 			Description:     "Updated task 2",
 			SourceCommentID: 1,
 			TaskIndex:       2,
@@ -199,7 +199,7 @@ func TestManager_MergeTasks(t *testing.T) {
 			OriginText:      "Original comment",
 		},
 		{
-			ID:              "comment-1-task-3",
+			ID:              "550e8400-e29b-41d4-a716-446655440023",
 			Description:     "New task 3",
 			SourceCommentID: 1,
 			TaskIndex:       3,
@@ -224,17 +224,17 @@ func TestManager_MergeTasks(t *testing.T) {
 		t.Errorf("Expected 3 merged tasks, got %d", len(mergedTasks))
 	}
 
-	// Find task 1 and verify its status was preserved
+	// Find task with SourceCommentID 1 and TaskIndex 1 and verify its status was preserved
 	var task1 *Task
 	for i := range mergedTasks {
-		if mergedTasks[i].ID == "comment-1-task-1" {
+		if mergedTasks[i].SourceCommentID == 1 && mergedTasks[i].TaskIndex == 1 {
 			task1 = &mergedTasks[i]
 			break
 		}
 	}
 
 	if task1 == nil {
-		t.Fatalf("Task 1 not found in merged tasks")
+		t.Fatalf("Task with SourceCommentID 1 and TaskIndex 1 not found in merged tasks")
 	}
 
 	// Status should be preserved (was "done")

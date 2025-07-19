@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"fmt"
 	"testing"
 
 	"gh-review-task/internal/storage"
@@ -135,7 +136,7 @@ func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
 	// Set up test tasks
 	testTasks := []storage.Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440001",
 			Description:     "Task 1",
 			SourceCommentID: 1,
 			Status:          "done",
@@ -144,7 +145,7 @@ func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
 			OriginText:      "Fix this issue",
 		},
 		{
-			ID:              "comment-1-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655440002",
 			Description:     "Task 2",
 			SourceCommentID: 1,
 			Status:          "todo",
@@ -153,7 +154,7 @@ func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
 			OriginText:      "Fix this issue",
 		},
 		{
-			ID:              "comment-2-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440003",
 			Description:     "Task 3",
 			SourceCommentID: 2,
 			Status:          "doing",
@@ -234,7 +235,7 @@ func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
 	// Set up tasks for both PRs
 	tasks1 := []storage.Task{
 		{
-			ID:              "comment-1-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440101",
 			SourceCommentID: 1,
 			Status:          "done",
 			OriginText:      "Task 1",
@@ -243,13 +244,13 @@ func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
 
 	tasks2 := []storage.Task{
 		{
-			ID:              "comment-2-task-1",
+			ID:              "550e8400-e29b-41d4-a716-446655440201",
 			SourceCommentID: 2,
 			Status:          "todo",
 			OriginText:      "Task 2",
 		},
 		{
-			ID:              "comment-2-task-2",
+			ID:              "550e8400-e29b-41d4-a716-446655440202",
 			SourceCommentID: 2,
 			Status:          "done",
 			OriginText:      "Task 2",
@@ -339,7 +340,7 @@ func TestStatisticsManager_GenerateBranchStatistics(t *testing.T) {
 			for i, prNum := range tt.prNumbers {
 				tasks := []storage.Task{
 					{
-						ID:              "comment-" + string(rune(i+'1')) + "-task-1",
+						ID:              fmt.Sprintf("550e8400-e29b-41d4-a716-44665544%04d", i+1),
 						SourceCommentID: int64(i + 1),
 						Status:          "done",
 						OriginText:      "Test task",
