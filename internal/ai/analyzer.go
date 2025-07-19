@@ -3,6 +3,7 @@ package ai
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -237,6 +238,8 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	// Use proper Claude Code one-shot syntax
 	cmd := exec.Command("claude", "-p", prompt, "--output-format", "json")
+	// Ensure the command inherits the current environment including PATH
+	cmd.Env = os.Environ()
 	output, err := cmd.Output()
 	
 	if err != nil {
