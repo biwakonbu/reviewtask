@@ -163,8 +163,6 @@ func displayStatistics(stats *storage.TaskStatistics) {
 }
 
 func init() {
-	rootCmd.AddCommand(statsCmd)
-
 	// Add flags
 	statsCmd.Flags().BoolVar(&showAllPRs, "all", false, "Show statistics for all PRs")
 	statsCmd.Flags().IntVar(&specificPR, "pr", 0, "Show statistics for specific PR number")
