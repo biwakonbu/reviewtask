@@ -67,6 +67,8 @@ func NewTaskValidator(cfg *config.Config) *TaskValidator {
 }
 
 func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error) {
+	// Clear validation feedback to ensure clean state for each PR analysis
+	a.clearValidationFeedback()
 	
 	if len(reviews) == 0 {
 		return []storage.Task{}, nil
@@ -410,6 +412,11 @@ func (a *Analyzer) buildAnalysisPromptWithFeedback(reviews []github.Review) stri
 
 func (a *Analyzer) addValidationFeedback(issues []ValidationIssue) {
 	a.validationFeedback = issues
+}
+
+// clearValidationFeedback clears validation feedback when starting new analysis
+func (a *Analyzer) clearValidationFeedback() {
+	a.validationFeedback = nil
 }
 
 // generateTasksParallel processes comments in parallel using goroutines
