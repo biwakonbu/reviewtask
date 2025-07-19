@@ -56,15 +56,15 @@ func getGHToken() (string, error) {
 	// Simple YAML parsing for oauth_token under github.com
 	lines := strings.Split(string(data), "\n")
 	inGithubSection := false
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if line == "github.com:" {
 			inGithubSection = true
 			continue
 		}
-		
+
 		if inGithubSection && strings.HasPrefix(line, "oauth_token:") {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) == 2 {
@@ -72,13 +72,13 @@ func getGHToken() (string, error) {
 				return token, nil
 			}
 		}
-		
+
 		// Reset if we hit another top-level section
 		if inGithubSection && !strings.HasPrefix(line, " ") && !strings.HasPrefix(line, "\t") && line != "" {
 			inGithubSection = false
 		}
 	}
-	
+
 	return "", fmt.Errorf("oauth_token not found in gh config")
 }
 

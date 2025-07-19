@@ -38,13 +38,13 @@ type TaskSettings struct {
 }
 
 type AISettings struct {
-	UserLanguage      string  `json:"user_language"`       // e.g., "Japanese", "English"
-	OutputFormat      string  `json:"output_format"`       // "json"
-	MaxRetries        int     `json:"max_retries"`         // Validation retry attempts (default: 5)
-	ValidationEnabled *bool   `json:"validation_enabled"`  // Enable two-stage validation
-	QualityThreshold  float64 `json:"quality_threshold"`   // Minimum score to accept (0.0-1.0)
-	DebugMode         bool    `json:"debug_mode"`          // Enable debug information (PATH, command locations)
-	ClaudePath        string  `json:"claude_path"`         // Custom path to Claude CLI (overrides default search)
+	UserLanguage      string  `json:"user_language"`      // e.g., "Japanese", "English"
+	OutputFormat      string  `json:"output_format"`      // "json"
+	MaxRetries        int     `json:"max_retries"`        // Validation retry attempts (default: 5)
+	ValidationEnabled *bool   `json:"validation_enabled"` // Enable two-stage validation
+	QualityThreshold  float64 `json:"quality_threshold"`  // Minimum score to accept (0.0-1.0)
+	DebugMode         bool    `json:"debug_mode"`         // Enable debug information (PATH, command locations)
+	ClaudePath        string  `json:"claude_path"`        // Custom path to Claude CLI (overrides default search)
 }
 
 // Default configuration
@@ -157,12 +157,12 @@ func mergeWithDefaults(config *Config) {
 	if config.AISettings.QualityThreshold == 0 {
 		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
 	}
-	
+
 	// Merge boolean pointer fields
 	if config.AISettings.ValidationEnabled == nil {
 		config.AISettings.ValidationEnabled = defaults.AISettings.ValidationEnabled
 	}
-	
+
 	// Note: DebugMode is NOT merged with defaults - explicit false values are preserved
 	// The JSON unmarshaling process preserves explicit false values from config file
 	// Only missing fields get default values during initial config creation
@@ -171,27 +171,27 @@ func mergeWithDefaults(config *Config) {
 // GetPriorityPrompt returns the full priority context for AI analysis
 func (c *Config) GetPriorityPrompt() string {
 	prompt := "Priority Guidelines for Task Generation:\n\n"
-	
+
 	prompt += fmt.Sprintf("CRITICAL: %s\n", c.PriorityRules.Critical)
 	if c.ProjectSpecific.Critical != "" {
 		prompt += fmt.Sprintf("Project-specific critical: %s\n", c.ProjectSpecific.Critical)
 	}
-	
+
 	prompt += fmt.Sprintf("\nHIGH: %s\n", c.PriorityRules.High)
 	if c.ProjectSpecific.High != "" {
 		prompt += fmt.Sprintf("Project-specific high: %s\n", c.ProjectSpecific.High)
 	}
-	
+
 	prompt += fmt.Sprintf("\nMEDIUM: %s\n", c.PriorityRules.Medium)
 	if c.ProjectSpecific.Medium != "" {
 		prompt += fmt.Sprintf("Project-specific medium: %s\n", c.ProjectSpecific.Medium)
 	}
-	
+
 	prompt += fmt.Sprintf("\nLOW: %s\n", c.PriorityRules.Low)
 	if c.ProjectSpecific.Low != "" {
 		prompt += fmt.Sprintf("Project-specific low: %s\n", c.ProjectSpecific.Low)
 	}
-	
+
 	return prompt
 }
 

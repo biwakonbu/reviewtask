@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"gh-review-task/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 var updateCmd = &cobra.Command{
@@ -30,7 +30,7 @@ Examples:
 func runUpdate(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 	newStatus := args[1]
-	
+
 	// Validate status
 	validStatuses := map[string]bool{
 		"todo":    true,
@@ -39,13 +39,13 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		"pending": true,
 		"cancel":  true,
 	}
-	
+
 	if !validStatuses[newStatus] {
 		return fmt.Errorf("invalid status '%s'. Valid statuses: todo, doing, done, pending, cancel", newStatus)
 	}
-	
+
 	storageManager := storage.NewManager()
-	
+
 	// Update task status
 	err := storageManager.UpdateTaskStatus(taskID, newStatus)
 	if err != nil {
@@ -54,8 +54,8 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 		}
 		return fmt.Errorf("failed to update task: %w", err)
 	}
-	
+
 	fmt.Printf("✓ Updated task '%s' status to '%s'\n", taskID, newStatus)
-	
+
 	return nil
 }

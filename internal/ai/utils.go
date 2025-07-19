@@ -20,7 +20,7 @@ func FindClaudeCommand(claudePath string) (string, error) {
 		}
 		return "", fmt.Errorf("custom claude path not found: %s", claudePath)
 	}
-	
+
 	// 2. Check environment variable
 	if envPath := os.Getenv("CLAUDE_PATH"); envPath != "" {
 		if _, err := os.Stat(envPath); err == nil {
@@ -28,27 +28,27 @@ func FindClaudeCommand(claudePath string) (string, error) {
 		}
 		return "", fmt.Errorf("CLAUDE_PATH environment variable points to non-existent file: %s", envPath)
 	}
-	
+
 	// 3. Check PATH
 	if claudePath, err := exec.LookPath("claude"); err == nil {
 		return claudePath, nil
 	}
-	
+
 	// 4. Check common installation locations
 	homeDir := os.Getenv("HOME")
 	commonPaths := []string{
-		filepath.Join(homeDir, ".claude/local/claude"),           // Local installation
-		filepath.Join(homeDir, ".local/bin/claude"),             // User local bin
-		filepath.Join(homeDir, ".npm-global/bin/claude"),        // npm global with custom prefix
-		"/usr/local/bin/claude",                                 // System-wide installation
-		"/opt/claude/bin/claude",                                // Alternative system location
+		filepath.Join(homeDir, ".claude/local/claude"),   // Local installation
+		filepath.Join(homeDir, ".local/bin/claude"),      // User local bin
+		filepath.Join(homeDir, ".npm-global/bin/claude"), // npm global with custom prefix
+		"/usr/local/bin/claude",                          // System-wide installation
+		"/opt/claude/bin/claude",                         // Alternative system location
 	}
-	
+
 	for _, path := range commonPaths {
 		if _, err := os.Stat(path); err == nil {
 			return path, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("claude command not found in any search location")
 }

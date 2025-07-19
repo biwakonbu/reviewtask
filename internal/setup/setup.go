@@ -27,7 +27,7 @@ func CreateDirectory() error {
 // UpdateGitignore adds .pr-review/ to .gitignore if not already present
 func UpdateGitignore() error {
 	gitignorePath := ".gitignore"
-	
+
 	// Read existing .gitignore
 	var lines []string
 	if file, err := os.Open(gitignorePath); err == nil {
