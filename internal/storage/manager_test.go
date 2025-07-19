@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +35,7 @@ func TestManager_GetPRsForBranch(t *testing.T) {
 
 	// Create PR directories and info files
 	for _, pr := range testPRs {
-		prDir := filepath.Join(tempDir, "PR-"+string(rune(pr.prNumber+'0')))
+		prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", pr.prNumber))
 		if err := os.MkdirAll(prDir, 0755); err != nil {
 			t.Fatalf("Failed to create PR directory: %v", err)
 		}
@@ -125,10 +126,7 @@ func TestManager_GetAllPRNumbers(t *testing.T) {
 	// Create test PR directories
 	prNumbers := []int{1, 2, 5, 10}
 	for _, prNum := range prNumbers {
-		prDir := filepath.Join(tempDir, "PR-"+string(rune(prNum+'0')))
-		if prNum >= 10 {
-			prDir = filepath.Join(tempDir, "PR-10")
-		}
+		prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", prNum))
 		if err := os.MkdirAll(prDir, 0755); err != nil {
 			t.Fatalf("Failed to create PR directory: %v", err)
 		}
