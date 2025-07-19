@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"gh-review-task/internal/storage"
+	"gh-review-task/internal/testutil"
 )
 
 // TestBranchStatisticsIntegration tests the full branch-specific statistics workflow
@@ -27,30 +28,27 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	testBranch := "feature/test"
 
 	// Mock storage manager that returns our test branch
-	mockStorage := &MockStorageManager{
-		currentBranch: testBranch,
-		prBranches: map[string][]int{
-			testBranch: {1, 2},
+	mockStorage := testutil.NewMockStorageManager()
+	mockStorage.SetCurrentBranch(testBranch)
+	mockStorage.SetPRsForBranch(testBranch, []int{1, 2})
+	
+	mockStorage.SetTasks(1, []storage.Task{
+		{
+			ID:              "comment-1-task-1",
+			SourceCommentID: 1,
+			Status:          "done",
+			OriginText:      "Task 1",
 		},
-		tasks: map[int][]storage.Task{
-			1: {
-				{
-					ID:              "comment-1-task-1",
-					SourceCommentID: 1,
-					Status:          "done",
-					OriginText:      "Task 1",
-				},
-			},
-			2: {
-				{
-					ID:              "comment-2-task-1",
-					SourceCommentID: 2,
-					Status:          "todo",
-					OriginText:      "Task 2",
-				},
-			},
+	})
+	
+	mockStorage.SetTasks(2, []storage.Task{
+		{
+			ID:              "comment-2-task-1",
+			SourceCommentID: 2,
+			Status:          "todo",
+			OriginText:      "Task 2",
 		},
-	}
+	})
 
 	// Use our test statistics manager
 	statsManager := NewTestStatisticsManager(mockStorage)
@@ -70,45 +68,13 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	}
 }
 
-// MockStorageManager implements the storage interface for testing
-type MockStorageManager struct {
-	tasks         map[int][]storage.Task
-	prBranches    map[string][]int
-	currentBranch string
-}
-
-func (m *MockStorageManager) GetTasksByPR(prNumber int) ([]storage.Task, error) {
-	if tasks, exists := m.tasks[prNumber]; exists {
-		return tasks, nil
-	}
-	return []storage.Task{}, nil
-}
-
-func (m *MockStorageManager) GetCurrentBranch() (string, error) {
-	return m.currentBranch, nil
-}
-
-func (m *MockStorageManager) GetPRsForBranch(branchName string) ([]int, error) {
-	if prs, exists := m.prBranches[branchName]; exists {
-		return prs, nil
-	}
-	return []int{}, nil
-}
-
-func (m *MockStorageManager) GetAllPRNumbers() ([]int, error) {
-	var allPRs []int
-	for _, prs := range m.prBranches {
-		allPRs = append(allPRs, prs...)
-	}
-	return allPRs, nil
-}
 
 // TestStatisticsManager for integration tests
 type TestStatisticsManager struct {
-	storageManager *MockStorageManager
+	storageManager *testutil.MockStorageManager
 }
 
-func NewTestStatisticsManager(storageManager *MockStorageManager) *TestStatisticsManager {
+func NewTestStatisticsManager(storageManager *testutil.MockStorageManager) *TestStatisticsManager {
 	return &TestStatisticsManager{
 		storageManager: storageManager,
 	}

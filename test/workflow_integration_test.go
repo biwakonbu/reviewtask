@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gh-review-task/internal/storage"
+	"gh-review-task/internal/testutil"
 )
 
 // TestBranchStatisticsWorkflow tests the complete workflow with mocks
@@ -12,74 +13,74 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	// instead of real file system operations
 
 	// Setup: Create mock storage with test data
-	mockStorage := &MockStorageManager{
-		currentBranch: "feature/auth",
-		prBranches: map[string][]int{
-			"feature/auth": {1, 3},
-			"feature/db":   {2},
-			"main":         {4},
+	mockStorage := testutil.NewMockStorageManager()
+	mockStorage.SetCurrentBranch("feature/auth")
+	mockStorage.SetPRsForBranch("feature/auth", []int{1, 3})
+	mockStorage.SetPRsForBranch("feature/db", []int{2})
+	mockStorage.SetPRsForBranch("main", []int{4})
+	
+	// Setup tasks for each PR
+	mockStorage.SetTasks(1, []storage.Task{
+		{
+			ID:              "comment-1-task-1",
+			Description:     "Add authentication middleware",
+			SourceCommentID: 1,
+			Status:          "done",
+			File:            "auth.go",
+			Line:            10,
+			OriginText:      "Add auth middleware",
+			Priority:        "high",
 		},
-		tasks: map[int][]storage.Task{
-			1: {
-				{
-					ID:              "comment-1-task-1",
-					Description:     "Add authentication middleware",
-					SourceCommentID: 1,
-					Status:          "done",
-					File:            "auth.go",
-					Line:            10,
-					OriginText:      "Add auth middleware",
-					Priority:        "high",
-				},
-				{
-					ID:              "comment-1-task-2",
-					Description:     "Add tests for auth",
-					SourceCommentID: 1,
-					Status:          "todo",
-					File:            "auth.go",
-					Line:            10,
-					OriginText:      "Add auth middleware",
-					Priority:        "medium",
-				},
-			},
-			2: {
-				{
-					ID:              "comment-2-task-1",
-					Description:     "Optimize database queries",
-					SourceCommentID: 2,
-					Status:          "doing",
-					File:            "db.go",
-					Line:            20,
-					OriginText:      "Optimize queries",
-					Priority:        "critical",
-				},
-			},
-			3: {
-				{
-					ID:              "comment-3-task-1",
-					Description:     "Add OAuth support",
-					SourceCommentID: 3,
-					Status:          "todo",
-					File:            "oauth.go",
-					Line:            5,
-					OriginText:      "Add OAuth",
-					Priority:        "low",
-				},
-			},
-			4: {
-				{
-					ID:              "comment-4-task-1",
-					Description:     "Update documentation",
-					SourceCommentID: 4,
-					Status:          "done",
-					File:            "README.md",
-					Line:            1,
-					OriginText:      "Update docs",
-					Priority:        "low",
-				},
-			},
+		{
+			ID:              "comment-1-task-2",
+			Description:     "Add tests for auth",
+			SourceCommentID: 1,
+			Status:          "todo",
+			File:            "auth.go",
+			Line:            10,
+			OriginText:      "Add auth middleware",
+			Priority:        "medium",
 		},
-	}
+	})
+	
+	mockStorage.SetTasks(2, []storage.Task{
+		{
+			ID:              "comment-2-task-1",
+			Description:     "Optimize database queries",
+			SourceCommentID: 2,
+			Status:          "doing",
+			File:            "db.go",
+			Line:            20,
+			OriginText:      "Optimize queries",
+			Priority:        "critical",
+		},
+	})
+	
+	mockStorage.SetTasks(3, []storage.Task{
+		{
+			ID:              "comment-3-task-1",
+			Description:     "Add OAuth support",
+			SourceCommentID: 3,
+			Status:          "todo",
+			File:            "oauth.go",
+			Line:            5,
+			OriginText:      "Add OAuth",
+			Priority:        "low",
+		},
+	})
+	
+	mockStorage.SetTasks(4, []storage.Task{
+		{
+			ID:              "comment-4-task-1",
+			Description:     "Update documentation",
+			SourceCommentID: 4,
+			Status:          "done",
+			File:            "README.md",
+			Line:            1,
+			OriginText:      "Update docs",
+			Priority:        "low",
+		},
+	})
 
 	statsManager := NewTestStatisticsManager(mockStorage)
 
@@ -215,40 +216,37 @@ func TestCommandLineWorkflow(t *testing.T) {
 	// This test simulates how users would interact with the CLI commands
 	// using the new branch-specific functionality
 
-	mockStorage := &MockStorageManager{
-		currentBranch: "feature/new-feature",
-		prBranches: map[string][]int{
-			"feature/new-feature": {5},
-			"main":                {6},
+	mockStorage := testutil.NewMockStorageManager()
+	mockStorage.SetCurrentBranch("feature/new-feature")
+	mockStorage.SetPRsForBranch("feature/new-feature", []int{5})
+	mockStorage.SetPRsForBranch("main", []int{6})
+	
+	mockStorage.SetTasks(5, []storage.Task{
+		{
+			ID:              "comment-5-task-1",
+			SourceCommentID: 5,
+			Status:          "todo",
+			Priority:        "high",
+			OriginText:      "Implement feature",
 		},
-		tasks: map[int][]storage.Task{
-			5: {
-				{
-					ID:              "comment-5-task-1",
-					SourceCommentID: 5,
-					Status:          "todo",
-					Priority:        "high",
-					OriginText:      "Implement feature",
-				},
-				{
-					ID:              "comment-5-task-2",
-					SourceCommentID: 5,
-					Status:          "doing",
-					Priority:        "medium",
-					OriginText:      "Implement feature",
-				},
-			},
-			6: {
-				{
-					ID:              "comment-6-task-1",
-					SourceCommentID: 6,
-					Status:          "done",
-					Priority:        "low",
-					OriginText:      "Fix typo",
-				},
-			},
+		{
+			ID:              "comment-5-task-2",
+			SourceCommentID: 5,
+			Status:          "doing",
+			Priority:        "medium",
+			OriginText:      "Implement feature",
 		},
-	}
+	})
+	
+	mockStorage.SetTasks(6, []storage.Task{
+		{
+			ID:              "comment-6-task-1",
+			SourceCommentID: 6,
+			Status:          "done",
+			Priority:        "low",
+			OriginText:      "Fix typo",
+		},
+	})
 
 	statsManager := NewTestStatisticsManager(mockStorage)
 

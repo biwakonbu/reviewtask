@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"gh-review-task/internal/storage"
+	"gh-review-task/internal/testutil"
 )
 
 // StorageInterface defines the interface that storage manager must implement
@@ -14,61 +15,6 @@ type StorageInterface interface {
 	GetAllPRNumbers() ([]int, error)
 }
 
-// MockStorageManager implements a mock storage manager for testing
-type MockStorageManager struct {
-	tasks         map[int][]storage.Task
-	prBranches    map[string][]int
-	currentBranch string
-	allPRNumbers  []int
-}
-
-func NewMockStorageManager() *MockStorageManager {
-	return &MockStorageManager{
-		tasks:         make(map[int][]storage.Task),
-		prBranches:    make(map[string][]int),
-		currentBranch: "main",
-		allPRNumbers:  []int{},
-	}
-}
-
-func (m *MockStorageManager) GetTasksByPR(prNumber int) ([]storage.Task, error) {
-	if tasks, exists := m.tasks[prNumber]; exists {
-		return tasks, nil
-	}
-	return []storage.Task{}, nil
-}
-
-func (m *MockStorageManager) GetCurrentBranch() (string, error) {
-	return m.currentBranch, nil
-}
-
-func (m *MockStorageManager) GetPRsForBranch(branchName string) ([]int, error) {
-	if prs, exists := m.prBranches[branchName]; exists {
-		return prs, nil
-	}
-	return []int{}, nil
-}
-
-func (m *MockStorageManager) GetAllPRNumbers() ([]int, error) {
-	return m.allPRNumbers, nil
-}
-
-// Helper methods for setting up test data
-func (m *MockStorageManager) SetTasks(prNumber int, tasks []storage.Task) {
-	m.tasks[prNumber] = tasks
-}
-
-func (m *MockStorageManager) SetPRsForBranch(branchName string, prNumbers []int) {
-	m.prBranches[branchName] = prNumbers
-}
-
-func (m *MockStorageManager) SetCurrentBranch(branch string) {
-	m.currentBranch = branch
-}
-
-func (m *MockStorageManager) SetAllPRNumbers(prNumbers []int) {
-	m.allPRNumbers = prNumbers
-}
 
 // TestStatisticsManager provides a test version that accepts our interface
 type TestStatisticsManager struct {
@@ -183,7 +129,7 @@ func (sm *TestStatisticsManager) generateStatsFromTasks(tasks []storage.Task, pr
 
 // TestStatisticsManager_GenerateTaskStatistics tests basic PR statistics generation
 func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
-	mockStorage := NewMockStorageManager()
+	mockStorage := testutil.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up test tasks
@@ -278,7 +224,7 @@ func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
 
 // TestStatisticsManager_GenerateCurrentBranchStatistics tests current branch statistics
 func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
-	mockStorage := NewMockStorageManager()
+	mockStorage := testutil.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up test data
@@ -349,7 +295,7 @@ func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
 
 // TestStatisticsManager_GenerateBranchStatistics tests specific branch statistics
 func TestStatisticsManager_GenerateBranchStatistics(t *testing.T) {
-	mockStorage := NewMockStorageManager()
+	mockStorage := testutil.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	tests := []struct {
@@ -425,7 +371,7 @@ func TestStatisticsManager_GenerateBranchStatistics(t *testing.T) {
 
 // TestStatisticsManager_EmptyBranchStatistics tests statistics for empty branch
 func TestStatisticsManager_EmptyBranchStatistics(t *testing.T) {
-	mockStorage := NewMockStorageManager()
+	mockStorage := testutil.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up empty branch
