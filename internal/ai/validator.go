@@ -190,9 +190,14 @@ Return JSON in this EXACT format:
 }
 
 func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult, error) {
+	// Ensure claude CLI is available in PATH before execution
+	if _, err := exec.LookPath("claude"); err != nil {
+		return nil, fmt.Errorf("claude CLI not found in PATH")
+	}
+	
 	claudePath, err := tv.findClaudeCommand()
 	if err != nil {
-		return nil, fmt.Errorf("claude command not found: %w", err)
+		return nil, fmt.Errorf("claude command not found")
 	}
 	
 	cmd := exec.Command(claudePath, "--output-format", "json")
