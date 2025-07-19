@@ -14,12 +14,27 @@ After completing the initial setup, follow this exact workflow:
 ## Workflow Steps:
 
 1. **Check Status**: Use `gh-review-task status` to check current task status and identify any tasks in progress
-   - **If all tasks are completed (100% completion rate and no pending tasks)**: Stop here - all work is done!
+   - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
+   - **If only pending tasks remain**: Review each pending task and decide action (see Step 2b)
+   - **Continue only if todo, doing, or pending tasks exist**
 
 2. **Identify Task**: 
-   - If there's a task with "doing" status, work on that task
-   - If no "doing" task exists, use `gh-review-task show` to get the next recommended task
-   - Start the task by running `gh-review-task update <task-id> doing`
+   a) **Priority order**: Always work on tasks in this order:
+      - **doing** tasks first (resume interrupted work)
+      - **todo** tasks next (new work)
+      - **pending** tasks last (blocked work requiring decision)
+   
+   b) **For doing tasks**: Continue with the task already in progress
+   
+   c) **For todo tasks**: Use `gh-review-task show` to get the next recommended task, then run `gh-review-task update <task-id> doing`
+   
+   d) **For pending-only scenario**: 
+      - List all pending tasks and their reasons for being blocked
+      - For each pending task, decide:
+        - `doing`: If you can now resolve the blocking issue
+        - `todo`: If the task should be attempted again
+        - `cancel`: If the task is no longer relevant or cannot be completed
+      - Update task status: `gh-review-task update <task-id> <new-status>`
 
 3. **Verify Task Start**: Confirm the status change was successful before proceeding
 
@@ -57,13 +72,16 @@ After completing the initial setup, follow this exact workflow:
 
 6. **Continue Workflow**: After committing:
    - Check status again with `gh-review-task status`
-   - If all tasks are completed (100% completion rate), stop here - all work is done!
-   - If remaining tasks exist, repeat this entire workflow from step 1
+   - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
+   - **If only pending tasks remain**: Handle pending tasks as described in Step 2d
+   - **If todo or doing tasks remain**: Repeat this entire workflow from step 1
 
 ## Important Notes:
 - Work only in the current branch
 - Always verify status changes before proceeding
 - Include proper commit message format with task details and comment references
+- **Task Priority**: Always work on `doing` tasks first, then `todo` tasks, then handle `pending` tasks
+- **Pending Task Management**: Pending tasks must be resolved by changing status to `doing`, `todo`, or `cancel`
 - Continue until all tasks are completed or no more actionable tasks remain
 - The initial review fetch is executed only once per command invocation, not during the iterative workflow steps
 
