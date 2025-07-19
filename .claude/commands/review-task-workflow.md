@@ -22,11 +22,27 @@ You are tasked with executing PR review tasks systematically using the gh-review
    - Mark task as completed: `gh-review-task update <task-id> done`
    - Commit changes using this message template (adjust language based on `user_language` setting in `.pr-review/config.json`):
      ```
-     fix: [Task description summary]
+     fix: [Clear, concise description of what was fixed or implemented]
      
-     **Feedback:** [Original comment excerpt - what was pointed out]
-     **Solution:** [What was implemented to address the feedback]
-     **Rationale:** [Why this approach was chosen - security/performance/maintainability/etc.]
+     **Feedback:** [Brief summary of the issue identified in the review]
+     The original review comment pointed out [specific problem/concern]. This issue 
+     occurred because [root cause explanation]. The reviewer suggested [any specific 
+     recommendations if provided].
+     
+     **Solution:** [What was implemented to resolve the issue]
+     Implemented the following changes to address the feedback:
+     - [Specific change 1 with file/location details]
+     - [Specific change 2 with file/location details]
+     - [Additional changes as needed]
+     
+     The implementation approach involved [brief technical explanation of how the 
+     solution works].
+     
+     **Rationale:** [Why this solution approach was chosen]
+     This solution was selected because it [primary benefit/advantage]. Additionally, 
+     it [secondary benefits such as improved security, performance, maintainability, 
+     code quality, etc.]. This approach ensures [long-term benefits or compliance 
+     with best practices].
      
      Comment ID: [source_comment_id]
      Review Comment: https://github.com/[owner]/[repo]/pull/[pr-number]#discussion_r[comment-id]
