@@ -150,6 +150,11 @@ func TestStatsFlagPriority(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create command with mock implementation that captures the action
 			var capturedAction string
+			
+			// Use local variables to avoid race conditions
+			var localShowAllPRs bool
+			var localSpecificPR int
+			var localBranchName string
 
 			cmd := &cobra.Command{
 				Use:  "stats [PR_NUMBER]",
@@ -158,11 +163,11 @@ func TestStatsFlagPriority(t *testing.T) {
 					// Mock the priority logic from runStats
 					if len(args) > 0 {
 						capturedAction = "positional"
-					} else if specificPR > 0 {
+					} else if localSpecificPR > 0 {
 						capturedAction = "pr_flag"
-					} else if branchName != "" {
+					} else if localBranchName != "" {
 						capturedAction = "branch_flag"
-					} else if showAllPRs {
+					} else if localShowAllPRs {
 						capturedAction = "all_flag"
 					} else {
 						capturedAction = "current_branch"
@@ -171,15 +176,10 @@ func TestStatsFlagPriority(t *testing.T) {
 				},
 			}
 
-			// Add flags (using package-level variables to match actual implementation)
-			cmd.Flags().BoolVar(&showAllPRs, "all", false, "Show statistics for all PRs")
-			cmd.Flags().IntVar(&specificPR, "pr", 0, "Show statistics for specific PR number")
-			cmd.Flags().StringVar(&branchName, "branch", "", "Show statistics for specific branch")
-
-			// Reset flags before each test
-			showAllPRs = false
-			specificPR = 0
-			branchName = ""
+			// Add flags using local variables
+			cmd.Flags().BoolVar(&localShowAllPRs, "all", false, "Show statistics for all PRs")
+			cmd.Flags().IntVar(&localSpecificPR, "pr", 0, "Show statistics for specific PR number")
+			cmd.Flags().StringVar(&localBranchName, "branch", "", "Show statistics for specific branch")
 
 			// Set args and execute
 			cmd.SetArgs(tt.args)
@@ -310,10 +310,10 @@ func TestStatsCommandFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset flags
-			showAllPRs = false
-			specificPR = 0
-			branchName = ""
+			// Use local variables to avoid race conditions
+			var localShowAllPRs bool
+			var localSpecificPR int
+			var localBranchName string
 
 			// Create a copy of the command to avoid state pollution
 			cmd := &cobra.Command{
@@ -325,9 +325,9 @@ func TestStatsCommandFlags(t *testing.T) {
 				},
 			}
 
-			cmd.Flags().BoolVar(&showAllPRs, "all", false, "Show statistics for all PRs")
-			cmd.Flags().IntVar(&specificPR, "pr", 0, "Show statistics for specific PR number")
-			cmd.Flags().StringVar(&branchName, "branch", "", "Show statistics for specific branch")
+			cmd.Flags().BoolVar(&localShowAllPRs, "all", false, "Show statistics for all PRs")
+			cmd.Flags().IntVar(&localSpecificPR, "pr", 0, "Show statistics for specific PR number")
+			cmd.Flags().StringVar(&localBranchName, "branch", "", "Show statistics for specific branch")
 
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
@@ -336,16 +336,16 @@ func TestStatsCommandFlags(t *testing.T) {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			if showAllPRs != tt.expectedAll {
-				t.Errorf("Expected showAllPRs to be %v, got %v", tt.expectedAll, showAllPRs)
+			if localShowAllPRs != tt.expectedAll {
+				t.Errorf("Expected showAllPRs to be %v, got %v", tt.expectedAll, localShowAllPRs)
 			}
 
-			if specificPR != tt.expectedPR {
-				t.Errorf("Expected specificPR to be %d, got %d", tt.expectedPR, specificPR)
+			if localSpecificPR != tt.expectedPR {
+				t.Errorf("Expected specificPR to be %d, got %d", tt.expectedPR, localSpecificPR)
 			}
 
-			if branchName != tt.expectedBranch {
-				t.Errorf("Expected branchName to be '%s', got '%s'", tt.expectedBranch, branchName)
+			if localBranchName != tt.expectedBranch {
+				t.Errorf("Expected branchName to be '%s', got '%s'", tt.expectedBranch, localBranchName)
 			}
 		})
 	}
