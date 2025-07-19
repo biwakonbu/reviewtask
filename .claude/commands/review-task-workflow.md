@@ -3,7 +3,13 @@ name: review-task-workflow
 description: Execute PR review tasks systematically using gh-review-task
 ---
 
-You are tasked with executing PR review tasks systematically using the gh-review-task tool. Follow this exact workflow:
+You are tasked with executing PR review tasks systematically using the gh-review-task tool. 
+
+## Initial Setup (Execute Once Per Command Invocation):
+
+**Fetch Latest Reviews**: Run `gh-review-task` without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
+
+After completing the initial setup, follow this exact workflow:
 
 ## Workflow Steps:
 
@@ -57,5 +63,6 @@ You are tasked with executing PR review tasks systematically using the gh-review
 - Always verify status changes before proceeding
 - Include proper commit message format with task details and comment references
 - Continue until all tasks are completed or no more actionable tasks remain
+- The initial review fetch is executed only once per command invocation, not during the iterative workflow steps
 
 Execute this workflow now.
