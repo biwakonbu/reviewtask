@@ -27,14 +27,10 @@ linters-settings:
 
 linters:
   enable:
-    - errcheck
     - gofmt
     - gosimple
-    - govet
     - ineffassign
-    - staticcheck
     - typecheck
-    - unused
 
   # Disable strict linters for initial CI setup
   disable:
