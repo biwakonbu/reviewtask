@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Version management script for gh-review-task
+# Version management script for reviewtask
 # Provides operations for semantic versioning
 
 set -e

@@ -154,7 +154,7 @@ jobs:
           git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..$VERSION" --invert-grep --grep="feat" --grep="fix" --grep="docs" >> release_notes.md || echo "*No other changes in this release*" >> release_notes.md
           echo "" >> release_notes.md
         else
-          echo "🎉 **Initial release** of gh-review-task!" >> release_notes.md
+          echo "🎉 **Initial release** of reviewtask!" >> release_notes.md
           echo "" >> release_notes.md
           echo "This is the first stable release featuring:" >> release_notes.md
           echo "- AI-powered PR review task generation" >> release_notes.md  
@@ -179,7 +179,7 @@ jobs:
         echo "git clone https://github.com/biwakonbu/ai-pr-review-checker.git" >> release_notes.md
         echo "cd ai-pr-review-checker" >> release_notes.md
         echo "git checkout ${{ steps.version.outputs.version }}" >> release_notes.md
-        echo "go build -o gh-review-task ." >> release_notes.md
+        echo "go build -o reviewtask ." >> release_notes.md
         echo '```' >> release_notes.md
         echo "" >> release_notes.md
         echo "## Verification" >> release_notes.md
@@ -265,12 +265,12 @@ jobs:
         VERSION_CLEAN="${{ needs.release.outputs.version_clean || github.ref_name }}"
         VERSION_CLEAN="${VERSION_CLEAN#v}"
         
-        if [ -f "gh-review-task-${VERSION_CLEAN}-linux-amd64.tar.gz" ]; then
-          tar -xzf "gh-review-task-${VERSION_CLEAN}-linux-amd64.tar.gz"
-          chmod +x "gh-review-task-${VERSION_CLEAN}-linux-amd64"
+        if [ -f "reviewtask-${VERSION_CLEAN}-linux-amd64.tar.gz" ]; then
+          tar -xzf "reviewtask-${VERSION_CLEAN}-linux-amd64.tar.gz"
+          chmod +x "reviewtask-${VERSION_CLEAN}-linux-amd64"
           
           # Test version command
-          ./"gh-review-task-${VERSION_CLEAN}-linux-amd64" version
+          ./"reviewtask-${VERSION_CLEAN}-linux-amd64" version
         else
           echo "Linux amd64 binary not found"
           ls -la

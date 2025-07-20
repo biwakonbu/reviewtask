@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# Cross-platform build script for gh-review-task
+# Cross-platform build script for reviewtask
 # This script builds binaries for multiple platforms and architectures
 
 set -e
 
 # Configuration
-BINARY_NAME="gh-review-task"
+BINARY_NAME="reviewtask"
 DIST_DIR="dist"
 PLATFORMS=(
     "linux/amd64"
