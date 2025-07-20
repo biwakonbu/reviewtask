@@ -683,7 +683,6 @@ func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Co
 	return m.SaveReviewCache(cache)
 }
 
-
 // ClearCache removes the review cache for a PR (for manual refresh)
 func (m *Manager) ClearCache(prNumber int) error {
 	cachePath := filepath.Join(m.getPRDir(prNumber), "review_cache.json")

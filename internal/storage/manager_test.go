@@ -519,11 +519,11 @@ func TestManager_GenerateContentHash(t *testing.T) {
 
 	// Test that comments with same content but different IDs produce different hashes
 	comment5 := github.Comment{
-		ID:     456, // Different ID
-		Body:   "This is a test comment", // Same content as comment1
-		Author: "testuser",
-		File:   "test.go",
-		Line:   42,
+		ID:      456,                      // Different ID
+		Body:    "This is a test comment", // Same content as comment1
+		Author:  "testuser",
+		File:    "test.go",
+		Line:    42,
 		Replies: []github.Reply{},
 	}
 

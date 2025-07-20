@@ -150,7 +150,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		for _, comment := range commentsToProcess {
 			commentsToProcessMap[comment.ID] = true
 		}
-		
+
 		for _, commentCtx := range allCommentsCtx {
 			if commentsToProcessMap[commentCtx.Comment.ID] {
 				commentsToProcessCtx = append(commentsToProcessCtx, commentCtx)
