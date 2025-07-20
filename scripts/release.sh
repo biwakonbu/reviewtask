@@ -181,7 +181,8 @@ create_release() {
     else
         git add VERSION
         git commit -m "chore: bump version to v$new_version"
-        log_success "Version bump committed"
+        git push origin HEAD:main
+        log_success "Version bump committed and pushed"
     fi
     
     # Create and push tag
