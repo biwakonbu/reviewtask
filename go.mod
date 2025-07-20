@@ -6,7 +6,7 @@ require (
 	github.com/google/go-github/v58 v58.0.0
 	github.com/google/uuid v1.6.0
 	github.com/spf13/cobra v1.9.1
-	golang.org/x/oauth2 v0.30.0
+	golang.org/x/oauth2 v0.22.0
 )
 
 require (
