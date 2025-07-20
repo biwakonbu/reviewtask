@@ -131,7 +131,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		cachedComments = []github.Comment{}
 	}
 
-	fmt.Printf("💾 Cache analysis: %d cached, %d new, %d modified comments\n", 
+	fmt.Printf("💾 Cache analysis: %d cached, %d new, %d modified comments\n",
 		len(cachedComments), len(newComments), len(modifiedComments))
 
 	var newTasks []storage.Task
@@ -155,7 +155,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		}
 
 		fmt.Printf("🤖 Processing %d new/modified comments with AI...\n", len(commentsToProcessCtx))
-		
+
 		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 			// Use validation mode for new/modified comments
 			generatedTasks, err := a.generateTasksParallelWithValidation(commentsToProcessCtx)
@@ -175,11 +175,11 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		// Update cache with processed comments
 		var processedComments []github.Comment
 		var taskIDs []string
-		
+
 		for _, comment := range commentsToProcess {
 			processedComments = append(processedComments, comment)
 		}
-		
+
 		for _, task := range newTasks {
 			taskIDs = append(taskIDs, task.ID)
 		}
@@ -212,8 +212,8 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 
 	// Combine cached tasks with newly generated tasks
 	allTasks := append(cachedTasks, newTasks...)
-	
-	fmt.Printf("📋 Task summary: %d from cache + %d newly generated = %d total\n", 
+
+	fmt.Printf("📋 Task summary: %d from cache + %d newly generated = %d total\n",
 		len(cachedTasks), len(newTasks), len(allTasks))
 
 	return allTasks, nil

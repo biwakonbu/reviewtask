@@ -452,11 +452,11 @@ func TestManager_GenerateContentHash(t *testing.T) {
 
 	// Test comment with no replies
 	comment1 := github.Comment{
-		ID:     123,
-		Body:   "This is a test comment",
-		Author: "testuser",
-		File:   "test.go",
-		Line:   42,
+		ID:      123,
+		Body:    "This is a test comment",
+		Author:  "testuser",
+		File:    "test.go",
+		Line:    42,
 		Replies: []github.Reply{},
 	}
 
@@ -467,11 +467,11 @@ func TestManager_GenerateContentHash(t *testing.T) {
 
 	// Test that identical comments produce same hash
 	comment2 := github.Comment{
-		ID:     123, // Same content
-		Body:   "This is a test comment",
-		Author: "testuser",
-		File:   "test.go",
-		Line:   42,
+		ID:      123, // Same content
+		Body:    "This is a test comment",
+		Author:  "testuser",
+		File:    "test.go",
+		Line:    42,
 		Replies: []github.Reply{},
 	}
 
@@ -482,11 +482,11 @@ func TestManager_GenerateContentHash(t *testing.T) {
 
 	// Test that different content produces different hash
 	comment3 := github.Comment{
-		ID:     123,
-		Body:   "This is a different comment", // Different body
-		Author: "testuser",
-		File:   "test.go",
-		Line:   42,
+		ID:      123,
+		Body:    "This is a different comment", // Different body
+		Author:  "testuser",
+		File:    "test.go",
+		Line:    42,
 		Replies: []github.Reply{},
 	}
 

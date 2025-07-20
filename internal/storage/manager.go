@@ -84,17 +84,17 @@ type StatusSummary struct {
 }
 
 type CommentCache struct {
-	CommentID     int64    `json:"comment_id"`
-	ContentHash   string   `json:"content_hash"`
-	ThreadDepth   int      `json:"thread_depth"`
-	LastProcessed string   `json:"last_processed"`
+	CommentID      int64    `json:"comment_id"`
+	ContentHash    string   `json:"content_hash"`
+	ThreadDepth    int      `json:"thread_depth"`
+	LastProcessed  string   `json:"last_processed"`
 	TasksGenerated []string `json:"tasks_generated"`
 }
 
 type ReviewCache struct {
-	PRNumber       int            `json:"pr_number"`
-	LastUpdated    string         `json:"last_updated"`
-	CommentCaches  []CommentCache `json:"comment_caches"`
+	PRNumber      int            `json:"pr_number"`
+	LastUpdated   string         `json:"last_updated"`
+	CommentCaches []CommentCache `json:"comment_caches"`
 }
 
 func NewManager() *Manager {
@@ -545,7 +545,7 @@ func (m *Manager) GetAllPRNumbers() ([]int, error) {
 // LoadReviewCache loads the review cache for a PR
 func (m *Manager) LoadReviewCache(prNumber int) (*ReviewCache, error) {
 	cachePath := filepath.Join(m.getPRDir(prNumber), "review_cache.json")
-	
+
 	data, err := os.ReadFile(cachePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -575,7 +575,7 @@ func (m *Manager) SaveReviewCache(cache *ReviewCache) error {
 	}
 
 	cache.LastUpdated = time.Now().Format("2006-01-02T15:04:05Z")
-	
+
 	cachePath := filepath.Join(prDir, "review_cache.json")
 	data, err := json.MarshalIndent(cache, "", "  ")
 	if err != nil {
@@ -588,20 +588,20 @@ func (m *Manager) SaveReviewCache(cache *ReviewCache) error {
 // GenerateContentHash creates a SHA256 hash of comment content including replies
 func (m *Manager) GenerateContentHash(comment github.Comment) string {
 	hasher := sha256.New()
-	
+
 	// Hash main comment content
 	hasher.Write([]byte(comment.Body))
 	hasher.Write([]byte(comment.Author))
 	hasher.Write([]byte(fmt.Sprintf("%d", comment.Line)))
 	hasher.Write([]byte(comment.File))
-	
+
 	// Hash replies
 	for _, reply := range comment.Replies {
 		hasher.Write([]byte(reply.Body))
 		hasher.Write([]byte(reply.Author))
 		hasher.Write([]byte(reply.CreatedAt))
 	}
-	
+
 	return hex.EncodeToString(hasher.Sum(nil))
 }
 
@@ -626,7 +626,7 @@ func (m *Manager) DetectCommentChanges(prNumber int, currentComments []github.Co
 		currentThreadDepth := len(comment.Replies)
 
 		cached, exists := cachedComments[comment.ID]
-		
+
 		if !exists {
 			// New comment
 			newComments = append(newComments, comment)
@@ -657,10 +657,10 @@ func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Co
 
 	for i, comment := range processedComments {
 		commentCache := CommentCache{
-			CommentID:     comment.ID,
-			ContentHash:   m.GenerateContentHash(comment),
-			ThreadDepth:   len(comment.Replies),
-			LastProcessed: now,
+			CommentID:      comment.ID,
+			ContentHash:    m.GenerateContentHash(comment),
+			ThreadDepth:    len(comment.Replies),
+			LastProcessed:  now,
 			TasksGenerated: []string{},
 		}
 
@@ -683,11 +683,11 @@ func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Co
 // ClearCache removes the review cache for a PR (for manual refresh)
 func (m *Manager) ClearCache(prNumber int) error {
 	cachePath := filepath.Join(m.getPRDir(prNumber), "review_cache.json")
-	
+
 	if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to remove review cache: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -708,7 +708,7 @@ func (m *Manager) GetCachedComments(prNumber int, allComments []github.Comment) 
 
 	for _, comment := range allComments {
 		currentHash := m.GenerateContentHash(comment)
-		
+
 		if cachedComment, exists := cachedComments[comment.ID]; exists {
 			if cachedComment.ContentHash == currentHash && cachedComment.ThreadDepth == len(comment.Replies) {
 				cached = append(cached, comment)
