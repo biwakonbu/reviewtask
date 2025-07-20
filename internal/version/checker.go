@@ -223,4 +223,3 @@ func (c *Checker) CheckAndNotify(ctx context.Context, currentVersion string, not
 
 	return "", nil
 }
-

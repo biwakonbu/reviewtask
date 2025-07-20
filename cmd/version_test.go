@@ -302,4 +302,3 @@ func TestVersionFlagCombinations(t *testing.T) {
 		})
 	}
 }
-
