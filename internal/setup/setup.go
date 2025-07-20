@@ -56,10 +56,16 @@ func UpdateGitignore() error {
 
 	// Add a comment and the entry
 	if len(lines) > 0 && lines[len(lines)-1] != "" {
-		file.WriteString("\n")
+		if _, err := file.WriteString("\n"); err != nil {
+			return fmt.Errorf("failed to write newline to .gitignore: %w", err)
+		}
 	}
-	file.WriteString("# gh-review-task data directory\n")
-	file.WriteString(".pr-review/\n")
+	if _, err := file.WriteString("# gh-review-task data directory\n"); err != nil {
+		return fmt.Errorf("failed to write comment to .gitignore: %w", err)
+	}
+	if _, err := file.WriteString(".pr-review/\n"); err != nil {
+		return fmt.Errorf("failed to write entry to .gitignore: %w", err)
+	}
 
 	return nil
 }
