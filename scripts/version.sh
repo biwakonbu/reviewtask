@@ -74,11 +74,8 @@ increment_version() {
     local current_version=$1
     local increment_type=$2
     
-    local version_parts
-    version_parts=($(parse_version "$current_version"))
-    local major=${version_parts[0]}
-    local minor=${version_parts[1]}
-    local patch=${version_parts[2]}
+    local major minor patch
+    read -r major minor patch < <(parse_version "$current_version")
     
     case $increment_type in
         "major")
