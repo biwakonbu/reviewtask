@@ -484,12 +484,29 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	return tasks, nil
 }
 
+// convertToStorageTasks converts AI-generated TaskRequest objects to storage.Task objects.
+//
+// CRITICAL IMPLEMENTATION NOTE:
+// Task IDs MUST be generated using UUIDs for the following reasons:
+// 1. Global uniqueness guarantee
+// 2. Unpredictability for security
+// 3. No dependency on other field values
+// 4. Future-proof design
+//
+// WARNING: DO NOT use comment-based ID formats like "comment-%d-task-%d".
+// This approach is fundamentally flawed and creates collision risks.
+//
+// The current implementation uses comment-based IDs which is a known bug.
+// See GitHub issue: https://github.com/biwakonbu/reviewtask/issues/34
+// TODO: Replace with UUID generation: uuid.New().String()
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
 	now := time.Now().Format("2006-01-02T15:04:05Z")
 
 	for _, task := range tasks {
 		storageTask := storage.Task{
+			// BUG: This ID generation method is incorrect and must be replaced with UUIDs
+			// See: https://github.com/biwakonbu/reviewtask/issues/34
 			ID:              fmt.Sprintf("comment-%d-task-%d", task.SourceCommentID, task.TaskIndex),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
