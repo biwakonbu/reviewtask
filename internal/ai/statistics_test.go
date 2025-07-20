@@ -16,7 +16,6 @@ type StorageInterface interface {
 	GetAllPRNumbers() ([]int, error)
 }
 
-
 // TestStatisticsManager provides a test version that accepts our interface
 type TestStatisticsManager struct {
 	storageManager StorageInterface

@@ -150,7 +150,7 @@ func TestStatsFlagPriority(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create command with mock implementation that captures the action
 			var capturedAction string
-			
+
 			// Use local variables to avoid race conditions
 			var localShowAllPRs bool
 			var localSpecificPR int

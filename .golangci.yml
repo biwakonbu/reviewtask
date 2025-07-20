@@ -1,0 +1,75 @@
+linters-settings:
+  govet:
+    enable:
+      - shadow
+  gocyclo:
+    min-complexity: 15
+  goimports:
+    local-prefixes: gh-review-task
+  goconst:
+    min-len: 2
+    min-occurrences: 2
+  misspell:
+    locale: US
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+      - wrapperFunc
+
+linters:
+  enable:
+    - gofmt
+    - typecheck
+
+  # Disable strict linters for initial CI setup
+  disable:
+    - bodyclose
+    - dogsled
+    - dupl
+    - copyloopvar
+    - goconst
+    - gocritic
+    - goimports
+    - gosec
+    - misspell
+    - nakedret
+    - prealloc
+    - unconvert
+    - unparam
+    - whitespace
+
+run:
+  deadline: 5m
+  issues-exit-code: 1
+  tests: true
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+    
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+    
+    # Exclude lll issues for long lines of comments
+    - linters:
+        - lll
+      source: "^//.*$"
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

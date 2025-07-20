@@ -1,5 +1,10 @@
 # AI-Powered PR Review Management Tool
 
+[![CI](https://github.com/biwakonbu/ai-pr-review-checker/workflows/CI/badge.svg)](https://github.com/biwakonbu/ai-pr-review-checker/actions)
+[![codecov](https://codecov.io/gh/biwakonbu/ai-pr-review-checker/branch/main/graph/badge.svg)](https://codecov.io/gh/biwakonbu/ai-pr-review-checker)
+[![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/ai-pr-review-checker)](https://goreportcard.com/report/github.com/biwakonbu/ai-pr-review-checker)
+[![GoDoc](https://godoc.org/github.com/biwakonbu/ai-pr-review-checker?status.svg)](https://godoc.org/github.com/biwakonbu/ai-pr-review-checker)
+
 A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers.
 
 ## Features
