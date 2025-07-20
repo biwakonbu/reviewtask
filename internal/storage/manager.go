@@ -589,6 +589,9 @@ func (m *Manager) SaveReviewCache(cache *ReviewCache) error {
 func (m *Manager) GenerateContentHash(comment github.Comment) string {
 	hasher := sha256.New()
 
+	// Hash comment ID to ensure uniqueness
+	hasher.Write([]byte(fmt.Sprintf("%d", comment.ID)))
+
 	// Hash main comment content
 	hasher.Write([]byte(comment.Body))
 	hasher.Write([]byte(comment.Author))

@@ -516,6 +516,21 @@ func TestManager_GenerateContentHash(t *testing.T) {
 	if hash1 == hash4 {
 		t.Error("Expected comment with replies to have different hash than comment without replies")
 	}
+
+	// Test that comments with same content but different IDs produce different hashes
+	comment5 := github.Comment{
+		ID:     456, // Different ID
+		Body:   "This is a test comment", // Same content as comment1
+		Author: "testuser",
+		File:   "test.go",
+		Line:   42,
+		Replies: []github.Reply{},
+	}
+
+	hash5 := manager.GenerateContentHash(comment5)
+	if hash1 == hash5 {
+		t.Error("Expected comments with same content but different IDs to have different hashes")
+	}
 }
 
 // TestManager_DetectCommentChanges tests comment change detection
