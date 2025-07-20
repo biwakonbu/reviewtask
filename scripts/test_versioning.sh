@@ -82,7 +82,7 @@ test_version_command() {
 
 # Test 2: Version script operations
 test_version_script_operations() {
-    cd "$TEST_DIR"
+    pushd "$TEST_DIR" >/dev/null
     
     # Test current version
     local current_version
@@ -92,6 +92,7 @@ test_version_script_operations() {
         log_info "Current version format valid: $current_version"
     else
         log_error "Invalid version format: $current_version"
+        popd >/dev/null
         return 1
     fi
     
@@ -103,15 +104,17 @@ test_version_script_operations() {
         log_info "Version info command works"
     else
         log_error "Version info failed"
+        popd >/dev/null
         return 1
     fi
     
+    popd >/dev/null
     return 0
 }
 
 # Test 3: Semantic versioning compliance
 test_semantic_versioning() {
-    cd "$TEST_DIR"
+    pushd "$TEST_DIR" >/dev/null
     
     # Initialize git repo for testing
     git init > /dev/null 2>&1
@@ -127,6 +130,7 @@ test_semantic_versioning() {
     patch_version=$("$VERSION_SCRIPT" bump patch)
     if [[ "$patch_version" != "1.0.1" ]]; then
         log_error "Patch bump failed: expected 1.0.1, got $patch_version"
+        popd >/dev/null
         return 1
     fi
     
@@ -135,6 +139,7 @@ test_semantic_versioning() {
     minor_version=$("$VERSION_SCRIPT" bump minor)
     if [[ "$minor_version" != "1.1.0" ]]; then
         log_error "Minor bump failed: expected 1.1.0, got $minor_version"
+        popd >/dev/null
         return 1
     fi
     
@@ -143,9 +148,11 @@ test_semantic_versioning() {
     major_version=$("$VERSION_SCRIPT" bump major)
     if [[ "$major_version" != "2.0.0" ]]; then
         log_error "Major bump failed: expected 2.0.0, got $major_version"
+        popd >/dev/null
         return 1
     fi
     
+    popd >/dev/null
     return 0
 }
 
@@ -196,7 +203,7 @@ test_version_embedding() {
 # Test 6: Release script validation
 test_release_script() {
     # Test dry-run functionality
-    cd "$TEST_DIR"
+    pushd "$TEST_DIR" >/dev/null
     
     # Initialize git repo
     git init > /dev/null 2>&1
@@ -217,9 +224,11 @@ test_release_script() {
     # Test prepare command
     if ./release.sh prepare patch > /dev/null 2>&1; then
         log_info "Release prepare command works"
+        popd >/dev/null
         return 0
     else
         log_error "Release prepare command failed"
+        popd >/dev/null
         return 1
     fi
 }
