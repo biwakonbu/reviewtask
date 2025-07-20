@@ -1,0 +1,426 @@
+package ai
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"reviewtask/internal/config"
+)
+
+func TestConvertToStorageTasksUUIDGeneration(t *testing.T) {
+	// Create analyzer with default config
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Create test TaskRequest data
+	testTasks := []TaskRequest{
+		{
+			Description:     "Test task 1",
+			OriginText:      "Original comment text 1",
+			Priority:        "high",
+			SourceReviewID:  12345,
+			SourceCommentID: 67890,
+			File:            "test.go",
+			Line:            42,
+			Status:          "todo",
+			TaskIndex:       0,
+		},
+		{
+			Description:     "Test task 2",
+			OriginText:      "Original comment text 2",
+			Priority:        "medium",
+			SourceReviewID:  12345,
+			SourceCommentID: 67890,
+			File:            "test.go",
+			Line:            45,
+			Status:          "todo",
+			TaskIndex:       1,
+		},
+	}
+
+	// Convert to storage tasks
+	storageTasks := analyzer.convertToStorageTasks(testTasks)
+
+	// Verify task count
+	if len(storageTasks) != 2 {
+		t.Errorf("Expected 2 tasks, got %d", len(storageTasks))
+	}
+
+	// Test UUID generation and uniqueness
+	seenIDs := make(map[string]bool)
+	for i, task := range storageTasks {
+		// Verify ID is a valid UUID
+		_, err := uuid.Parse(task.ID)
+		if err != nil {
+			t.Errorf("Task %d ID '%s' is not a valid UUID: %v", i, task.ID, err)
+		}
+
+		// Verify ID uniqueness
+		if seenIDs[task.ID] {
+			t.Errorf("Task %d has duplicate ID '%s'", i, task.ID)
+		}
+		seenIDs[task.ID] = true
+
+		// Verify ID is not the old comment-based format
+		if len(task.ID) < 36 { // UUID v4 is 36 characters with hyphens
+			t.Errorf("Task %d ID '%s' appears to be using old comment-based format", i, task.ID)
+		}
+
+		// Verify other fields are preserved correctly
+		expectedTask := testTasks[i]
+		if task.Description != expectedTask.Description {
+			t.Errorf("Task %d description mismatch: expected '%s', got '%s'",
+				i, expectedTask.Description, task.Description)
+		}
+		if task.OriginText != expectedTask.OriginText {
+			t.Errorf("Task %d origin text mismatch: expected '%s', got '%s'",
+				i, expectedTask.OriginText, task.OriginText)
+		}
+		if task.Priority != expectedTask.Priority {
+			t.Errorf("Task %d priority mismatch: expected '%s', got '%s'",
+				i, expectedTask.Priority, task.Priority)
+		}
+		if task.SourceCommentID != expectedTask.SourceCommentID {
+			t.Errorf("Task %d source comment ID mismatch: expected %d, got %d",
+				i, expectedTask.SourceCommentID, task.SourceCommentID)
+		}
+	}
+}
+
+func TestConvertToStorageTasksUUIDUniqueness(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Create large number of tasks to test uniqueness at scale
+	const numTasks = 1000
+	testTasks := make([]TaskRequest, numTasks)
+	for i := 0; i < numTasks; i++ {
+		testTasks[i] = TaskRequest{
+			Description:     "Test task",
+			OriginText:      "Original comment text",
+			Priority:        "medium",
+			SourceReviewID:  12345,
+			SourceCommentID: 67890,
+			File:            "test.go",
+			Line:            42,
+			Status:          "todo",
+			TaskIndex:       i,
+		}
+	}
+
+	// Convert to storage tasks
+	storageTasks := analyzer.convertToStorageTasks(testTasks)
+
+	// Verify all IDs are unique
+	seenIDs := make(map[string]bool)
+	for i, task := range storageTasks {
+		if seenIDs[task.ID] {
+			t.Errorf("Task %d has duplicate ID '%s'", i, task.ID)
+		}
+		seenIDs[task.ID] = true
+
+		// Verify each ID is a valid UUID
+		_, err := uuid.Parse(task.ID)
+		if err != nil {
+			t.Errorf("Task %d ID '%s' is not a valid UUID: %v", i, task.ID, err)
+		}
+	}
+
+	// Verify we have exactly the expected number of unique IDs
+	if len(seenIDs) != numTasks {
+		t.Errorf("Expected %d unique IDs, got %d", numTasks, len(seenIDs))
+	}
+}
+
+func TestConvertToStorageTasksTimestamps(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	testTask := TaskRequest{
+		Description:     "Test task",
+		OriginText:      "Original comment text",
+		Priority:        "high",
+		SourceReviewID:  12345,
+		SourceCommentID: 67890,
+		File:            "test.go",
+		Line:            42,
+		Status:          "todo",
+		TaskIndex:       0,
+	}
+
+	// Convert to storage task
+	storageTasks := analyzer.convertToStorageTasks([]TaskRequest{testTask})
+
+	if len(storageTasks) != 1 {
+		t.Fatalf("Expected 1 task, got %d", len(storageTasks))
+	}
+
+	task := storageTasks[0]
+
+	// Verify timestamp format is correct
+	_, err := time.Parse("2006-01-02T15:04:05Z", task.CreatedAt)
+	if err != nil {
+		t.Errorf("Invalid CreatedAt timestamp format: %v", err)
+	}
+
+	_, err = time.Parse("2006-01-02T15:04:05Z", task.UpdatedAt)
+	if err != nil {
+		t.Errorf("Invalid UpdatedAt timestamp format: %v", err)
+	}
+
+	// Verify CreatedAt and UpdatedAt are the same for new tasks
+	if task.CreatedAt != task.UpdatedAt {
+		t.Errorf("CreatedAt (%s) and UpdatedAt (%s) should be the same for new tasks",
+			task.CreatedAt, task.UpdatedAt)
+	}
+
+	// Verify timestamps are not empty
+	if task.CreatedAt == "" {
+		t.Errorf("CreatedAt should not be empty")
+	}
+
+	if task.UpdatedAt == "" {
+		t.Errorf("UpdatedAt should not be empty")
+	}
+}
+
+func TestConvertToStorageTasksEmptyInput(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Test empty input
+	storageTasks := analyzer.convertToStorageTasks([]TaskRequest{})
+
+	if len(storageTasks) != 0 {
+		t.Errorf("Expected 0 tasks for empty input, got %d", len(storageTasks))
+	}
+}
+
+func TestConvertToStorageTasksPreservesAllFields(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "pending",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	testTask := TaskRequest{
+		Description:     "Fix memory leak in parser",
+		OriginText:      "There seems to be a memory leak in the parser when processing large files",
+		Priority:        "critical",
+		SourceReviewID:  98765,
+		SourceCommentID: 11111,
+		File:            "internal/parser/lexer.go",
+		Line:            127,
+		Status:          "todo",
+		TaskIndex:       3,
+	}
+
+	storageTasks := analyzer.convertToStorageTasks([]TaskRequest{testTask})
+
+	if len(storageTasks) != 1 {
+		t.Fatalf("Expected 1 task, got %d", len(storageTasks))
+	}
+
+	task := storageTasks[0]
+
+	// Verify all fields are preserved correctly
+	if task.Description != testTask.Description {
+		t.Errorf("Description mismatch: expected '%s', got '%s'", testTask.Description, task.Description)
+	}
+	if task.OriginText != testTask.OriginText {
+		t.Errorf("OriginText mismatch: expected '%s', got '%s'", testTask.OriginText, task.OriginText)
+	}
+	if task.Priority != testTask.Priority {
+		t.Errorf("Priority mismatch: expected '%s', got '%s'", testTask.Priority, task.Priority)
+	}
+	if task.SourceReviewID != testTask.SourceReviewID {
+		t.Errorf("SourceReviewID mismatch: expected %d, got %d", testTask.SourceReviewID, task.SourceReviewID)
+	}
+	if task.SourceCommentID != testTask.SourceCommentID {
+		t.Errorf("SourceCommentID mismatch: expected %d, got %d", testTask.SourceCommentID, task.SourceCommentID)
+	}
+	if task.TaskIndex != testTask.TaskIndex {
+		t.Errorf("TaskIndex mismatch: expected %d, got %d", testTask.TaskIndex, task.TaskIndex)
+	}
+	if task.File != testTask.File {
+		t.Errorf("File mismatch: expected '%s', got '%s'", testTask.File, task.File)
+	}
+	if task.Line != testTask.Line {
+		t.Errorf("Line mismatch: expected %d, got %d", testTask.Line, task.Line)
+	}
+	if task.Status != cfg.TaskSettings.DefaultStatus {
+		t.Errorf("Status mismatch: expected '%s', got '%s'", cfg.TaskSettings.DefaultStatus, task.Status)
+	}
+
+	// Verify ID is a valid UUID
+	_, err := uuid.Parse(task.ID)
+	if err != nil {
+		t.Errorf("Task ID '%s' is not a valid UUID: %v", task.ID, err)
+	}
+}
+
+func TestTaskIDFormatSpecification(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	testTask := TaskRequest{
+		Description:     "Test task for ID format validation",
+		OriginText:      "Original comment text",
+		Priority:        "high",
+		SourceReviewID:  12345,
+		SourceCommentID: 67890,
+		File:            "test.go",
+		Line:            42,
+		Status:          "todo",
+		TaskIndex:       0,
+	}
+
+	storageTasks := analyzer.convertToStorageTasks([]TaskRequest{testTask})
+
+	if len(storageTasks) != 1 {
+		t.Fatalf("Expected 1 task, got %d", len(storageTasks))
+	}
+
+	task := storageTasks[0]
+
+	// Test 1: UUID format verification
+	parsedUUID, err := uuid.Parse(task.ID)
+	if err != nil {
+		t.Errorf("Task ID '%s' is not a valid UUID: %v", task.ID, err)
+	}
+
+	// Test 2: UUID version verification (should be version 4)
+	if parsedUUID.Version() != 4 {
+		t.Errorf("Task ID '%s' is not UUID version 4, got version %d", task.ID, parsedUUID.Version())
+	}
+
+	// Test 3: UUID length verification (36 characters with hyphens)
+	if len(task.ID) != 36 {
+		t.Errorf("Task ID '%s' length is %d, expected 36 characters", task.ID, len(task.ID))
+	}
+
+	// Test 4: UUID format pattern verification (8-4-4-4-12)
+	// Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+	parts := strings.Split(task.ID, "-")
+	if len(parts) != 5 {
+		t.Errorf("Task ID '%s' should have 5 parts separated by hyphens, got %d parts", task.ID, len(parts))
+	} else {
+		expectedLengths := []int{8, 4, 4, 4, 12}
+		for i, part := range parts {
+			if len(part) != expectedLengths[i] {
+				t.Errorf("Task ID '%s' part %d has length %d, expected %d", task.ID, i+1, len(part), expectedLengths[i])
+			}
+		}
+	}
+
+	// Test 5: Verify ID contains only valid hexadecimal characters and hyphens
+	validChars := "0123456789abcdefABCDEF-"
+	for i, char := range task.ID {
+		if !strings.ContainsRune(validChars, char) {
+			t.Errorf("Task ID '%s' contains invalid character '%c' at position %d", task.ID, char, i)
+		}
+	}
+
+	// Test 6: Verify ID is not old comment-based format
+	if strings.Contains(task.ID, "comment-") || strings.Contains(task.ID, "task-") {
+		t.Errorf("Task ID '%s' appears to use old comment-based format", task.ID)
+	}
+
+	// Test 7: Verify ID is not predictable (no sequential patterns)
+	if strings.Contains(task.ID, "00000000") || strings.Contains(task.ID, "11111111") {
+		t.Errorf("Task ID '%s' contains predictable patterns", task.ID)
+	}
+}
+
+func TestTaskIDUniquenessAcrossMultipleGenerations(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Generate multiple batches of task IDs to test uniqueness across time
+	const numBatches = 10
+	const tasksPerBatch = 100
+	allIDs := make(map[string]bool)
+	totalTasks := 0
+
+	for batch := 0; batch < numBatches; batch++ {
+		// Create identical tasks for each batch
+		testTasks := make([]TaskRequest, tasksPerBatch)
+		for i := 0; i < tasksPerBatch; i++ {
+			testTasks[i] = TaskRequest{
+				Description:     "Uniqueness test task",
+				OriginText:      "Original comment for uniqueness testing",
+				Priority:        "medium",
+				SourceReviewID:  12345,
+				SourceCommentID: 67890,
+				File:            "test.go",
+				Line:            42,
+				Status:          "todo",
+				TaskIndex:       i,
+			}
+		}
+
+		// Convert to storage tasks
+		storageTasks := analyzer.convertToStorageTasks(testTasks)
+
+		// Verify all IDs in this batch are unique
+		batchIDs := make(map[string]bool)
+		for _, task := range storageTasks {
+			// Check uniqueness within batch
+			if batchIDs[task.ID] {
+				t.Errorf("Batch %d: Duplicate ID within batch: %s", batch, task.ID)
+			}
+			batchIDs[task.ID] = true
+
+			// Check uniqueness across all batches
+			if allIDs[task.ID] {
+				t.Errorf("Batch %d: ID collision across batches: %s", batch, task.ID)
+			}
+			allIDs[task.ID] = true
+			totalTasks++
+
+			// Verify ID format for each task
+			_, err := uuid.Parse(task.ID)
+			if err != nil {
+				t.Errorf("Batch %d: Invalid UUID format: %s", batch, task.ID)
+			}
+		}
+	}
+
+	expectedTotal := numBatches * tasksPerBatch
+	if totalTasks != expectedTotal {
+		t.Errorf("Expected %d total tasks, got %d", expectedTotal, totalTasks)
+	}
+
+	if len(allIDs) != totalTasks {
+		t.Errorf("UUID uniqueness failed: expected %d unique IDs, got %d", totalTasks, len(allIDs))
+	}
+
+	t.Logf("Successfully generated %d unique UUID task IDs across %d batches", totalTasks, numBatches)
+}

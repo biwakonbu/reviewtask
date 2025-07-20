@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
@@ -484,13 +485,25 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	return tasks, nil
 }
 
+// convertToStorageTasks converts AI-generated TaskRequest objects to storage.Task objects.
+//
+// SPECIFICATION: UUID-based Task ID Generation
+// Task IDs are generated using UUIDs (via uuid.New().String()) to ensure:
+// 1. Global uniqueness guarantee - no collisions possible
+// 2. Unpredictability for security - cannot be guessed
+// 3. No dependency on other field values - future-proof design
+// 4. Standards compliance - follows RFC 4122
+//
+// WARNING: DO NOT revert to comment-based ID formats like "comment-%d-task-%d".
+// Such approaches are fundamentally flawed and create collision risks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
 	now := time.Now().Format("2006-01-02T15:04:05Z")
 
 	for _, task := range tasks {
 		storageTask := storage.Task{
-			ID:              fmt.Sprintf("comment-%d-task-%d", task.SourceCommentID, task.TaskIndex),
+			// UUID-based ID generation ensures global uniqueness and security
+			ID:              uuid.New().String(),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        task.Priority,
