@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -27,12 +28,12 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for tag trigger
 		if !strings.Contains(workflowText, "tags:") {
 			t.Error("Workflow does not trigger on tags")
 		}
-		
+
 		// Check for v* pattern
 		if !strings.Contains(workflowText, "'v*'") {
 			t.Error("Workflow does not trigger on v* tag pattern")
@@ -51,11 +52,11 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		scriptText := string(content)
-		
+
 		// Check for required platforms
 		requiredPlatforms := []string{
 			"linux/amd64",
-			"linux/arm64", 
+			"linux/arm64",
 			"darwin/amd64",
 			"darwin/arm64",
 			"windows/amd64",
@@ -76,17 +77,17 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for SHA256 checksum support
 		if !strings.Contains(workflowText, "SHA256SUMS") {
 			t.Error("Workflow does not generate SHA256 checksums")
 		}
-		
+
 		// Check for enhanced security artifacts
 		if !strings.Contains(workflowText, "SHA512SUMS") {
 			t.Error("Enhanced security: SHA512 checksums not found")
 		}
-		
+
 		if !strings.Contains(workflowText, "MANIFEST.txt") {
 			t.Error("Enhanced security: Manifest file not found")
 		}
@@ -100,12 +101,12 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for pre-release detection
 		if !strings.Contains(workflowText, "prerelease:") {
 			t.Error("Workflow does not support pre-release detection")
 		}
-		
+
 		// Check for pre-release naming
 		if !strings.Contains(workflowText, "Pre-release") {
 			t.Error("Workflow does not handle pre-release naming")
@@ -120,12 +121,12 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for tag validation step
 		if !strings.Contains(workflowText, "Validate and verify tag") {
 			t.Error("Workflow does not include tag validation step")
 		}
-		
+
 		// Check for version format validation
 		if !strings.Contains(workflowText, "Invalid tag format") {
 			t.Error("Workflow does not validate tag format")
@@ -140,12 +141,12 @@ func TestReleaseSystemSpecification(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for release notes generation
 		if !strings.Contains(workflowText, "Generate release notes") {
 			t.Error("Workflow does not generate release notes")
 		}
-		
+
 		// Check for categorized changelog
 		if !strings.Contains(workflowText, "Features") || !strings.Contains(workflowText, "Bug Fixes") {
 			t.Error("Workflow does not generate categorized changelog")
@@ -153,33 +154,36 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 }
 
-// TestBuildSystemFunctionality tests the build system functionality  
+// TestBuildSystemFunctionality tests the build system functionality
 func TestBuildSystemFunctionality(t *testing.T) {
 	t.Run("Build script executable", func(t *testing.T) {
 		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
-		
+
 		// Check if file exists and is executable
 		info, err := os.Stat(buildScriptPath)
 		if err != nil {
 			t.Fatalf("Build script not found: %v", err)
 		}
-		
-		mode := info.Mode()
-		if mode&0111 == 0 {
-			t.Error("Build script is not executable")
+
+		// Skip executable check on Windows as it uses different permission system
+		if runtime.GOOS != "windows" {
+			mode := info.Mode()
+			if mode&0111 == 0 {
+				t.Error("Build script is not executable")
+			}
 		}
 	})
 
 	t.Run("Build script help functionality", func(t *testing.T) {
 		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
-		
+
 		// Test help output
 		cmd := exec.Command("bash", buildScriptPath, "help")
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			// This is expected for invalid command
 		}
-		
+
 		outputStr := string(output)
 		if !strings.Contains(outputStr, "Usage:") {
 			t.Error("Build script does not provide usage information")
@@ -194,9 +198,9 @@ func TestBuildSystemFunctionality(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to run version command: %v", err)
 		}
-		
+
 		outputStr := string(output)
-		
+
 		// Check for version information fields
 		expectedFields := []string{"version", "Commit:", "Built:", "Go version:", "OS/Arch:"}
 		for _, field := range expectedFields {
@@ -219,17 +223,17 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 
 		scanner := bufio.NewScanner(file)
 		lineNum := 0
-		
+
 		for scanner.Scan() {
 			lineNum++
 			line := scanner.Text()
-			
+
 			// Basic YAML structure validation
 			if strings.HasPrefix(line, "\t") {
 				t.Errorf("Line %d uses tabs instead of spaces for indentation", lineNum)
 			}
 		}
-		
+
 		if err := scanner.Err(); err != nil {
 			t.Fatalf("Error reading workflow file: %v", err)
 		}
@@ -243,7 +247,7 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for required workflow sections
 		requiredSections := []string{
 			"name:",
@@ -268,7 +272,7 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 		}
 
 		workflowText := string(content)
-		
+
 		// Check for appropriate permissions
 		if !strings.Contains(workflowText, "contents: write") {
 			t.Error("Workflow missing contents write permission")
@@ -286,7 +290,7 @@ func TestAssetNamingConventions(t *testing.T) {
 		}
 
 		scriptText := string(content)
-		
+
 		// Check for consistent naming pattern
 		namingPattern := regexp.MustCompile(`\$\{BINARY_NAME\}-\$\{VERSION\}-\$\{goos\}-\$\{goarch\}`)
 		if !namingPattern.MatchString(scriptText) {
@@ -302,12 +306,12 @@ func TestAssetNamingConventions(t *testing.T) {
 		}
 
 		scriptText := string(content)
-		
+
 		// Check for tar.gz for unix and zip for windows
 		if !strings.Contains(scriptText, ".tar.gz") {
 			t.Error("Build script does not create .tar.gz archives for Unix platforms")
 		}
-		
+
 		if !strings.Contains(scriptText, ".zip") {
 			t.Error("Build script does not create .zip archives for Windows platforms")
 		}
