@@ -45,12 +45,47 @@ jobs:
         echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
 
-    - name: Verify tag exists
+    - name: Validate and verify tag
       run: |
-        if ! git tag | grep -q "^${{ steps.version.outputs.version }}$"; then
-          echo "Tag ${{ steps.version.outputs.version }} does not exist"
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Verify tag exists
+        if ! git tag | grep -q "^${VERSION}$"; then
+          echo "❌ Tag ${VERSION} does not exist"
           exit 1
         fi
+        
+        # Validate tag format
+        if [[ ! "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+          echo "❌ Invalid tag format: ${VERSION}"
+          echo "Expected format: v<major>.<minor>.<patch>[-<prerelease>]"
+          echo "Examples: v1.0.0, v1.2.3-beta.1, v2.0.0-rc.1"
+          exit 1
+        fi
+        
+        # Extract and validate version components
+        VERSION_NUMBER="${VERSION#v}"
+        MAJOR=$(echo "${VERSION_NUMBER}" | cut -d. -f1)
+        MINOR=$(echo "${VERSION_NUMBER}" | cut -d. -f2)
+        PATCH=$(echo "${VERSION_NUMBER}" | cut -d. -f3 | cut -d- -f1)
+        
+        # Validate numeric components
+        if [[ ! "${MAJOR}" =~ ^[0-9]+$ ]] || [[ ! "${MINOR}" =~ ^[0-9]+$ ]] || [[ ! "${PATCH}" =~ ^[0-9]+$ ]]; then
+          echo "❌ Invalid version numbers: ${MAJOR}.${MINOR}.${PATCH}"
+          exit 1
+        fi
+        
+        # Check for pre-release
+        if [[ "${VERSION}" =~ -(.+)$ ]]; then
+          PRERELEASE="${BASH_REMATCH[1]}"
+          echo "✅ Pre-release detected: ${PRERELEASE}"
+          echo "is_prerelease=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ Stable release detected"
+          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+        fi
+        
+        echo "✅ Tag validation passed: ${VERSION}"
 
     - name: Run tests
       run: go test -v ./...
@@ -62,21 +97,70 @@ jobs:
         export BUILD_DATE="${{ steps.version.outputs.build_date }}"
         ./scripts/build.sh full
 
+    - name: Generate enhanced security artifacts
+      run: |
+        cd dist
+        
+        # Generate additional checksums for enhanced security
+        if command -v sha512sum >/dev/null 2>&1; then
+          sha512sum *.tar.gz *.zip > SHA512SUMS 2>/dev/null || true
+          echo "✅ SHA512 checksums generated"
+        fi
+        
+        # Generate file manifest with metadata
+        echo "# Release Assets Manifest" > MANIFEST.txt
+        echo "Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> MANIFEST.txt
+        echo "Version: ${{ steps.version.outputs.version }}" >> MANIFEST.txt
+        echo "Commit: ${{ steps.version.outputs.commit_hash }}" >> MANIFEST.txt
+        echo "" >> MANIFEST.txt
+        echo "Files:" >> MANIFEST.txt
+        ls -la *.tar.gz *.zip | awk '{printf "%-8s %s\n", $5, $9}' >> MANIFEST.txt
+        echo "✅ Manifest generated"
+        
+        cd ..
+
     - name: Generate release notes
       id: release_notes
       run: |
-        # Get previous tag for changelog
-        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "${{ steps.version.outputs.version }}" | head -n1 || echo "")
+        VERSION="${{ steps.version.outputs.version }}"
         
-        echo "## What's Changed" > release_notes.md
-        echo "" >> release_notes.md
+        # Get previous tag for changelog
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "${VERSION}" | head -n1 || echo "")
+        
+        # Generate comprehensive release notes
+        cat > release_notes.md << 'EOF'
+        ## 🚀 What's New
+        
+        EOF
         
         if [ -n "$PREVIOUS_TAG" ]; then
-          echo "Changes since $PREVIOUS_TAG:" >> release_notes.md
+          echo "**Full Changelog**: [\`${PREVIOUS_TAG}...${VERSION}\`](https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${VERSION})" >> release_notes.md
           echo "" >> release_notes.md
-          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..${{ steps.version.outputs.version }}" >> release_notes.md
+          
+          # Categorize commits
+          echo "### ✨ Features" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..$VERSION" --grep="feat" --grep="feature" >> release_notes.md || echo "*No new features in this release*" >> release_notes.md
+          echo "" >> release_notes.md
+          
+          echo "### 🐛 Bug Fixes" >> release_notes.md  
+          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..$VERSION" --grep="fix" --grep="bug" >> release_notes.md || echo "*No bug fixes in this release*" >> release_notes.md
+          echo "" >> release_notes.md
+          
+          echo "### 📚 Documentation" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..$VERSION" --grep="docs" --grep="doc" >> release_notes.md || echo "*No documentation changes in this release*" >> release_notes.md
+          echo "" >> release_notes.md
+          
+          echo "### 🔧 Other Changes" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..$VERSION" --invert-grep --grep="feat" --grep="fix" --grep="docs" >> release_notes.md || echo "*No other changes in this release*" >> release_notes.md
+          echo "" >> release_notes.md
         else
-          echo "Initial release" >> release_notes.md
+          echo "🎉 **Initial release** of gh-review-task!" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "This is the first stable release featuring:" >> release_notes.md
+          echo "- AI-powered PR review task generation" >> release_notes.md  
+          echo "- Smart review caching system" >> release_notes.md
+          echo "- Cross-platform binary distribution" >> release_notes.md
+          echo "" >> release_notes.md
         fi
         
         echo "" >> release_notes.md
@@ -105,14 +189,16 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.version }}
-        name: Release ${{ steps.version.outputs.version }}
+        name: ${{ contains(steps.version.outputs.version, '-') && 'Pre-release' || 'Release' }} ${{ steps.version.outputs.version }}
         body_path: release_notes.md
         draft: false
-        prerelease: false
+        prerelease: ${{ contains(steps.version.outputs.version, '-') }}
         files: |
           dist/*.tar.gz
           dist/*.zip
           dist/SHA256SUMS
+          dist/SHA512SUMS
+          dist/MANIFEST.txt
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -124,6 +210,8 @@ jobs:
           dist/*.tar.gz
           dist/*.zip
           dist/SHA256SUMS
+          dist/SHA512SUMS
+          dist/MANIFEST.txt
         retention-days: 30
 
     outputs:
@@ -143,13 +231,32 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Verify checksums
+    - name: Verify checksums and integrity
       run: |
+        # Verify SHA256 checksums
         if [ -f SHA256SUMS ]; then
+          echo "✅ Verifying SHA256 checksums..."
           sha256sum -c SHA256SUMS
         else
-          echo "Warning: SHA256SUMS file not found"
+          echo "❌ SHA256SUMS file not found"
           exit 1
+        fi
+        
+        # Verify SHA512 checksums if available
+        if [ -f SHA512SUMS ]; then
+          echo "✅ Verifying SHA512 checksums..."
+          sha512sum -c SHA512SUMS
+        else
+          echo "⚠️  SHA512SUMS file not found (optional)"
+        fi
+        
+        # Verify manifest integrity
+        if [ -f MANIFEST.txt ]; then
+          echo "✅ Manifest file found"
+          echo "📋 Release manifest contents:"
+          cat MANIFEST.txt
+        else
+          echo "⚠️  MANIFEST.txt file not found"
         fi
 
     - name: Test binary execution
