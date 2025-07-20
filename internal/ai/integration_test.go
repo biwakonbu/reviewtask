@@ -14,16 +14,16 @@ func TestTaskGenerationIntegrationWithUUIDs(t *testing.T) {
 	// Create test configuration
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
-			DefaultStatus:    "todo",
-			AutoPrioritize:   false,
+			DefaultStatus:  "todo",
+			AutoPrioritize: false,
 		},
 		AISettings: config.AISettings{
-			UserLanguage:        "English",
-			OutputFormat:        "json",
-			MaxRetries:          1, // Limit retries for testing
-			ValidationEnabled:   &[]bool{false}[0], // Disable validation for integration test
-			QualityThreshold:    0.8,
-			DebugMode:          false,
+			UserLanguage:      "English",
+			OutputFormat:      "json",
+			MaxRetries:        1,                 // Limit retries for testing
+			ValidationEnabled: &[]bool{false}[0], // Disable validation for integration test
+			QualityThreshold:  0.8,
+			DebugMode:         false,
 		},
 	}
 
@@ -83,7 +83,7 @@ func TestTaskGenerationIntegrationWithUUIDs(t *testing.T) {
 
 		// Verify task contains expected data from mock reviews
 		if task.SourceReviewID != 12345 {
-			t.Errorf("Integration test task %d has wrong SourceReviewID: expected 12345, got %d", 
+			t.Errorf("Integration test task %d has wrong SourceReviewID: expected 12345, got %d",
 				i, task.SourceReviewID)
 		}
 
@@ -94,7 +94,7 @@ func TestTaskGenerationIntegrationWithUUIDs(t *testing.T) {
 
 		// Verify status is set to default
 		if task.Status != cfg.TaskSettings.DefaultStatus {
-			t.Errorf("Integration test task %d has wrong status: expected '%s', got '%s'", 
+			t.Errorf("Integration test task %d has wrong status: expected '%s', got '%s'",
 				i, cfg.TaskSettings.DefaultStatus, task.Status)
 		}
 	}
@@ -215,11 +215,11 @@ func TestUUIDCollisionResistance(t *testing.T) {
 	}
 
 	if len(allGeneratedIDs) != totalIDs {
-		t.Errorf("Collision test: UUID uniqueness failed - expected %d unique IDs, got %d", 
+		t.Errorf("Collision test: UUID uniqueness failed - expected %d unique IDs, got %d",
 			totalIDs, len(allGeneratedIDs))
 	}
 
-	t.Logf("Collision test: Generated %d unique UUIDs across %d iterations with identical input data", 
+	t.Logf("Collision test: Generated %d unique UUIDs across %d iterations with identical input data",
 		totalIDs, numIterations)
 }
 
@@ -309,7 +309,7 @@ func TestTaskGenerationWithVariousCommentStructures(t *testing.T) {
 			storageTasks := analyzer.convertToStorageTasks(tc.tasks)
 
 			if len(storageTasks) != len(tc.tasks) {
-				t.Errorf("Test case '%s': expected %d tasks, got %d", 
+				t.Errorf("Test case '%s': expected %d tasks, got %d",
 					tc.name, len(tc.tasks), len(storageTasks))
 			}
 
@@ -319,7 +319,7 @@ func TestTaskGenerationWithVariousCommentStructures(t *testing.T) {
 				// Verify UUID validity
 				_, err := uuid.Parse(task.ID)
 				if err != nil {
-					t.Errorf("Test case '%s': task %d has invalid UUID '%s': %v", 
+					t.Errorf("Test case '%s': task %d has invalid UUID '%s': %v",
 						tc.name, i, task.ID, err)
 				}
 

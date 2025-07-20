@@ -75,19 +75,19 @@ func TestConvertToStorageTasksUUIDGeneration(t *testing.T) {
 		// Verify other fields are preserved correctly
 		expectedTask := testTasks[i]
 		if task.Description != expectedTask.Description {
-			t.Errorf("Task %d description mismatch: expected '%s', got '%s'", 
+			t.Errorf("Task %d description mismatch: expected '%s', got '%s'",
 				i, expectedTask.Description, task.Description)
 		}
 		if task.OriginText != expectedTask.OriginText {
-			t.Errorf("Task %d origin text mismatch: expected '%s', got '%s'", 
+			t.Errorf("Task %d origin text mismatch: expected '%s', got '%s'",
 				i, expectedTask.OriginText, task.OriginText)
 		}
 		if task.Priority != expectedTask.Priority {
-			t.Errorf("Task %d priority mismatch: expected '%s', got '%s'", 
+			t.Errorf("Task %d priority mismatch: expected '%s', got '%s'",
 				i, expectedTask.Priority, task.Priority)
 		}
 		if task.SourceCommentID != expectedTask.SourceCommentID {
-			t.Errorf("Task %d source comment ID mismatch: expected %d, got %d", 
+			t.Errorf("Task %d source comment ID mismatch: expected %d, got %d",
 				i, expectedTask.SourceCommentID, task.SourceCommentID)
 		}
 	}
@@ -184,7 +184,7 @@ func TestConvertToStorageTasksTimestamps(t *testing.T) {
 
 	// Verify CreatedAt and UpdatedAt are the same for new tasks
 	if task.CreatedAt != task.UpdatedAt {
-		t.Errorf("CreatedAt (%s) and UpdatedAt (%s) should be the same for new tasks", 
+		t.Errorf("CreatedAt (%s) and UpdatedAt (%s) should be the same for new tasks",
 			task.CreatedAt, task.UpdatedAt)
 	}
 
