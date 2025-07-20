@@ -1,6 +1,6 @@
 module gh-review-task
 
-go 1.23.0
+go 1.20
 
 require (
 	github.com/google/go-github/v58 v58.0.0
