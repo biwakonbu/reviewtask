@@ -3,8 +3,8 @@ package test
 import (
 	"testing"
 
-	"gh-review-task/internal/storage"
-	"gh-review-task/internal/testutil"
+	"reviewtask/internal/storage"
+	"reviewtask/internal/testutil"
 )
 
 // TestBranchStatisticsWorkflow tests the complete workflow with mocks
@@ -250,7 +250,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 
 	statsManager := NewTestStatisticsManager(mockStorage)
 
-	// Simulate: gh-review-task stats (default: current branch)
+	// Simulate: reviewtask stats (default: current branch)
 	t.Run("DefaultCurrentBranchStats", func(t *testing.T) {
 		stats, err := statsManager.GenerateCurrentBranchStatistics()
 		if err != nil {
@@ -266,7 +266,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 		}
 	})
 
-	// Simulate: gh-review-task stats --branch main
+	// Simulate: reviewtask stats --branch main
 	t.Run("SpecificBranchStats", func(t *testing.T) {
 		stats, err := statsManager.GenerateBranchStatistics("main")
 		if err != nil {
@@ -286,7 +286,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 		}
 	})
 
-	// Simulate: gh-review-task stats --branch nonexistent
+	// Simulate: reviewtask stats --branch nonexistent
 	t.Run("NonexistentBranchStats", func(t *testing.T) {
 		stats, err := statsManager.GenerateBranchStatistics("feature/does-not-exist")
 		if err != nil {

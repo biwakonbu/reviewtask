@@ -215,7 +215,7 @@ func TestBuildSystemFunctionality(t *testing.T) {
 	t.Run("Version information integration", func(t *testing.T) {
 		// Override execCommand for this test
 		originalExecCommand := execCommand
-		mockVersionOutput := "gh-review-task version dev\nCommit: abc123\nBuilt: 2025-01-01T00:00:00Z\nGo version: go1.21.0\nOS/Arch: linux/amd64"
+		mockVersionOutput := "reviewtask version dev\nCommit: abc123\nBuilt: 2025-01-01T00:00:00Z\nGo version: go1.21.0\nOS/Arch: linux/amd64"
 		execCommand = createMockCommand(mockVersionOutput, 0)
 		defer func() { execCommand = originalExecCommand }()
 

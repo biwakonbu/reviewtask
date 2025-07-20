@@ -3,7 +3,7 @@ package ai
 import (
 	"time"
 
-	"gh-review-task/internal/storage"
+	"reviewtask/internal/storage"
 )
 
 type StatisticsManager struct {

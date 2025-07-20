@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD)
 
-## gh-review-task: AI-Powered PR Review Management Tool
+## reviewtask: AI-Powered PR Review Management Tool
 
 ### 1. Overview
 
@@ -9,14 +9,14 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 ### 2. Core Features
 
 #### 2.1 Command Interface
-- **Command Name**: `gh-review-task`
+- **Command Name**: `reviewtask`
 - **Usage**:
-  - `gh-review-task` - Check reviews for the current branch's PR
-  - `gh-review-task <PR_NUMBER>` - Check reviews for the specified PR number
-  - `gh-review-task status` - Show current task status and statistics
-  - `gh-review-task update <task-id> <new-status>` - Update task status
-  - `gh-review-task init` - Initialize repository for gh-review-task
-  - `gh-review-task auth <login|logout|status|check>` - Authentication management
+  - `reviewtask` - Check reviews for the current branch's PR
+  - `reviewtask <PR_NUMBER>` - Check reviews for the specified PR number
+  - `reviewtask status` - Show current task status and statistics
+  - `reviewtask update <task-id> <new-status>` - Update task status
+  - `reviewtask init` - Initialize repository for reviewtask
+  - `reviewtask auth <login|logout|status|check>` - Authentication management
 
 #### 2.2 Data Collection
 - Fetch PR information from GitHub API
@@ -211,7 +211,7 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
   - Completion rate (done / total tasks)
 
 #### 5.3 Task Update Commands
-- **Individual Updates**: `gh-review-task update <task-id> <new-status>`
+- **Individual Updates**: `reviewtask update <task-id> <new-status>`
 - **Status Validation**: Only valid status transitions allowed
 - **Timestamp Tracking**: Automatic `updated_at` field management
 
@@ -240,7 +240,7 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 - **Validation**: Authentication and permission verification
 
 #### 7.2 Initialization Commands
-- **Manual Init**: `gh-review-task init` for explicit setup
+- **Manual Init**: `reviewtask init` for explicit setup
 - **Auto-prompt**: Triggered on first use of main commands
 - **Reinitialize**: Option to recreate configuration files
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"gh-review-task/internal/storage"
+	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -193,10 +193,10 @@ Shows:
 - Task statistics (status breakdown, priority breakdown, completion rate)
 
 Examples:
-  gh-review-task status             # Show current branch tasks
-  gh-review-task status --all       # Show all PRs tasks
-  gh-review-task status --pr 123    # Show PR #123 tasks
-  gh-review-task status --branch feature/xyz # Show specific branch tasks`,
+  reviewtask status             # Show current branch tasks
+  reviewtask status --all       # Show all PRs tasks
+  reviewtask status --pr 123    # Show PR #123 tasks
+  reviewtask status --branch feature/xyz # Show specific branch tasks`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Mock implementation - should not run
 			return nil
@@ -227,7 +227,7 @@ Examples:
 	expectedElements := []string{
 		"Display current tasks, next tasks",
 		"Examples:",
-		"gh-review-task status",
+		"reviewtask status",
 		"--all",
 		"--pr",
 		"--branch",

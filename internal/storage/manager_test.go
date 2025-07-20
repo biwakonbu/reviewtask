@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"gh-review-task/internal/github"
+	"reviewtask/internal/github"
 )
 
 // TestManager_GetCurrentBranch tests the current branch detection

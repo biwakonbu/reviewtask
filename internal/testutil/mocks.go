@@ -1,6 +1,6 @@
 package testutil
 
-import "gh-review-task/internal/storage"
+import "reviewtask/internal/storage"
 
 // MockStorageManager implements a mock storage manager for testing
 // This consolidates the duplicate implementations from test/integration_test.go
