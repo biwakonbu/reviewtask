@@ -8,39 +8,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var outputCmd = &cobra.Command{
-	Use:   "output [TYPE]",
-	Short: "Output command templates to .claude/commands directory",
-	Long: `Output command templates to .claude/commands directory for better organization and discoverability.
+var claudeCmd = &cobra.Command{
+	Use:   "claude [TARGET]",
+	Short: "Output command templates for Claude Code to .claude/commands directory",
+	Long: `Output command templates for Claude Code to .claude/commands directory for better organization and discoverability.
 
-Available types:
+Available targets:
   pr-review    Output PR review workflow command template to .claude/commands/pr-review/
 
 Examples:
-  gh-review-task output pr-review    # Output review-task-workflow command template`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runOutput,
+  gh-review-task claude pr-review    # Output review-task-workflow command template for Claude Code`,
+	Args: cobra.ExactArgs(1),
+	RunE: runClaude,
 }
 
 func init() {
-	rootCmd.AddCommand(outputCmd)
+	rootCmd.AddCommand(claudeCmd)
 }
 
-func runOutput(cmd *cobra.Command, args []string) error {
-	outputType := "pr-review" // default
-	if len(args) > 0 {
-		outputType = args[0]
-	}
+func runClaude(cmd *cobra.Command, args []string) error {
+	target := args[0]
 
-	switch outputType {
+	switch target {
 	case "pr-review":
-		return outputPRReviewCommands()
+		return outputClaudePRReviewCommands()
 	default:
-		return fmt.Errorf("unknown output type: %s", outputType)
+		return fmt.Errorf("unknown target: %s\n\nAvailable targets:\n  pr-review    Output PR review workflow command template", target)
 	}
 }
 
-func outputPRReviewCommands() error {
+func outputClaudePRReviewCommands() error {
 	// Create the output directory
 	outputDir := ".claude/commands/pr-review"
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -144,10 +141,15 @@ Execute this workflow now.
 		return fmt.Errorf("failed to write workflow template: %w", err)
 	}
 
-	fmt.Printf("✓ Created PR review command template at %s\n", workflowPath)
+	fmt.Printf("✓ Created Claude Code command template at %s\n", workflowPath)
 	fmt.Println()
-	fmt.Println("PR review commands have been organized in .claude/commands/pr-review/")
+	fmt.Println("Claude Code commands have been organized in .claude/commands/pr-review/")
 	fmt.Println("You can now use the /review-task-workflow command in Claude Code.")
+	fmt.Println()
+	fmt.Println("Future expansion possibilities:")
+	fmt.Println("  gh-review-task claude pr-review    # Current functionality")
+	fmt.Println("  gh-review-task vscode pr-review    # Future: VSCode extensions")
+	fmt.Println("  gh-review-task cursor pr-review    # Future: Cursor rules")
 
 	return nil
 }
