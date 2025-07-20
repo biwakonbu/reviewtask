@@ -73,6 +73,12 @@ func (c *Checker) GetLatestVersion(ctx context.Context) (*Release, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("no releases found for %s/%s", c.owner, c.repo)
+		}
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("GitHub API rate limit exceeded")
+		}
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
 
