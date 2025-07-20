@@ -128,6 +128,12 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 - This ensures complete understanding of the workflow before proceeding
 - Only proceed to implementation after full recitation is complete
 
+**GitHub Issue-PR Linking Enhancement**
+- **AUTOMATIC**: Add GitHub closing keywords to PR description during Draft PR creation
+- Use keywords like "Closes #[ISSUE_NUMBER]", "Fixes #[ISSUE_NUMBER]", or "Resolves #[ISSUE_NUMBER]"
+- This ensures automatic Issue closure when PR is merged
+- Format example: "This PR closes #42 by implementing the requested metrics export functionality."
+
 ### 2. Item-by-Item Implementation Phase
 
 **Progressive Implementation:**
@@ -257,7 +263,7 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 # Execution result example (for Issue #42):
 # 1. Move to main branch and update
 # 2. Create feature/issue-42-add-metrics-export branch
-# 3. Create Draft PR (linked with Issue #42)
+# 3. Create Draft PR (linked with Issue #42, includes "Closes #42" in description)
 # 4. **RECITE ENTIRE COMMAND CONTENT**
 # 5. Provisional implementation of metrics collection functionality
 # 6. Unit tests for metrics collection with mocks
@@ -394,6 +400,8 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 
 **Thorough Issue・PR Integration:**
 - Always set Issue link when creating Draft PR
+- **CRITICAL**: Include GitHub closing keywords in PR description (e.g., "Closes #[ISSUE_NUMBER]")
+- This enables automatic Issue closure when PR is merged
 - Maintain accuracy and transparency of progress reports with test results
 - Clear identification and proper recording of remaining issues
 
