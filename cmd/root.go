@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
@@ -14,6 +15,7 @@ import (
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/version"
 )
 
 // Version information (set at build time)
@@ -100,6 +102,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Check for updates if enabled and needed
+	checkForUpdatesAsync(cfg)
+
 	// Initialize GitHub client
 	ghClient, err := github.NewClient()
 	if err != nil {
@@ -185,4 +190,34 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Generated %d tasks and saved to .pr-review/PR-%d/tasks.json\n", len(tasks), prNumber)
 
 	return nil
+}
+
+// checkForUpdatesAsync performs update check in background if needed
+func checkForUpdatesAsync(cfg *config.Config) {
+	if !version.ShouldCheckForUpdates(cfg.UpdateCheck.Enabled, cfg.UpdateCheck.IntervalHours, cfg.UpdateCheck.LastCheck) {
+		return
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		checker := version.NewChecker()
+		notification, err := checker.CheckAndNotify(ctx, appVersion, cfg.UpdateCheck.NotifyPrereleases)
+		if err != nil {
+			// Silently fail - don't interrupt user workflow
+			return
+		}
+
+		// Update last check time
+		cfg.UpdateCheck.LastCheck = time.Now()
+		_ = cfg.Save() // Ignore error - not critical
+
+		// Show notification if available
+		if notification != "" {
+			fmt.Println()
+			fmt.Println(notification)
+			fmt.Println()
+		}
+	}()
 }
