@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/storage"
 )
 
 var updateCmd = &cobra.Command{

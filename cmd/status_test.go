@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/storage"
 )
 
 // TestStatusCommand tests the status command functionality

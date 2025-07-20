@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
-	"github.com/spf13/cobra"
 )
 
 // Version information (set at build time)

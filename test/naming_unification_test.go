@@ -84,9 +84,9 @@ func testCommandReferences(t *testing.T) {
 func testDocumentationNaming(t *testing.T) {
 	// Test documentation files use reviewtask
 	docFiles := map[string]string{
-		"../README.md":            "reviewtask - AI-Powered PR Review Management Tool",
-		"../PRD.md":              "reviewtask: AI-Powered PR Review Management Tool",
-		"../docs/VERSIONING.md":  "`reviewtask` follows",
+		"../README.md":          "reviewtask - AI-Powered PR Review Management Tool",
+		"../PRD.md":             "reviewtask: AI-Powered PR Review Management Tool",
+		"../docs/VERSIONING.md": "`reviewtask` follows",
 	}
 
 	for file, expectedContent := range docFiles {
@@ -145,7 +145,7 @@ func testBuildSystemNaming(t *testing.T) {
 
 		// Should reference reviewtask in comments and documentation
 		if strings.Contains(string(content), "gh-review-task") &&
-		   !strings.Contains(string(content), "reviewtask") {
+			!strings.Contains(string(content), "reviewtask") {
 			t.Errorf("%s should reference reviewtask instead of gh-review-task", file)
 		}
 	}
@@ -161,7 +161,7 @@ func TestRepositoryURLConsistency(t *testing.T) {
 
 		// Skip binary files, directories, test files, git logs, and PR data files
 		if info.IsDir() || strings.HasSuffix(path, ".git") || strings.HasSuffix(path, "_test.go") ||
-		   strings.Contains(path, ".git/") || strings.Contains(path, ".pr-review/") {
+			strings.Contains(path, ".git/") || strings.Contains(path, ".pr-review/") {
 			return nil
 		}
 

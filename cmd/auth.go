@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"reviewtask/internal/github"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/github"
 )
 
 var authCmd = &cobra.Command{

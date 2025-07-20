@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/storage"
 )
 
 var showCmd = &cobra.Command{

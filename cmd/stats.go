@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/storage"
-	"github.com/spf13/cobra"
 )
 
 var (

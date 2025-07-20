@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
-	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
