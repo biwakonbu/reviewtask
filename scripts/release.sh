@@ -181,7 +181,8 @@ create_release() {
     else
         git add VERSION
         git commit -m "chore: bump version to v$new_version"
-        git push origin HEAD:main
+        current_branch=$(git branch --show-current)
+        git push origin "HEAD:${current_branch}"
         log_success "Version bump committed and pushed"
     fi
     
