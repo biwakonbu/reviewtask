@@ -6,10 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"gh-review-task/internal/github"
 	"gh-review-task/internal/config"
+	"gh-review-task/internal/github"
 	"gh-review-task/internal/setup"
+	"github.com/spf13/cobra"
 )
 
 var initCmd = &cobra.Command{
@@ -35,12 +35,12 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if setup.IsInitialized() {
 		fmt.Println("✓ Repository is already initialized")
 		fmt.Println()
-		
+
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Reinitialize? This will recreate configuration files (y/N): ")
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
-		
+
 		if response != "y" && response != "yes" {
 			fmt.Println("Initialization cancelled")
 			return nil
@@ -86,7 +86,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("✓ Authenticated as ")
-	
+
 	// 6. Verify authentication and permissions
 	client, err := github.NewClientWithToken(token)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,19 +26,19 @@ type Manager struct {
 }
 
 type Task struct {
-	ID               string `json:"id"`                 // Format: "comment-{commentID}-task-{index}"
-	Description      string `json:"description"`        // AI-generated task description (user language)
-	OriginText       string `json:"origin_text"`        // Original review comment text
-	Priority         string `json:"priority"`
-	SourceReviewID   int64  `json:"source_review_id"`
-	SourceCommentID  int64  `json:"source_comment_id"`  // Required: comment this task belongs to
-	TaskIndex        int    `json:"task_index"`         // Index within the comment (for multiple tasks per comment)
-	File             string `json:"file"`
-	Line             int    `json:"line"`
-	Status           string `json:"status"`
-	CreatedAt        string `json:"created_at"`
-	UpdatedAt        string `json:"updated_at"`
-	PRNumber         int    `json:"pr_number"`
+	ID              string `json:"id"`          // Format: "comment-{commentID}-task-{index}"
+	Description     string `json:"description"` // AI-generated task description (user language)
+	OriginText      string `json:"origin_text"` // Original review comment text
+	Priority        string `json:"priority"`
+	SourceReviewID  int64  `json:"source_review_id"`
+	SourceCommentID int64  `json:"source_comment_id"` // Required: comment this task belongs to
+	TaskIndex       int    `json:"task_index"`        // Index within the comment (for multiple tasks per comment)
+	File            string `json:"file"`
+	Line            int    `json:"line"`
+	Status          string `json:"status"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
+	PRNumber        int    `json:"pr_number"`
 }
 
 type TasksFile struct {
@@ -63,20 +64,21 @@ type CommentStats struct {
 }
 
 type TaskStatistics struct {
-	PRNumber        int            `json:"pr_number"`
-	GeneratedAt     string         `json:"generated_at"`
-	TotalComments   int            `json:"total_comments"`
-	TotalTasks      int            `json:"total_tasks"`
-	CommentStats    []CommentStats `json:"comment_stats"`
-	StatusSummary   StatusSummary  `json:"status_summary"`
+	PRNumber      int            `json:"pr_number"`
+	BranchName    string         `json:"branch_name,omitempty"` // Only set for branch-specific stats
+	GeneratedAt   string         `json:"generated_at"`
+	TotalComments int            `json:"total_comments"`
+	TotalTasks    int            `json:"total_tasks"`
+	CommentStats  []CommentStats `json:"comment_stats"`
+	StatusSummary StatusSummary  `json:"status_summary"`
 }
 
 type StatusSummary struct {
-	Todo        int `json:"todo"`
-	Doing       int `json:"doing"`
-	Done        int `json:"done"`
-	Pending     int `json:"pending"`
-	Cancelled   int `json:"cancelled"`
+	Todo      int `json:"todo"`
+	Doing     int `json:"doing"`
+	Done      int `json:"done"`
+	Pending   int `json:"pending"`
+	Cancelled int `json:"cancelled"`
 }
 
 func NewManager() *Manager {
@@ -278,14 +280,14 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var commentTasks []Task
 	for _, task := range allTasks {
 		if task.SourceCommentID == commentID {
 			commentTasks = append(commentTasks, task)
 		}
 	}
-	
+
 	return commentTasks, nil
 }
 
@@ -300,21 +302,21 @@ func (m *Manager) MergeTasks(prNumber int, newTasks []Task) error {
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to load existing tasks: %w", err)
 	}
-	
+
 	// Create map of existing tasks by source comment ID for quick lookup
 	existingByComment := make(map[int64][]Task)
 	for _, task := range existingTasks {
 		existingByComment[task.SourceCommentID] = append(existingByComment[task.SourceCommentID], task)
 	}
-	
+
 	var mergedTasks []Task
 	newTasksByComment := make(map[int64][]Task)
-	
+
 	// Group new tasks by comment ID
 	for _, task := range newTasks {
 		newTasksByComment[task.SourceCommentID] = append(newTasksByComment[task.SourceCommentID], task)
 	}
-	
+
 	// Process each comment ID
 	allCommentIDs := make(map[int64]bool)
 	for commentID := range existingByComment {
@@ -323,27 +325,27 @@ func (m *Manager) MergeTasks(prNumber int, newTasks []Task) error {
 	for commentID := range newTasksByComment {
 		allCommentIDs[commentID] = true
 	}
-	
+
 	for commentID := range allCommentIDs {
 		existingForComment := existingByComment[commentID]
 		newForComment := newTasksByComment[commentID]
-		
+
 		mergedForComment := m.mergeTasksForComment(commentID, existingForComment, newForComment)
 		mergedTasks = append(mergedTasks, mergedForComment...)
 	}
-	
+
 	return m.SaveTasks(prNumber, mergedTasks)
 }
 
 // mergeTasksForComment handles task merging for a specific comment
 func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []Task {
 	var result []Task
-	
+
 	if len(existing) == 0 {
 		// No existing tasks, use all new tasks
 		return new
 	}
-	
+
 	if len(new) == 0 {
 		// No new tasks, mark existing tasks as cancelled if they're not already done
 		for _, task := range existing {
@@ -355,18 +357,18 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 		}
 		return result
 	}
-	
+
 	// Compare origin text to detect content changes
 	existingOriginText := ""
 	if len(existing) > 0 {
 		existingOriginText = existing[0].OriginText
 	}
-	
+
 	newOriginText := ""
 	if len(new) > 0 {
 		newOriginText = new[0].OriginText
 	}
-	
+
 	// If origin text changed significantly, cancel old tasks and add new ones
 	if m.hasSignificantTextChange(existingOriginText, newOriginText) {
 		// Cancel existing tasks that aren't done
@@ -377,25 +379,25 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 			}
 			result = append(result, task)
 		}
-		
+
 		// Add new tasks
 		result = append(result, new...)
 		return result
 	}
-	
+
 	// Content is similar, preserve existing task statuses
 	// Preserve existing tasks and their statuses
 	for _, existingTask := range existing {
 		result = append(result, existingTask)
 	}
-	
+
 	// Add any genuinely new tasks (beyond existing count)
 	if len(new) > len(existing) {
 		for i := len(existing); i < len(new); i++ {
 			result = append(result, new[i])
 		}
 	}
-	
+
 	return result
 }
 
@@ -406,11 +408,11 @@ func (m *Manager) hasSignificantTextChange(old, new string) bool {
 	if old == "" || new == "" {
 		return old != new
 	}
-	
+
 	// Remove common markdown and whitespace for comparison
 	cleanOld := strings.TrimSpace(strings.ReplaceAll(old, "\n", " "))
 	cleanNew := strings.TrimSpace(strings.ReplaceAll(new, "\n", " "))
-	
+
 	// If texts are very different in length, consider it significant
 	if len(cleanOld) > 0 && len(cleanNew) > 0 {
 		ratio := float64(len(cleanNew)) / float64(len(cleanOld))
@@ -418,7 +420,91 @@ func (m *Manager) hasSignificantTextChange(old, new string) bool {
 			return true
 		}
 	}
-	
+
 	// If they're completely different, it's significant
 	return cleanOld != cleanNew
+}
+
+// GetCurrentBranch returns the current git branch name
+func (m *Manager) GetCurrentBranch() (string, error) {
+	cmd := exec.Command("git", "branch", "--show-current")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current branch: %w", err)
+	}
+
+	branch := strings.TrimSpace(string(output))
+	if branch == "" {
+		return "", fmt.Errorf("no current branch found")
+	}
+
+	return branch, nil
+}
+
+// GetPRsForBranch returns all PR numbers that match the given branch name
+func (m *Manager) GetPRsForBranch(branchName string) ([]int, error) {
+	var prNumbers []int
+
+	// Read all PR directories
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), "PR-") {
+			continue
+		}
+
+		// Extract PR number from directory name
+		var prNumber int
+		if _, err := fmt.Sscanf(entry.Name(), "PR-%d", &prNumber); err != nil {
+			continue
+		}
+
+		// Check if this PR's branch matches
+		infoPath := filepath.Join(m.baseDir, entry.Name(), "info.json")
+		data, err := os.ReadFile(infoPath)
+		if err != nil {
+			continue
+		}
+
+		var prInfo github.PRInfo
+		if err := json.Unmarshal(data, &prInfo); err != nil {
+			continue
+		}
+
+		if prInfo.Branch == branchName {
+			prNumbers = append(prNumbers, prNumber)
+		}
+	}
+
+	return prNumbers, nil
+}
+
+// GetAllPRNumbers returns all PR numbers that have data stored
+func (m *Manager) GetAllPRNumbers() ([]int, error) {
+	var prNumbers []int
+
+	// Read all PR directories
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), "PR-") {
+			continue
+		}
+
+		// Extract PR number from directory name
+		var prNumber int
+		if _, err := fmt.Sscanf(entry.Name(), "PR-%d", &prNumber); err != nil {
+			continue
+		}
+
+		prNumbers = append(prNumbers, prNumber)
+	}
+
+	return prNumbers, nil
 }

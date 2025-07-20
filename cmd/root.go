@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/spf13/cobra"
-	"gh-review-task/internal/github"
-	"gh-review-task/internal/storage"
 	"gh-review-task/internal/ai"
 	"gh-review-task/internal/config"
+	"gh-review-task/internal/github"
 	"gh-review-task/internal/setup"
+	"gh-review-task/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
@@ -41,21 +41,22 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(showCmd)
+	rootCmd.AddCommand(statsCmd)
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	
+
 	// Check if initialization is needed
 	if setup.ShouldPromptInit() {
 		fmt.Println("🔧 This repository is not initialized for gh-review-task.")
 		fmt.Println()
-		
+
 		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Initialize now? (Y/n): ")
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
-		
+
 		if response == "" || response == "y" || response == "yes" {
 			fmt.Println()
 			if err := runInit(cmd, args); err != nil {
@@ -71,7 +72,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("repository not initialized")
 		}
 	}
-	
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"gh-review-task/internal/storage"
+	"github.com/spf13/cobra"
 )
 
 var showCmd = &cobra.Command{
@@ -30,12 +30,12 @@ func init() {
 
 func runShow(cmd *cobra.Command, args []string) error {
 	storageManager := storage.NewManager()
-	
+
 	if len(args) == 0 {
 		// No task ID provided, show current or next task
 		return showCurrentOrNextTask(storageManager)
 	}
-	
+
 	// Task ID provided, show specific task
 	taskID := args[0]
 	return showSpecificTask(storageManager, taskID)
@@ -46,13 +46,13 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
 	}
-	
+
 	if len(allTasks) == 0 {
 		fmt.Println("No tasks found.")
 		fmt.Println("Run 'gh-review-task [PR_NUMBER]' to analyze PR reviews and generate tasks.")
 		return nil
 	}
-	
+
 	// Look for current task (doing status)
 	for _, task := range allTasks {
 		if task.Status == "doing" {
@@ -61,12 +61,12 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 			return displayTaskDetails(task)
 		}
 	}
-	
+
 	// No current task, find next task (todo with highest priority)
 	var nextTask *storage.Task
 	priorityOrder := map[string]int{"critical": 4, "high": 3, "medium": 2, "low": 1}
 	highestPriority := 0
-	
+
 	for _, task := range allTasks {
 		if task.Status == "todo" {
 			if priority, exists := priorityOrder[task.Priority]; exists && priority > highestPriority {
@@ -76,14 +76,14 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 			}
 		}
 	}
-	
+
 	if nextTask == nil {
 		fmt.Println("✅ No current or next tasks found.")
 		fmt.Println("All tasks may be completed, cancelled, or pending.")
 		fmt.Println("Run 'gh-review-task status' to see overall task status.")
 		return nil
 	}
-	
+
 	fmt.Println("🎯 Next Task (Recommended):")
 	fmt.Println()
 	return displayTaskDetails(*nextTask)
@@ -94,35 +94,35 @@ func showSpecificTask(storageManager *storage.Manager, taskID string) error {
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
 	}
-	
+
 	// Find the specific task
 	for _, task := range allTasks {
 		if task.ID == taskID {
 			return displayTaskDetails(task)
 		}
 	}
-	
+
 	return fmt.Errorf("task with ID '%s' not found", taskID)
 }
 
 func displayTaskDetails(task storage.Task) error {
 	// Status indicator
 	statusIndicator := getStatusIndicator(task.Status)
-	
-	// Priority indicator  
+
+	// Priority indicator
 	priorityIndicator := getPriorityIndicator(task.Priority)
-	
+
 	// Header
 	fmt.Printf("Task ID: %s\n", task.ID)
 	fmt.Printf("Status: %s %s\n", statusIndicator, strings.Title(task.Status))
 	fmt.Printf("Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
 	fmt.Println()
-	
+
 	// Task Description
 	fmt.Println("📝 Task Description:")
 	fmt.Printf("   %s\n", task.Description)
 	fmt.Println()
-	
+
 	// Original Review Comment
 	fmt.Println("💬 Original Review Comment:")
 	originLines := strings.Split(task.OriginText, "\n")
@@ -130,7 +130,7 @@ func displayTaskDetails(task storage.Task) error {
 		fmt.Printf("   %s\n", line)
 	}
 	fmt.Println()
-	
+
 	// File and Line Information
 	if task.File != "" {
 		fmt.Println("📂 Location:")
@@ -140,7 +140,7 @@ func displayTaskDetails(task storage.Task) error {
 		}
 		fmt.Println()
 	}
-	
+
 	// PR and Review Information
 	fmt.Println("🔗 Source Information:")
 	fmt.Printf("   PR Number: #%d\n", task.PRNumber)
@@ -150,7 +150,7 @@ func displayTaskDetails(task storage.Task) error {
 		fmt.Printf("   Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
 	}
 	fmt.Println()
-	
+
 	// Timestamps
 	fmt.Println("🕒 Timeline:")
 	if task.CreatedAt != "" {
@@ -168,7 +168,7 @@ func displayTaskDetails(task storage.Task) error {
 		}
 	}
 	fmt.Println()
-	
+
 	// Action suggestions based on status
 	fmt.Println("💡 Suggested Actions:")
 	switch task.Status {
@@ -192,7 +192,7 @@ func displayTaskDetails(task storage.Task) error {
 	case "cancel", "cancelled":
 		fmt.Printf("   Task cancelled.\n")
 	}
-	
+
 	return nil
 }
 

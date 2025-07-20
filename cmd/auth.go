@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spf13/cobra"
 	"gh-review-task/internal/github"
+	"github.com/spf13/cobra"
 )
 
 var authCmd = &cobra.Command{
@@ -81,7 +81,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✓ Authenticated as %s\n", user)
 	fmt.Println("✓ Token saved locally")
-	
+
 	return nil
 }
 
@@ -116,7 +116,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("For comprehensive permission checking, run:")
 	fmt.Println("  gh-review-task auth check")
-	
+
 	return nil
 }
 
@@ -129,7 +129,7 @@ func runAuthLogout(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("Note: This only removes the locally stored token.")
 	fmt.Println("Your gh CLI authentication (if any) remains unchanged.")
-	
+
 	return nil
 }
 

@@ -17,13 +17,14 @@ type Client struct {
 }
 
 type PRInfo struct {
-	Number    int    `json:"pr_number"`
-	Title     string `json:"title"`
-	Author    string `json:"author"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	State     string `json:"state"`
+	Number     int    `json:"pr_number"`
+	Title      string `json:"title"`
+	Author     string `json:"author"`
+	CreatedAt  string `json:"created_at"`
+	UpdatedAt  string `json:"updated_at"`
+	State      string `json:"state"`
 	Repository string `json:"repository"`
+	Branch     string `json:"branch"` // Head branch name for this PR
 }
 
 type Review struct {
@@ -36,13 +37,13 @@ type Review struct {
 }
 
 type Comment struct {
-	ID        int64     `json:"id"`
-	File      string    `json:"file"`
-	Line      int       `json:"line"`
-	Body      string    `json:"body"`
-	Author    string    `json:"author"`
-	CreatedAt string    `json:"created_at"`
-	Replies   []Reply   `json:"replies"`
+	ID        int64   `json:"id"`
+	File      string  `json:"file"`
+	Line      int     `json:"line"`
+	Body      string  `json:"body"`
+	Author    string  `json:"author"`
+	CreatedAt string  `json:"created_at"`
+	Replies   []Reply `json:"replies"`
 }
 
 type Reply struct {
@@ -85,7 +86,7 @@ func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to get current branch: %w", err)
 	}
-	
+
 	branch := strings.TrimSpace(string(output))
 	if branch == "" || branch == "main" || branch == "master" {
 		return 0, fmt.Errorf("no feature branch detected (current: %s)", branch)
@@ -126,6 +127,7 @@ func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 		UpdatedAt:  pr.GetUpdatedAt().Format("2006-01-02T15:04:05Z"),
 		State:      pr.GetState(),
 		Repository: fmt.Sprintf("%s/%s", c.owner, c.repo),
+		Branch:     pr.GetHead().GetRef(),
 	}, nil
 }
 
@@ -173,7 +175,7 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	for _, comment := range allComments {
 		// Skip comments not part of this review (if we can determine that)
 		// Note: GitHub API doesn't directly link comments to reviews, so we'll include all for now
-		
+
 		c := Comment{
 			ID:        comment.GetID(),
 			File:      comment.GetPath(),
@@ -211,13 +213,13 @@ func getRepoInfo() (string, string, error) {
 	}
 
 	url := strings.TrimSpace(string(output))
-	
+
 	// Parse GitHub URL (both SSH and HTTPS formats)
 	// SSH: git@github.com:owner/repo.git
 	// HTTPS: https://github.com/owner/repo.git
-	
+
 	var owner, repo string
-	
+
 	if strings.HasPrefix(url, "git@github.com:") {
 		// SSH format
 		parts := strings.TrimPrefix(url, "git@github.com:")
@@ -288,7 +290,7 @@ func (c *Client) GetPRList() ([]*github.PullRequest, error) {
 			PerPage: 1, // Just need one to test permissions
 		},
 	}
-	
+
 	prs, _, err := c.client.PullRequests.List(context.Background(), c.owner, c.repo, opts)
 	return prs, err
 }
@@ -298,27 +300,27 @@ func (c *Client) GetTokenScopes() ([]string, error) {
 	// GitHub API doesn't directly provide scope information in responses
 	// We need to check the response headers from any API call
 	// For now, we'll make a simple API call and check what we can access
-	
+
 	// This is a workaround - GitHub doesn't provide a direct way to get token scopes
 	// We'll return what we can determine from successful API calls
 	var scopes []string
-	
+
 	// Test basic user access
 	_, _, err := c.client.Users.Get(context.Background(), "")
 	if err == nil {
 		scopes = append(scopes, "user")
 	}
-	
+
 	// Test repo access
 	_, _, err = c.client.Repositories.Get(context.Background(), c.owner, c.repo)
 	if err == nil {
 		scopes = append(scopes, "repo")
 	}
-	
+
 	// If we can't determine scopes, return a generic message
 	if len(scopes) == 0 {
 		return []string{"unable to determine scopes"}, nil
 	}
-	
+
 	return scopes, nil
 }
