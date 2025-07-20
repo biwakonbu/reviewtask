@@ -723,3 +723,99 @@ func TestManager_ClearCache(t *testing.T) {
 		t.Errorf("Expected no error when clearing non-existent cache, got: %v", err)
 	}
 }
+
+// TestManager_UpdateCommentCacheWithGroups tests updating cache with grouped task IDs
+func TestManager_UpdateCommentCacheWithGroups(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := &Manager{baseDir: tempDir}
+
+	prNumber := 104
+
+	// Create test comments
+	comments := []github.Comment{
+		{
+			ID:      100,
+			Body:    "Comment 1",
+			Author:  "user1",
+			File:    "test.go",
+			Line:    10,
+			Replies: []github.Reply{},
+		},
+		{
+			ID:      200,
+			Body:    "Comment 2",
+			Author:  "user2",
+			File:    "test.go",
+			Line:    20,
+			Replies: []github.Reply{},
+		},
+	}
+
+	// Test with grouped task IDs (comment 1 has 2 tasks, comment 2 has 1 task)
+	taskIDGroups := [][]string{
+		{"task-100-1", "task-100-2"}, // Comment 100 has 2 tasks
+		{"task-200-1"},               // Comment 200 has 1 task
+	}
+
+	// Update cache with grouped task IDs
+	if err := manager.UpdateCommentCacheWithGroups(prNumber, comments, taskIDGroups); err != nil {
+		t.Fatalf("Failed to update cache with groups: %v", err)
+	}
+
+	// Load cache and verify
+	cache, err := manager.LoadReviewCache(prNumber)
+	if err != nil {
+		t.Fatalf("Failed to load updated cache: %v", err)
+	}
+
+	if len(cache.CommentCaches) != 2 {
+		t.Errorf("Expected 2 comment caches, got %d", len(cache.CommentCaches))
+	}
+
+	// Find cache for comment 100
+	var comment100Cache *CommentCache
+	for _, cc := range cache.CommentCaches {
+		if cc.CommentID == 100 {
+			comment100Cache = &cc
+			break
+		}
+	}
+
+	if comment100Cache == nil {
+		t.Fatalf("Cache for comment 100 not found")
+	}
+
+	// Verify comment 100 has 2 task IDs
+	if len(comment100Cache.TasksGenerated) != 2 {
+		t.Errorf("Expected comment 100 to have 2 task IDs, got %d", len(comment100Cache.TasksGenerated))
+	}
+
+	expectedTaskIDs := []string{"task-100-1", "task-100-2"}
+	for i, expectedID := range expectedTaskIDs {
+		if i < len(comment100Cache.TasksGenerated) && comment100Cache.TasksGenerated[i] != expectedID {
+			t.Errorf("Expected task ID %s at index %d, got %s", expectedID, i, comment100Cache.TasksGenerated[i])
+		}
+	}
+
+	// Find cache for comment 200
+	var comment200Cache *CommentCache
+	for _, cc := range cache.CommentCaches {
+		if cc.CommentID == 200 {
+			comment200Cache = &cc
+			break
+		}
+	}
+
+	if comment200Cache == nil {
+		t.Fatalf("Cache for comment 200 not found")
+	}
+
+	// Verify comment 200 has 1 task ID
+	if len(comment200Cache.TasksGenerated) != 1 {
+		t.Errorf("Expected comment 200 to have 1 task ID, got %d", len(comment200Cache.TasksGenerated))
+	}
+
+	if comment200Cache.TasksGenerated[0] != "task-200-1" {
+		t.Errorf("Expected task ID 'task-200-1', got '%s'", comment200Cache.TasksGenerated[0])
+	}
+}

@@ -172,19 +172,21 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			newTasks = generatedTasks
 		}
 
-		// Update cache with processed comments
+		// Update cache with processed comments and their task IDs
 		var processedComments []github.Comment
-		var taskIDs []string
-
-		for _, comment := range commentsToProcess {
-			processedComments = append(processedComments, comment)
-		}
+		commentTaskMap := make(map[int64][]string)
 
 		for _, task := range newTasks {
-			taskIDs = append(taskIDs, task.ID)
+			commentTaskMap[task.SourceCommentID] = append(commentTaskMap[task.SourceCommentID], task.ID)
 		}
 
-		if err := storageManager.UpdateCommentCache(prNumber, processedComments, taskIDs); err != nil {
+		var taskIDGroups [][]string
+		for _, comment := range commentsToProcess {
+			processedComments = append(processedComments, comment)
+			taskIDGroups = append(taskIDGroups, commentTaskMap[comment.ID])
+		}
+
+		if err := storageManager.UpdateCommentCacheWithGroups(prNumber, processedComments, taskIDGroups); err != nil {
 			fmt.Printf("⚠️  Failed to update cache: %v\n", err)
 		}
 	} else {
