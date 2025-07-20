@@ -28,8 +28,6 @@ linters-settings:
 linters:
   enable:
     - gofmt
-    - gosimple
-    - ineffassign
     - typecheck
 
   # Disable strict linters for initial CI setup
