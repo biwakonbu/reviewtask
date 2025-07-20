@@ -123,7 +123,7 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 - Create new branch
 - Create Draft PR and ensure Issue link is properly set
 
-**Initial Command Content Recitation:**
+**Initial Command Content Recitation**
 - **MANDATORY**: After Draft PR creation, recite the ENTIRE issue-to-pr command file content word-for-word
 - This ensures complete understanding of the workflow before proceeding
 - Only proceed to implementation after full recitation is complete
@@ -157,7 +157,7 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 - Test error handling and recovery scenarios
 
 **Specification Compliance Testing:**
-- **First Priority**: Verify if specifications are met through automated tests
+- **Priority**: Verify if specifications are met through automated tests
 - Create test cases that directly validate acceptance criteria
 - Execute all tests (unit + integration) and verify results
 - Fix implementation if tests reveal oversights or errors
