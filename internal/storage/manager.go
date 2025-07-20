@@ -292,8 +292,25 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 }
 
 func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int64, taskIndex int, newStatus string) error {
-	taskID := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
-	return m.UpdateTaskStatus(taskID, newStatus)
+	// Find task by comment ID and task index
+	allTasks, err := m.GetTasksByPR(prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
+	}
+
+	var targetTask *Task
+	for _, task := range allTasks {
+		if task.SourceCommentID == commentID && task.TaskIndex == taskIndex {
+			targetTask = &task
+			break
+		}
+	}
+
+	if targetTask == nil {
+		return fmt.Errorf("task not found for comment %d, index %d in PR %d", commentID, taskIndex, prNumber)
+	}
+
+	return m.UpdateTaskStatus(targetTask.ID, newStatus)
 }
 
 // MergeTasks combines new tasks with existing ones, preserving existing task statuses
