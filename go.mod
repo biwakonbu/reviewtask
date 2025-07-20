@@ -1,4 +1,4 @@
-module gh-review-task
+module reviewtask
 
 go 1.20
 

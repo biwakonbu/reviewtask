@@ -4,14 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"gh-review-task/internal/github"
+	"reviewtask/internal/github"
 	"github.com/spf13/cobra"
 )
 
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Authentication management",
-	Long:  `Manage GitHub authentication for gh-review-task.`,
+	Long:  `Manage GitHub authentication for reviewtask.`,
 }
 
 var authLoginCmd = &cobra.Command{
@@ -91,7 +91,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		fmt.Println("✗ Not authenticated")
 		fmt.Println()
 		fmt.Println("To authenticate, run:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -107,7 +107,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 		fmt.Printf("✗ Token authentication failed (source: %s)\n", tokenSource)
 		fmt.Println()
 		fmt.Println("To re-authenticate, run:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -115,7 +115,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Token source: %s\n", tokenSource)
 	fmt.Println()
 	fmt.Println("For comprehensive permission checking, run:")
-	fmt.Println("  gh-review-task auth check")
+	fmt.Println("  reviewtask auth check")
 
 	return nil
 }
@@ -144,7 +144,7 @@ func runAuthCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println("✗ No GitHub authentication found")
 		fmt.Println()
 		fmt.Println("To authenticate, run:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -157,7 +157,7 @@ func runAuthCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println("✗ Failed to create GitHub client")
 		fmt.Println()
 		fmt.Println("Please re-authenticate:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -168,7 +168,7 @@ func runAuthCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println("Error details:", err)
 		fmt.Println()
 		fmt.Println("Please re-authenticate:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -236,13 +236,13 @@ func runAuthCheck(cmd *cobra.Command, args []string) error {
 		fmt.Println("3. Ensure the following scopes are selected:")
 		fmt.Println("   ✓ repo (Full control of private repositories)")
 		fmt.Println("   ✓ public_repo (Access public repositories)")
-		fmt.Println("4. Run: gh-review-task auth login")
+		fmt.Println("4. Run: reviewtask auth login")
 		fmt.Println()
 	} else {
 		fmt.Println("✅ All Checks Passed!")
 		fmt.Println()
 		fmt.Println("Your authentication is properly configured.")
-		fmt.Println("gh-review-task should work correctly with this setup.")
+		fmt.Println("reviewtask should work correctly with this setup.")
 		fmt.Println()
 	}
 
