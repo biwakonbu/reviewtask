@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gh-review-task/internal/github"
@@ -242,6 +243,134 @@ func TestManager_MergeTasks(t *testing.T) {
 		t.Errorf("Expected task 1 status to be preserved as 'done', got: %s", task1.Status)
 	}
 }
+
+// TestManager_UpdateTaskStatusByCommentAndIndex tests UUID-based task lookup
+func TestManager_UpdateTaskStatusByCommentAndIndex(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := &Manager{baseDir: tempDir}
+
+	prNumber := 456
+
+	// Create test tasks with UUID IDs
+	testTasks := []Task{
+		{
+			ID:              "550e8400-e29b-41d4-a716-446655440001",
+			Description:     "Test task 1",
+			SourceCommentID: 100,
+			TaskIndex:       0,
+			Status:          "todo",
+			OriginText:      "Original comment for task 1",
+		},
+		{
+			ID:              "550e8400-e29b-41d4-a716-446655440002",
+			Description:     "Test task 2",
+			SourceCommentID: 100,
+			TaskIndex:       1,
+			Status:          "todo",
+			OriginText:      "Original comment for task 2",
+		},
+		{
+			ID:              "550e8400-e29b-41d4-a716-446655440003",
+			Description:     "Test task 3",
+			SourceCommentID: 200,
+			TaskIndex:       0,
+			Status:          "todo",
+			OriginText:      "Different comment",
+		},
+	}
+
+	// Save test tasks
+	if err := manager.SaveTasks(prNumber, testTasks); err != nil {
+		t.Fatalf("Failed to save test tasks: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		commentID   int64
+		taskIndex   int
+		newStatus   string
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "Update existing task status",
+			commentID:   100,
+			taskIndex:   0,
+			newStatus:   "done",
+			expectError: false,
+		},
+		{
+			name:        "Update second task from same comment",
+			commentID:   100,
+			taskIndex:   1,
+			newStatus:   "doing",
+			expectError: false,
+		},
+		{
+			name:        "Update task from different comment",
+			commentID:   200,
+			taskIndex:   0,
+			newStatus:   "done",
+			expectError: false,
+		},
+		{
+			name:        "Non-existent comment ID",
+			commentID:   999,
+			taskIndex:   0,
+			newStatus:   "done",
+			expectError: true,
+			errorMsg:    "task not found",
+		},
+		{
+			name:        "Non-existent task index",
+			commentID:   100,
+			taskIndex:   5,
+			newStatus:   "done",
+			expectError: true,
+			errorMsg:    "task not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := manager.UpdateTaskStatusByCommentAndIndex(prNumber, tt.commentID, tt.taskIndex, tt.newStatus)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("Expected error but got none")
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("Expected error to contain '%s', got: %v", tt.errorMsg, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, got: %v", err)
+				} else {
+					// Verify the status was updated correctly
+					tasks, loadErr := manager.GetTasksByPR(prNumber)
+					if loadErr != nil {
+						t.Fatalf("Failed to load tasks after update: %v", loadErr)
+					}
+
+					// Find the updated task
+					var updatedTask *Task
+					for i := range tasks {
+						if tasks[i].SourceCommentID == tt.commentID && tasks[i].TaskIndex == tt.taskIndex {
+							updatedTask = &tasks[i]
+							break
+						}
+					}
+
+					if updatedTask == nil {
+						t.Errorf("Could not find updated task")
+					} else if updatedTask.Status != tt.newStatus {
+						t.Errorf("Expected status '%s', got '%s'", tt.newStatus, updatedTask.Status)
+					}
+				}
+			}
+		})
+	}
+}
+
 
 // Helper function to initialize a test git repository
 func initTestGitRepo(dir string) error {
