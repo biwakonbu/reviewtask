@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"gh-review-task/internal/storage"
+	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -27,10 +27,10 @@ Shows:
 - Task statistics (status breakdown, priority breakdown, completion rate)
 
 Examples:
-  gh-review-task status             # Show current branch tasks
-  gh-review-task status --all       # Show all PRs tasks
-  gh-review-task status --pr 123    # Show PR #123 tasks
-  gh-review-task status --branch feature/xyz # Show specific branch tasks`,
+  reviewtask status             # Show current branch tasks
+  reviewtask status --all       # Show all PRs tasks
+  reviewtask status --pr 123    # Show PR #123 tasks
+  reviewtask status --branch feature/xyz # Show specific branch tasks`,
 	RunE: runStatus,
 }
 
@@ -92,7 +92,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(allTasks) == 0 {
-		fmt.Printf("No tasks found for %s. Run 'gh-review-task' to fetch and generate tasks from PR reviews.\n", contextDescription)
+		fmt.Printf("No tasks found for %s. Run 'reviewtask' to fetch and generate tasks from PR reviews.\n", contextDescription)
 		return nil
 	}
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"gh-review-task/internal/storage"
+	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -20,9 +20,9 @@ Valid statuses:
   cancel   - Decided not to address
 
 Examples:
-  gh-review-task update task-1 doing
-  gh-review-task update task-2 done
-  gh-review-task update task-3 cancel`,
+  reviewtask update task-1 doing
+  reviewtask update task-2 done
+  reviewtask update task-3 cancel`,
 	Args: cobra.ExactArgs(2),
 	RunE: runUpdate,
 }
