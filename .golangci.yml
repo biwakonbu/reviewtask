@@ -1,6 +1,7 @@
 linters-settings:
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   gocyclo:
     min-complexity: 15
   goimports:
@@ -30,7 +31,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - goconst
     - gocritic
     - gofmt
@@ -49,11 +50,8 @@ linters:
     - unused
     - whitespace
 
-  # Don't use deprecated linters
-  disable:
-    - maligned
-    - interfacer
-    - scopelint
+  # Don't use deprecated linters - these are automatically disabled
+  disable: []
 
 run:
   deadline: 5m
