@@ -16,6 +16,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version information (set at build time)
+var (
+	appVersion    = "dev"
+	appCommitHash = "unknown"
+	appBuildDate  = "unknown"
+)
+
+// SetVersionInfo sets the version information from build-time variables
+func SetVersionInfo(version, commitHash, buildDate string) {
+	appVersion = version
+	appCommitHash = commitHash
+	appBuildDate = buildDate
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gh-review-task [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
@@ -42,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(versionCmd)
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
