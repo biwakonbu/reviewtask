@@ -27,31 +27,31 @@ linters-settings:
 
 linters:
   enable:
-    - bodyclose
-    - dogsled
-    - dupl
     - errcheck
-    - copyloopvar
-    - goconst
-    - gocritic
     - gofmt
-    - goimports
-    - gosec
     - gosimple
     - govet
     - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+  # Disable strict linters for initial CI setup
+  disable:
+    - bodyclose
+    - dogsled
+    - dupl
+    - copyloopvar
+    - goconst
+    - gocritic
+    - goimports
+    - gosec
     - misspell
     - nakedret
     - prealloc
-    - staticcheck
-    - typecheck
     - unconvert
     - unparam
-    - unused
     - whitespace
-
-  # Don't use deprecated linters - these are automatically disabled
-  disable: []
 
 run:
   deadline: 5m

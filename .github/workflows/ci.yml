@@ -36,6 +36,7 @@ jobs:
     
     - name: Run tests
       run: go test -v -race -coverprofile=coverage.out ./...
+      shell: bash
     
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
@@ -112,7 +113,7 @@ jobs:
     
     - name: Install and run Gosec
       run: |
-        go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+        go install github.com/securecodewarrior/gosec/cmd/gosec@latest
         gosec ./...
 
   build:
