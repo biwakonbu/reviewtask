@@ -44,28 +44,28 @@ Transform GitHub Pull Request reviews into a structured, trackable workflow that
 2. **Generate Actionable Tasks**
    ```bash
    # Convert all review feedback into tracked tasks
-   gh-review-task
+   reviewtask
    ```
 
 3. **Review What Needs to be Done**
    ```bash
    # See current work or next recommended task
-   gh-review-task show
+   reviewtask show
    ```
 
 4. **Work on Tasks Systematically**
    ```bash
    # Start working on a task
-   gh-review-task update <task-id> doing
+   reviewtask update <task-id> doing
    
    # Complete implementation
-   gh-review-task update <task-id> done
+   reviewtask update <task-id> done
    ```
 
 5. **Handle Updated Reviews**
    ```bash
    # Re-run when reviewers add new comments
-   gh-review-task
+   reviewtask
    # Tool automatically preserves your work progress
    ```
 
@@ -73,27 +73,27 @@ Transform GitHub Pull Request reviews into a structured, trackable workflow that
 
 **Morning Startup:**
 ```bash
-gh-review-task show           # What should I work on today?
-gh-review-task status         # Overall progress across all PRs
+reviewtask show           # What should I work on today?
+reviewtask status         # Overall progress across all PRs
 ```
 
 **During Implementation:**
 ```bash
-gh-review-task show <task-id> # Full context for current task
+reviewtask show <task-id> # Full context for current task
 # Work on the task...
-gh-review-task update <task-id> done
+reviewtask update <task-id> done
 ```
 
 **When Blocked:**
 ```bash
-gh-review-task update <task-id> pending  # Mark as blocked
-gh-review-task show                      # Find next task to work on
+reviewtask update <task-id> pending  # Mark as blocked
+reviewtask show                      # Find next task to work on
 ```
 
 ### 3. Team Collaboration Rules
 
 **For PR Authors:**
-- Run `gh-review-task` immediately after receiving reviews
+- Run `reviewtask` immediately after receiving reviews
 - Update task statuses as you complete work
 - Never manually edit `.pr-review/` files
 
@@ -314,7 +314,7 @@ internal/              # Private implementation packages
 **During Development:**
 ```bash
 # Check version before starting work
-gh-review-task version
+reviewtask version
 
 # Build with version embedding
 VERSION=$(./scripts/version.sh current) go build -ldflags="-X main.version=$VERSION" .
@@ -346,8 +346,8 @@ VERSION=$(./scripts/version.sh current) go build -ldflags="-X main.version=$VERS
 
 **Binary Version Display:**
 ```bash
-$ gh-review-task version
-gh-review-task version 1.2.3
+$ reviewtask version
+reviewtask version 1.2.3
 Commit: abc1234
 Built: 2023-12-01T10:00:00Z
 Go version: go1.21.0

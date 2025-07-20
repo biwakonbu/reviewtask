@@ -8,12 +8,12 @@ import (
 	"strconv"
 	"strings"
 
-	"gh-review-task/internal/ai"
-	"gh-review-task/internal/config"
-	"gh-review-task/internal/github"
-	"gh-review-task/internal/setup"
-	"gh-review-task/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/ai"
+	"reviewtask/internal/config"
+	"reviewtask/internal/github"
+	"reviewtask/internal/setup"
+	"reviewtask/internal/storage"
 )
 
 // Version information (set at build time)
@@ -35,19 +35,19 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "gh-review-task [PR_NUMBER]",
+	Use:   "reviewtask [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
-	Long: `gh-review-task fetches GitHub Pull Request reviews, saves them locally,
+	Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
 Examples:
-  gh-review-task          # Check reviews for current branch's PR
-  gh-review-task 123      # Check reviews for PR #123
-  gh-review-task --refresh-cache  # Force refresh cache and reprocess all comments
-  gh-review-task status   # Show current task status
-  gh-review-task show     # Show current/next task details
-  gh-review-task show <task-id>  # Show specific task details
-  gh-review-task update <task-id> doing  # Update task status`,
+  reviewtask          # Check reviews for current branch's PR
+  reviewtask 123      # Check reviews for PR #123
+  reviewtask --refresh-cache  # Force refresh cache and reprocess all comments
+  reviewtask status   # Show current task status
+  reviewtask show     # Show current/next task details
+  reviewtask show <task-id>  # Show specific task details
+  reviewtask update <task-id> doing  # Update task status`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runReviewTask,
 }
@@ -70,7 +70,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 	// Check if initialization is needed
 	if setup.ShouldPromptInit() {
-		fmt.Println("🔧 This repository is not initialized for gh-review-task.")
+		fmt.Println("🔧 This repository is not initialized for reviewtask.")
 		fmt.Println()
 
 		reader := bufio.NewReader(os.Stdin)
@@ -88,7 +88,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		} else {
 			fmt.Println()
 			fmt.Println("To initialize later, run:")
-			fmt.Println("  gh-review-task init")
+			fmt.Println("  reviewtask init")
 			fmt.Println()
 			return fmt.Errorf("repository not initialized")
 		}
@@ -106,7 +106,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		fmt.Println("✗ GitHub authentication required")
 		fmt.Println()
 		fmt.Println("To authenticate with GitHub, run:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		fmt.Println()
 		fmt.Println("Or set the GITHUB_TOKEN environment variable")
 		return fmt.Errorf("authentication required")

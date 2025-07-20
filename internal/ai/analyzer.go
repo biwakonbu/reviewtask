@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"gh-review-task/internal/config"
-	"gh-review-task/internal/github"
-	"gh-review-task/internal/storage"
+	"reviewtask/internal/config"
+	"reviewtask/internal/github"
+	"reviewtask/internal/storage"
 )
 
 type Analyzer struct {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"gh-review-task/internal/storage"
-	"gh-review-task/internal/testutil"
+	"reviewtask/internal/storage"
+	"reviewtask/internal/testutil"
 )
 
 // StorageInterface defines the interface that storage manager must implement

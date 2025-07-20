@@ -2,7 +2,7 @@
 
 ## Overview
 
-`gh-review-task` follows [Semantic Versioning 2.0.0](https://semver.org/) (SemVer) for all releases. This document describes our versioning rules, release process, and usage guidelines.
+`reviewtask` follows [Semantic Versioning 2.0.0](https://semver.org/) (SemVer) for all releases. This document describes our versioning rules, release process, and usage guidelines.
 
 ## Semantic Versioning Rules
 
@@ -48,7 +48,7 @@ Given a version number `MAJOR.MINOR.PATCH`, increment the:
 - Adding support for new platforms or environments
 
 **Examples:**
-- Adding `gh-review-task export` command
+- Adding `reviewtask export` command
 - Adding new options to existing commands
 - Supporting new GitHub API features
 - Adding new AI analysis capabilities
@@ -86,7 +86,7 @@ Given a version number `MAJOR.MINOR.PATCH`, increment the:
 
 ```bash
 # Show version in version command output
-./gh-review-task version
+./reviewtask version
 
 # Get just the version number
 ./scripts/version.sh current
@@ -180,14 +180,14 @@ go build -ldflags="
   -X main.version=1.2.3
   -X main.commitHash=abc1234
   -X main.buildDate=2023-12-01T10:00:00Z
-" -o gh-review-task .
+" -o reviewtask .
 ```
 
 ### Version Information Display
 
 ```bash
-$ ./gh-review-task version
-gh-review-task version 1.2.3
+$ ./reviewtask version
+reviewtask version 1.2.3
 Commit: abc1234
 Built: 2023-12-01T10:00:00Z
 Go version: go1.21.0
@@ -309,4 +309,4 @@ GOOS=linux GOARCH=amd64 go build .
 - Check version info: `./scripts/version.sh info`
 - Test build process: `./scripts/build.sh test`
 - Prepare release: `./scripts/release.sh prepare`
-- Report issues: [GitHub Issues](https://github.com/biwakonbu/ai-pr-review-checker/issues)
+- Report issues: [GitHub Issues](https://github.com/biwakonbu/reviewtask/issues)

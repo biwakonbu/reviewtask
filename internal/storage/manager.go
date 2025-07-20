@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gh-review-task/internal/github"
+	"reviewtask/internal/github"
 )
 
 const (

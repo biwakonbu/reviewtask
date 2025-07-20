@@ -209,11 +209,11 @@ By default, shows statistics for the current branch. Use flags to show all PRs
 or filter by specific criteria.
 
 Examples:
-  gh-review-task stats           # Show stats for current branch
-  gh-review-task stats --all     # Show stats for all PRs
-  gh-review-task stats --pr 123  # Show stats for PR #123
-  gh-review-task stats --branch feature/xyz  # Show stats for specific branch
-  gh-review-task stats 123       # Show stats for PR #123 (positional)`,
+  reviewtask stats           # Show stats for current branch
+  reviewtask stats --all     # Show stats for all PRs
+  reviewtask stats --pr 123  # Show stats for PR #123
+  reviewtask stats --branch feature/xyz  # Show stats for specific branch
+  reviewtask stats 123       # Show stats for PR #123 (positional)`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Mock implementation - should not run
@@ -245,7 +245,7 @@ Examples:
 	expectedElements := []string{
 		"Display detailed statistics about tasks",
 		"Examples:",
-		"gh-review-task stats",
+		"reviewtask stats",
 		"--all",
 		"--pr",
 		"--branch",

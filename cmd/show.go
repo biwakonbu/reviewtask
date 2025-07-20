@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"gh-review-task/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/storage"
 )
 
 var showCmd = &cobra.Command{
@@ -49,7 +49,7 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 
 	if len(allTasks) == 0 {
 		fmt.Println("No tasks found.")
-		fmt.Println("Run 'gh-review-task [PR_NUMBER]' to analyze PR reviews and generate tasks.")
+		fmt.Println("Run 'reviewtask [PR_NUMBER]' to analyze PR reviews and generate tasks.")
 		return nil
 	}
 
@@ -80,7 +80,7 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 	if nextTask == nil {
 		fmt.Println("✅ No current or next tasks found.")
 		fmt.Println("All tasks may be completed, cancelled, or pending.")
-		fmt.Println("Run 'gh-review-task status' to see overall task status.")
+		fmt.Println("Run 'reviewtask status' to see overall task status.")
 		return nil
 	}
 
@@ -174,19 +174,19 @@ func displayTaskDetails(task storage.Task) error {
 	switch task.Status {
 	case "todo":
 		fmt.Printf("   Start working on this task:\n")
-		fmt.Printf("   gh-review-task update %s doing\n", task.ID)
+		fmt.Printf("   reviewtask update %s doing\n", task.ID)
 	case "doing":
 		fmt.Printf("   Mark as completed when done:\n")
-		fmt.Printf("   gh-review-task update %s done\n", task.ID)
+		fmt.Printf("   reviewtask update %s done\n", task.ID)
 		fmt.Printf("   \n")
 		fmt.Printf("   Or mark as pending if blocked:\n")
-		fmt.Printf("   gh-review-task update %s pending\n", task.ID)
+		fmt.Printf("   reviewtask update %s pending\n", task.ID)
 	case "pending":
 		fmt.Printf("   Resume work when unblocked:\n")
-		fmt.Printf("   gh-review-task update %s doing\n", task.ID)
+		fmt.Printf("   reviewtask update %s doing\n", task.ID)
 		fmt.Printf("   \n")
 		fmt.Printf("   Or cancel if no longer needed:\n")
-		fmt.Printf("   gh-review-task update %s cancel\n", task.ID)
+		fmt.Printf("   reviewtask update %s cancel\n", task.ID)
 	case "done":
 		fmt.Printf("   Task completed! ✅\n")
 	case "cancel", "cancelled":

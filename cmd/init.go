@@ -6,16 +6,16 @@ import (
 	"os"
 	"strings"
 
-	"gh-review-task/internal/config"
-	"gh-review-task/internal/github"
-	"gh-review-task/internal/setup"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/config"
+	"reviewtask/internal/github"
+	"reviewtask/internal/setup"
 )
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize gh-review-task for this repository",
-	Long: `Initialize gh-review-task for this repository by:
+	Short: "Initialize reviewtask for this repository",
+	Long: `Initialize reviewtask for this repository by:
 - Creating .pr-review directory
 - Generating default configuration
 - Adding .pr-review to .gitignore
@@ -28,7 +28,7 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("🚀 Initializing gh-review-task for this repository...")
+	fmt.Println("🚀 Initializing reviewtask for this repository...")
 	fmt.Println()
 
 	// 1. Check if already initialized
@@ -80,7 +80,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println("✗ No GitHub authentication found")
 		fmt.Println()
 		fmt.Println("To complete setup, please authenticate:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		fmt.Println()
 		return nil
 	}
@@ -93,7 +93,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("✗ Failed to create GitHub client\n")
 		fmt.Println()
 		fmt.Println("Please check your authentication:")
-		fmt.Println("  gh-review-task auth status")
+		fmt.Println("  reviewtask auth status")
 		return nil
 	}
 
@@ -102,7 +102,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Printf("✗ Failed to verify authentication\n")
 		fmt.Println()
 		fmt.Println("Please re-authenticate:")
-		fmt.Println("  gh-review-task auth login")
+		fmt.Println("  reviewtask auth login")
 		return nil
 	}
 
@@ -125,9 +125,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	fmt.Println("🎉 Initialization complete!")
 	fmt.Println()
-	fmt.Println("You can now use gh-review-task:")
-	fmt.Println("  gh-review-task <PR_NUMBER>  # Analyze specific PR")
-	fmt.Println("  gh-review-task status       # View current tasks")
+	fmt.Println("You can now use reviewtask:")
+	fmt.Println("  reviewtask <PR_NUMBER>  # Analyze specific PR")
+	fmt.Println("  reviewtask status       # View current tasks")
 	fmt.Println()
 
 	return nil

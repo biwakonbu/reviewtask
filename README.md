@@ -1,9 +1,9 @@
-# AI-Powered PR Review Management Tool
+# reviewtask - AI-Powered PR Review Management Tool
 
-[![CI](https://github.com/biwakonbu/ai-pr-review-checker/workflows/CI/badge.svg)](https://github.com/biwakonbu/ai-pr-review-checker/actions)
-[![codecov](https://codecov.io/gh/biwakonbu/ai-pr-review-checker/branch/main/graph/badge.svg)](https://codecov.io/gh/biwakonbu/ai-pr-review-checker)
-[![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/ai-pr-review-checker)](https://goreportcard.com/report/github.com/biwakonbu/ai-pr-review-checker)
-[![GoDoc](https://godoc.org/github.com/biwakonbu/ai-pr-review-checker?status.svg)](https://godoc.org/github.com/biwakonbu/ai-pr-review-checker)
+[![CI](https://github.com/biwakonbu/reviewtask/workflows/CI/badge.svg)](https://github.com/biwakonbu/reviewtask/actions)
+[![codecov](https://codecov.io/gh/biwakonbu/reviewtask/branch/main/graph/badge.svg)](https://codecov.io/gh/biwakonbu/reviewtask)
+[![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/reviewtask)](https://goreportcard.com/report/github.com/biwakonbu/reviewtask)
+[![GoDoc](https://godoc.org/github.com/biwakonbu/reviewtask?status.svg)](https://godoc.org/github.com/biwakonbu/reviewtask)
 
 A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers.
 
@@ -27,30 +27,30 @@ Download the latest release for your platform:
 
 ```bash
 # Download latest release (Linux/macOS/Windows)
-curl -L https://github.com/biwakonbu/ai-pr-review-checker/releases/latest/download/gh-review-task-<version>-<os>-<arch>.tar.gz | tar xz
+curl -L https://github.com/biwakonbu/reviewtask/releases/latest/download/reviewtask-<version>-<os>-<arch>.tar.gz | tar xz
 
 # Make executable and move to PATH
-chmod +x gh-review-task-<version>-<os>-<arch>
-sudo mv gh-review-task-<version>-<os>-<arch> /usr/local/bin/gh-review-task
+chmod +x reviewtask-<version>-<os>-<arch>
+sudo mv reviewtask-<version>-<os>-<arch> /usr/local/bin/reviewtask
 ```
 
 ### Install with Go
 
 ```bash
-go install github.com/biwakonbu/ai-pr-review-checker@latest
+go install github.com/biwakonbu/reviewtask@latest
 ```
 
 ### Build from Source
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/biwakonbu/ai-pr-review-checker.git
-cd ai-pr-review-checker
+git clone https://github.com/biwakonbu/reviewtask.git
+cd reviewtask
 ```
 
 2. Build the binary:
 ```bash
-go build -o gh-review-task
+go build -o reviewtask
 ```
 
 3. Install Claude Code CLI (required for AI analysis):
@@ -63,7 +63,7 @@ go build -o gh-review-task
 
 ```bash
 # Check version and build information
-gh-review-task version
+reviewtask version
 ```
 
 ## Quick Start
@@ -72,7 +72,7 @@ gh-review-task version
 
 ```bash
 # Initialize the tool in your repository
-./gh-review-task init
+./reviewtask init
 ```
 
 This will:
@@ -85,13 +85,13 @@ This will:
 
 ```bash
 # Login with GitHub token
-./gh-review-task auth login
+./reviewtask auth login
 
 # Check authentication status
-./gh-review-task auth status
+./reviewtask auth status
 
 # Logout
-./gh-review-task auth logout
+./reviewtask auth logout
 ```
 
 Authentication sources (in order of preference):
@@ -103,10 +103,10 @@ Authentication sources (in order of preference):
 
 ```bash
 # Analyze current branch's PR
-./gh-review-task
+./reviewtask
 
 # Analyze specific PR
-./gh-review-task 123
+./reviewtask 123
 
 # The tool will:
 # - Fetch PR reviews and comments
@@ -119,16 +119,16 @@ Authentication sources (in order of preference):
 
 ```bash
 # View all task status
-./gh-review-task status
+./reviewtask status
 
 # Show current/next task details
-./gh-review-task show
+./reviewtask show
 
 # Show specific task details
-./gh-review-task show <task-id>
+./reviewtask show <task-id>
 
 # Update specific task status
-./gh-review-task update <task-id> <status>
+./reviewtask update <task-id> <status>
 
 # Valid statuses: todo, doing, done, pending, cancel
 ```
@@ -137,14 +137,14 @@ Authentication sources (in order of preference):
 
 | Command | Description |
 |---------|-------------|
-| `gh-review-task` | Analyze current branch's PR |
-| `gh-review-task <PR_NUMBER>` | Analyze specific PR |
-| `gh-review-task status` | Show task status and statistics |
-| `gh-review-task show [task-id]` | Show current/next task or specific task details |
-| `gh-review-task update <id> <status>` | Update task status |
-| `gh-review-task version` | Show version, build, and runtime information |
-| `gh-review-task init` | Initialize repository |
-| `gh-review-task auth <cmd>` | Authentication management |
+| `reviewtask` | Analyze current branch's PR |
+| `reviewtask <PR_NUMBER>` | Analyze specific PR |
+| `reviewtask status` | Show task status and statistics |
+| `reviewtask show [task-id]` | Show current/next task or specific task details |
+| `reviewtask update <id> <status>` | Update task status |
+| `reviewtask version` | Show version, build, and runtime information |
+| `reviewtask init` | Initialize repository |
+| `reviewtask auth <cmd>` | Authentication management |
 
 ## Configuration
 
@@ -219,7 +219,7 @@ Edit `.pr-review/config.json` to customize priority rules:
 
 ```bash
 # Check token permissions
-./gh-review-task auth check
+./reviewtask auth check
 
 # Common solutions:
 export GITHUB_TOKEN="your_token_here"

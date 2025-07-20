@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"gh-review-task/cmd"
+	"reviewtask/cmd"
 )
 
 // Build-time variables (set via -ldflags)

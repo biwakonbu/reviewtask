@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Release automation script for gh-review-task
+# Release automation script for reviewtask
 # Handles version bumping, tagging, and release preparation
 
 set -e
@@ -123,10 +123,10 @@ Download the appropriate binary for your platform from the release assets below.
 
 ### Build from Source
 \`\`\`bash
-git clone https://github.com/biwakonbu/ai-pr-review-checker.git
-cd ai-pr-review-checker
+git clone https://github.com/biwakonbu/reviewtask.git
+cd reviewtask
 git checkout v${new_version}
-go build -o gh-review-task .
+go build -o reviewtask .
 \`\`\`
 
 ## Checksums
@@ -207,7 +207,7 @@ create_release() {
     
     log_success "Release v$new_version created successfully!"
     echo
-    echo "View the release at: https://github.com/biwakonbu/ai-pr-review-checker/releases/tag/v$new_version"
+    echo "View the release at: https://github.com/biwakonbu/reviewtask/releases/tag/v$new_version"
     
     # Clean up
     rm -f "$RELEASE_NOTES_FILE"

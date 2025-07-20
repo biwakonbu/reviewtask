@@ -60,7 +60,7 @@ func UpdateGitignore() error {
 			return fmt.Errorf("failed to write newline to .gitignore: %w", err)
 		}
 	}
-	if _, err := file.WriteString("# gh-review-task data directory\n"); err != nil {
+	if _, err := file.WriteString("# reviewtask data directory\n"); err != nil {
 		return fmt.Errorf("failed to write comment to .gitignore: %w", err)
 	}
 	if _, err := file.WriteString(".pr-review/\n"); err != nil {

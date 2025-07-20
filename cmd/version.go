@@ -10,7 +10,7 @@ import (
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Long:  `Display version, build information, and runtime details for gh-review-task.`,
+	Long:  `Display version, build information, and runtime details for reviewtask.`,
 	RunE:  runVersion,
 }
 
@@ -19,7 +19,7 @@ func init() {
 }
 
 func runVersion(cmd *cobra.Command, args []string) error {
-	fmt.Printf("gh-review-task version %s\n", appVersion)
+	fmt.Printf("reviewtask version %s\n", appVersion)
 	fmt.Printf("Commit: %s\n", appCommitHash)
 	fmt.Printf("Built: %s\n", appBuildDate)
 	fmt.Printf("Go version: %s\n", runtime.Version())

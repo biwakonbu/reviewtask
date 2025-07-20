@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"gh-review-task/internal/github"
+	"reviewtask/internal/github"
 )
 
 // Stage 1: Format Validation (Mechanical)
