@@ -211,3 +211,208 @@ internal/              # Private implementation packages
 - Breaking changes clearly documented
 - Migration guides for configuration changes
 - Backward compatibility maintained when possible
+
+## Release Management and Versioning Rules
+
+### Core Versioning Principles
+
+**Semantic Versioning Compliance:**
+- **MAJOR.MINOR.PATCH** format strictly enforced
+- Version changes must follow semantic meaning
+- Git tags use `v` prefix (e.g., `v1.2.3`)
+- Version embedded in binary at build time
+
+### Version Decision Matrix
+
+**MAJOR Version Increment (Breaking Changes):**
+- CLI command removal or incompatible changes
+- Configuration file format breaking changes
+- Data storage structure requiring migration
+- Authentication or workflow requirement changes
+- Minimum Go version or dependency changes
+
+**MINOR Version Increment (New Features):**
+- New CLI commands or subcommands
+- New configuration options (backwards compatible)
+- Performance improvements or new capabilities
+- Support for new platforms or GitHub API features
+- Enhanced AI analysis features
+
+**PATCH Version Increment (Bug Fixes):**
+- Bug fixes without functional changes
+- Error message improvements
+- Security or dependency updates
+- Documentation improvements
+- Internal refactoring
+
+### Mandatory Version Management Commands
+
+**Pre-Release Validation:**
+```bash
+# ALWAYS check current state before any version changes
+./scripts/version.sh info
+
+# ALWAYS prepare and validate before releasing
+./scripts/release.sh prepare [major|minor|patch]
+
+# ALWAYS test cross-compilation
+./scripts/build.sh test
+```
+
+**Version Operations:**
+```bash
+# Check current version
+./scripts/version.sh current
+
+# Bump version (creates git tag automatically)
+./scripts/version.sh bump [major|minor|patch]
+
+# Create full release (GitHub + binaries)
+./scripts/release.sh release [major|minor|patch]
+```
+
+### Release Process Enforcement Rules
+
+**Pre-Release Requirements:**
+1. **Clean Working Directory**: No uncommitted changes allowed
+2. **Main Branch**: Must be on main branch (warnings for others)
+3. **Test Validation**: All tests must pass
+4. **Cross-Platform Build**: All 6 platforms must compile successfully
+5. **Version Consistency**: Binary version must match git tag
+
+**Automated Release Pipeline:**
+- GitHub Actions triggered on `v*` tag push
+- Cross-platform binary builds (Linux/macOS/Windows on amd64/arm64)
+- Automatic release notes generation from git commits
+- Checksum generation for security verification
+- Draft release creation with manual approval
+
+### Version Source Priority Hierarchy
+
+**Version Detection Order:**
+1. **Git Tags**: Exact match for current commit (`git describe --tags --exact-match`)
+2. **Latest Git Tag**: Most recent tag (`git describe --tags --abbrev=0`)
+3. **VERSION File**: Local version file in repository root
+4. **Default**: Fallback to `0.1.0` for new repositories
+
+### Breaking Change Management
+
+**Deprecation Process:**
+1. **Announce**: Deprecation warning in MINOR release
+2. **Maintain**: Support deprecated features for 1+ major versions
+3. **Remove**: Only remove in next MAJOR release
+4. **Document**: Clear migration guides required
+
+**Configuration Changes:**
+- Backwards compatibility maintained within major versions
+- New configuration options default to safe values
+- Migration scripts provided for breaking changes
+- Clear upgrade instructions in release notes
+
+### Developer Workflow Integration
+
+**During Development:**
+```bash
+# Check version before starting work
+gh-review-task version
+
+# Build with version embedding
+VERSION=$(./scripts/version.sh current) go build -ldflags="-X main.version=$VERSION" .
+```
+
+**Before Committing Version Changes:**
+```bash
+# Validate all systems
+./scripts/test_versioning.sh
+
+# Ensure clean build
+./scripts/build.sh clean && ./scripts/build.sh test
+```
+
+**Release Preparation Checklist:**
+- [ ] All tests passing
+- [ ] Documentation updated
+- [ ] Breaking changes documented
+- [ ] Migration guides written (if needed)
+- [ ] Cross-platform build validated
+- [ ] Release notes reviewed
+
+### Version Embedding Standards
+
+**Build-Time Variables:**
+- `main.version`: Semantic version (e.g., "1.2.3")
+- `main.commitHash`: Short git commit hash
+- `main.buildDate`: RFC3339 timestamp
+
+**Binary Version Display:**
+```bash
+$ gh-review-task version
+gh-review-task version 1.2.3
+Commit: abc1234
+Built: 2023-12-01T10:00:00Z
+Go version: go1.21.0
+OS/Arch: linux/amd64
+```
+
+### Critical Development Rules
+
+**NEVER:**
+- Manually edit version numbers in source code
+- Create releases without using provided scripts
+- Skip cross-platform build testing
+- Release with uncommitted changes
+- Use lightweight git tags (always annotated)
+
+**ALWAYS:**
+- Use semantic versioning decision matrix
+- Test version embedding before release
+- Generate checksums for binary distributions
+- Follow GitHub Actions workflow validation
+- Document breaking changes clearly
+
+### Emergency Release Process
+
+**Hotfix Releases:**
+1. Create hotfix branch from last stable tag
+2. Apply minimal fix
+3. Use PATCH version increment
+4. Fast-track through release process
+5. Merge back to main branch
+
+**Security Releases:**
+- Immediate PATCH release for security fixes
+- Clear security advisory in release notes
+- Coordinate with GitHub security advisories
+- Provide upgrade urgency guidance
+
+### Monitoring and Validation
+
+**Automated Checks:**
+- GitHub Actions workflow validates all builds
+- Cross-compilation verified for all platforms
+- Version consistency checked between git tags and binaries
+- Release asset integrity validated with checksums
+
+**Manual Verification:**
+- Version command output validation
+- Installation process testing on multiple platforms
+- Backwards compatibility testing with previous versions
+- Documentation accuracy verification
+
+For complete versioning guidelines, see [docs/VERSIONING.md](docs/VERSIONING.md).
+
+# important-instruction-reminders
+Do what has been asked; nothing more, nothing less.
+NEVER create files unless they're absolutely necessary for achieving your goal.
+ALWAYS prefer editing an existing file to creating a new one.
+NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User.
+
+## Version Management Critical Rules
+ALWAYS follow semantic versioning rules when making any changes that affect releases.
+NEVER manually edit version numbers in source code - use ./scripts/version.sh commands.
+ALWAYS test cross-platform builds before any release using ./scripts/build.sh test.
+ALWAYS validate version embedding in binaries before release.
+NEVER skip release preparation steps - use ./scripts/release.sh prepare before release.
+ALWAYS ensure clean working directory before version bumps or releases.
+ALWAYS use annotated git tags with v prefix (v1.2.3) for releases.
+NEVER create releases without using provided automation scripts.

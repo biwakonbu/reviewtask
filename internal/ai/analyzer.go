@@ -12,7 +12,6 @@ import (
 	"gh-review-task/internal/config"
 	"gh-review-task/internal/github"
 	"gh-review-task/internal/storage"
-	"github.com/google/uuid"
 )
 
 type Analyzer struct {
@@ -75,7 +74,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 
 	// Check if validation is enabled in config
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		fmt.Printf("  🐛 Using validation-enabled path (legacy)\n")
+		fmt.Printf("  🐛 Using validation-enabled path\n")
 		return a.GenerateTasksWithValidation(reviews)
 	}
 
@@ -364,7 +363,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 
 	for _, task := range tasks {
 		storageTask := storage.Task{
-			ID:              uuid.New().String(),
+			ID:              fmt.Sprintf("comment-%d-task-%d", task.SourceCommentID, task.TaskIndex),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        task.Priority,

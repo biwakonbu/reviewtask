@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.inputs.tag || github.ref }}
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'
+
+    - name: Get version information
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          VERSION="${{ github.event.inputs.tag }}"
+        else
+          VERSION=${GITHUB_REF#refs/tags/}
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        echo "version_clean=${VERSION#v}" >> $GITHUB_OUTPUT
+        echo "commit_hash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        echo "build_date=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
+    - name: Verify tag exists
+      run: |
+        if ! git tag | grep -q "^${{ steps.version.outputs.version }}$"; then
+          echo "Tag ${{ steps.version.outputs.version }} does not exist"
+          exit 1
+        fi
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build cross-platform binaries
+      run: |
+        export VERSION="${{ steps.version.outputs.version_clean }}"
+        export COMMIT_HASH="${{ steps.version.outputs.commit_hash }}"
+        export BUILD_DATE="${{ steps.version.outputs.build_date }}"
+        ./scripts/build.sh full
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        # Get previous tag for changelog
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "${{ steps.version.outputs.version }}" | head -n1 || echo "")
+        
+        echo "## What's Changed" > release_notes.md
+        echo "" >> release_notes.md
+        
+        if [ -n "$PREVIOUS_TAG" ]; then
+          echo "Changes since $PREVIOUS_TAG:" >> release_notes.md
+          echo "" >> release_notes.md
+          git log --pretty=format:"- %s (%h)" --reverse "$PREVIOUS_TAG..${{ steps.version.outputs.version }}" >> release_notes.md
+        else
+          echo "Initial release" >> release_notes.md
+        fi
+        
+        echo "" >> release_notes.md
+        echo "## Installation" >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Download Binary" >> release_notes.md
+        echo "Download the appropriate binary for your platform from the assets below." >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Install with Go" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "go install github.com/biwakonbu/ai-pr-review-checker@${{ steps.version.outputs.version }}" >> release_notes.md
+        echo '```' >> release_notes.md
+        echo "" >> release_notes.md
+        echo "### Build from Source" >> release_notes.md
+        echo '```bash' >> release_notes.md
+        echo "git clone https://github.com/biwakonbu/ai-pr-review-checker.git" >> release_notes.md
+        echo "cd ai-pr-review-checker" >> release_notes.md
+        echo "git checkout ${{ steps.version.outputs.version }}" >> release_notes.md
+        echo "go build -o gh-review-task ." >> release_notes.md
+        echo '```' >> release_notes.md
+        echo "" >> release_notes.md
+        echo "## Verification" >> release_notes.md
+        echo "Binary checksums are provided in the \`SHA256SUMS\` file." >> release_notes.md
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: Release ${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        files: |
+          dist/*.tar.gz
+          dist/*.zip
+          dist/SHA256SUMS
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-binaries-${{ steps.version.outputs.version_clean }}
+        path: |
+          dist/*.tar.gz
+          dist/*.zip
+          dist/SHA256SUMS
+        retention-days: 30
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_clean: ${{ steps.version.outputs.version_clean }}
+
+  verify-release:
+    name: Verify Release
+    runs-on: ubuntu-latest
+    needs: release
+    
+    steps:
+    - name: Download release assets
+      run: |
+        VERSION="${{ needs.release.outputs.version || github.ref_name }}"
+        gh release download "$VERSION" --repo "${{ github.repository }}"
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Verify checksums
+      run: |
+        if [ -f SHA256SUMS ]; then
+          sha256sum -c SHA256SUMS
+        else
+          echo "Warning: SHA256SUMS file not found"
+          exit 1
+        fi
+
+    - name: Test binary execution
+      run: |
+        # Extract and test Linux amd64 binary
+        VERSION_CLEAN="${{ needs.release.outputs.version_clean || github.ref_name }}"
+        VERSION_CLEAN="${VERSION_CLEAN#v}"
+        
+        if [ -f "gh-review-task-${VERSION_CLEAN}-linux-amd64.tar.gz" ]; then
+          tar -xzf "gh-review-task-${VERSION_CLEAN}-linux-amd64.tar.gz"
+          chmod +x "gh-review-task-${VERSION_CLEAN}-linux-amd64"
+          
+          # Test version command
+          ./"gh-review-task-${VERSION_CLEAN}-linux-amd64" version
+        else
+          echo "Linux amd64 binary not found"
+          ls -la
+          exit 1
+        fi

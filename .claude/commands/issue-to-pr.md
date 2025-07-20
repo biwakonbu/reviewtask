@@ -167,11 +167,40 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 
 ### 4. Progress Report Phase
 
-**Execution Command Content Recitation:**
-- **MANDATORY**: After each implementation item completion (including tests), recite the ENTIRE issue-to-pr command file content word-for-word
+**🚨 CRITICAL MANDATORY: Execution Command Content Recitation**
+
+**ABSOLUTE REQUIREMENT - ZERO TOLERANCE FOR OMISSION:**
+
+**After EVERY implementation item completion (including tests), MUST execute:**
+
+1. **Complete Command Recitation:**
+   - **RECITE THE ENTIRE issue-to-pr command file content WORD-FOR-WORD**
+   - Include EVERY section from "Core Principle" to "Related Information"
+   - NO SUMMARIES, NO ABBREVIATIONS, NO SHORTCUTS ALLOWED
+   - **FAILURE TO RECITE = WORKFLOW VIOLATION**
+
+2. **Recitation Verification Checklist:**
+   - [ ] Started with "# Issue to PR Workflow"
+   - [ ] Included complete Core Principle section
+   - [ ] Covered entire Development Workflow diagram
+   - [ ] Detailed all 5 Execution Steps
+   - [ ] Covered all Usage Examples
+   - [ ] Included all Important Notes and Requirements
+   - [ ] Ended with Related Information section
+   - [ ] **TOTAL RECITATION COMPLETED**
+
+3. **Post-Recitation Confirmation:**
+   - State: "✅ COMPLETE COMMAND RECITATION FINISHED"
+   - Only then proceed to next implementation item
+   - **NO CONTINUATION WITHOUT EXPLICIT RECITATION COMPLETION**
+
+**WORKFLOW ENFORCEMENT:**
+- **CANNOT PROCEED** to next implementation without recitation
+- **CANNOT ADVANCE** to Final Completion Phase without recitation
+- **MUST STOP** if recitation is incomplete or omitted
 - This ensures workflow adherence and prevents deviation from specified process
-- After recitation completion, proceed to next implementation item
-- Repeat the flow from item implementation until all specified Issue requirements are complete
+
+**Repeat this MANDATORY recitation flow after EVERY implementation item until ALL specified Issue requirements are complete**
 
 ### 5. Final Completion Phase
 
@@ -182,11 +211,36 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 - Update PR description to latest status with test coverage report
 - Record remaining issues in PR comments if any
 
-**Draft PR to Open Conversion:**
-- **MANDATORY**: Convert Draft PR to Open (ready for review) status
-- Use command: `gh pr ready <PR_NUMBER>` or equivalent GitHub CLI command
-- Ensure PR title and description accurately reflect completed work
-- Add appropriate labels and reviewers as needed
+**🚨 CRITICAL MANDATORY: Draft PR to Open Conversion**
+
+**AUTOMATED EXECUTION REQUIRED - NO EXCEPTIONS:**
+
+1. **Immediate Draft Removal:**
+   ```bash
+   # MUST EXECUTE THIS COMMAND AUTOMATICALLY
+   gh pr ready <PR_NUMBER>
+   ```
+
+2. **Conversion Verification:**
+   ```bash
+   # MUST VERIFY PR STATUS CHANGED TO OPEN
+   gh pr view <PR_NUMBER> --json state --jq '.state'
+   # Expected output: "OPEN"
+   ```
+
+3. **Failure Handling:**
+   - If `gh pr ready` fails: STOP workflow and report error
+   - If PR state is not "OPEN": Re-attempt conversion
+   - If still fails: Manual intervention required with clear error message
+
+**CONVERSION CHECKLIST - ALL MUST BE COMPLETED:**
+- [ ] Execute `gh pr ready <PR_NUMBER>` command
+- [ ] Verify PR state changed from "DRAFT" to "OPEN"
+- [ ] Confirm PR title and description accurately reflect completed work
+- [ ] Add appropriate labels and reviewers as needed
+- [ ] Document successful conversion in workflow log
+
+**WORKFLOW CANNOT PROCEED TO ISSUE UPDATE WITHOUT SUCCESSFUL PR CONVERSION**
 
 **Final Issue Update:**
 - Update Issue status to completed/closed
@@ -239,6 +293,53 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 # Result: ✅ Workflow already complete for Issue #42
 ```
 
+## 📋 Workflow Compliance Checklist
+
+**🚨 CRITICAL CHECKPOINTS - MUST BE VERIFIED AT EACH STAGE**
+
+### Phase 1: Initial Preparation Compliance
+- [ ] Moved to main branch successfully
+- [ ] Pulled latest changes (`git pull origin main`)
+- [ ] Created appropriate branch name (format: `feature/issue-N-description`)
+- [ ] Created Draft PR with correct Issue link
+- [ ] **COMPLETED INITIAL COMMAND RECITATION** ✅
+
+### Phase 2: Implementation Compliance (PER ITEM)
+- [ ] Implemented specific functionality item
+- [ ] Created comprehensive unit tests with mocks
+- [ ] Created integration tests where required
+- [ ] All tests passing (>90% coverage target)
+- [ ] Committed changes with descriptive message
+- [ ] Pushed changes to remote branch
+- [ ] Updated PR description with progress
+- [ ] **COMPLETED POST-IMPLEMENTATION COMMAND RECITATION** ✅
+
+### Phase 3: Final Completion Compliance
+- [ ] All implementation items completed
+- [ ] Complete test suite passing
+- [ ] Final commit and push executed
+- [ ] PR description fully updated
+- [ ] **EXECUTED `gh pr ready <PR_NUMBER>` COMMAND** ✅
+- [ ] **VERIFIED PR STATE CHANGED TO "OPEN"** ✅
+- [ ] Issue status updated to completed/closed
+- [ ] **COMPLETED FINAL COMMAND RECITATION** ✅
+
+### Workflow Violation Responses
+**If ANY checklist item is incomplete:**
+1. **STOP WORKFLOW IMMEDIATELY**
+2. **IDENTIFY MISSING ITEM(S)**
+3. **COMPLETE MISSING REQUIREMENTS**
+4. **VERIFY COMPLETION WITH CHECKLIST**
+5. **ONLY THEN CONTINUE WORKFLOW**
+
+**Common Violations and Fixes:**
+- **Missing Recitation**: Execute complete command file recitation immediately
+- **Draft PR Not Converted**: Execute `gh pr ready <PR_NUMBER>` and verify
+- **Incomplete Tests**: Create missing tests and achieve coverage requirements
+- **Uncommitted Changes**: Commit and push all changes before proceeding
+
+**ZERO TOLERANCE POLICY: No workflow advancement without checklist completion**
+
 ## ⚠️ Important Notes
 
 **Resume Functionality Requirements:**
@@ -247,24 +348,44 @@ PR_INFO=$(gh pr view --json number,state,title --jq '{number: .number, state: .s
 - **BRANCH PATTERN**: Supports branch names like `feature/issue-N-description` or `issue-N-description`
 - **PR STATE**: Analyzes Draft/Open PR status to determine resume point
 
-**Command Content Recitation Requirements:**
-- **MANDATORY**: Must recite ENTIRE command file content after Draft PR creation (fresh start or resume)
-- **MANDATORY**: Must recite ENTIRE command file content after each implementation item completion
-- **NO EXCEPTIONS**: Cannot proceed without complete recitation
-- **RESUME RECITATION**: Must recite when resuming workflow, regardless of entry point
-- Ensures workflow adherence and prevents process deviation
+**🤖 AUTOMATED EXECUTION REQUIREMENTS:**
 
-**Automated Test Requirements:**
-- **MANDATORY**: Create comprehensive unit tests with appropriate mocking
-- **MANDATORY**: Create integration tests where specification requires
-- **NO MANUAL TESTING ONLY**: All functionality must be covered by automated tests
-- Use mocking frameworks for external dependencies (APIs, file system, network)
-- Achieve high test coverage (>90% for new code)
+**Command Content Recitation - AUTOMATED:**
+- **AUTO-TRIGGER**: After Draft PR creation (fresh start or resume)
+- **AUTO-TRIGGER**: After each implementation item completion
+- **AUTO-EXECUTION**: Recite ENTIRE command file content word-for-word
+- **AUTO-VERIFICATION**: Confirm recitation includes all sections
+- **FAILURE HANDLING**: STOP workflow if recitation incomplete
 
-**Draft PR to Open Conversion:**
-- **MANDATORY**: Must convert Draft PR to Open status upon completion
-- Use `gh pr ready <PR_NUMBER>` command
-- **FAILURE TO CONVERT**: Results in incomplete workflow execution
+**Test Implementation - AUTOMATED:**
+- **AUTO-CREATE**: Comprehensive unit tests with appropriate mocking
+- **AUTO-CREATE**: Integration tests where specification requires
+- **AUTO-EXECUTE**: Run all tests and verify >90% coverage
+- **AUTO-VALIDATE**: Ensure all tests pass before proceeding
+- **FAILURE HANDLING**: Fix implementation until tests pass
+
+**Draft PR Conversion - AUTOMATED:**
+- **AUTO-EXECUTE**: `gh pr ready <PR_NUMBER>` command
+- **AUTO-VERIFY**: PR state changed from "DRAFT" to "OPEN"
+- **AUTO-RETRY**: Re-attempt if initial conversion fails
+- **FAILURE HANDLING**: STOP workflow and report error if conversion fails
+
+**👁️ MANUAL VERIFICATION CHECKPOINTS:**
+
+**Recitation Verification:**
+- [ ] Verify complete command content was recited
+- [ ] Confirm all sections included (Core Principle → Related Information)
+- [ ] Validate recitation before proceeding to next step
+
+**Test Coverage Verification:**
+- [ ] Review test files created for each component
+- [ ] Confirm mocking strategy appropriate for external dependencies
+- [ ] Validate test coverage reports show >90% for new code
+
+**PR Conversion Verification:**
+- [ ] Confirm PR shows "OPEN" status in GitHub UI
+- [ ] Verify PR title and description accurately reflect work
+- [ ] Validate all commits and tests included in PR
 
 **Specification Test Priority Principle:**
 - Prioritize correct specification implementation validated by automated tests
