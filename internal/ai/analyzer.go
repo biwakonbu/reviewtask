@@ -106,10 +106,17 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		return []storage.Task{}, nil
 	}
 
-	// Extract all comments from all reviews
+	// Extract all comments with their review context
 	var allComments []github.Comment
+	var allCommentsCtx []CommentContext
 	for _, review := range reviews {
-		allComments = append(allComments, review.Comments...)
+		for _, comment := range review.Comments {
+			allComments = append(allComments, comment)
+			allCommentsCtx = append(allCommentsCtx, CommentContext{
+				Comment:      comment,
+				SourceReview: review,
+			})
+		}
 	}
 
 	if len(allComments) == 0 {
@@ -137,20 +144,16 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	var newTasks []storage.Task
 
 	if len(commentsToProcess) > 0 {
-		// Process only new and modified comments
+		// Process only new and modified comments using prebuilt context
 		var commentsToProcessCtx []CommentContext
+		commentsToProcessMap := make(map[int64]bool)
 		for _, comment := range commentsToProcess {
-			// Find the source review for this comment
-			for _, review := range reviews {
-				for _, reviewComment := range review.Comments {
-					if reviewComment.ID == comment.ID {
-						commentsToProcessCtx = append(commentsToProcessCtx, CommentContext{
-							Comment:      comment,
-							SourceReview: review,
-						})
-						break
-					}
-				}
+			commentsToProcessMap[comment.ID] = true
+		}
+		
+		for _, commentCtx := range allCommentsCtx {
+			if commentsToProcessMap[commentCtx.Comment.ID] {
+				commentsToProcessCtx = append(commentsToProcessCtx, commentCtx)
 			}
 		}
 
@@ -186,7 +189,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			taskIDGroups = append(taskIDGroups, commentTaskMap[comment.ID])
 		}
 
-		if err := storageManager.UpdateCommentCacheWithGroups(prNumber, processedComments, taskIDGroups); err != nil {
+		if err := storageManager.UpdateCommentCache(prNumber, processedComments, taskIDGroups); err != nil {
 			fmt.Printf("⚠️  Failed to update cache: %v\n", err)
 		}
 	} else {
@@ -546,8 +549,8 @@ func (a *Analyzer) clearValidationFeedback() {
 	a.validationFeedback = nil
 }
 
-// generateTasksParallel processes comments in parallel using goroutines
-func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.Task, error) {
+// processCommentsParallel handles common parallel processing logic
+func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
 	type commentResult struct {
 		tasks []TaskRequest
 		err   error
@@ -563,7 +566,7 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 		go func(index int, ctx CommentContext) {
 			defer wg.Done()
 
-			tasks, err := a.processComment(ctx)
+			tasks, err := processor(ctx)
 			results <- commentResult{
 				tasks: tasks,
 				err:   err,
@@ -600,8 +603,17 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 		}
 	}
 
-	fmt.Printf("✓ Generated %d tasks from %d comments\n", len(allTasks), len(comments))
 	return a.convertToStorageTasks(allTasks), nil
+}
+
+// generateTasksParallel processes comments in parallel using goroutines
+func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.Task, error) {
+	fmt.Printf("Processing %d comments in parallel...\n", len(comments))
+	tasks, err := a.processCommentsParallel(comments, a.processComment)
+	if err == nil {
+		fmt.Printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
+	}
+	return tasks, err
 }
 
 // processComment handles a single comment and returns tasks for it
@@ -772,58 +784,9 @@ func (a *Analyzer) findClaudeCommand() (string, error) {
 
 // generateTasksParallelWithValidation processes comments in parallel with validation enabled
 func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
-	type commentResult struct {
-		tasks []TaskRequest
-		err   error
-		index int
+	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
+	if err == nil {
+		fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))
 	}
-
-	results := make(chan commentResult, len(comments))
-	var wg sync.WaitGroup
-
-	// Process each comment in parallel with validation
-	for i, commentCtx := range comments {
-		wg.Add(1)
-		go func(index int, ctx CommentContext) {
-			defer wg.Done()
-
-			tasks, err := a.processCommentWithValidation(ctx)
-			results <- commentResult{
-				tasks: tasks,
-				err:   err,
-				index: index,
-			}
-		}(i, commentCtx)
-	}
-
-	// Wait for all goroutines to complete
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
-
-	// Collect results
-	var allTasks []TaskRequest
-	var errors []error
-
-	for result := range results {
-		if result.err != nil {
-			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
-		} else {
-			allTasks = append(allTasks, result.tasks...)
-		}
-	}
-
-	// Report errors but continue if we have some successful results
-	if len(errors) > 0 {
-		for _, err := range errors {
-			fmt.Printf("  ⚠️  %v\n", err)
-		}
-		if len(allTasks) == 0 {
-			return nil, fmt.Errorf("all comment processing failed")
-		}
-	}
-
-	fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(allTasks), len(comments))
-	return a.convertToStorageTasks(allTasks), nil
+	return tasks, err
 }

@@ -739,8 +739,8 @@ func TestManager_ClearCache(t *testing.T) {
 	}
 }
 
-// TestManager_UpdateCommentCacheWithGroups tests updating cache with grouped task IDs
-func TestManager_UpdateCommentCacheWithGroups(t *testing.T) {
+// TestManager_UpdateCommentCache tests updating cache with grouped task IDs
+func TestManager_UpdateCommentCache(t *testing.T) {
 	tempDir := t.TempDir()
 	manager := &Manager{baseDir: tempDir}
 
@@ -773,7 +773,7 @@ func TestManager_UpdateCommentCacheWithGroups(t *testing.T) {
 	}
 
 	// Update cache with grouped task IDs
-	if err := manager.UpdateCommentCacheWithGroups(prNumber, comments, taskIDGroups); err != nil {
+	if err := manager.UpdateCommentCache(prNumber, comments, taskIDGroups); err != nil {
 		t.Fatalf("Failed to update cache with groups: %v", err)
 	}
 

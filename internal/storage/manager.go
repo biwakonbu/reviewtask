@@ -644,7 +644,7 @@ func (m *Manager) DetectCommentChanges(prNumber int, currentComments []github.Co
 }
 
 // UpdateCommentCache updates the cache with processed comments
-func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Comment, generatedTaskIDs []string) error {
+func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Comment, taskIDsByComment [][]string) error {
 	cache, err := m.LoadReviewCache(prNumber)
 	if err != nil {
 		return fmt.Errorf("failed to load review cache: %w", err)
@@ -668,8 +668,8 @@ func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Co
 		}
 
 		// Assign task IDs if provided
-		if i < len(generatedTaskIDs) {
-			commentCache.TasksGenerated = []string{generatedTaskIDs[i]}
+		if i < len(taskIDsByComment) {
+			commentCache.TasksGenerated = taskIDsByComment[i]
 		}
 
 		// Update or add to cache
@@ -683,45 +683,6 @@ func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Co
 	return m.SaveReviewCache(cache)
 }
 
-// UpdateCommentCacheWithGroups updates the cache with processed comments and their grouped task IDs
-func (m *Manager) UpdateCommentCacheWithGroups(prNumber int, processedComments []github.Comment, taskIDGroups [][]string) error {
-	cache, err := m.LoadReviewCache(prNumber)
-	if err != nil {
-		return fmt.Errorf("failed to load review cache: %w", err)
-	}
-
-	// Create map for quick lookup of existing cache entries
-	cacheMap := make(map[int64]int)
-	for i, cc := range cache.CommentCaches {
-		cacheMap[cc.CommentID] = i
-	}
-
-	now := time.Now().Format("2006-01-02T15:04:05Z")
-
-	for i, comment := range processedComments {
-		commentCache := CommentCache{
-			CommentID:      comment.ID,
-			ContentHash:    m.GenerateContentHash(comment),
-			ThreadDepth:    len(comment.Replies),
-			LastProcessed:  now,
-			TasksGenerated: []string{},
-		}
-
-		// Assign task IDs if provided
-		if i < len(taskIDGroups) {
-			commentCache.TasksGenerated = taskIDGroups[i]
-		}
-
-		// Update or add to cache
-		if existingIndex, exists := cacheMap[comment.ID]; exists {
-			cache.CommentCaches[existingIndex] = commentCache
-		} else {
-			cache.CommentCaches = append(cache.CommentCaches, commentCache)
-		}
-	}
-
-	return m.SaveReviewCache(cache)
-}
 
 // ClearCache removes the review cache for a PR (for manual refresh)
 func (m *Manager) ClearCache(prNumber int) error {
