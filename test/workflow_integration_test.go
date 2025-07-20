@@ -18,7 +18,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	mockStorage.SetPRsForBranch("feature/auth", []int{1, 3})
 	mockStorage.SetPRsForBranch("feature/db", []int{2})
 	mockStorage.SetPRsForBranch("main", []int{4})
-	
+
 	// Setup tasks for each PR
 	mockStorage.SetTasks(1, []storage.Task{
 		{
@@ -42,7 +42,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 			Priority:        "medium",
 		},
 	})
-	
+
 	mockStorage.SetTasks(2, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655442001",
@@ -55,7 +55,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 			Priority:        "critical",
 		},
 	})
-	
+
 	mockStorage.SetTasks(3, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655443001",
@@ -68,7 +68,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 			Priority:        "low",
 		},
 	})
-	
+
 	mockStorage.SetTasks(4, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655444001",
@@ -220,7 +220,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 	mockStorage.SetCurrentBranch("feature/new-feature")
 	mockStorage.SetPRsForBranch("feature/new-feature", []int{5})
 	mockStorage.SetPRsForBranch("main", []int{6})
-	
+
 	mockStorage.SetTasks(5, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655445001",
@@ -237,7 +237,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 			OriginText:      "Implement feature",
 		},
 	})
-	
+
 	mockStorage.SetTasks(6, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655446001",

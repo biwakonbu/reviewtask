@@ -50,7 +50,7 @@ func (m *MockStorageManager) GetAllPRNumbers() ([]int, error) {
 	if len(m.allPRNumbers) > 0 {
 		return m.allPRNumbers, nil
 	}
-	
+
 	// Otherwise, aggregate from prBranches (backward compatibility)
 	prSet := make(map[int]bool)
 	for _, prs := range m.prBranches {
@@ -58,7 +58,7 @@ func (m *MockStorageManager) GetAllPRNumbers() ([]int, error) {
 			prSet[pr] = true
 		}
 	}
-	
+
 	var allPRs []int
 	for pr := range prSet {
 		allPRs = append(allPRs, pr)

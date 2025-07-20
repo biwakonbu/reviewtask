@@ -31,7 +31,7 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	mockStorage := testutil.NewMockStorageManager()
 	mockStorage.SetCurrentBranch(testBranch)
 	mockStorage.SetPRsForBranch(testBranch, []int{1, 2})
-	
+
 	mockStorage.SetTasks(1, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655441001",
@@ -40,7 +40,7 @@ func TestCurrentBranchStatistics(t *testing.T) {
 			OriginText:      "Task 1",
 		},
 	})
-	
+
 	mockStorage.SetTasks(2, []storage.Task{
 		{
 			ID:              "550e8400-e29b-41d4-a716-446655442001",
@@ -67,7 +67,6 @@ func TestCurrentBranchStatistics(t *testing.T) {
 		t.Errorf("Expected 2 total tasks, got: %d", stats.TotalTasks)
 	}
 }
-
 
 // TestStatisticsManager for integration tests
 type TestStatisticsManager struct {
