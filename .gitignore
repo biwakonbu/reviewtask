@@ -16,6 +16,11 @@ go.work
 
 # Built binary
 gh-review-task
+gh-review-task-*
+
+# Build artifacts
+dist/
+build/
 
 # Local data directory (contains sensitive PR data and auth token)
 .pr-review/
