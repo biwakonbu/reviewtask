@@ -4,6 +4,14 @@
 
 **Create systematic PRs and implementation from specified GitHub Issues numbers, realizing reliable development with emphasis on specification testing.**
 
+## 🔄 Resume Functionality
+
+**When executed without arguments:**
+- Automatically detect current branch and associated Issue/PR
+- Resume workflow from the appropriate stage based on current state
+- Continue implementation where it was left off
+- Maintain full workflow compliance including mandatory recitations
+
 ## 📊 Development Workflow
 
 ```mermaid
@@ -37,6 +45,45 @@ graph TD
 ```
 
 ## 🚀 Execution Steps
+
+### 0. Resume Detection Phase (When No Arguments Provided)
+
+**Automatic State Detection:**
+- Check current git branch for issue-related naming pattern
+- Detect existing Draft/Open PR associated with current branch
+- Analyze PR description and commits to determine current progress stage
+- Identify Issue number from branch name or PR links
+- Determine next workflow step based on current state
+
+**Resume Decision Logic:**
+```bash
+# If no Issue number provided as argument:
+if [[ -z "$ISSUE_NUMBER" ]]; then
+    # Auto-detect from current branch/PR state
+    CURRENT_BRANCH=$(git branch --show-current)
+    ISSUE_NUMBER=$(extract_issue_from_branch "$CURRENT_BRANCH")
+    PR_NUMBER=$(gh pr view --json number --jq .number 2>/dev/null)
+    
+    if [[ -n "$PR_NUMBER" ]]; then
+        # Resume from existing PR state
+        resume_from_pr_state "$PR_NUMBER" "$ISSUE_NUMBER"
+    elif [[ -n "$ISSUE_NUMBER" ]]; then
+        # Start fresh with detected Issue
+        start_fresh_workflow "$ISSUE_NUMBER"
+    else
+        echo "❌ Cannot detect Issue number from current context"
+        echo "Usage: /issue-to-pr <ISSUE_NUMBER>"
+        exit 1
+    fi
+fi
+```
+
+**State-Based Resume Points:**
+- **No PR exists**: Start from Initial Preparation Phase
+- **Draft PR exists, no commits**: Resume from Command Recitation
+- **Draft PR with commits, no tests**: Resume from Test Implementation Phase  
+- **Draft PR with tests**: Resume from Final Completion Phase
+- **Open PR exists**: Workflow already complete
 
 ### 1. Initial Preparation Phase
 
@@ -118,11 +165,12 @@ graph TD
 - Link the merged PR in Issue comments
 - Document any additional notes or follow-up items discovered during implementation
 
-## 📝 Usage Example
+## 📝 Usage Examples
 
+### Fresh Start with Issue Number
 ```bash
 # Start implementing functionality for specified Issue
-/issue-to-pr $ARGUMENTS
+/issue-to-pr 42
 
 # Execution result example (for Issue #42):
 # 1. Move to main branch and update
@@ -143,12 +191,39 @@ graph TD
 # 16. Final confirmation and Issue completion
 ```
 
+### Resume Existing Work (No Arguments)
+```bash
+# Resume work on current branch automatically
+/issue-to-pr
+
+# Automatic detection and resume examples:
+
+# Scenario 1: On feature/issue-42-add-metrics-export branch with Draft PR
+# Result: Auto-detects Issue #42, resumes from current stage
+
+# Scenario 2: On feature/issue-42-add-metrics-export branch, implementation started
+# Result: Auto-detects Issue #42, resumes from Test Implementation Phase
+
+# Scenario 3: On main branch
+# Result: ❌ Cannot detect Issue number from current context
+
+# Scenario 4: On feature/issue-42-add-metrics-export branch with Open PR
+# Result: ✅ Workflow already complete for Issue #42
+```
+
 ## ⚠️ Important Notes
 
+**Resume Functionality Requirements:**
+- **AUTO-DETECTION**: When no arguments provided, automatically detect Issue from current context
+- **STATE AWARENESS**: Resume from appropriate workflow stage based on current progress
+- **BRANCH PATTERN**: Supports branch names like `feature/issue-N-description` or `issue-N-description`
+- **PR STATE**: Analyzes Draft/Open PR status to determine resume point
+
 **Command Content Recitation Requirements:**
-- **MANDATORY**: Must recite ENTIRE command file content after Draft PR creation
+- **MANDATORY**: Must recite ENTIRE command file content after Draft PR creation (fresh start or resume)
 - **MANDATORY**: Must recite ENTIRE command file content after each implementation item completion
 - **NO EXCEPTIONS**: Cannot proceed without complete recitation
+- **RESUME RECITATION**: Must recite when resuming workflow, regardless of entry point
 - Ensures workflow adherence and prevents process deviation
 
 **Automated Test Requirements:**
