@@ -97,6 +97,128 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	return a.generateTasksParallel(allComments)
 }
 
+// GenerateTasksWithCache generates tasks using smart caching to avoid redundant AI processing
+func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
+	// Clear validation feedback to ensure clean state for each PR analysis
+	a.clearValidationFeedback()
+
+	if len(reviews) == 0 {
+		return []storage.Task{}, nil
+	}
+
+	// Extract all comments from all reviews
+	var allComments []github.Comment
+	for _, review := range reviews {
+		allComments = append(allComments, review.Comments...)
+	}
+
+	if len(allComments) == 0 {
+		return []storage.Task{}, nil
+	}
+
+	// Detect comment changes using cache
+	newComments, modifiedComments, err := storageManager.DetectCommentChanges(prNumber, allComments)
+	if err != nil {
+		fmt.Printf("⚠️  Cache detection failed, processing all comments: %v\n", err)
+		// Fallback to processing all comments if cache detection fails
+		return a.GenerateTasks(reviews)
+	}
+
+	commentsToProcess := append(newComments, modifiedComments...)
+	cachedComments, err := storageManager.GetCachedComments(prNumber, allComments)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to get cached comments: %v\n", err)
+		cachedComments = []github.Comment{}
+	}
+
+	fmt.Printf("💾 Cache analysis: %d cached, %d new, %d modified comments\n", 
+		len(cachedComments), len(newComments), len(modifiedComments))
+
+	var newTasks []storage.Task
+
+	if len(commentsToProcess) > 0 {
+		// Process only new and modified comments
+		var commentsToProcessCtx []CommentContext
+		for _, comment := range commentsToProcess {
+			// Find the source review for this comment
+			for _, review := range reviews {
+				for _, reviewComment := range review.Comments {
+					if reviewComment.ID == comment.ID {
+						commentsToProcessCtx = append(commentsToProcessCtx, CommentContext{
+							Comment:      comment,
+							SourceReview: review,
+						})
+						break
+					}
+				}
+			}
+		}
+
+		fmt.Printf("🤖 Processing %d new/modified comments with AI...\n", len(commentsToProcessCtx))
+		
+		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+			// Use validation mode for new/modified comments
+			generatedTasks, err := a.generateTasksParallelWithValidation(commentsToProcessCtx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate tasks with validation: %w", err)
+			}
+			newTasks = generatedTasks
+		} else {
+			// Use standard parallel processing
+			generatedTasks, err := a.generateTasksParallel(commentsToProcessCtx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate tasks: %w", err)
+			}
+			newTasks = generatedTasks
+		}
+
+		// Update cache with processed comments
+		var processedComments []github.Comment
+		var taskIDs []string
+		
+		for _, comment := range commentsToProcess {
+			processedComments = append(processedComments, comment)
+		}
+		
+		for _, task := range newTasks {
+			taskIDs = append(taskIDs, task.ID)
+		}
+
+		if err := storageManager.UpdateCommentCache(prNumber, processedComments, taskIDs); err != nil {
+			fmt.Printf("⚠️  Failed to update cache: %v\n", err)
+		}
+	} else {
+		fmt.Printf("✅ All comments are cached - no AI processing needed\n")
+	}
+
+	// Load existing tasks for cached comments
+	existingTasks, err := storageManager.GetTasksByPR(prNumber)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("failed to load existing tasks: %w", err)
+	}
+
+	// Filter existing tasks to only include those from cached comments
+	var cachedTasks []storage.Task
+	cachedCommentIDs := make(map[int64]bool)
+	for _, comment := range cachedComments {
+		cachedCommentIDs[comment.ID] = true
+	}
+
+	for _, task := range existingTasks {
+		if cachedCommentIDs[task.SourceCommentID] {
+			cachedTasks = append(cachedTasks, task)
+		}
+	}
+
+	// Combine cached tasks with newly generated tasks
+	allTasks := append(cachedTasks, newTasks...)
+	
+	fmt.Printf("📋 Task summary: %d from cache + %d newly generated = %d total\n", 
+		len(cachedTasks), len(newTasks), len(allTasks))
+
+	return allTasks, nil
+}
+
 type CommentContext struct {
 	Comment      github.Comment
 	SourceReview github.Review
@@ -644,4 +766,62 @@ func (a *Analyzer) buildRepliesContext(comment github.Comment) string {
 // findClaudeCommand searches for Claude CLI using the shared utility function
 func (a *Analyzer) findClaudeCommand() (string, error) {
 	return FindClaudeCommand(a.config.AISettings.ClaudePath)
+}
+
+// generateTasksParallelWithValidation processes comments in parallel with validation enabled
+func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
+	type commentResult struct {
+		tasks []TaskRequest
+		err   error
+		index int
+	}
+
+	results := make(chan commentResult, len(comments))
+	var wg sync.WaitGroup
+
+	// Process each comment in parallel with validation
+	for i, commentCtx := range comments {
+		wg.Add(1)
+		go func(index int, ctx CommentContext) {
+			defer wg.Done()
+
+			tasks, err := a.processCommentWithValidation(ctx)
+			results <- commentResult{
+				tasks: tasks,
+				err:   err,
+				index: index,
+			}
+		}(i, commentCtx)
+	}
+
+	// Wait for all goroutines to complete
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	var allTasks []TaskRequest
+	var errors []error
+
+	for result := range results {
+		if result.err != nil {
+			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
+		} else {
+			allTasks = append(allTasks, result.tasks...)
+		}
+	}
+
+	// Report errors but continue if we have some successful results
+	if len(errors) > 0 {
+		for _, err := range errors {
+			fmt.Printf("  ⚠️  %v\n", err)
+		}
+		if len(allTasks) == 0 {
+			return nil, fmt.Errorf("all comment processing failed")
+		}
+	}
+
+	fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(allTasks), len(comments))
+	return a.convertToStorageTasks(allTasks), nil
 }

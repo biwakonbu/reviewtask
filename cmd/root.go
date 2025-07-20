@@ -30,6 +30,10 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 	appBuildDate = buildDate
 }
 
+var (
+	refreshCache bool
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "gh-review-task [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
@@ -39,6 +43,7 @@ and uses AI to analyze review content for task generation.
 Examples:
   gh-review-task          # Check reviews for current branch's PR
   gh-review-task 123      # Check reviews for PR #123
+  gh-review-task --refresh-cache  # Force refresh cache and reprocess all comments
   gh-review-task status   # Show current task status
   gh-review-task show     # Show current/next task details
   gh-review-task show <task-id>  # Show specific task details
@@ -52,6 +57,7 @@ func Execute() error {
 }
 
 func init() {
+	rootCmd.PersistentFlags().BoolVar(&refreshCache, "refresh-cache", false, "Clear cache and reprocess all comments")
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(showCmd)
@@ -147,9 +153,24 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
 
-	// Generate tasks using AI
+	// Clear cache if refresh flag is set
+	if refreshCache {
+		fmt.Printf("🔄 Clearing cache for PR #%d...\n", prNumber)
+		if err := storageManager.ClearCache(prNumber); err != nil {
+			fmt.Printf("⚠️  Failed to clear cache: %v\n", err)
+		}
+	}
+
+	// Generate tasks using AI with smart caching
 	analyzer := ai.NewAnalyzer(cfg)
-	tasks, err := analyzer.GenerateTasks(reviews)
+	var tasks []storage.Task
+	if refreshCache {
+		// Force reprocessing all comments when cache is refreshed
+		tasks, err = analyzer.GenerateTasks(reviews)
+	} else {
+		// Use smart caching for normal operation
+		tasks, err = analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
