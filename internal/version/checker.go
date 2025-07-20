@@ -29,6 +29,13 @@ type Release struct {
 	HTMLURL     string    `json:"html_url"`
 }
 
+// VersionChecker interface for dependency injection in tests
+type VersionChecker interface {
+	GetLatestVersion(ctx context.Context) (*Release, error)
+	CompareVersions(current, latest string) (VersionComparison, error)
+	CheckAndNotify(ctx context.Context, currentVersion string, notifyPrereleases bool) (string, error)
+}
+
 // Checker handles version checking operations
 type Checker struct {
 	owner string
@@ -117,6 +124,11 @@ func parseVersion(version string) (*semanticVersion, error) {
 	// Handle development version
 	if version == "dev" {
 		return &semanticVersion{major: 999, minor: 999, patch: 999}, nil
+	}
+	
+	// Handle prerelease versions by removing prerelease suffix
+	if strings.Contains(version, "-") {
+		version = strings.Split(version, "-")[0]
 	}
 	
 	parts := strings.Split(version, ".")

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"reviewtask/internal/github"
 	"reviewtask/internal/version"
 )
 
