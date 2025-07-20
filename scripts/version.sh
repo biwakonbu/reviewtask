@@ -134,8 +134,9 @@ bump_version() {
     # Create git tag if in git repository
     if git rev-parse --git-dir > /dev/null 2>&1; then
         if ! git diff --cached --quiet || ! git diff --quiet; then
-            log_warning "There are uncommitted changes. Please commit before tagging."
-            log_info "Version bumped to $new_version (tag not created)"
+            log_warning "Uncommitted changes detected – committing VERSION bump only"
+            git add "$VERSION_FILE"
+            git commit -m "chore: bump version to $new_version (auto-commit by script)"
         else
             git tag "v$new_version"
             log_success "Git tag created: v$new_version"
