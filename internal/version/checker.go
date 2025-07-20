@@ -38,15 +38,20 @@ type VersionChecker interface {
 
 // Checker handles version checking operations
 type Checker struct {
-	owner string
-	repo  string
+	owner   string
+	repo    string
+	timeout time.Duration
 }
 
 // NewChecker creates a new version checker
-func NewChecker() *Checker {
+func NewChecker(timeout time.Duration) *Checker {
+	if timeout == 0 {
+		timeout = 10 * time.Second
+	}
 	return &Checker{
-		owner: "biwakonbu",
-		repo:  "reviewtask",
+		owner:   "biwakonbu",
+		repo:    "reviewtask",
+		timeout: timeout,
 	}
 }
 
@@ -63,7 +68,7 @@ func (c *Checker) GetLatestVersion(ctx context.Context) (*Release, error) {
 	req.Header.Set("User-Agent", "reviewtask-version-checker")
 
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: c.timeout,
 	}
 
 	resp, err := client.Do(req)

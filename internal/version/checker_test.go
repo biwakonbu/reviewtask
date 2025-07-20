@@ -34,6 +34,11 @@ func TestParseVersion(t *testing.T) {
 			expected: &semanticVersion{major: 999, minor: 999, patch: 999},
 		},
 		{
+			name:     "version with prerelease suffix",
+			version:  "1.2.3-beta.1",
+			expected: &semanticVersion{major: 1, minor: 2, patch: 3},
+		},
+		{
 			name:        "invalid format",
 			version:     "1.2",
 			expectError: true,
@@ -140,7 +145,7 @@ func TestCompareSemanticVersions(t *testing.T) {
 }
 
 func TestCompareVersions(t *testing.T) {
-	checker := NewChecker()
+	checker := NewChecker(0)
 
 	tests := []struct {
 		name        string
@@ -360,7 +365,7 @@ func (c *testChecker) GetLatestVersion(ctx context.Context) (*Release, error) {
 }
 
 func (c *testChecker) CompareVersions(current, latest string) (VersionComparison, error) {
-	checker := NewChecker()
+	checker := NewChecker(0)
 	return checker.CompareVersions(current, latest)
 }
 

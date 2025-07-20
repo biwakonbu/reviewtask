@@ -77,7 +77,7 @@ func TestVersionCommandWithCheckFlag(t *testing.T) {
 	}()
 
 	// Mock the version checker to use our test server
-	originalChecker := version.NewChecker()
+	originalChecker := version.NewChecker(0)
 	testChecker := &testVersionChecker{
 		serverURL: server.URL,
 	}

@@ -45,7 +45,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		checker := version.NewChecker()
+		checker := version.NewChecker(0)
 		latestVersion, err := checker.GetLatestVersion(ctx)
 		if err != nil {
 			fmt.Printf("❌ Failed to check for updates: %v\n", err)

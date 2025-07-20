@@ -202,7 +202,7 @@ func checkForUpdatesAsync(cfg *config.Config) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		checker := version.NewChecker()
+		checker := version.NewChecker(0)
 		notification, err := checker.CheckAndNotify(ctx, appVersion, cfg.UpdateCheck.NotifyPrereleases)
 		if err != nil {
 			// Silently fail - don't interrupt user workflow
