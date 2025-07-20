@@ -126,6 +126,10 @@ jobs:
           dist/SHA256SUMS
         retention-days: 30
 
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_clean: ${{ steps.version.outputs.version_clean }}
+
   verify-release:
     name: Verify Release
     runs-on: ubuntu-latest
