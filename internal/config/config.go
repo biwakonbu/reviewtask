@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -16,6 +17,7 @@ type Config struct {
 	ProjectSpecific ProjectSpecific `json:"project_specific"`
 	TaskSettings    TaskSettings    `json:"task_settings"`
 	AISettings      AISettings      `json:"ai_settings"`
+	UpdateCheck     UpdateCheck     `json:"update_check"`
 }
 
 type PriorityRules struct {
@@ -47,6 +49,13 @@ type AISettings struct {
 	ClaudePath        string  `json:"claude_path"`        // Custom path to Claude CLI (overrides default search)
 }
 
+type UpdateCheck struct {
+	Enabled           bool      `json:"enabled"`            // Enable automatic update checking
+	IntervalHours     int       `json:"interval_hours"`     // Check interval in hours (default: 24)
+	NotifyPrereleases bool      `json:"notify_prereleases"` // Show prerelease notifications
+	LastCheck         time.Time `json:"last_check"`         // Last check timestamp
+}
+
 // Default configuration
 func defaultConfig() *Config {
 	validationTrue := true
@@ -75,6 +84,12 @@ func defaultConfig() *Config {
 			QualityThreshold:  0.8,
 			DebugMode:         false,
 			ClaudePath:        "", // Empty means use default search paths
+		},
+		UpdateCheck: UpdateCheck{
+			Enabled:           true,
+			IntervalHours:     24,
+			NotifyPrereleases: false,
+			LastCheck:         time.Time{}, // Zero time means never checked
 		},
 	}
 }
@@ -163,9 +178,19 @@ func mergeWithDefaults(config *Config) {
 		config.AISettings.ValidationEnabled = defaults.AISettings.ValidationEnabled
 	}
 
+	// Merge update check settings
+	if config.UpdateCheck.IntervalHours == 0 {
+		config.UpdateCheck.IntervalHours = defaults.UpdateCheck.IntervalHours
+	}
+
 	// Note: DebugMode is NOT merged with defaults - explicit false values are preserved
 	// The JSON unmarshaling process preserves explicit false values from config file
 	// Only missing fields get default values during initial config creation
+}
+
+// Save saves the configuration to file
+func (c *Config) Save() error {
+	return save(c)
 }
 
 // GetPriorityPrompt returns the full priority context for AI analysis
