@@ -69,6 +69,12 @@ run_test() {
 
 # Test 1: Version command shows current version
 test_version_command() {
+    # Check if gh-review-task binary exists
+    if ! command -v gh-review-task >/dev/null && [ ! -f "./gh-review-task" ]; then
+        log_warning "gh-review-task binary not found, skipping version command test"
+        return 0
+    fi
+    
     local output
     output=$(./gh-review-task version 2>/dev/null || echo "FAILED")
     

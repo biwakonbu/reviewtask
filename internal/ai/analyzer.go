@@ -12,7 +12,6 @@ import (
 	"gh-review-task/internal/config"
 	"gh-review-task/internal/github"
 	"gh-review-task/internal/storage"
-	"github.com/google/uuid"
 )
 
 type Analyzer struct {
