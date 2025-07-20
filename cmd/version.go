@@ -11,19 +11,19 @@ import (
 )
 
 var (
-	checkUpdate   bool
-	showLatest    bool
+	checkUpdate bool
+	showLatest  bool
 )
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
-	Long:  `Display version, build information, and runtime details for reviewtask.
+	Long: `Display version, build information, and runtime details for reviewtask.
 
 Options:
   --check      Check for available updates
   --latest     Show latest available version information`,
-	RunE:  runVersion,
+	RunE: runVersion,
 }
 
 func init() {

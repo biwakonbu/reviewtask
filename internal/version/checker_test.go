@@ -58,19 +58,19 @@ func TestParseVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := parseVersion(tt.version)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result.major != tt.expected.major || result.minor != tt.expected.minor || result.patch != tt.expected.patch {
 				t.Errorf("expected %+v, got %+v", tt.expected, result)
 			}
@@ -141,7 +141,7 @@ func TestCompareSemanticVersions(t *testing.T) {
 
 func TestCompareVersions(t *testing.T) {
 	checker := NewChecker()
-	
+
 	tests := []struct {
 		name        string
 		current     string
@@ -190,19 +190,19 @@ func TestCompareVersions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := checker.CompareVersions(tt.current, tt.latest)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != tt.expected {
 				t.Errorf("expected %v, got %v", tt.expected, result)
 			}
@@ -215,7 +215,7 @@ func TestShouldCheckForUpdates(t *testing.T) {
 	oneHourAgo := now.Add(-1 * time.Hour)
 	twentyFourHoursAgo := now.Add(-24 * time.Hour)
 	twentyFiveHoursAgo := now.Add(-25 * time.Hour)
-	
+
 	tests := []struct {
 		name          string
 		enabled       bool
@@ -277,11 +277,11 @@ func TestGetLatestVersion(t *testing.T) {
 			http.Error(w, "Not found", http.StatusNotFound)
 			return
 		}
-		
+
 		if r.Header.Get("Accept") != "application/vnd.github.v3+json" {
 			t.Errorf("expected Accept header 'application/vnd.github.v3+json', got '%s'", r.Header.Get("Accept"))
 		}
-		
+
 		if r.Header.Get("User-Agent") != "reviewtask-version-checker" {
 			t.Errorf("expected User-Agent header 'reviewtask-version-checker', got '%s'", r.Header.Get("User-Agent"))
 		}
@@ -314,11 +314,11 @@ func TestGetLatestVersion(t *testing.T) {
 	if release.TagName != "v1.2.3" {
 		t.Errorf("expected tag name 'v1.2.3', got '%s'", release.TagName)
 	}
-	
+
 	if release.Name != "Version 1.2.3" {
 		t.Errorf("expected name 'Version 1.2.3', got '%s'", release.Name)
 	}
-	
+
 	if release.Prerelease {
 		t.Errorf("expected prerelease to be false, got true")
 	}
@@ -331,31 +331,31 @@ type testChecker struct {
 
 func (c *testChecker) GetLatestVersion(ctx context.Context) (*Release, error) {
 	url := c.serverURL + "/repos/biwakonbu/reviewtask/releases/latest"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	req.Header.Set("Accept", "application/vnd.github.v3+json")
 	req.Header.Set("User-Agent", "reviewtask-version-checker")
-	
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch release info: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
 	}
-	
+
 	var release Release
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return &release, nil
 }
 
@@ -369,22 +369,22 @@ func (c *testChecker) CheckAndNotify(ctx context.Context, currentVersion string,
 	if err != nil {
 		return "", fmt.Errorf("failed to check for updates: %w", err)
 	}
-	
+
 	// Skip prereleases if not enabled
 	if latestVersion.Prerelease && !notifyPrereleases {
 		return "", nil
 	}
-	
+
 	comparison, err := c.CompareVersions(currentVersion, latestVersion.TagName)
 	if err != nil {
 		return "", fmt.Errorf("failed to compare versions: %w", err)
 	}
-	
+
 	if comparison == VersionOlder {
-		return fmt.Sprintf("✨ Update available: %s → %s\nRelease notes: %s", 
+		return fmt.Sprintf("✨ Update available: %s → %s\nRelease notes: %s",
 			currentVersion, latestVersion.TagName, latestVersion.HTMLURL), nil
 	}
-	
+
 	return "", nil
 }
 
@@ -409,27 +409,27 @@ func TestCheckAndNotify(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Test update available
 	notification, err := checker.CheckAndNotify(ctx, "1.1.0", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if notification == "" {
 		t.Errorf("expected notification for available update, got empty string")
 	}
-	
+
 	if !contains(notification, "Update available") {
 		t.Errorf("expected notification to contain 'Update available', got: %s", notification)
 	}
-	
+
 	// Test no update needed
 	notification, err = checker.CheckAndNotify(ctx, "1.2.0", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if notification != "" {
 		t.Errorf("expected no notification for same version, got: %s", notification)
 	}
@@ -456,23 +456,23 @@ func TestCheckAndNotifyWithPrerelease(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Test with prereleases disabled
 	notification, err := checker.CheckAndNotify(ctx, "1.1.0", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if notification != "" {
 		t.Errorf("expected no notification for prerelease when disabled, got: %s", notification)
 	}
-	
+
 	// Test with prereleases enabled
 	notification, err = checker.CheckAndNotify(ctx, "1.1.0", true)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if notification == "" {
 		t.Errorf("expected notification for prerelease when enabled, got empty string")
 	}
@@ -482,3 +482,4 @@ func TestCheckAndNotifyWithPrerelease(t *testing.T) {
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
 }
+

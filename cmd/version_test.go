@@ -20,12 +20,12 @@ func TestVersionCommand(t *testing.T) {
 	originalVersion := appVersion
 	originalCommitHash := appCommitHash
 	originalBuildDate := appBuildDate
-	
+
 	// Set test values
 	appVersion = "1.0.0"
 	appCommitHash = "abc123"
 	appBuildDate = "2023-12-01T10:00:00Z"
-	
+
 	defer func() {
 		// Restore original values
 		appVersion = originalVersion
@@ -37,11 +37,11 @@ func TestVersionCommand(t *testing.T) {
 	if appVersion != "1.0.0" {
 		t.Errorf("expected appVersion to be '1.0.0', got '%s'", appVersion)
 	}
-	
+
 	if appCommitHash != "abc123" {
 		t.Errorf("expected appCommitHash to be 'abc123', got '%s'", appCommitHash)
 	}
-	
+
 	if appBuildDate != "2023-12-01T10:00:00Z" {
 		t.Errorf("expected appBuildDate to be '2023-12-01T10:00:00Z', got '%s'", appBuildDate)
 	}
@@ -81,54 +81,54 @@ func TestVersionCommandWithCheckFlag(t *testing.T) {
 	testChecker := &testVersionChecker{
 		serverURL: server.URL,
 	}
-	
+
 	// Temporarily replace the checker creation
 	// This requires modifying the runVersion function to accept a checker
 	// For this test, we'll verify the flag handling logic
-	
+
 	// Reset flags
 	checkUpdate = false
 	showLatest = false
-	
+
 	cmd := &cobra.Command{
-		Use: "version",
+		Use:  "version",
 		RunE: runVersion,
 	}
 	cmd.Flags().BoolVar(&checkUpdate, "check", false, "Check for available updates")
 	cmd.Flags().BoolVar(&showLatest, "latest", false, "Show latest available version information")
-	
+
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
 	cmd.SetErr(&buf)
-	
+
 	// Test with --check flag
 	cmd.SetArgs([]string{"--check"})
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	// Since we can't easily mock the HTTP call in the current implementation,
 	// we'll just verify that the flag parsing works correctly
 	if !checkUpdate {
 		t.Errorf("expected checkUpdate to be true after parsing --check flag")
 	}
-	
+
 	// Reset for next test
 	checkUpdate = false
 	showLatest = false
-	
+
 	// Test with --latest flag
 	cmd.SetArgs([]string{"--latest"})
 	err = cmd.Execute()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	
+
 	if !showLatest {
 		t.Errorf("expected showLatest to be true after parsing --latest flag")
 	}
-	
+
 	_ = originalChecker
 	_ = testChecker
 }
@@ -140,7 +140,7 @@ func TestVersionCommandErrorHandling(t *testing.T) {
 	defer func() {
 		appVersion = originalVersion
 	}()
-	
+
 	// Test that version command doesn't fail even when update check fails
 	err := runVersion(&cobra.Command{}, []string{})
 	if err != nil {
@@ -154,15 +154,15 @@ func TestUpdateCheckIntegration(t *testing.T) {
 	tempDir := t.TempDir()
 	originalWd, _ := os.Getwd()
 	defer os.Chdir(originalWd)
-	
+
 	os.Chdir(tempDir)
-	
+
 	// Create .pr-review directory
 	err := os.Mkdir(".pr-review", 0755)
 	if err != nil {
 		t.Fatalf("failed to create .pr-review directory: %v", err)
 	}
-	
+
 	// Create a test config file with update checking enabled
 	configContent := `{
 		"priority_rules": {
@@ -197,21 +197,21 @@ func TestUpdateCheckIntegration(t *testing.T) {
 			"last_check": "0001-01-01T00:00:00Z"
 		}
 	}`
-	
+
 	err = os.WriteFile(".pr-review/config.json", []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("failed to write config file: %v", err)
 	}
-	
+
 	// Test that version checking functions work with real config
 	// This is more of a smoke test to ensure integration works
-	
+
 	// Mock the version checker behavior
 	shouldCheck := version.ShouldCheckForUpdates(true, 24, time.Time{})
 	if !shouldCheck {
 		t.Errorf("expected should check to be true for never-checked config")
 	}
-	
+
 	// Test with recent check
 	recentCheck := time.Now().Add(-1 * time.Hour)
 	shouldCheck = version.ShouldCheckForUpdates(true, 24, recentCheck)
@@ -239,43 +239,43 @@ func (c *testVersionChecker) GetLatestVersion(ctx context.Context) (*version.Rel
 
 func TestVersionFlagCombinations(t *testing.T) {
 	tests := []struct {
-		name  string
-		args  []string
-		check bool
+		name   string
+		args   []string
+		check  bool
 		latest bool
 	}{
 		{
-			name: "no flags",
-			args: []string{},
-			check: false,
+			name:   "no flags",
+			args:   []string{},
+			check:  false,
 			latest: false,
 		},
 		{
-			name: "check only",
-			args: []string{"--check"},
-			check: true,
+			name:   "check only",
+			args:   []string{"--check"},
+			check:  true,
 			latest: false,
 		},
 		{
-			name: "latest only", 
-			args: []string{"--latest"},
-			check: false,
+			name:   "latest only",
+			args:   []string{"--latest"},
+			check:  false,
 			latest: true,
 		},
 		{
-			name: "both flags",
-			args: []string{"--check", "--latest"},
-			check: true,
+			name:   "both flags",
+			args:   []string{"--check", "--latest"},
+			check:  true,
 			latest: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset flags
 			checkUpdate = false
 			showLatest = false
-			
+
 			cmd := &cobra.Command{
 				Use: "version",
 				RunE: func(cmd *cobra.Command, args []string) error {
@@ -285,20 +285,21 @@ func TestVersionFlagCombinations(t *testing.T) {
 			}
 			cmd.Flags().BoolVar(&checkUpdate, "check", false, "Check for available updates")
 			cmd.Flags().BoolVar(&showLatest, "latest", false, "Show latest available version information")
-			
+
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			
+
 			if checkUpdate != tt.check {
 				t.Errorf("expected checkUpdate %t, got %t", tt.check, checkUpdate)
 			}
-			
+
 			if showLatest != tt.latest {
 				t.Errorf("expected showLatest %t, got %t", tt.latest, showLatest)
 			}
 		})
 	}
 }
+

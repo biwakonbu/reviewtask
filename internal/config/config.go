@@ -50,10 +50,10 @@ type AISettings struct {
 }
 
 type UpdateCheck struct {
-	Enabled          bool      `json:"enabled"`            // Enable automatic update checking
-	IntervalHours    int       `json:"interval_hours"`     // Check interval in hours (default: 24)
-	NotifyPrereleases bool     `json:"notify_prereleases"` // Show prerelease notifications
-	LastCheck        time.Time `json:"last_check"`         // Last check timestamp
+	Enabled           bool      `json:"enabled"`            // Enable automatic update checking
+	IntervalHours     int       `json:"interval_hours"`     // Check interval in hours (default: 24)
+	NotifyPrereleases bool      `json:"notify_prereleases"` // Show prerelease notifications
+	LastCheck         time.Time `json:"last_check"`         // Last check timestamp
 }
 
 // Default configuration
@@ -86,10 +86,10 @@ func defaultConfig() *Config {
 			ClaudePath:        "", // Empty means use default search paths
 		},
 		UpdateCheck: UpdateCheck{
-			Enabled:          true,
-			IntervalHours:    24,
+			Enabled:           true,
+			IntervalHours:     24,
 			NotifyPrereleases: false,
-			LastCheck:        time.Time{}, // Zero time means never checked
+			LastCheck:         time.Time{}, // Zero time means never checked
 		},
 	}
 }
