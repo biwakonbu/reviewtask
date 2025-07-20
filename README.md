@@ -21,6 +21,27 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 
 ## Installation
 
+### Download Release Binary
+
+Download the latest release for your platform:
+
+```bash
+# Download latest release (Linux/macOS/Windows)
+curl -L https://github.com/biwakonbu/ai-pr-review-checker/releases/latest/download/gh-review-task-<version>-<os>-<arch>.tar.gz | tar xz
+
+# Make executable and move to PATH
+chmod +x gh-review-task-<version>-<os>-<arch>
+sudo mv gh-review-task-<version>-<os>-<arch> /usr/local/bin/gh-review-task
+```
+
+### Install with Go
+
+```bash
+go install github.com/biwakonbu/ai-pr-review-checker@latest
+```
+
+### Build from Source
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/biwakonbu/ai-pr-review-checker.git
@@ -36,6 +57,13 @@ go build -o gh-review-task
 ```bash
 # Follow Claude Code installation instructions
 # https://docs.anthropic.com/en/docs/claude-code
+```
+
+### Verify Installation
+
+```bash
+# Check version and build information
+gh-review-task version
 ```
 
 ## Quick Start
@@ -114,6 +142,7 @@ Authentication sources (in order of preference):
 | `gh-review-task status` | Show task status and statistics |
 | `gh-review-task show [task-id]` | Show current/next task or specific task details |
 | `gh-review-task update <id> <status>` | Update task status |
+| `gh-review-task version` | Show version, build, and runtime information |
 | `gh-review-task init` | Initialize repository |
 | `gh-review-task auth <cmd>` | Authentication management |
 
@@ -226,6 +255,11 @@ Required GitHub API permissions:
 3. Make your changes
 4. Add tests if applicable
 5. Submit a pull request
+
+### Development Documentation
+
+- [Versioning Guide](docs/VERSIONING.md) - Semantic versioning rules and release process
+- [Project Requirements](PRD.md) - Project vision and development guidelines
 
 ## License
 
