@@ -223,13 +223,7 @@ prepare_release() {
     current_version=$("$VERSION_SCRIPT" current)
     
     local new_version
-    new_version=$("$VERSION_SCRIPT" current)
-    # Calculate what the new version would be
-    case "$release_type" in
-        "major") new_version=$(echo "$current_version" | awk -F. '{print ($1+1)".0.0"}') ;;
-        "minor") new_version=$(echo "$current_version" | awk -F. '{print $1"."($2+1)".0"}') ;;
-        "patch") new_version=$(echo "$current_version" | awk -F. '{print $1"."$2"."($3+1)}') ;;
-    esac
+    new_version=$("$VERSION_SCRIPT" next "$release_type")
     
     log_info "Preparing release v$new_version..."
     

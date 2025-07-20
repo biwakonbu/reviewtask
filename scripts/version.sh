@@ -161,6 +161,24 @@ set_version() {
     echo "$new_version"
 }
 
+# Calculate next version without updating files
+calculate_next_version() {
+    local increment_type=$1
+    
+    if [ -z "$increment_type" ]; then
+        log_error "Increment type required (major, minor, or patch)"
+        exit 1
+    fi
+    
+    local current_version
+    current_version=$(get_current_version)
+    
+    local new_version
+    new_version=$(increment_version "$current_version" "$increment_type")
+    
+    echo "$new_version"
+}
+
 # Show version information
 show_info() {
     local current_version
@@ -197,6 +215,9 @@ main() {
         "bump")
             bump_version "$2"
             ;;
+        "next")
+            calculate_next_version "$2"
+            ;;
         "set")
             set_version "$2"
             ;;
@@ -204,18 +225,19 @@ main() {
             show_info
             ;;
         *)
-            echo "Usage: $0 [current|bump|set|info] [arguments]"
+            echo "Usage: $0 [current|bump|next|set|info] [arguments]"
             echo ""
             echo "Commands:"
             echo "  current           - Show current version"
             echo "  bump <type>       - Bump version (major, minor, patch)"
+            echo "  next <type>       - Calculate next version without updating files"
             echo "  set <version>     - Set specific version"
             echo "  info              - Show detailed version information"
             echo ""
             echo "Examples:"
             echo "  $0 current        - Show current version"
             echo "  $0 bump patch     - Increment patch version"
-            echo "  $0 bump minor     - Increment minor version"
+            echo "  $0 next minor     - Show what next minor version would be"
             echo "  $0 set 1.2.3      - Set version to 1.2.3"
             echo "  $0 info           - Show version details"
             exit 1
