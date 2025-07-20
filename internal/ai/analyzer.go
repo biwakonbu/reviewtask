@@ -364,7 +364,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 
 	for _, task := range tasks {
 		storageTask := storage.Task{
-			ID:              uuid.New().String(),
+			ID:              fmt.Sprintf("comment-%d-task-%d", task.SourceCommentID, task.TaskIndex),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        task.Priority,
