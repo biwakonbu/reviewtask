@@ -51,10 +51,14 @@ check_prerequisites() {
     current_branch=$(git branch --show-current)
     if [ "$current_branch" != "main" ]; then
         log_warning "Not on main branch (current: $current_branch)"
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
+        if [ "$AUTO_CONFIRM" = "true" ]; then
+            log_info "Auto-confirming continuation (--yes flag or AUTO_CONFIRM=true)"
+        else
+            read -p "Continue anyway? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                exit 1
+            fi
         fi
     fi
     
@@ -255,10 +259,28 @@ prepare_release() {
     log_info "Run '$0 release $release_type' to create the actual release"
 }
 
+# Global flag for non-interactive mode
+AUTO_CONFIRM=${AUTO_CONFIRM:-false}
+
 # Main execution
 main() {
-    local command=${1:-"prepare"}
-    local release_type=${2:-"patch"}
+    # Parse arguments and collect non-flag arguments
+    local args=()
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --yes|-y)
+                AUTO_CONFIRM=true
+                shift
+                ;;
+            *)
+                args+=("$1")
+                shift
+                ;;
+        esac
+    done
+    
+    local command=${args[0]:-"prepare"}
+    local release_type=${args[1]:-"patch"}
     
     case "$command" in
         "prepare")
@@ -271,7 +293,10 @@ main() {
             create_release "$release_type" true
             ;;
         *)
-            echo "Usage: $0 [prepare|release|dry-run] [major|minor|patch]"
+            echo "Usage: $0 [--yes] [prepare|release|dry-run] [major|minor|patch]"
+            echo ""
+            echo "Options:"
+            echo "  --yes, -y   - Auto-confirm prompts (useful for CI/CD)"
             echo ""
             echo "Commands:"
             echo "  prepare   - Prepare and preview release (default)"
@@ -283,10 +308,14 @@ main() {
             echo "  minor     - New features (x.y.0)"
             echo "  patch     - Bug fixes (x.y.z)"
             echo ""
+            echo "Environment Variables:"
+            echo "  AUTO_CONFIRM=true  - Same as --yes flag"
+            echo ""
             echo "Examples:"
-            echo "  $0 prepare patch    - Prepare patch release"
-            echo "  $0 release minor    - Create minor release"
-            echo "  $0 dry-run major    - Simulate major release"
+            echo "  $0 prepare patch         - Prepare patch release"
+            echo "  $0 --yes release minor   - Create minor release (auto-confirm)"
+            echo "  $0 dry-run major         - Simulate major release"
+            echo "  AUTO_CONFIRM=true $0 release patch  - Auto-confirm via env var"
             exit 1
             ;;
     esac
