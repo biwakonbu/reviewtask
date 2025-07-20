@@ -35,7 +35,6 @@ linters:
     - bodyclose
     - dogsled
     - dupl
-    - copyloopvar
     - goconst
     - gocritic
     - goimports

@@ -26,7 +26,7 @@ type Manager struct {
 }
 
 type Task struct {
-	ID              string `json:"id"`          // Format: "comment-{commentID}-task-{index}"
+	ID              string `json:"id"`          // Format: UUID (RFC 4122 compliant)
 	Description     string `json:"description"` // AI-generated task description (user language)
 	OriginText      string `json:"origin_text"` // Original review comment text
 	Priority        string `json:"priority"`
@@ -292,8 +292,25 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 }
 
 func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int64, taskIndex int, newStatus string) error {
-	taskID := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
-	return m.UpdateTaskStatus(taskID, newStatus)
+	// Find task by comment ID and task index
+	allTasks, err := m.GetTasksByPR(prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
+	}
+
+	var targetTaskID string
+	for _, task := range allTasks {
+		if task.SourceCommentID == commentID && task.TaskIndex == taskIndex {
+			targetTaskID = task.ID
+			break
+		}
+	}
+
+	if targetTaskID == "" {
+		return fmt.Errorf("task not found for comment %d, index %d in PR %d", commentID, taskIndex, prNumber)
+	}
+
+	return m.UpdateTaskStatus(targetTaskID, newStatus)
 }
 
 // MergeTasks combines new tasks with existing ones, preserving existing task statuses
