@@ -133,7 +133,9 @@ bump_version() {
         if ! git diff --cached --quiet || ! git diff --quiet; then
             log_warning "Uncommitted changes detected – committing VERSION bump only"
             git add "$VERSION_FILE"
-            git commit -m "chore: bump version to $new_version (auto-commit by script)"
+            git commit -m "chore: bump version to $new_version"
+            git tag "v$new_version"
+            log_success "Git tag created: v$new_version"
         else
             git tag "v$new_version"
             log_success "Git tag created: v$new_version"
