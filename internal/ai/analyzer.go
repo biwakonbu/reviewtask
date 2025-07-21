@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -866,17 +867,16 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 		"low":      3,
 	}
 
-	// Sort by priority, then by task index
-	for i := 0; i < len(sorted); i++ {
-		for j := i + 1; j < len(sorted); j++ {
-			pi, _ := priorityOrder[sorted[i].Priority]
-			pj, _ := priorityOrder[sorted[j].Priority]
-
-			if pi > pj || (pi == pj && sorted[i].TaskIndex > sorted[j].TaskIndex) {
-				sorted[i], sorted[j] = sorted[j], sorted[i]
-			}
+	// Sort by priority, then by task index using Go's built-in sort.Slice
+	sort.Slice(sorted, func(i, j int) bool {
+		pi, _ := priorityOrder[sorted[i].Priority]
+		pj, _ := priorityOrder[sorted[j].Priority]
+		
+		if pi != pj {
+			return pi < pj
 		}
-	}
+		return sorted[i].TaskIndex < sorted[j].TaskIndex
+	})
 
 	return sorted
 }
