@@ -411,6 +411,7 @@ main() {
 }
 
 # Run main function with all arguments only if script is executed directly
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+# When piped from curl, BASH_SOURCE might not be set, so handle that case
+if [[ "${BASH_SOURCE[0]:-}" == "${0}" ]] || [[ -z "${BASH_SOURCE[0]:-}" ]]; then
     main "$@"
 fi
