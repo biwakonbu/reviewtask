@@ -1,6 +1,6 @@
 module reviewtask
 
-go 1.21
+go 1.23
 
 require (
 	github.com/google/go-github/v58 v58.0.0
