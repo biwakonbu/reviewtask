@@ -15,8 +15,8 @@
 go.work
 
 # Built binary
-gh-review-task
-gh-review-task-*
+reviewtask
+reviewtask-*
 
 # Build artifacts
 dist/

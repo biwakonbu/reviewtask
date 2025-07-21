@@ -1,19 +1,19 @@
 ---
 name: review-task-workflow
-description: Execute PR review tasks systematically using gh-review-task
+description: Execute PR review tasks systematically using reviewtask
 ---
 
-You are tasked with executing PR review tasks systematically using the gh-review-task tool. 
+You are tasked with executing PR review tasks systematically using the reviewtask tool. 
 
 ## Initial Setup (Execute Once Per Command Invocation):
 
-**Fetch Latest Reviews**: Run `gh-review-task` without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
+**Fetch Latest Reviews**: Run `reviewtask` without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
 
 After completing the initial setup, follow this exact workflow:
 
 ## Workflow Steps:
 
-1. **Check Status**: Use `gh-review-task status` to check current task status and identify any tasks in progress
+1. **Check Status**: Use `reviewtask status` to check current task status and identify any tasks in progress
    - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
    - **If only pending tasks remain**: Review each pending task and decide action (see Step 2b)
    - **Continue only if todo, doing, or pending tasks exist**
@@ -26,7 +26,7 @@ After completing the initial setup, follow this exact workflow:
    
    b) **For doing tasks**: Continue with the task already in progress
    
-   c) **For todo tasks**: Use `gh-review-task show` to get the next recommended task, then run `gh-review-task update <task-id> doing`
+   c) **For todo tasks**: Use `reviewtask show` to get the next recommended task, then run `reviewtask update <task-id> doing`
    
    d) **For pending-only scenario**: 
       - List all pending tasks and their reasons for being blocked
@@ -34,14 +34,14 @@ After completing the initial setup, follow this exact workflow:
         - `doing`: If you can now resolve the blocking issue
         - `todo`: If the task should be attempted again
         - `cancel`: If the task is no longer relevant or cannot be completed
-      - Update task status: `gh-review-task update <task-id> <new-status>`
+      - Update task status: `reviewtask update <task-id> <new-status>`
 
 3. **Verify Task Start**: Confirm the status change was successful before proceeding
 
 4. **Execute Task**: Implement the required changes in the current branch based on the task description and original review comment
 
 5. **Complete Task**: When implementation is finished:
-   - Mark task as completed: `gh-review-task update <task-id> done`
+   - Mark task as completed: `reviewtask update <task-id> done`
    - Commit changes using this message template (adjust language based on `user_language` setting in `.pr-review/config.json`):
      ```
      fix: [Clear, concise description of what was fixed or implemented]
@@ -71,7 +71,7 @@ After completing the initial setup, follow this exact workflow:
      ```
 
 6. **Continue Workflow**: After committing:
-   - Check status again with `gh-review-task status`
+   - Check status again with `reviewtask status`
    - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
    - **If only pending tasks remain**: Handle pending tasks as described in Step 2d
    - **If todo or doing tasks remain**: Repeat this entire workflow from step 1
