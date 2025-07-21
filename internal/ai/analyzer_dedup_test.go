@@ -252,7 +252,7 @@ func TestDeduplicateSimilarTasks(t *testing.T) {
 			wantCount: 1, // Should keep the critical one
 		},
 		{
-			name: "Empty list",
+			name:      "Empty list",
 			tasks:     []storage.Task{},
 			wantCount: 0,
 		},

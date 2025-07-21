@@ -38,11 +38,11 @@ func TestDeduplicationIntegration(t *testing.T) {
 
 	// Test scenario: Simulate AI generating multiple duplicate tasks per comment
 	tests := []struct {
-		name           string
-		inputTasks     []TaskRequest
-		expectedCount  int
-		expectedTasks  map[string]bool // Expected task descriptions
-		description    string
+		name          string
+		inputTasks    []TaskRequest
+		expectedCount int
+		expectedTasks map[string]bool // Expected task descriptions
+		description   string
 	}{
 		{
 			name: "Multiple duplicates from single comment",
@@ -106,32 +106,32 @@ func TestDeduplicationIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Convert TaskRequests to storage.Tasks (simulating AI output)
 			storageTasks := analyzer.convertToStorageTasks(tt.inputTasks)
-			
+
 			// Apply deduplication
 			dedupedTasks := analyzer.deduplicateTasks(storageTasks)
-			
+
 			// Check task count
 			if len(dedupedTasks) != tt.expectedCount {
 				t.Errorf("%s: got %d tasks, expected %d", tt.description, len(dedupedTasks), tt.expectedCount)
 				t.Logf("Tasks returned:")
 				for i, task := range dedupedTasks {
-					t.Logf("  %d: %s (priority: %s, comment: %d)", 
+					t.Logf("  %d: %s (priority: %s, comment: %d)",
 						i+1, task.Description, task.Priority, task.SourceCommentID)
 				}
 			}
-			
+
 			// Verify expected tasks are present
 			foundTasks := make(map[string]bool)
 			for _, task := range dedupedTasks {
 				foundTasks[task.Description] = true
 			}
-			
+
 			for expectedDesc := range tt.expectedTasks {
 				if !foundTasks[expectedDesc] {
 					t.Errorf("Expected task not found: %s", expectedDesc)
 				}
 			}
-			
+
 			// Verify all tasks have valid UUIDs
 			for _, task := range dedupedTasks {
 				if _, err := uuid.Parse(task.ID); err != nil {
@@ -154,28 +154,28 @@ func TestDeduplicationPerformance(t *testing.T) {
 			SimilarityThreshold:  0.7,
 		},
 	}
-	
+
 	analyzer := NewAnalyzer(cfg)
-	
+
 	// Generate a large number of tasks simulating the bug report scenario
 	// 40 tasks from 16 comments with heavy duplication
 	var tasks []storage.Task
 	commentIDs := []int64{
-		2218346566, 2218346551, 2218552499, 2218552490, 
+		2218346566, 2218346551, 2218552499, 2218552490,
 		2218346569, 2218257366, 2218257367, 2218257368,
 	}
-	
+
 	taskTemplates := []string{
 		"Fix %s issue in %s",
-		"Resolve %s problem in %s", 
+		"Resolve %s problem in %s",
 		"Address %s in %s",
 		"Update %s for %s",
 		"Improve %s handling in %s",
 	}
-	
+
 	issues := []string{"validation", "checksum", "binary naming", "error handling"}
 	components := []string{"installer", "parser", "validator", "main function"}
-	
+
 	// Generate tasks with realistic duplication patterns
 	taskID := 0
 	for _, commentID := range commentIDs {
@@ -183,7 +183,7 @@ func TestDeduplicationPerformance(t *testing.T) {
 		numTasks := 5 + (int(commentID) % 10)
 		issue := issues[commentID%int64(len(issues))]
 		component := components[commentID%int64(len(components))]
-		
+
 		for i := 0; i < numTasks; i++ {
 			template := taskTemplates[i%len(taskTemplates)]
 			task := storage.Task{
@@ -198,39 +198,39 @@ func TestDeduplicationPerformance(t *testing.T) {
 			taskID++
 		}
 	}
-	
+
 	startCount := len(tasks)
 	t.Logf("Starting with %d tasks from %d comments", startCount, len(commentIDs))
-	
+
 	// Time the deduplication
 	start := time.Now()
 	dedupedTasks := analyzer.deduplicateTasks(tasks)
 	duration := time.Since(start)
-	
+
 	endCount := len(dedupedTasks)
 	reductionPercent := float64(startCount-endCount) / float64(startCount) * 100
-	
+
 	t.Logf("Deduplication completed in %v", duration)
 	t.Logf("Reduced %d tasks to %d tasks (%.1f%% reduction)", startCount, endCount, reductionPercent)
-	
+
 	// Verify results
 	expectedMaxTasks := len(commentIDs) * cfg.AISettings.MaxTasksPerComment
 	if endCount > expectedMaxTasks {
 		t.Errorf("Too many tasks after deduplication: got %d, expected max %d", endCount, expectedMaxTasks)
 	}
-	
+
 	// Verify no comment has more than MaxTasksPerComment
 	tasksByComment := make(map[int64]int)
 	for _, task := range dedupedTasks {
 		tasksByComment[task.SourceCommentID]++
 	}
-	
+
 	for commentID, count := range tasksByComment {
 		if count > cfg.AISettings.MaxTasksPerComment {
 			t.Errorf("Comment %d has %d tasks, exceeds max of %d", commentID, count, cfg.AISettings.MaxTasksPerComment)
 		}
 	}
-	
+
 	// Performance check - should complete quickly even with many tasks
 	if duration > 100*time.Millisecond {
 		t.Logf("Warning: Deduplication took longer than expected: %v", duration)
@@ -250,9 +250,9 @@ func TestPromptChangesReduceDuplication(t *testing.T) {
 			SimilarityThreshold:  0.7,
 		},
 	}
-	
+
 	analyzer := NewAnalyzer(cfg)
-	
+
 	// Verify that buildCommentPrompt includes the new guidelines
 	ctx := CommentContext{
 		Comment: github.Comment{
@@ -268,9 +268,9 @@ func TestPromptChangesReduceDuplication(t *testing.T) {
 			State:    "CHANGES_REQUESTED",
 		},
 	}
-	
+
 	prompt := analyzer.buildCommentPrompt(ctx)
-	
+
 	// Check that prompt contains new guidelines
 	expectedPhrases := []string{
 		"Create MINIMAL tasks",
@@ -279,19 +279,19 @@ func TestPromptChangesReduceDuplication(t *testing.T) {
 		"Combine related suggestions into a single actionable task",
 		"Focus on the primary intent",
 	}
-	
+
 	for _, phrase := range expectedPhrases {
 		if !strings.Contains(prompt, phrase) {
 			t.Errorf("Prompt missing expected phrase: %s", phrase)
 		}
 	}
-	
+
 	// Verify old splitting instructions are removed
 	unwantedPhrases := []string{
 		"SPLIT multiple issues in a single comment into separate tasks",
 		"Each issue should become a separate task",
 	}
-	
+
 	for _, phrase := range unwantedPhrases {
 		if strings.Contains(prompt, phrase) {
 			t.Errorf("Prompt contains unwanted phrase: %s", phrase)

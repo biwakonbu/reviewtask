@@ -619,15 +619,15 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 
 	// Convert to storage tasks
 	storageTasks := a.convertToStorageTasks(allTasks)
-	
+
 	// Apply deduplication
 	dedupedTasks := a.deduplicateTasks(storageTasks)
-	
+
 	if a.config.AISettings.DeduplicationEnabled && len(dedupedTasks) < len(storageTasks) {
-		fmt.Printf("  🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n", 
+		fmt.Printf("  🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
 			len(storageTasks), len(dedupedTasks), len(storageTasks)-len(dedupedTasks))
 	}
-	
+
 	return dedupedTasks, nil
 }
 
@@ -832,24 +832,24 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 	}
 
 	var result []storage.Task
-	
+
 	for commentID, commentTasks := range tasksByComment {
 		// Apply max tasks per comment limit
 		if len(commentTasks) > a.config.AISettings.MaxTasksPerComment {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks\n", 
+				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks\n",
 					commentID, len(commentTasks), a.config.AISettings.MaxTasksPerComment)
 			}
 			// Sort by priority to keep the most important tasks
 			sortedTasks := a.sortTasksByPriority(commentTasks)
 			commentTasks = sortedTasks[:a.config.AISettings.MaxTasksPerComment]
 		}
-		
+
 		// Apply similarity deduplication within the comment's tasks
 		deduped := a.deduplicateSimilarTasks(commentTasks)
 		result = append(result, deduped...)
 	}
-	
+
 	return result
 }
 
@@ -858,26 +858,26 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 	// Create a copy to avoid modifying the original
 	sorted := make([]storage.Task, len(tasks))
 	copy(sorted, tasks)
-	
+
 	priorityOrder := map[string]int{
 		"critical": 0,
 		"high":     1,
 		"medium":   2,
 		"low":      3,
 	}
-	
+
 	// Sort by priority, then by task index
 	for i := 0; i < len(sorted); i++ {
 		for j := i + 1; j < len(sorted); j++ {
 			pi, _ := priorityOrder[sorted[i].Priority]
 			pj, _ := priorityOrder[sorted[j].Priority]
-			
+
 			if pi > pj || (pi == pj && sorted[i].TaskIndex > sorted[j].TaskIndex) {
 				sorted[i], sorted[j] = sorted[j], sorted[i]
 			}
 		}
 	}
-	
+
 	return sorted
 }
 
@@ -886,24 +886,24 @@ func (a *Analyzer) deduplicateSimilarTasks(tasks []storage.Task) []storage.Task 
 	if len(tasks) <= 1 {
 		return tasks
 	}
-	
+
 	// First, sort tasks by priority to ensure we process higher priority tasks first
 	sortedTasks := a.sortTasksByPriority(tasks)
-	
+
 	var result []storage.Task
 	seen := make(map[int]bool)
-	
+
 	for i, task1 := range sortedTasks {
 		if seen[i] {
 			continue
 		}
-		
+
 		// Check similarity with remaining tasks
 		for j := i + 1; j < len(sortedTasks); j++ {
 			if seen[j] {
 				continue
 			}
-			
+
 			similarity := a.calculateSimilarity(task1.Description, sortedTasks[j].Description)
 			if similarity >= a.config.AISettings.SimilarityThreshold {
 				// Since we're sorted by priority, task1 has higher or equal priority
@@ -915,12 +915,12 @@ func (a *Analyzer) deduplicateSimilarTasks(tasks []storage.Task) []storage.Task 
 				}
 			}
 		}
-		
+
 		if !seen[i] {
 			result = append(result, task1)
 		}
 	}
-	
+
 	return result
 }
 
@@ -929,25 +929,25 @@ func (a *Analyzer) calculateSimilarity(s1, s2 string) float64 {
 	// Simple Jaccard similarity based on words
 	words1 := strings.Fields(strings.ToLower(s1))
 	words2 := strings.Fields(strings.ToLower(s2))
-	
+
 	if len(words1) == 0 && len(words2) == 0 {
 		return 1.0
 	}
 	if len(words1) == 0 || len(words2) == 0 {
 		return 0.0
 	}
-	
+
 	// Create word sets
 	set1 := make(map[string]bool)
 	set2 := make(map[string]bool)
-	
+
 	for _, w := range words1 {
 		set1[w] = true
 	}
 	for _, w := range words2 {
 		set2[w] = true
 	}
-	
+
 	// Calculate intersection and union
 	intersection := 0
 	for w := range set1 {
@@ -955,9 +955,9 @@ func (a *Analyzer) calculateSimilarity(s1, s2 string) float64 {
 			intersection++
 		}
 	}
-	
+
 	union := len(set1) + len(set2) - intersection
-	
+
 	return float64(intersection) / float64(union)
 }
 
