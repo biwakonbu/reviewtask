@@ -90,9 +90,14 @@ build_all() {
         log_info "Building for ${goos}/${goarch}..."
         
         if GOOS=${goos} GOARCH=${goarch} go build -ldflags="${LDFLAGS}" -o "${output_path}" .; then
-            local file_size=$(du -h "${output_path}" | cut -f1)
-            log_success "Built ${output_name} (${file_size})"
-            ((success_count++))
+            if [ -f "${output_path}" ]; then
+                local file_size=$(stat -c%s "${output_path}" 2>/dev/null || stat -f%z "${output_path}" 2>/dev/null || echo "0")
+                local size_mb=$((file_size / 1024 / 1024))
+                log_success "Built ${output_name} (${size_mb}MB)"
+            else
+                log_success "Built ${output_name}"
+            fi
+            success_count=$((success_count + 1))
         else
             log_error "Failed to build for ${goos}/${goarch}"
             return 1
