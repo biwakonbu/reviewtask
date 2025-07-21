@@ -184,6 +184,13 @@ func mergeWithDefaults(config *Config) {
 	if config.AISettings.SimilarityThreshold == 0 {
 		config.AISettings.SimilarityThreshold = defaults.AISettings.SimilarityThreshold
 	}
+	// Note: DeduplicationEnabled is a boolean that defaults to true
+	// We only set it if the loaded config has zero value (false) and the field is missing
+	// This is handled by checking if other fields indicate a partial config
+	if !config.AISettings.DeduplicationEnabled && config.AISettings.UserLanguage == "" {
+		// If UserLanguage is empty, it likely means this is a partial config or old version
+		config.AISettings.DeduplicationEnabled = defaults.AISettings.DeduplicationEnabled
+	}
 
 	// Merge boolean pointer fields
 	if config.AISettings.ValidationEnabled == nil {
