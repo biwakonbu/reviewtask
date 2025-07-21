@@ -240,7 +240,17 @@ download_with_verification() {
     fi
     
     # Verify checksum if available
-    if [[ -n "$checksum_url" ]] && command -v sha256sum >/dev/null 2>&1; then
+    if [[ -n "$checksum_url" ]]; then
+        local hasher
+        if command -v sha256sum >/dev/null 2>&1; then
+            hasher="sha256sum"
+        elif command -v shasum >/dev/null 2>&1; then
+            hasher="shasum -a 256"
+        else
+            print_warning "No SHA-256 tool found – skipping checksum verification"
+            return
+        fi
+
         print_info "Verifying checksum..."
         local expected_checksum
         if command -v curl >/dev/null 2>&1; then
@@ -248,11 +258,11 @@ download_with_verification() {
         elif command -v wget >/dev/null 2>&1; then
             expected_checksum=$(wget -qO- "$checksum_url" | grep "$(basename "$output_file")" | awk '{print $1}')
         fi
-        
+
         if [[ -n "$expected_checksum" ]]; then
             local actual_checksum
-            actual_checksum=$(sha256sum "$output_file" | awk '{print $1}')
-            
+            actual_checksum=$($hasher "$output_file" | awk '{print $1}')
+
             if [[ "$actual_checksum" != "$expected_checksum" ]]; then
                 print_error "Checksum verification failed"
                 print_error "Expected: $expected_checksum"
