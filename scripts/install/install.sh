@@ -243,9 +243,9 @@ download_with_verification() {
     if [[ -n "$checksum_url" ]]; then
         local hasher
         if command -v sha256sum >/dev/null 2>&1; then
-            hasher="sha256sum"
+            hasher=(sha256sum)
         elif command -v shasum >/dev/null 2>&1; then
-            hasher="shasum -a 256"
+            hasher=(shasum -a 256)
         else
             print_warning "No SHA-256 tool found – skipping checksum verification"
             return
@@ -261,7 +261,7 @@ download_with_verification() {
 
         if [[ -n "$expected_checksum" ]]; then
             local actual_checksum
-            actual_checksum=$($hasher "$output_file" | awk '{print $1}')
+            actual_checksum=$("${hasher[@]}" "$output_file" | awk '{print $1}')
 
             if [[ "$actual_checksum" != "$expected_checksum" ]]; then
                 print_error "Checksum verification failed"
