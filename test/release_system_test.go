@@ -28,18 +28,28 @@ func createMockCommand(output string, exitCode int) func(string, ...string) *exe
 	}
 }
 
+// getProjectRoot returns the project root directory based on the test file location
+func getProjectRoot() string {
+	// Get the directory of the current test file
+	_, filename, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(filename)
+	// Project root is one level up from the test directory
+	return filepath.Dir(testDir)
+}
+
 // TestReleaseSystemSpecification tests the automated release system implementation
 func TestReleaseSystemSpecification(t *testing.T) {
+	projectRoot := getProjectRoot()
 
 	t.Run("GitHub Actions workflow exists", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
 			t.Fatal("Release workflow file does not exist at .github/workflows/release.yml")
 		}
 	})
 
 	t.Run("Release workflow triggers on tags", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -59,7 +69,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 
 	t.Run("Cross-platform build support", func(t *testing.T) {
-		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
+		buildScriptPath := filepath.Join(projectRoot, "scripts", "build.sh")
 		if _, err := os.Stat(buildScriptPath); os.IsNotExist(err) {
 			t.Fatal("Build script does not exist at scripts/build.sh")
 		}
@@ -88,7 +98,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 
 	t.Run("Checksum generation support", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -112,7 +122,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 
 	t.Run("Pre-release support", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -132,7 +142,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 
 	t.Run("Tag validation implementation", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -152,7 +162,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 	})
 
 	t.Run("Release notes generation", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -174,9 +184,10 @@ func TestReleaseSystemSpecification(t *testing.T) {
 
 // TestBuildSystemFunctionality tests the build system functionality
 func TestBuildSystemFunctionality(t *testing.T) {
+	projectRoot := getProjectRoot()
 
 	t.Run("Build script executable", func(t *testing.T) {
-		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
+		buildScriptPath := filepath.Join(projectRoot, "scripts", "build.sh")
 
 		// Check if file exists and is executable
 		info, err := os.Stat(buildScriptPath)
@@ -194,7 +205,7 @@ func TestBuildSystemFunctionality(t *testing.T) {
 	})
 
 	t.Run("Build script help functionality", func(t *testing.T) {
-		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
+		buildScriptPath := filepath.Join(projectRoot, "scripts", "build.sh")
 
 		// Override execCommand for this test
 		originalExecCommand := execCommand
@@ -223,7 +234,7 @@ func TestBuildSystemFunctionality(t *testing.T) {
 
 		// Check if version command exists using mocked command
 		cmd := execCommand("go", "run", ".", "version")
-		cmd.Dir = ".."
+		cmd.Dir = projectRoot
 		output, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("Failed to run version command: %v", err)
@@ -243,9 +254,10 @@ func TestBuildSystemFunctionality(t *testing.T) {
 
 // TestReleaseWorkflowStructure tests the structure and format of the release workflow
 func TestReleaseWorkflowStructure(t *testing.T) {
+	projectRoot := getProjectRoot()
 
 	t.Run("Workflow file format validation", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		file, err := os.Open(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to open workflow file: %v", err)
@@ -271,7 +283,7 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 	})
 
 	t.Run("Required workflow components", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -296,7 +308,7 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 	})
 
 	t.Run("Security permissions validation", func(t *testing.T) {
-		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
+		workflowPath := filepath.Join(projectRoot, ".github", "workflows", "release.yml")
 		content, err := os.ReadFile(workflowPath)
 		if err != nil {
 			t.Fatalf("Failed to read workflow file: %v", err)
@@ -313,9 +325,10 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 
 // TestAssetNamingConventions tests that asset naming follows conventions
 func TestAssetNamingConventions(t *testing.T) {
+	projectRoot := getProjectRoot()
 
 	t.Run("Asset naming pattern validation", func(t *testing.T) {
-		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
+		buildScriptPath := filepath.Join(projectRoot, "scripts", "build.sh")
 		content, err := os.ReadFile(buildScriptPath)
 		if err != nil {
 			t.Fatalf("Failed to read build script: %v", err)
@@ -331,7 +344,7 @@ func TestAssetNamingConventions(t *testing.T) {
 	})
 
 	t.Run("Archive format consistency", func(t *testing.T) {
-		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
+		buildScriptPath := filepath.Join(projectRoot, "scripts", "build.sh")
 		content, err := os.ReadFile(buildScriptPath)
 		if err != nil {
 			t.Fatalf("Failed to read build script: %v", err)
