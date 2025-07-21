@@ -211,7 +211,12 @@ func calculateTaskStats(tasks []storage.Task) TaskStats {
 	}
 
 	for _, task := range tasks {
-		stats.StatusCounts[task.Status]++
+		// Normalize "cancelled" to "cancel" for backward compatibility
+		status := task.Status
+		if status == "cancelled" {
+			status = "cancel"
+		}
+		stats.StatusCounts[status]++
 		stats.PriorityCounts[task.Priority]++
 		stats.PRCounts[task.PRNumber]++
 	}

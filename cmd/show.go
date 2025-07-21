@@ -190,7 +190,7 @@ func displayTaskDetails(task storage.Task) error {
 	case "done":
 		fmt.Printf("   Task completed! ✅\n")
 	case "cancel", "cancelled":
-		fmt.Printf("   Task cancelled.\n")
+		fmt.Printf("   Task cancelled. ❌\n")
 	}
 
 	return nil

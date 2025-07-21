@@ -102,7 +102,7 @@ func (sm *StatisticsManager) generateStatsFromTasks(tasks []storage.Task, prNumb
 			case "pending":
 				stats.PendingTasks++
 				statusSummary.Pending++
-			case "cancelled":
+			case "cancel":
 				stats.CancelledTasks++
 				statusSummary.Cancelled++
 			}
