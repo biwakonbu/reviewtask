@@ -77,10 +77,12 @@ parse_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             --version)
+                [[ -n $2 ]] || { print_error "Missing value for --version"; usage; exit 1; }
                 VERSION="$2"
                 shift 2
                 ;;
             --bin-dir)
+                [[ -n $2 ]] || { print_error "Missing value for --bin-dir"; usage; exit 1; }
                 BIN_DIR="$2"
                 shift 2
                 ;;
