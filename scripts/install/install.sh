@@ -391,5 +391,7 @@ main() {
     print_success "Installation completed successfully!"
 }
 
-# Run main function with all arguments
-main "$@"
+# Run main function with all arguments only if script is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
