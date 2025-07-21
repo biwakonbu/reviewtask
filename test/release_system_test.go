@@ -31,7 +31,7 @@ func createMockCommand(output string, exitCode int) func(string, ...string) *exe
 // TestReleaseSystemSpecification tests the automated release system implementation
 func TestReleaseSystemSpecification(t *testing.T) {
 	t.Skip("Skipping release system tests - release infrastructure not yet implemented (see issue #40)")
-	
+
 	t.Run("GitHub Actions workflow exists", func(t *testing.T) {
 		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
 		if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
@@ -176,7 +176,7 @@ func TestReleaseSystemSpecification(t *testing.T) {
 // TestBuildSystemFunctionality tests the build system functionality
 func TestBuildSystemFunctionality(t *testing.T) {
 	t.Skip("Skipping build system tests - build infrastructure not yet implemented (see issue #40)")
-	
+
 	t.Run("Build script executable", func(t *testing.T) {
 		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
 
@@ -246,7 +246,7 @@ func TestBuildSystemFunctionality(t *testing.T) {
 // TestReleaseWorkflowStructure tests the structure and format of the release workflow
 func TestReleaseWorkflowStructure(t *testing.T) {
 	t.Skip("Skipping release workflow structure tests - release infrastructure not yet implemented (see issue #40)")
-	
+
 	t.Run("Workflow file format validation", func(t *testing.T) {
 		workflowPath := filepath.Join("..", ".github", "workflows", "release.yml")
 		file, err := os.Open(workflowPath)
@@ -317,7 +317,7 @@ func TestReleaseWorkflowStructure(t *testing.T) {
 // TestAssetNamingConventions tests that asset naming follows conventions
 func TestAssetNamingConventions(t *testing.T) {
 	t.Skip("Skipping asset naming tests - release infrastructure not yet implemented (see issue #40)")
-	
+
 	t.Run("Asset naming pattern validation", func(t *testing.T) {
 		buildScriptPath := filepath.Join("..", "scripts", "build.sh")
 		content, err := os.ReadFile(buildScriptPath)
