@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"reviewtask/internal/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"reviewtask/internal/storage"
 )
 
 // TestCancelTaskIntegration tests the full workflow of cancelling tasks
@@ -18,13 +18,13 @@ func TestCancelTaskIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(origDir)
-	
+
 	// Build the binary
 	projectRoot := filepath.Join(origDir, "..")
 	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
@@ -32,16 +32,16 @@ func TestCancelTaskIntegration(t *testing.T) {
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
-	
+
 	// Copy binary to temp dir
 	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
 		t.Fatalf("Failed to move binary: %v", err)
 	}
-	
+
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
-	
+
 	// Create test tasks
 	tasks := []storage.Task{
 		{
@@ -69,7 +69,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 			PRNumber:        1,
 		},
 	}
-	
+
 	// Save tasks
 	tasksData := storage.TasksFile{
 		GeneratedAt: time.Now().Format("2006-01-02T15:04:05Z"),
@@ -79,23 +79,23 @@ func TestCancelTaskIntegration(t *testing.T) {
 	data, err := json.MarshalIndent(tasksData, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
-	
+
 	t.Run("update_task_to_cancel_status", func(t *testing.T) {
 		// Update task-1 to cancel status
 		cmd := exec.Command("./reviewtask", "update", "task-1", "cancel")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
-		
+
 		// Verify the task was updated
 		assert.Contains(t, string(output), "✅ Task status updated successfully")
-		
+
 		// Load tasks and verify status
 		updatedData, err := os.ReadFile(tasksFile)
 		require.NoError(t, err)
-		
+
 		var updatedTasksFile storage.TasksFile
 		require.NoError(t, json.Unmarshal(updatedData, &updatedTasksFile))
-		
+
 		// Find task-1
 		var task1 *storage.Task
 		for i := range updatedTasksFile.Tasks {
@@ -104,45 +104,45 @@ func TestCancelTaskIntegration(t *testing.T) {
 				break
 			}
 		}
-		
+
 		require.NotNil(t, task1, "Task-1 not found")
 		assert.Equal(t, "cancel", task1.Status, "Task should be marked as 'cancel'")
 	})
-	
+
 	t.Run("status_command_shows_cancelled_tasks", func(t *testing.T) {
 		// Run status command
 		cmd := exec.Command("./reviewtask", "status")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
-		
+
 		outputStr := string(output)
-		
+
 		// Should show cancel: 1 in status breakdown
 		assert.Contains(t, outputStr, "cancel: 1", "Status should show 1 cancelled task")
-		
+
 		// Completion rate should include cancelled tasks
 		// We have: 1 done, 1 cancel, 1 doing = 2/3 completed
 		assert.Contains(t, outputStr, "66.7%", "Completion rate should be 66.7%")
 		assert.Contains(t, outputStr, "(2/3)", "Should show 2 out of 3 tasks completed")
 	})
-	
+
 	t.Run("show_command_skips_cancelled_tasks", func(t *testing.T) {
 		// First cancel the doing task
 		cmd := exec.Command("./reviewtask", "update", "task-2", "cancel")
 		_, err := cmd.CombinedOutput()
 		require.NoError(t, err)
-		
+
 		// Run show command
 		cmd = exec.Command("./reviewtask", "show")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
-		
+
 		outputStr := string(output)
-		
+
 		// Should not show cancelled tasks
 		assert.NotContains(t, outputStr, "task-1", "Should not show cancelled task-1")
 		assert.NotContains(t, outputStr, "task-2", "Should not show cancelled task-2")
-		
+
 		// Should indicate all tasks are completed or cancelled
 		assert.Contains(t, outputStr, "No current or next tasks found", "Should indicate no actionable tasks")
 	})
@@ -153,13 +153,13 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(origDir)
-	
+
 	// Build the binary
 	projectRoot := filepath.Join(origDir, "..")
 	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
@@ -167,16 +167,16 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
-	
+
 	// Copy binary to temp dir
 	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
 		t.Fatalf("Failed to move binary: %v", err)
 	}
-	
+
 	// Create test data with old "cancelled" status
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
-	
+
 	// Create tasks with mixed cancel/cancelled statuses
 	tasksData := storage.TasksFile{
 		GeneratedAt: time.Now().Format("2006-01-02T15:04:05Z"),
@@ -201,22 +201,22 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tasksFile := filepath.Join(prDir, "tasks.json")
 	data, err := json.MarshalIndent(tasksData, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
-	
+
 	// Run status command
 	cmd := exec.Command("./reviewtask", "status")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
-	
+
 	outputStr := string(output)
-	
+
 	// Should count both "cancel" and "cancelled" statuses
 	assert.Contains(t, outputStr, "cancel: 2", "Should count both cancel and cancelled statuses")
-	
+
 	// Completion rate should be 66.7% (2 cancelled + 0 done) / 3 total
 	assert.Contains(t, outputStr, "66.7%", "Completion rate should be 66.7%")
 }
@@ -226,17 +226,17 @@ func TestMergeWithCancelledTasks(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(origDir)
-	
+
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
-	
+
 	// Simulate initial tasks from a comment
 	initialTasks := []storage.Task{
 		{
@@ -258,32 +258,32 @@ func TestMergeWithCancelledTasks(t *testing.T) {
 			OriginText:      "Please fix this bug",
 		},
 	}
-	
+
 	// Save initial tasks
 	sm := storage.NewManager()
 	err := sm.SaveTasks(1, initialTasks)
 	require.NoError(t, err)
-	
+
 	// Simulate comment deletion by merging with empty tasks
 	err = sm.MergeTasks(1, []storage.Task{})
 	require.NoError(t, err)
-	
+
 	// Load tasks and verify they're cancelled
 	tasks, err := sm.GetTasksByPR(1)
 	require.NoError(t, err)
-	
+
 	assert.Len(t, tasks, 2, "Should still have 2 tasks")
-	
+
 	for _, task := range tasks {
 		assert.Equal(t, "cancel", task.Status, "All tasks should be marked as 'cancel'")
 		assert.NotEmpty(t, task.UpdatedAt, "UpdatedAt should be set")
 	}
-	
+
 	// Also verify via file content
 	tasksFile := filepath.Join(prDir, "tasks.json")
 	data, err := os.ReadFile(tasksFile)
 	require.NoError(t, err)
-	
+
 	// Should contain "cancel" not "cancelled"
 	assert.Contains(t, string(data), `"status": "cancel"`, "File should contain 'cancel' status")
 	assert.NotContains(t, string(data), `"status": "cancelled"`, "File should not contain 'cancelled' status")
@@ -294,12 +294,12 @@ func TestShowCommandPriority(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
-	
+
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(origDir)
-	
+
 	// Build the binary
 	projectRoot := filepath.Join(origDir, "..")
 	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
@@ -307,16 +307,16 @@ func TestShowCommandPriority(t *testing.T) {
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
-	
+
 	// Copy binary to temp dir
 	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
 		t.Fatalf("Failed to move binary: %v", err)
 	}
-	
+
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
-	
+
 	// Create tasks with cancelled high priority and active medium priority
 	tasksData := storage.TasksFile{
 		GeneratedAt: time.Now().Format("2006-01-02T15:04:05Z"),
@@ -344,23 +344,23 @@ func TestShowCommandPriority(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tasksFile := filepath.Join(prDir, "tasks.json")
 	data, err := json.MarshalIndent(tasksData, "", "  ")
 	require.NoError(t, err)
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
-	
+
 	// Run show command
 	cmd := exec.Command("./reviewtask", "show")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
-	
+
 	outputStr := string(output)
-	
+
 	// Should show the medium priority task (only non-cancelled task)
 	assert.Contains(t, outputStr, "task-2", "Should show task-2")
 	assert.Contains(t, outputStr, "Active medium priority task", "Should show task-2 description")
-	
+
 	// Should not show cancelled tasks
 	assert.NotContains(t, outputStr, "task-1", "Should not show cancelled task-1")
 	assert.NotContains(t, outputStr, "task-3", "Should not show cancelled task-3")

@@ -839,7 +839,7 @@ func TestManager_UpdateCommentCache(t *testing.T) {
 func TestMergeTasksForCommentCancelStatus(t *testing.T) {
 	// Create manager instance
 	m := &Manager{}
-	
+
 	t.Run("empty_new_tasks_cancels_existing", func(t *testing.T) {
 		existing := []Task{
 			{
@@ -864,15 +864,15 @@ func TestMergeTasksForCommentCancelStatus(t *testing.T) {
 				SourceCommentID: 12345,
 			},
 		}
-		
+
 		// Call the method with empty new tasks
 		result := m.mergeTasksForComment(12345, existing, []Task{})
-		
+
 		// Verify results
 		if len(result) != 3 {
 			t.Errorf("Expected 3 tasks, got %d", len(result))
 		}
-		
+
 		for _, task := range result {
 			if task.ID == "task-3" {
 				// Done tasks should remain done
