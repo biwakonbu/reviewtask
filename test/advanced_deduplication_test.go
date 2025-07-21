@@ -3,6 +3,7 @@ package test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -239,6 +240,11 @@ func TestAdvancedDeduplication(t *testing.T) {
 }
 
 func TestCommentHistoryPersistence(t *testing.T) {
+	// Skip on Windows due to file locking issues with TempDir cleanup
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping comment history persistence test on Windows due to file locking issues")
+	}
+	
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 
