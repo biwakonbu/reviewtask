@@ -23,6 +23,8 @@ The reviewtask installation system provides cross-platform, one-liner installati
 - **Flexibility**: Configurable installation directory and force overwrite options
 - **Error Handling**: Comprehensive error checking with rollback capabilities
 - **Network Resilience**: Falls back between curl and wget for downloads
+- **Shell Detection**: Automatically detects user's shell (bash, zsh, fish) for PATH configuration
+- **Archive Support**: Handles tar.gz and zip archives for binary distribution
 
 #### Usage Examples
 
@@ -58,7 +60,7 @@ bash install.sh --prerelease
 | Option | Description | Default |
 |--------|-------------|---------|
 | `--version VERSION` | Install specific version | `latest` |
-| `--bin-dir DIR` | Installation directory | `/usr/local/bin` |
+| `--bin-dir DIR` | Installation directory | `~/.local/bin` |
 | `--force` | Overwrite existing installation | `false` |
 | `--prerelease` | Include pre-release versions | `false` |
 | `--help` | Show usage information | - |
@@ -305,34 +307,60 @@ Both scripts implement automatic rollback on failure:
 
 | Platform | Default Directory | Reasoning |
 |----------|-------------------|-----------|
-| Unix/Linux | `/usr/local/bin` | Standard system-wide binary location |
-| macOS | `/usr/local/bin` | Homebrew-compatible standard location |
+| Unix/Linux | `~/.local/bin` | User-specific directory, no sudo required |
+| macOS | `~/.local/bin` | User-specific directory, no sudo required |
 | Windows | `$env:USERPROFILE\bin` | User-specific to avoid admin requirements |
 
 #### Permission Handling
 
-- **Unix/Linux/macOS**: Attempts system directory, falls back to user directory
+- **Unix/Linux/macOS**: Defaults to user directory (`~/.local/bin`) to avoid sudo requirements
 - **Windows**: Defaults to user directory to avoid UAC requirements
-- **Both**: Provides clear guidance for PATH configuration
+- **Both**: Provides shell-specific guidance for PATH configuration
+
+#### Shell-Specific PATH Configuration
+
+The installation script automatically detects the user's shell and provides appropriate PATH configuration instructions:
+
+**Bash Configuration:**
+```bash
+# Add to ~/.bashrc
+export PATH="$HOME/.local/bin:$PATH"
+source ~/.bashrc
+```
+
+**Zsh Configuration:**
+```bash
+# Add to ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
+source ~/.zshrc
+```
+
+**Fish Configuration:**
+```fish
+# Add to ~/.config/fish/config.fish
+set -gx PATH $HOME/.local/bin $PATH
+source ~/.config/fish/config.fish
+```
 
 ### Supported Binary Formats
 
-The installation system supports the following binary naming convention:
+The installation system supports archived binaries with the following naming convention:
 
 ```
-reviewtask_<platform>_<architecture>[.exe]
+reviewtask-<version>-<platform>-<architecture>.tar.gz  # Unix/Linux/macOS
+reviewtask-<version>-<platform>-<architecture>.zip     # Windows
 ```
 
 #### Platform Identifiers
 
-| Platform | Identifier | Binary Name Example |
+| Platform | Identifier | Archive Name Example |
 |----------|------------|-------------------|
-| Linux x86_64 | `linux_amd64` | `reviewtask_linux_amd64` |
-| Linux ARM64 | `linux_arm64` | `reviewtask_linux_arm64` |
-| macOS x86_64 | `darwin_amd64` | `reviewtask_darwin_amd64` |
-| macOS ARM64 | `darwin_arm64` | `reviewtask_darwin_arm64` |
-| Windows x86_64 | `windows_amd64` | `reviewtask_windows_amd64.exe` |
-| Windows ARM64 | `windows_arm64` | `reviewtask_windows_arm64.exe` |
+| Linux x86_64 | `linux-amd64` | `reviewtask-v0.1.0-linux-amd64.tar.gz` |
+| Linux ARM64 | `linux-arm64` | `reviewtask-v0.1.0-linux-arm64.tar.gz` |
+| macOS x86_64 | `darwin-amd64` | `reviewtask-v0.1.0-darwin-amd64.tar.gz` |
+| macOS ARM64 | `darwin-arm64` | `reviewtask-v0.1.0-darwin-arm64.tar.gz` |
+| Windows x86_64 | `windows-amd64` | `reviewtask-v0.1.0-windows-amd64.zip` |
+| Windows ARM64 | `windows-arm64` | `reviewtask-v0.1.0-windows-arm64.zip` |
 
 ## Testing Framework
 
@@ -415,12 +443,12 @@ The installation scripts are designed to work seamlessly with GitHub releases:
 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
 
-# Binary URLs  
-https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/reviewtask_linux_amd64
-https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/reviewtask_windows_amd64.exe
+# Archive URLs  
+https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/reviewtask-v1.2.3-linux-amd64.tar.gz
+https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/reviewtask-v1.2.3-windows-amd64.zip
 
 # Checksum URL
-https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/checksums.txt
+https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/SHA256SUMS
 ```
 
 ### Content Delivery Network (CDN)
