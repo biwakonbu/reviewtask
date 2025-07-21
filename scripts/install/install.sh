@@ -322,11 +322,8 @@ install_binary() {
     local temp_archive="$temp_dir/$archive_filename"
     local temp_binary="$temp_dir/$BINARY_NAME"
     
-    # Cleanup function
-    cleanup() {
-        rm -rf "$temp_dir"
-    }
-    trap cleanup EXIT
+    # Cleanup function with proper variable handling
+    trap "rm -rf '$temp_dir'" EXIT
     
     # Download and verify the archive
     download_with_verification "$download_url" "$temp_archive" "$checksum_url"
