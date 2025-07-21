@@ -244,7 +244,7 @@ func TestCommentHistoryPersistence(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping comment history persistence test on Windows due to file locking issues")
 	}
-	
+
 	tempDir := t.TempDir()
 	os.Chdir(tempDir)
 
