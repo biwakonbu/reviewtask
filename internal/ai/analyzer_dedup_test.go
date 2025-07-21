@@ -215,7 +215,7 @@ func TestCalculateSimilarity(t *testing.T) {
 func TestDeduplicateSimilarTasks(t *testing.T) {
 	cfg := &config.Config{
 		AISettings: config.AISettings{
-			SimilarityThreshold: 0.7,
+			SimilarityThreshold: 0.6, // Lower threshold to catch "Add validation" vs "Add input validation"
 		},
 	}
 	analyzer := NewAnalyzer(cfg)

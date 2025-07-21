@@ -771,7 +771,6 @@ Task Generation Guidelines:
 - Focus on the primary intent of the review comment`,
 		languageInstruction,
 		priorityPrompt,
-		a.config.AISettings.MaxTasksPerComment,
 		ctx.SourceReview.ID,
 		ctx.SourceReview.Reviewer,
 		ctx.SourceReview.State,
@@ -784,7 +783,8 @@ Task Generation Guidelines:
 		ctx.SourceReview.ID,
 		ctx.Comment.ID,
 		ctx.Comment.File,
-		ctx.Comment.Line)
+		ctx.Comment.Line,
+		a.config.AISettings.MaxTasksPerComment)
 
 	return prompt
 }
@@ -887,32 +887,31 @@ func (a *Analyzer) deduplicateSimilarTasks(tasks []storage.Task) []storage.Task 
 		return tasks
 	}
 	
+	// First, sort tasks by priority to ensure we process higher priority tasks first
+	sortedTasks := a.sortTasksByPriority(tasks)
+	
 	var result []storage.Task
 	seen := make(map[int]bool)
 	
-	for i, task1 := range tasks {
+	for i, task1 := range sortedTasks {
 		if seen[i] {
 			continue
 		}
 		
 		// Check similarity with remaining tasks
-		for j := i + 1; j < len(tasks); j++ {
+		for j := i + 1; j < len(sortedTasks); j++ {
 			if seen[j] {
 				continue
 			}
 			
-			similarity := a.calculateSimilarity(task1.Description, tasks[j].Description)
+			similarity := a.calculateSimilarity(task1.Description, sortedTasks[j].Description)
 			if similarity >= a.config.AISettings.SimilarityThreshold {
-				// Mark the lower priority task as seen (duplicate)
-				if a.getPriorityValue(task1.Priority) <= a.getPriorityValue(tasks[j].Priority) {
-					seen[j] = true
-					if a.config.AISettings.DebugMode {
-						fmt.Printf("  🔄 Deduplicating task: '%s' (similar to '%s', similarity: %.2f)\n",
-							tasks[j].Description, task1.Description, similarity)
-					}
-				} else {
-					seen[i] = true
-					break
+				// Since we're sorted by priority, task1 has higher or equal priority
+				// Always mark the later task (lower or equal priority) as duplicate
+				seen[j] = true
+				if a.config.AISettings.DebugMode {
+					fmt.Printf("  🔄 Deduplicating task: '%s' (similar to '%s', similarity: %.2f)\n",
+						sortedTasks[j].Description, task1.Description, similarity)
 				}
 			}
 		}
