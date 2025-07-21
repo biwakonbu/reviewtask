@@ -26,7 +26,11 @@ After completing the initial setup, follow this exact workflow:
    
    b) **For doing tasks**: Continue with the task already in progress
    
-   c) **For todo tasks**: Use `reviewtask show` to get the next recommended task, then run `reviewtask update <task-id> doing`
+   c) **For todo tasks**: 
+      - First, evaluate if the task is needed using the **Task Classification Guidelines** below
+      - If needed: Use `reviewtask show` to get the next recommended task, then run `reviewtask update <task-id> doing`
+      - If duplicate/unnecessary: Update to `cancel`
+      - If uncertain: Update to `pending`
    
    d) **For pending-only scenario**: 
       - List all pending tasks and their reasons for being blocked
@@ -76,12 +80,33 @@ After completing the initial setup, follow this exact workflow:
    - **If only pending tasks remain**: Handle pending tasks as described in Step 2d
    - **If todo or doing tasks remain**: Repeat this entire workflow from step 1
 
+## Task Classification Guidelines:
+
+**CANCEL** tasks that are:
+- Clear duplicates of already implemented features
+- References to changes already completed in previous commits
+- Obsolete suggestions that no longer apply to current code
+- Tasks that would introduce conflicts with existing implementations
+
+**PENDING** tasks that are:
+- Ambiguous requirements that need clarification
+- Low-priority improvements that could be done later
+- Tasks dependent on external decisions or unclear specifications
+- Enhancements that could be implemented but aren't critical
+
+**TODO** tasks that are:
+- New functional requirements not yet implemented
+- Critical bug fixes or security issues
+- Clear improvement suggestions for current code
+- Tasks with specific actionable requirements
+
 ## Important Notes:
 - Work only in the current branch
 - Always verify status changes before proceeding
 - Include proper commit message format with task details and comment references
 - **Task Priority**: Always work on `doing` tasks first, then `todo` tasks, then handle `pending` tasks
 - **Pending Task Management**: Pending tasks must be resolved by changing status to `doing`, `todo`, or `cancel`
+- **Efficient Task Management**: Classify duplicate/unnecessary tasks as `cancel` and uncertain tasks as `pending` to focus on actionable work
 - Continue until all tasks are completed or no more actionable tasks remain
 - The initial review fetch is executed only once per command invocation, not during the iterative workflow steps
 
