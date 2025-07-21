@@ -10,7 +10,7 @@ The reviewtask installation system provides cross-platform, one-liner installati
 
 ### 1. Unix/Linux/macOS Script (`install.sh`)
 
-**Location**: `install.sh` (repository root)  
+**Location**: `scripts/install/install.sh`  
 **Purpose**: Provides installation for Unix-like systems including Linux and macOS  
 **Language**: Bash shell script  
 **Compatibility**: bash 3.0+, compatible with most Unix shells
@@ -28,19 +28,19 @@ The reviewtask installation system provides cross-platform, one-liner installati
 
 ```bash
 # Basic installation
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash
 
 # Install specific version
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --version v1.2.3
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --version v1.2.3
 
 # Install to custom directory
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --bin-dir ~/bin
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --bin-dir ~/bin
 
 # Force overwrite existing installation
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --force
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
 
 # Include pre-release versions
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --prerelease
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --prerelease
 ```
 
 #### Command Line Options
@@ -55,7 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.s
 
 ### 2. Windows PowerShell Script (`install.ps1`)
 
-**Location**: `install.ps1` (repository root)  
+**Location**: `scripts/install/install.ps1`  
 **Purpose**: Provides installation for Windows systems using PowerShell  
 **Language**: PowerShell  
 **Compatibility**: PowerShell 3.0+ (Windows PowerShell and PowerShell Core)
@@ -72,16 +72,16 @@ curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.s
 
 ```powershell
 # Basic installation
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
 
 # Install specific version
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-Version", "v1.2.3"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Version", "v1.2.3"
 
 # Install to custom directory
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-BinDir", "C:\tools"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-BinDir", "C:\tools"
 
 # Force overwrite existing installation
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-Force"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Force"
 ```
 
 #### Parameters
@@ -394,8 +394,8 @@ The installation scripts are designed to work seamlessly with GitHub releases:
 
 ```
 # Script URLs
-https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh
-https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1
+https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
 
 # Binary URLs  
 https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/reviewtask_linux_amd64
@@ -446,7 +446,7 @@ GitHub's raw file delivery provides:
 
 ```bash
 # Solution: Use custom directory
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --bin-dir ~/bin
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --bin-dir ~/bin
 ```
 
 #### Binary Not in PATH
@@ -461,7 +461,7 @@ source ~/.bashrc
 
 ```bash
 # Retry installation (may be temporary network issue)
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --force
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
 ```
 
 #### Unsupported Platform
@@ -474,11 +474,11 @@ Both scripts provide verbose output for debugging:
 
 ```bash
 # Unix/Linux/macOS - Enable debug output
-bash -x <(curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh)
+bash -x <(curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh)
 
 # Windows PowerShell - Use verbose preference
 $VerbosePreference = "Continue"
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
 ```
 
 ## Future Enhancements

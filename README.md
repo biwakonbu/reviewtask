@@ -25,12 +25,12 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 
 **Unix/Linux/macOS:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
 ```
 
 ### Installation Options
@@ -38,28 +38,28 @@ iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps
 **Install specific version:**
 ```bash
 # Unix/Linux/macOS
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --version v1.2.3
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --version v1.2.3
 
 # Windows
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-Version", "v1.2.3"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Version", "v1.2.3"
 ```
 
 **Install to custom directory:**
 ```bash
 # Unix/Linux/macOS
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --bin-dir ~/bin
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --bin-dir ~/bin
 
 # Windows
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-BinDir", "C:\tools"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-BinDir", "C:\tools"
 ```
 
 **Force overwrite existing installation:**
 ```bash
 # Unix/Linux/macOS
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --force
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
 
 # Windows
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.ps1 | iex -ArgumentList "-Force"
+iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Force"
 ```
 
 ### Manual Installation
