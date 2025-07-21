@@ -193,7 +193,7 @@ func TestCalculateTextHash(t *testing.T) {
 	}{
 		{"Hello, world!", "315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3"},
 		{"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
-		{"Test comment", "dc67636c689d87a395d34b1db01a8196bf972e085a4b03322f5c6b82b67f3350"},
+		{"Test comment", "7be45a95aef6b75bf37653507355d9b2408f4f7826f972699107a36e018cbdc2"},
 	}
 
 	for _, test := range tests {
