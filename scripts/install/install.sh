@@ -3,7 +3,7 @@
 # reviewtask Installation Script
 # Automatically detects platform and installs the appropriate binary
 
-set -e
+set -euo pipefail
 
 # Default configuration
 DEFAULT_BIN_DIR="/usr/local/bin"
