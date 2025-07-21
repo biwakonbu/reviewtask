@@ -5,7 +5,7 @@ linters-settings:
   gocyclo:
     min-complexity: 15
   goimports:
-    local-prefixes: gh-review-task
+    local-prefixes: reviewtask
   goconst:
     min-len: 2
     min-occurrences: 2
