@@ -398,15 +398,119 @@ install_binary() {
     fi
     
     print_success "Successfully installed reviewtask $version to $final_path"
+}
+
+# Detect user's shell
+detect_shell() {
+    local shell_name=""
     
-    # Additional message for ~/.local/bin installation
-    if [[ "$BIN_DIR" == *"/.local/bin"* ]] && ! echo "$PATH" | grep -q "$BIN_DIR"; then
-        print_warning "$BIN_DIR is not in your PATH"
-        print_info "Add this line to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        print_info "    export PATH=\"\$HOME/.local/bin:\$PATH\""
-        print_info ""
-        print_info "Then reload your shell or run: source ~/.bashrc"
+    # Try to detect from SHELL environment variable
+    if [[ -n "$SHELL" ]]; then
+        shell_name=$(basename "$SHELL")
     fi
+    
+    # Fallback to checking running processes
+    if [[ -z "$shell_name" ]] && command -v ps >/dev/null 2>&1; then
+        shell_name=$(ps -p $$ -o comm= 2>/dev/null | xargs basename 2>/dev/null)
+    fi
+    
+    # Normalize shell name
+    case "$shell_name" in
+        bash|sh)
+            echo "bash"
+            ;;
+        zsh)
+            echo "zsh"
+            ;;
+        fish)
+            echo "fish"
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
+
+# Get shell configuration file
+get_shell_config() {
+    local shell_type="$1"
+    
+    case "$shell_type" in
+        bash)
+            if [[ -f "$HOME/.bashrc" ]]; then
+                echo "$HOME/.bashrc"
+            elif [[ -f "$HOME/.bash_profile" ]]; then
+                echo "$HOME/.bash_profile"
+            else
+                echo "$HOME/.bashrc"
+            fi
+            ;;
+        zsh)
+            if [[ -f "$HOME/.zshrc" ]]; then
+                echo "$HOME/.zshrc"
+            else
+                echo "$HOME/.zshrc"
+            fi
+            ;;
+        fish)
+            echo "$HOME/.config/fish/config.fish"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+# Show PATH configuration instructions
+show_path_instructions() {
+    local shell_type
+    shell_type=$(detect_shell)
+    local config_file
+    config_file=$(get_shell_config "$shell_type")
+    
+    print_warning "$BIN_DIR is not in your PATH"
+    print_info ""
+    print_info "To add reviewtask to your PATH, follow these instructions:"
+    print_info ""
+    
+    case "$shell_type" in
+        bash)
+            print_info "For Bash users:"
+            print_info "  1. Add this line to your $config_file:"
+            print_info "     ${GREEN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+            print_info ""
+            print_info "  2. Then reload your shell configuration:"
+            print_info "     ${GREEN}source $config_file${NC}"
+            ;;
+        zsh)
+            print_info "For Zsh users:"
+            print_info "  1. Add this line to your $config_file:"
+            print_info "     ${GREEN}export PATH=\"\$HOME/.local/bin:\$PATH\"${NC}"
+            print_info ""
+            print_info "  2. Then reload your shell configuration:"
+            print_info "     ${GREEN}source $config_file${NC}"
+            ;;
+        fish)
+            print_info "For Fish users:"
+            print_info "  1. Add this to your $config_file:"
+            print_info "     ${GREEN}set -gx PATH \$HOME/.local/bin \$PATH${NC}"
+            print_info ""
+            print_info "  2. Then reload your shell configuration:"
+            print_info "     ${GREEN}source $config_file${NC}"
+            ;;
+        *)
+            print_info "For other shells:"
+            print_info "  Add $HOME/.local/bin to your PATH environment variable"
+            print_info "  The exact method depends on your shell"
+            ;;
+    esac
+    
+    print_info ""
+    print_info "Alternatively, you can run reviewtask with the full path:"
+    print_info "  ${GREEN}$BIN_DIR/$BINARY_NAME${NC}"
+    print_info ""
+    print_info "After updating your PATH, you can run:"
+    print_info "  ${GREEN}reviewtask --help${NC}"
 }
 
 # Verify installation
@@ -434,11 +538,7 @@ verify_installation() {
     
     # Check if binary is in PATH
     if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
-        print_warning "$BIN_DIR is not in your PATH"
-        print_info "Add the following line to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
-        print_info "export PATH=\"$BIN_DIR:\$PATH\""
-        print_info ""
-        print_info "Or run reviewtask with full path: $binary_path"
+        show_path_instructions
     else
         print_success "reviewtask is available in your PATH"
         print_info "You can now run: reviewtask --help"
