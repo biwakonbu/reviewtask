@@ -325,8 +325,9 @@ install_binary() {
     local final_path="$BIN_DIR/$BINARY_NAME"
     print_info "Installing to $final_path"
     
-    if ! mv "$temp_binary" "$final_path"; then
+    if ! install -m 0755 "$temp_binary" "${final_path}.tmp" || ! mv -f "${final_path}.tmp" "$final_path"; then
         print_error "Failed to install binary to $final_path"
+        rm -f "${final_path}.tmp"
         print_info "You may need to run with sudo"
         exit 1
     fi
