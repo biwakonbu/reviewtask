@@ -83,7 +83,11 @@ parse_args() {
                 ;;
             --bin-dir)
                 [[ -n $2 && $2 != --* ]] || { print_error "Missing value for --bin-dir"; usage; exit 1; }
-                BIN_DIR="$2"
+                # Expand a leading ~ to the user's home directory
+                case $2 in
+                    "~"*) BIN_DIR="${2/#\~/$HOME}" ;;
+                    *)    BIN_DIR="$2" ;;
+                esac
                 shift 2
                 ;;
             --force)
