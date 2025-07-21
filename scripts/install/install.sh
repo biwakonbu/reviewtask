@@ -6,7 +6,8 @@
 set -euo pipefail
 
 # Default configuration
-DEFAULT_BIN_DIR="/usr/local/bin"
+# Use user's local bin directory as default (no sudo required)
+DEFAULT_BIN_DIR="$HOME/.local/bin"
 DEFAULT_VERSION="latest"
 GITHUB_REPO="biwakonbu/reviewtask"
 BINARY_NAME="reviewtask"
@@ -52,23 +53,26 @@ USAGE:
 
 OPTIONS:
     --version VERSION    Install specific version (default: latest)
-    --bin-dir DIR       Installation directory (default: /usr/local/bin)
+    --bin-dir DIR       Installation directory (default: ~/.local/bin)
     --force             Overwrite existing installation
     --prerelease        Include pre-release versions
     --help              Show this help message
 
 EXAMPLES:
-    # Install latest version to default location
-    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash
+    # Install latest version to user's local directory (no sudo required)
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash
+
+    # Install to system-wide location (requires sudo)
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | sudo bash -s -- --bin-dir /usr/local/bin
 
     # Install specific version
-    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --version v1.2.3
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --version v1.2.3
 
     # Install to custom directory
-    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --bin-dir ~/bin
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --bin-dir ~/bin
 
     # Force overwrite existing installation
-    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/install.sh | bash -s -- --force
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
 EOF
 }
 
@@ -325,6 +329,28 @@ install_binary() {
     # Make it executable
     chmod +x "$temp_binary"
     
+    # Ensure installation directory exists
+    if [ ! -d "$BIN_DIR" ]; then
+        print_info "Creating installation directory: $BIN_DIR"
+        if ! mkdir -p "$BIN_DIR" 2>/dev/null; then
+            print_error "Failed to create directory: $BIN_DIR"
+            print_info "Try one of the following:"
+            print_info "  1. Run: mkdir -p $BIN_DIR (then re-run this installer)"
+            print_info "  2. Use --bin-dir to specify a different directory"
+            print_info "  3. For system-wide install: curl ... | sudo bash -s -- --bin-dir /usr/local/bin"
+            exit 1
+        fi
+    fi
+    
+    # Check write permissions
+    if [ ! -w "$BIN_DIR" ]; then
+        print_error "No write permission to: $BIN_DIR"
+        print_info "Try one of the following:"
+        print_info "  1. Use --bin-dir to specify a writable directory (e.g., --bin-dir ~/.local/bin)"
+        print_info "  2. For system-wide install: curl ... | sudo bash -s -- --bin-dir /usr/local/bin"
+        exit 1
+    fi
+    
     # Move to final location
     local final_path="$BIN_DIR/$BINARY_NAME"
     print_info "Installing to $final_path"
@@ -332,11 +358,19 @@ install_binary() {
     if ! install -m 0755 "$temp_binary" "${final_path}.tmp" || ! mv -f "${final_path}.tmp" "$final_path"; then
         print_error "Failed to install binary to $final_path"
         rm -f "${final_path}.tmp"
-        print_info "You may need to run with sudo"
         exit 1
     fi
     
     print_success "Successfully installed reviewtask $version to $final_path"
+    
+    # Additional message for ~/.local/bin installation
+    if [[ "$BIN_DIR" == *"/.local/bin"* ]] && ! echo "$PATH" | grep -q "$BIN_DIR"; then
+        print_warning "$BIN_DIR is not in your PATH"
+        print_info "Add this line to your shell profile (~/.bashrc, ~/.zshrc, etc.):"
+        print_info "    export PATH=\"\$HOME/.local/bin:\$PATH\""
+        print_info ""
+        print_info "Then reload your shell or run: source ~/.bashrc"
+    fi
 }
 
 # Verify installation

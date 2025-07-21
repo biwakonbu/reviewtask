@@ -35,8 +35,18 @@ iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/in
 
 ### Default Installation Locations
 
-- **Unix/Linux/macOS**: `/usr/local/bin`
+- **Unix/Linux/macOS**: `~/.local/bin` (user's local directory, no sudo required)
 - **Windows**: `%USERPROFILE%\bin` (e.g., `C:\Users\username\bin`)
+
+**Note for Unix/Linux/macOS users:** If `~/.local/bin` is not in your PATH, add this line to your shell profile:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+For system-wide installation (requires sudo):
+```bash
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | sudo bash -s -- --bin-dir /usr/local/bin
+```
 
 For detailed installation information including PATH configuration and troubleshooting, see [Installation Guide](docs/INSTALLATION.md).
 
