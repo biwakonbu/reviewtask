@@ -38,10 +38,38 @@ iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/in
 - **Unix/Linux/macOS**: `~/.local/bin` (user's local directory, no sudo required)
 - **Windows**: `%USERPROFILE%\bin` (e.g., `C:\Users\username\bin`)
 
-**Note for Unix/Linux/macOS users:** If `~/.local/bin` is not in your PATH, add this line to your shell profile:
+### PATH Configuration
+
+The installation script will automatically detect your shell and provide specific instructions. If `~/.local/bin` is not in your PATH, you'll see instructions like:
+
+**For Bash users:**
 ```bash
+# Add to ~/.bashrc
 export PATH="$HOME/.local/bin:$PATH"
+
+# Reload configuration
+source ~/.bashrc
 ```
+
+**For Zsh users:**
+```bash
+# Add to ~/.zshrc
+export PATH="$HOME/.local/bin:$PATH"
+
+# Reload configuration
+source ~/.zshrc
+```
+
+**For Fish users:**
+```fish
+# Add to ~/.config/fish/config.fish
+set -gx PATH $HOME/.local/bin $PATH
+
+# Reload configuration
+source ~/.config/fish/config.fish
+```
+
+### System-wide Installation
 
 For system-wide installation (requires sudo):
 ```bash
