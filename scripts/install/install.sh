@@ -272,7 +272,9 @@ download_with_verification() {
             fi
             print_success "Checksum verification passed"
         else
-            print_warning "Could not retrieve checksum for verification"
+            print_error "Checksum not found for $(basename "$output_file"); aborting"
+            rm -f "$output_file"
+            exit 1
         fi
     fi
 }
