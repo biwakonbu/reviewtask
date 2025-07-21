@@ -173,7 +173,7 @@ func TestCalculateSimilarity(t *testing.T) {
 		{
 			s1:       "Fix memory leak in parser",
 			s2:       "Fix memory leak in the parser",
-			expected: 0.8, // 4 common words out of 5 unique words
+			expected: 0.833, // 5 common words out of 6 unique words
 			delta:    0.01,
 		},
 		{
