@@ -36,16 +36,16 @@ type TaskSummary struct {
 
 // DeduplicationResponse represents the AI's response about task duplicates
 type DeduplicationResponse struct {
-	UniqueTaskIDs   []string          `json:"unique_task_ids"`
-	DuplicateGroups []DuplicateGroup  `json:"duplicate_groups"`
-	Reasoning       string            `json:"reasoning"`
+	UniqueTaskIDs   []string         `json:"unique_task_ids"`
+	DuplicateGroups []DuplicateGroup `json:"duplicate_groups"`
+	Reasoning       string           `json:"reasoning"`
 }
 
 // DuplicateGroup represents a group of duplicate tasks
 type DuplicateGroup struct {
-	PrimaryTaskID   string   `json:"primary_task_id"`
+	PrimaryTaskID    string   `json:"primary_task_id"`
 	DuplicateTaskIDs []string `json:"duplicate_task_ids"`
-	Reason          string   `json:"reason"`
+	Reason           string   `json:"reason"`
 }
 
 // DeduplicateTasks uses AI to identify and remove duplicate tasks
@@ -61,7 +61,7 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 	// Prepare task summaries for AI
 	var taskSummaries []TaskSummary
 	taskMap := make(map[string]storage.Task)
-	
+
 	for _, task := range tasks {
 		summary := TaskSummary{
 			ID:          task.ID,
@@ -83,7 +83,7 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 	// Build result based on AI response
 	var deduplicatedTasks []storage.Task
 	processedIDs := make(map[string]bool)
-	
+
 	// Add all unique tasks
 	for _, taskID := range response.UniqueTaskIDs {
 		if task, exists := taskMap[taskID]; exists && !processedIDs[taskID] {
@@ -91,14 +91,14 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 			processedIDs[taskID] = true
 		}
 	}
-	
+
 	// Add primary tasks from duplicate groups
 	for _, group := range response.DuplicateGroups {
 		if task, exists := taskMap[group.PrimaryTaskID]; exists && !processedIDs[group.PrimaryTaskID] {
 			deduplicatedTasks = append(deduplicatedTasks, task)
 			processedIDs[group.PrimaryTaskID] = true
 		}
-		
+
 		// Log duplicate removals
 		for _, dupID := range group.DuplicateTaskIDs {
 			if _, exists := taskMap[dupID]; exists {
@@ -106,12 +106,12 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 			}
 		}
 	}
-	
+
 	fmt.Printf("✨ AI deduplication: %d tasks → %d unique tasks\n", len(tasks), len(deduplicatedTasks))
 	if response.Reasoning != "" {
 		fmt.Printf("   Reasoning: %s\n", response.Reasoning)
 	}
-	
+
 	return deduplicatedTasks, nil
 }
 
@@ -175,7 +175,7 @@ Ensure every task ID appears exactly once in either unique_task_ids or as a prim
 	// Parse JSON response
 	var response DeduplicationResponse
 	responseStr := strings.TrimSpace(string(output))
-	
+
 	if err := json.Unmarshal([]byte(responseStr), &response); err != nil {
 		return nil, fmt.Errorf("failed to parse AI response: %w\nResponse: %s", err, responseStr)
 	}
@@ -194,7 +194,7 @@ func (d *TaskDeduplicator) DeduplicateWithinComment(tasks []storage.Task, commen
 	// Filter tasks for this comment
 	var commentTasks []storage.Task
 	var otherTasks []storage.Task
-	
+
 	for _, task := range tasks {
 		if task.SourceCommentID == commentID {
 			commentTasks = append(commentTasks, task)
@@ -202,17 +202,17 @@ func (d *TaskDeduplicator) DeduplicateWithinComment(tasks []storage.Task, commen
 			otherTasks = append(otherTasks, task)
 		}
 	}
-	
+
 	if len(commentTasks) <= 1 {
 		return tasks, nil
 	}
-	
+
 	// Deduplicate tasks for this comment
 	deduplicatedCommentTasks, err := d.DeduplicateTasks(commentTasks)
 	if err != nil {
 		return tasks, err
 	}
-	
+
 	// Combine with other tasks
 	result := append(otherTasks, deduplicatedCommentTasks...)
 	return result, nil

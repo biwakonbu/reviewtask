@@ -83,7 +83,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	// Extract all comments from all reviews, filtering out resolved comments
 	var allComments []CommentContext
 	resolvedCommentCount := 0
-	
+
 	for _, review := range reviews {
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
@@ -92,14 +92,14 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
 				continue
 			}
-			
+
 			allComments = append(allComments, CommentContext{
 				Comment:      comment,
 				SourceReview: review,
 			})
 		}
 	}
-	
+
 	if resolvedCommentCount > 0 {
 		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
@@ -134,7 +134,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	var allCommentsCtx []CommentContext
 	currentCommentsMap := make(map[int64]string)
 	resolvedCommentCount := 0
-	
+
 	for _, review := range reviews {
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
@@ -143,7 +143,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
 				continue
 			}
-			
+
 			allComments = append(allComments, comment)
 			allCommentsCtx = append(allCommentsCtx, CommentContext{
 				Comment:      comment,
@@ -152,7 +152,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			currentCommentsMap[comment.ID] = comment.Body
 		}
 	}
-	
+
 	if resolvedCommentCount > 0 {
 		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
@@ -163,14 +163,14 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 
 	// Analyze comment changes using history
 	commentChanges := historyManager.AnalyzeCommentChanges(currentCommentsMap, commentHistory)
-	
+
 	// Analyze semantic changes for modified comments
 	semanticAnalyzer := NewSemanticAnalyzer(a.config)
 	semanticChangesMap, err := semanticAnalyzer.BatchAnalyzeChanges(commentChanges)
 	if err != nil {
 		fmt.Printf("⚠️  Failed to analyze semantic changes: %v\n", err)
 	}
-	
+
 	// Update history with current state
 	updatedHistory := historyManager.UpdateHistory(commentChanges, commentHistory)
 	if err := historyManager.SaveHistory(updatedHistory); err != nil {
@@ -184,7 +184,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		// Fallback to processing all comments if cache detection fails
 		return a.GenerateTasks(reviews)
 	}
-	
+
 	// Filter modified comments to only include those with semantic changes
 	var semanticallyModifiedComments []github.Comment
 	for _, comment := range modifiedComments {
@@ -192,7 +192,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			semanticallyModifiedComments = append(semanticallyModifiedComments, comment)
 		}
 	}
-	
+
 	// Replace modifiedComments with only semantically changed ones
 	modifiedComments = semanticallyModifiedComments
 
@@ -273,11 +273,11 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	var deletedCommentTasks []storage.Task
 	cachedCommentIDs := make(map[int64]bool)
 	deletedCommentIDs := make(map[int64]bool)
-	
+
 	for _, comment := range cachedComments {
 		cachedCommentIDs[comment.ID] = true
 	}
-	
+
 	// Identify deleted comments
 	for _, change := range commentChanges {
 		if change.Type == "deleted" {
@@ -913,7 +913,7 @@ func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
 		"Fixed in commit",
 		"Resolved in commit",
 	}
-	
+
 	// Check comment body
 	commentText := strings.ToLower(comment.Body)
 	for _, marker := range resolvedMarkers {
@@ -921,7 +921,7 @@ func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
 			return true
 		}
 	}
-	
+
 	// Check replies for resolution markers
 	for _, reply := range comment.Replies {
 		replyText := strings.ToLower(reply.Body)
@@ -931,7 +931,7 @@ func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -943,7 +943,7 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 
 	// Use AI-powered deduplication if available
 	deduplicator := NewTaskDeduplicator(a.config)
-	
+
 	// First, perform AI-based deduplication across all tasks
 	deduplicatedTasks, err := deduplicator.DeduplicateTasks(tasks)
 	if err != nil {
@@ -965,7 +965,7 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 		if a.config.AISettings.DebugMode {
 			fmt.Printf("  ✨ Comment %d: %d unique tasks identified by AI\n", commentID, len(commentTasks))
 		}
-		
+
 		result = append(result, commentTasks...)
 	}
 
@@ -1019,7 +1019,7 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 	sort.Slice(sorted, func(i, j int) bool {
 		pi, _ := priorityOrder[sorted[i].Priority]
 		pj, _ := priorityOrder[sorted[j].Priority]
-		
+
 		if pi != pj {
 			return pi < pj
 		}

@@ -40,8 +40,8 @@ func (s *SemanticAnalyzer) AnalyzeSemanticChange(originalText, newText string) (
 	if originalText == newText {
 		return &SemanticChangeResponse{
 			HasSemanticChange: false,
-			Explanation:      "Texts are identical",
-			ChangeType:       "none",
+			Explanation:       "Texts are identical",
+			ChangeType:        "none",
 		}, nil
 	}
 
@@ -89,7 +89,7 @@ Respond in JSON format:
 	// Parse JSON response
 	var response SemanticChangeResponse
 	responseStr := strings.TrimSpace(string(output))
-	
+
 	if err := json.Unmarshal([]byte(responseStr), &response); err != nil {
 		return nil, fmt.Errorf("failed to parse AI response: %w\nResponse: %s", err, responseStr)
 	}
@@ -159,12 +159,12 @@ func (s *SemanticAnalyzer) BatchAnalyzeChanges(changes []storage.CommentChange) 
 			}
 
 			semanticChanges[change.CommentID] = result.HasSemanticChange
-			
+
 			if result.HasSemanticChange {
-				fmt.Printf("🔄 Comment %d has semantic changes (%s): %s\n", 
+				fmt.Printf("🔄 Comment %d has semantic changes (%s): %s\n",
 					change.CommentID, result.ChangeType, result.Explanation)
 			} else {
-				fmt.Printf("✓ Comment %d has only cosmetic changes: %s\n", 
+				fmt.Printf("✓ Comment %d has only cosmetic changes: %s\n",
 					change.CommentID, result.Explanation)
 			}
 		}

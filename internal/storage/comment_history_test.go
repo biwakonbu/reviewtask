@@ -32,7 +32,7 @@ func TestCommentHistoryManager(t *testing.T) {
 
 	t.Run("SaveAndLoadHistory", func(t *testing.T) {
 		manager := NewCommentHistoryManager(1)
-		
+
 		// Create test history
 		testHistory := map[int64]*CommentHistory{
 			123: {
@@ -45,23 +45,23 @@ func TestCommentHistoryManager(t *testing.T) {
 				TextHash:     CalculateTextHash("Test comment"),
 			},
 		}
-		
+
 		// Save history
 		err := manager.SaveHistory(testHistory)
 		if err != nil {
 			t.Fatalf("Failed to save history: %v", err)
 		}
-		
+
 		// Load history
 		loadedHistory, err := manager.LoadHistory()
 		if err != nil {
 			t.Fatalf("Failed to load history: %v", err)
 		}
-		
+
 		if len(loadedHistory) != 1 {
 			t.Errorf("Expected 1 entry, got %d", len(loadedHistory))
 		}
-		
+
 		if entry, exists := loadedHistory[123]; exists {
 			if entry.CommentID != 123 {
 				t.Errorf("Expected comment ID 123, got %d", entry.CommentID)
@@ -76,45 +76,45 @@ func TestCommentHistoryManager(t *testing.T) {
 
 	t.Run("AnalyzeCommentChanges", func(t *testing.T) {
 		manager := NewCommentHistoryManager(2)
-		
+
 		// Setup existing history
 		history := map[int64]*CommentHistory{
 			100: {
-				CommentID:    100,
-				CurrentText:  "Original text",
-				TextHash:     CalculateTextHash("Original text"),
-				IsDeleted:    false,
+				CommentID:   100,
+				CurrentText: "Original text",
+				TextHash:    CalculateTextHash("Original text"),
+				IsDeleted:   false,
 			},
 			200: {
-				CommentID:    200,
-				CurrentText:  "To be deleted",
-				TextHash:     CalculateTextHash("To be deleted"),
-				IsDeleted:    false,
+				CommentID:   200,
+				CurrentText: "To be deleted",
+				TextHash:    CalculateTextHash("To be deleted"),
+				IsDeleted:   false,
 			},
 			300: {
-				CommentID:    300,
-				CurrentText:  "Previously deleted",
-				TextHash:     CalculateTextHash("Previously deleted"),
-				IsDeleted:    true,
+				CommentID:   300,
+				CurrentText: "Previously deleted",
+				TextHash:    CalculateTextHash("Previously deleted"),
+				IsDeleted:   true,
 			},
 		}
-		
+
 		// Current comments
 		currentComments := map[int64]string{
-			100: "Modified text",     // Modified
+			100: "Modified text",      // Modified
 			300: "Previously deleted", // Restored
-			400: "New comment",       // New
+			400: "New comment",        // New
 			// 200 is missing (deleted)
 		}
-		
+
 		changes := manager.AnalyzeCommentChanges(currentComments, history)
-		
+
 		// Verify changes
 		changeMap := make(map[int64]string)
 		for _, change := range changes {
 			changeMap[change.CommentID] = change.Type
 		}
-		
+
 		if changeMap[100] != "modified" {
 			t.Errorf("Expected comment 100 to be 'modified', got '%s'", changeMap[100])
 		}
@@ -132,28 +132,28 @@ func TestCommentHistoryManager(t *testing.T) {
 	t.Run("UpdateHistory", func(t *testing.T) {
 		manager := NewCommentHistoryManager(3)
 		history := make(map[int64]*CommentHistory)
-		
+
 		changes := []CommentChange{
 			{Type: "new", CommentID: 1, CurrentText: "New comment"},
 			{Type: "modified", CommentID: 2, CurrentText: "Modified text"},
 			{Type: "deleted", CommentID: 3},
 		}
-		
+
 		// Add existing entry for modification test
 		history[2] = &CommentHistory{
 			CommentID:         2,
 			CurrentText:       "Original text",
 			ModificationCount: 0,
 		}
-		
+
 		// Add existing entry for deletion test
 		history[3] = &CommentHistory{
 			CommentID: 3,
 			IsDeleted: false,
 		}
-		
+
 		updatedHistory := manager.UpdateHistory(changes, history)
-		
+
 		// Verify new comment
 		if entry, exists := updatedHistory[1]; exists {
 			if entry.CurrentText != "New comment" {
@@ -162,7 +162,7 @@ func TestCommentHistoryManager(t *testing.T) {
 		} else {
 			t.Error("New comment not added to history")
 		}
-		
+
 		// Verify modified comment
 		if entry, exists := updatedHistory[2]; exists {
 			if entry.CurrentText != "Modified text" {
@@ -174,7 +174,7 @@ func TestCommentHistoryManager(t *testing.T) {
 		} else {
 			t.Error("Modified comment not found in history")
 		}
-		
+
 		// Verify deleted comment
 		if entry, exists := updatedHistory[3]; exists {
 			if !entry.IsDeleted {
@@ -195,7 +195,7 @@ func TestCalculateTextHash(t *testing.T) {
 		{"", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
 		{"Test comment", "dc67636c689d87a395d34b1db01a8196bf972e085a4b03322f5c6b82b67f3350"},
 	}
-	
+
 	for _, test := range tests {
 		result := CalculateTextHash(test.text)
 		if result != test.expected {
