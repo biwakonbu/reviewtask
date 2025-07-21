@@ -308,14 +308,19 @@ install_binary() {
     # Construct download URLs
     # Align with build artefact naming scheme: reviewtask-<version>-<os>-<arch>
     local platform_dash=$(echo "$platform" | tr '_' '-')
-    local binary_filename="${BINARY_NAME}-${version}-${platform_dash}"
-    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${binary_filename}"
-    local checksum_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/checksums.txt"
+    local archive_ext="tar.gz"
+    if [[ "$platform" == windows* ]]; then
+        archive_ext="zip"
+    fi
+    local archive_filename="${BINARY_NAME}-${version}-${platform_dash}.${archive_ext}"
+    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${archive_filename}"
+    local checksum_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/SHA256SUMS"
     
     # Create temporary directory
     local temp_dir
     temp_dir=$(mktemp -d)
-    local temp_binary="$temp_dir/$binary_filename"
+    local temp_archive="$temp_dir/$archive_filename"
+    local temp_binary="$temp_dir/$BINARY_NAME"
     
     # Cleanup function
     cleanup() {
@@ -323,8 +328,39 @@ install_binary() {
     }
     trap cleanup EXIT
     
-    # Download and verify the binary
-    download_with_verification "$download_url" "$temp_binary" "$checksum_url"
+    # Download and verify the archive
+    download_with_verification "$download_url" "$temp_archive" "$checksum_url"
+    
+    # Extract the binary from archive
+    print_info "Extracting binary from archive..."
+    case "$archive_ext" in
+        "tar.gz")
+            if ! tar -xzf "$temp_archive" -C "$temp_dir"; then
+                print_error "Failed to extract tar.gz archive"
+                exit 1
+            fi
+            ;;
+        "zip")
+            if ! unzip -q "$temp_archive" -d "$temp_dir"; then
+                print_error "Failed to extract zip archive"
+                exit 1
+            fi
+            ;;
+        *)
+            print_error "Unknown archive format: $archive_ext"
+            exit 1
+            ;;
+    esac
+    
+    # Find the binary (it might be in a subdirectory or have version in name)
+    if [[ ! -f "$temp_binary" ]]; then
+        # Try to find the binary - it might have the version in its name
+        temp_binary=$(find "$temp_dir" -name "${BINARY_NAME}*" -type f -executable | head -1)
+        if [[ -z "$temp_binary" ]]; then
+            print_error "Binary not found in archive"
+            exit 1
+        fi
+    fi
     
     # Make it executable
     chmod +x "$temp_binary"
