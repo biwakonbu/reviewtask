@@ -27,20 +27,30 @@ The reviewtask installation system provides cross-platform, one-liner installati
 #### Usage Examples
 
 ```bash
-# Basic installation
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash
+# Basic installation (secure two-step process)
+curl -fsSL -o install.sh https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh.sha256 | sha256sum -c
+bash install.sh
 
 # Install specific version
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --version v1.2.3
+curl -fsSL -o install.sh https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh.sha256 | sha256sum -c
+bash install.sh --version v1.2.3
 
 # Install to custom directory
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --bin-dir ~/bin
+curl -fsSL -o install.sh https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh.sha256 | sha256sum -c
+bash install.sh --bin-dir ~/bin
 
 # Force overwrite existing installation
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
+curl -fsSL -o install.sh https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh.sha256 | sha256sum -c
+bash install.sh --force
 
 # Include pre-release versions
-curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --prerelease
+curl -fsSL -o install.sh https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh
+curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh.sha256 | sha256sum -c
+bash install.sh --prerelease
 ```
 
 #### Command Line Options
@@ -71,17 +81,25 @@ curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/i
 #### Usage Examples
 
 ```powershell
-# Basic installation
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
+# Basic installation (secure two-step process)
+iwr -useb -o install.ps1 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
+$expectedHash = (iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1.sha256).Content
+if ((Get-FileHash install.ps1).Hash -eq $expectedHash) { .\install.ps1 } else { Write-Error "Checksum verification failed" }
 
 # Install specific version
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Version", "v1.2.3"
+iwr -useb -o install.ps1 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
+$expectedHash = (iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1.sha256).Content
+if ((Get-FileHash install.ps1).Hash -eq $expectedHash) { .\install.ps1 -Version "v1.2.3" } else { Write-Error "Checksum verification failed" }
 
 # Install to custom directory
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-BinDir", "C:\tools"
+iwr -useb -o install.ps1 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
+$expectedHash = (iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1.sha256).Content
+if ((Get-FileHash install.ps1).Hash -eq $expectedHash) { .\install.ps1 -BinDir "C:\tools" } else { Write-Error "Checksum verification failed" }
 
 # Force overwrite existing installation
-iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex -ArgumentList "-Force"
+iwr -useb -o install.ps1 https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1
+$expectedHash = (iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1.sha256).Content
+if ((Get-FileHash install.ps1).Hash -eq $expectedHash) { .\install.ps1 -Force } else { Write-Error "Checksum verification failed" }
 ```
 
 #### Parameters
