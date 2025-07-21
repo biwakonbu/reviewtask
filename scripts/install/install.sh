@@ -284,7 +284,9 @@ install_binary() {
     validate_version "$version"
     
     # Construct download URLs
-    local binary_filename="${BINARY_NAME}_${platform}"
+    # Align with build artefact naming scheme: reviewtask-<version>-<os>-<arch>
+    local platform_dash=$(echo "$platform" | tr '_' '-')
+    local binary_filename="${BINARY_NAME}-${version}-${platform_dash}"
     local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${binary_filename}"
     local checksum_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/checksums.txt"
     
