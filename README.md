@@ -33,6 +33,13 @@ curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/i
 iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
 ```
 
+### Default Installation Locations
+
+- **Unix/Linux/macOS**: `/usr/local/bin`
+- **Windows**: `%USERPROFILE%\bin` (e.g., `C:\Users\username\bin`)
+
+For detailed installation information including PATH configuration and troubleshooting, see [Installation Guide](docs/INSTALLATION.md).
+
 ### Installation Options
 
 **Install specific version:**
