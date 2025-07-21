@@ -432,19 +432,20 @@ CRITICAL: Return response as JSON array with this EXACT format:
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
 2. Generate clear, actionable 'description' in the specified user language
-3. Create MINIMAL tasks - only for the MOST IMPORTANT actionable items
-4. MAXIMUM %d tasks per comment (combine related items when possible)
+3. Create appropriate number of tasks based on the comment's content
+4. Each distinct actionable item should be a separate task
 5. Assign task_index starting from 0 for multiple tasks
 6. Only create tasks for comments requiring developer action
 7. Consider comment chains - don't create tasks for resolved issues
 
 Task Generation Guidelines:
-- Prioritize creating ONE comprehensive task over multiple granular tasks
-- Only split into multiple tasks if truly independent actions are required
-- Combine related suggestions into a single actionable task
-- Focus on the primary intent of the review comment
+- Create separate tasks for logically distinct actions
+- If a comment mentions multiple unrelated issues, create separate tasks
+- Ensure each task is self-contained and actionable
+- Don't artificially combine unrelated items
+- AI deduplication will handle any redundancy later
 
-%s`, languageInstruction, priorityPrompt, a.config.AISettings.MaxTasksPerComment, reviewsData.String())
+%s`, languageInstruction, priorityPrompt, reviewsData.String())
 
 	return prompt
 }
@@ -814,18 +815,19 @@ CRITICAL: Return response as JSON array with this EXACT format:
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
 2. Generate clear, actionable 'description' in the specified user language
-3. Create MINIMAL tasks - only for the MOST IMPORTANT actionable items
-4. MAXIMUM %d tasks per comment (combine related items when possible)
+3. Create appropriate number of tasks based on the comment's content
+4. Each distinct actionable item should be a separate task
 5. Assign task_index starting from 0 for multiple tasks
 6. Only create tasks for comments requiring developer action
 7. Consider if this comment has already been resolved in discussion chains
 8. Return empty array [] if no actionable tasks are needed
 
 Task Generation Guidelines:
-- Prioritize creating ONE comprehensive task over multiple granular tasks
-- Only split into multiple tasks if truly independent actions are required
-- Combine related suggestions into a single actionable task
-- Focus on the primary intent of the review comment`,
+- Create separate tasks for logically distinct actions
+- If a comment mentions multiple unrelated issues, create separate tasks
+- Ensure each task is self-contained and actionable
+- Don't artificially combine unrelated items
+- AI deduplication will handle any redundancy later`,
 		languageInstruction,
 		priorityPrompt,
 		ctx.SourceReview.ID,
@@ -840,8 +842,7 @@ Task Generation Guidelines:
 		ctx.SourceReview.ID,
 		ctx.Comment.ID,
 		ctx.Comment.File,
-		ctx.Comment.Line,
-		a.config.AISettings.MaxTasksPerComment)
+		ctx.Comment.Line)
 
 	return prompt
 }
@@ -882,6 +883,39 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 		return tasks
 	}
 
+	// Use AI-powered deduplication if available
+	deduplicator := NewTaskDeduplicator(a.config)
+	
+	// First, perform AI-based deduplication across all tasks
+	deduplicatedTasks, err := deduplicator.DeduplicateTasks(tasks)
+	if err != nil {
+		fmt.Printf("⚠️  AI deduplication failed, falling back to rule-based: %v\n", err)
+		// Fall back to the original similarity-based deduplication
+		return a.deduplicateTasksRuleBased(tasks)
+	}
+
+	// Group tasks by comment ID for per-comment deduplication
+	tasksByComment := make(map[int64][]storage.Task)
+	for _, task := range deduplicatedTasks {
+		tasksByComment[task.SourceCommentID] = append(tasksByComment[task.SourceCommentID], task)
+	}
+
+	var result []storage.Task
+	for commentID, commentTasks := range tasksByComment {
+		// Skip max_tasks_per_comment limit when using AI deduplication
+		// The AI will handle determining the appropriate number of tasks
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("  ✨ Comment %d: %d unique tasks identified by AI\n", commentID, len(commentTasks))
+		}
+		
+		result = append(result, commentTasks...)
+	}
+
+	return result
+}
+
+// deduplicateTasksRuleBased is the fallback rule-based deduplication
+func (a *Analyzer) deduplicateTasksRuleBased(tasks []storage.Task) []storage.Task {
 	// Group tasks by comment ID
 	tasksByComment := make(map[int64][]storage.Task)
 	for _, task := range tasks {
@@ -891,10 +925,10 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 	var result []storage.Task
 
 	for commentID, commentTasks := range tasksByComment {
-		// Apply max tasks per comment limit
+		// Apply max tasks per comment limit (only in rule-based mode)
 		if len(commentTasks) > a.config.AISettings.MaxTasksPerComment {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks\n",
+				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks (rule-based)\n",
 					commentID, len(commentTasks), a.config.AISettings.MaxTasksPerComment)
 			}
 			// Sort by priority to keep the most important tasks
