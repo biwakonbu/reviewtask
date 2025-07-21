@@ -834,3 +834,57 @@ func TestManager_UpdateCommentCache(t *testing.T) {
 		t.Errorf("Expected task ID 'task-200-1', got '%s'", comment200Cache.TasksGenerated[0])
 	}
 }
+
+// TestMergeTasksForCommentCancelStatus tests that mergeTasksForComment uses "cancel" not "cancelled"
+func TestMergeTasksForCommentCancelStatus(t *testing.T) {
+	// Create manager instance
+	m := &Manager{}
+
+	t.Run("empty_new_tasks_cancels_existing", func(t *testing.T) {
+		existing := []Task{
+			{
+				ID:              "task-1",
+				Description:     "Existing task 1",
+				Status:          "todo",
+				Priority:        "high",
+				SourceCommentID: 12345,
+			},
+			{
+				ID:              "task-2",
+				Description:     "Existing task 2",
+				Status:          "doing",
+				Priority:        "medium",
+				SourceCommentID: 12345,
+			},
+			{
+				ID:              "task-3",
+				Description:     "Existing task 3",
+				Status:          "done",
+				Priority:        "low",
+				SourceCommentID: 12345,
+			},
+		}
+
+		// Call the method with empty new tasks
+		result := m.mergeTasksForComment(12345, existing, []Task{})
+
+		// Verify results
+		if len(result) != 3 {
+			t.Errorf("Expected 3 tasks, got %d", len(result))
+		}
+
+		for _, task := range result {
+			if task.ID == "task-3" {
+				// Done tasks should remain done
+				if task.Status != "done" {
+					t.Errorf("Done task should remain done, got %s", task.Status)
+				}
+			} else {
+				// Other tasks should be cancelled with "cancel" not "cancelled"
+				if task.Status != "cancel" {
+					t.Errorf("Non-done task should be marked as 'cancel', got %s", task.Status)
+				}
+			}
+		}
+	})
+}

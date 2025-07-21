@@ -382,8 +382,8 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 	if len(new) == 0 {
 		// No new tasks, mark existing tasks as cancelled if they're not already done
 		for _, task := range existing {
-			if task.Status != "done" && task.Status != "cancelled" {
-				task.Status = "cancelled"
+			if task.Status != "done" && task.Status != "cancel" {
+				task.Status = "cancel"
 				task.UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
 			}
 			result = append(result, task)
@@ -406,8 +406,8 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 	if m.hasSignificantTextChange(existingOriginText, newOriginText) {
 		// Cancel existing tasks that aren't done
 		for _, task := range existing {
-			if task.Status != "done" && task.Status != "cancelled" {
-				task.Status = "cancelled"
+			if task.Status != "done" && task.Status != "cancel" {
+				task.Status = "cancel"
 				task.UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
 			}
 			result = append(result, task)
