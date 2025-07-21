@@ -80,15 +80,28 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 		return a.GenerateTasksWithValidation(reviews)
 	}
 
-	// Extract all comments from all reviews
+	// Extract all comments from all reviews, filtering out resolved comments
 	var allComments []CommentContext
+	resolvedCommentCount := 0
+	
 	for _, review := range reviews {
 		for _, comment := range review.Comments {
+			// Skip comments that have been marked as addressed/resolved
+			if a.isCommentResolved(comment) {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
+				continue
+			}
+			
 			allComments = append(allComments, CommentContext{
 				Comment:      comment,
 				SourceReview: review,
 			})
 		}
+	}
+	
+	if resolvedCommentCount > 0 {
+		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
 
 	if len(allComments) == 0 {
@@ -116,13 +129,21 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		commentHistory = make(map[int64]*storage.CommentHistory)
 	}
 
-	// Extract all comments with their review context
+	// Extract all comments with their review context, filtering out resolved comments
 	var allComments []github.Comment
 	var allCommentsCtx []CommentContext
 	currentCommentsMap := make(map[int64]string)
+	resolvedCommentCount := 0
 	
 	for _, review := range reviews {
 		for _, comment := range review.Comments {
+			// Skip comments that have been marked as addressed/resolved
+			if a.isCommentResolved(comment) {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
+				continue
+			}
+			
 			allComments = append(allComments, comment)
 			allCommentsCtx = append(allCommentsCtx, CommentContext{
 				Comment:      comment,
@@ -130,6 +151,10 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			})
 			currentCommentsMap[comment.ID] = comment.Body
 		}
+	}
+	
+	if resolvedCommentCount > 0 {
+		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
 
 	if len(allComments) == 0 {
@@ -875,6 +900,39 @@ func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext
 		fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))
 	}
 	return tasks, err
+}
+
+// isCommentResolved checks if a comment has been marked as resolved/addressed
+func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
+	// Check for common resolution markers in the comment body or replies
+	resolvedMarkers := []string{
+		"✅ Addressed in commit",
+		"✅ Fixed in commit",
+		"✅ Resolved in commit",
+		"Addressed in commit",
+		"Fixed in commit",
+		"Resolved in commit",
+	}
+	
+	// Check comment body
+	commentText := strings.ToLower(comment.Body)
+	for _, marker := range resolvedMarkers {
+		if strings.Contains(commentText, strings.ToLower(marker)) {
+			return true
+		}
+	}
+	
+	// Check replies for resolution markers
+	for _, reply := range comment.Replies {
+		replyText := strings.ToLower(reply.Body)
+		for _, marker := range resolvedMarkers {
+			if strings.Contains(replyText, strings.ToLower(marker)) {
+				return true
+			}
+		}
+	}
+	
+	return false
 }
 
 // deduplicateTasks removes duplicate tasks based on comment ID and similarity

@@ -66,10 +66,13 @@ Respond in JSON format:
   "change_type": "cosmetic|clarification|semantic|major"
 }`, originalText, newText)
 
-	cmd := exec.Command("claude",
-		"--prefill", `{"has_semantic_change":`,
-		"--max-tokens", "500",
-		"--json",
+	claudeCmd, err := FindClaudeCommand(s.config.AISettings.ClaudePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find Claude: %w", err)
+	}
+
+	cmd := exec.Command(claudeCmd,
+		"--output-format", "json",
 		prompt)
 
 	// Set environment for Claude command
@@ -86,9 +89,6 @@ Respond in JSON format:
 	// Parse JSON response
 	var response SemanticChangeResponse
 	responseStr := strings.TrimSpace(string(output))
-	
-	// Add the prefill back since we used --prefill flag
-	responseStr = `{"has_semantic_change":` + responseStr
 	
 	if err := json.Unmarshal([]byte(responseStr), &response); err != nil {
 		return nil, fmt.Errorf("failed to parse AI response: %w\nResponse: %s", err, responseStr)
@@ -116,9 +116,12 @@ Comment:
 Generate a semantic hash that captures the essence of what tasks should be created.
 Respond with ONLY the hash string (20-30 characters, alphanumeric).`, text)
 
-	cmd := exec.Command("claude",
-		"--max-tokens", "50",
-		prompt)
+	claudeCmd, err := FindClaudeCommand(s.config.AISettings.ClaudePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to find Claude: %w", err)
+	}
+
+	cmd := exec.Command(claudeCmd, prompt)
 
 	// Set environment for Claude command
 	cmd.Env = append(cmd.Environ(), "TERM=dumb", "NO_COLOR=1")

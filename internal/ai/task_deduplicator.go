@@ -158,8 +158,7 @@ Ensure every task ID appears exactly once in either unique_task_ids or as a prim
 	}
 
 	cmd := exec.Command(claudeCmd,
-		"--max-tokens", "2000",
-		"--json",
+		"--output-format", "json",
 		prompt)
 
 	// Set environment for Claude command
