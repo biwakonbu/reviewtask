@@ -108,9 +108,19 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		return []storage.Task{}, nil
 	}
 
+	// Initialize comment history manager
+	historyManager := storage.NewCommentHistoryManager(prNumber)
+	commentHistory, err := historyManager.LoadHistory()
+	if err != nil {
+		fmt.Printf("⚠️  Failed to load comment history: %v\n", err)
+		commentHistory = make(map[int64]*storage.CommentHistory)
+	}
+
 	// Extract all comments with their review context
 	var allComments []github.Comment
 	var allCommentsCtx []CommentContext
+	currentCommentsMap := make(map[int64]string)
+	
 	for _, review := range reviews {
 		for _, comment := range review.Comments {
 			allComments = append(allComments, comment)
@@ -118,6 +128,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 				Comment:      comment,
 				SourceReview: review,
 			})
+			currentCommentsMap[comment.ID] = comment.Body
 		}
 	}
 
@@ -125,13 +136,40 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		return []storage.Task{}, nil
 	}
 
-	// Detect comment changes using cache
+	// Analyze comment changes using history
+	commentChanges := historyManager.AnalyzeCommentChanges(currentCommentsMap, commentHistory)
+	
+	// Analyze semantic changes for modified comments
+	semanticAnalyzer := NewSemanticAnalyzer(a.config)
+	semanticChangesMap, err := semanticAnalyzer.BatchAnalyzeChanges(commentChanges)
+	if err != nil {
+		fmt.Printf("⚠️  Failed to analyze semantic changes: %v\n", err)
+	}
+	
+	// Update history with current state
+	updatedHistory := historyManager.UpdateHistory(commentChanges, commentHistory)
+	if err := historyManager.SaveHistory(updatedHistory); err != nil {
+		fmt.Printf("⚠️  Failed to save comment history: %v\n", err)
+	}
+
+	// Detect comment changes using cache (existing logic)
 	newComments, modifiedComments, err := storageManager.DetectCommentChanges(prNumber, allComments)
 	if err != nil {
 		fmt.Printf("⚠️  Cache detection failed, processing all comments: %v\n", err)
 		// Fallback to processing all comments if cache detection fails
 		return a.GenerateTasks(reviews)
 	}
+	
+	// Filter modified comments to only include those with semantic changes
+	var semanticallyModifiedComments []github.Comment
+	for _, comment := range modifiedComments {
+		if hasSemanticChange, exists := semanticChangesMap[comment.ID]; exists && hasSemanticChange {
+			semanticallyModifiedComments = append(semanticallyModifiedComments, comment)
+		}
+	}
+	
+	// Replace modifiedComments with only semantically changed ones
+	modifiedComments = semanticallyModifiedComments
 
 	commentsToProcess := append(newComments, modifiedComments...)
 	cachedComments, err := storageManager.GetCachedComments(prNumber, allComments)
@@ -205,20 +243,38 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	}
 
 	// Filter existing tasks to only include those from cached comments
+	// Also handle tasks from deleted comments
 	var cachedTasks []storage.Task
+	var deletedCommentTasks []storage.Task
 	cachedCommentIDs := make(map[int64]bool)
+	deletedCommentIDs := make(map[int64]bool)
+	
 	for _, comment := range cachedComments {
 		cachedCommentIDs[comment.ID] = true
 	}
+	
+	// Identify deleted comments
+	for _, change := range commentChanges {
+		if change.Type == "deleted" {
+			deletedCommentIDs[change.CommentID] = true
+		}
+	}
 
 	for _, task := range existingTasks {
-		if cachedCommentIDs[task.SourceCommentID] {
+		if deletedCommentIDs[task.SourceCommentID] {
+			// Mark task as from deleted comment
+			task.Status = "cancel"
+			task.UpdatedAt = time.Now().Format(time.RFC3339)
+			deletedCommentTasks = append(deletedCommentTasks, task)
+			fmt.Printf("⚠️  Task %s from deleted comment %d marked as cancelled\n", task.ID, task.SourceCommentID)
+		} else if cachedCommentIDs[task.SourceCommentID] {
 			cachedTasks = append(cachedTasks, task)
 		}
 	}
 
 	// Combine cached tasks with newly generated tasks
 	allTasks := append(cachedTasks, newTasks...)
+	allTasks = append(allTasks, deletedCommentTasks...)
 
 	fmt.Printf("📋 Task summary: %d from cache + %d newly generated = %d total\n",
 		len(cachedTasks), len(newTasks), len(allTasks))
