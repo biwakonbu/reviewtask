@@ -239,7 +239,9 @@ function Install-Binary {
     Test-VersionFormat -Version $Version
     
     # Construct download URLs
-    $binaryFilename = "reviewtask_$Platform.exe"
+    # Align with build artefact naming scheme: reviewtask-<version>-<os>-<arch>.exe
+    $platformDash = $Platform -replace '_', '-'
+    $binaryFilename = "reviewtask-$Version-$platformDash.exe"
     $downloadUrl = "https://github.com/$GitHubRepo/releases/download/$Version/$binaryFilename"
     $checksumUrl = "https://github.com/$GitHubRepo/releases/download/$Version/checksums.txt"
     
