@@ -40,13 +40,16 @@ type TaskSettings struct {
 }
 
 type AISettings struct {
-	UserLanguage      string  `json:"user_language"`      // e.g., "Japanese", "English"
-	OutputFormat      string  `json:"output_format"`      // "json"
-	MaxRetries        int     `json:"max_retries"`        // Validation retry attempts (default: 5)
-	ValidationEnabled *bool   `json:"validation_enabled"` // Enable two-stage validation
-	QualityThreshold  float64 `json:"quality_threshold"`  // Minimum score to accept (0.0-1.0)
-	DebugMode         bool    `json:"debug_mode"`         // Enable debug information (PATH, command locations)
-	ClaudePath        string  `json:"claude_path"`        // Custom path to Claude CLI (overrides default search)
+	UserLanguage          string  `json:"user_language"`           // e.g., "Japanese", "English"
+	OutputFormat          string  `json:"output_format"`           // "json"
+	MaxRetries            int     `json:"max_retries"`             // Validation retry attempts (default: 5)
+	ValidationEnabled     *bool   `json:"validation_enabled"`      // Enable two-stage validation
+	QualityThreshold      float64 `json:"quality_threshold"`       // Minimum score to accept (0.0-1.0)
+	DebugMode             bool    `json:"debug_mode"`              // Enable debug information (PATH, command locations)
+	ClaudePath            string  `json:"claude_path"`             // Custom path to Claude CLI (overrides default search)
+	MaxTasksPerComment    int     `json:"max_tasks_per_comment"`   // Maximum tasks to generate per comment (default: 2)
+	DeduplicationEnabled  bool    `json:"deduplication_enabled"`   // Enable task deduplication (default: true)
+	SimilarityThreshold   float64 `json:"similarity_threshold"`    // Task similarity threshold for deduplication (0.0-1.0)
 }
 
 type UpdateCheck struct {
@@ -77,13 +80,16 @@ func defaultConfig() *Config {
 			AutoPrioritize: true,
 		},
 		AISettings: AISettings{
-			UserLanguage:      "English",
-			OutputFormat:      "json",
-			MaxRetries:        5,
-			ValidationEnabled: &validationTrue,
-			QualityThreshold:  0.8,
-			DebugMode:         false,
-			ClaudePath:        "", // Empty means use default search paths
+			UserLanguage:          "English",
+			OutputFormat:          "json",
+			MaxRetries:            5,
+			ValidationEnabled:     &validationTrue,
+			QualityThreshold:      0.8,
+			DebugMode:             false,
+			ClaudePath:            "", // Empty means use default search paths
+			MaxTasksPerComment:    2,
+			DeduplicationEnabled:  true,
+			SimilarityThreshold:   0.8,
 		},
 		UpdateCheck: UpdateCheck{
 			Enabled:           true,
@@ -171,6 +177,12 @@ func mergeWithDefaults(config *Config) {
 	}
 	if config.AISettings.QualityThreshold == 0 {
 		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
+	}
+	if config.AISettings.MaxTasksPerComment == 0 {
+		config.AISettings.MaxTasksPerComment = defaults.AISettings.MaxTasksPerComment
+	}
+	if config.AISettings.SimilarityThreshold == 0 {
+		config.AISettings.SimilarityThreshold = defaults.AISettings.SimilarityThreshold
 	}
 
 	// Merge boolean pointer fields

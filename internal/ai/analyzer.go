@@ -375,18 +375,19 @@ CRITICAL: Return response as JSON array with this EXACT format:
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
 2. Generate clear, actionable 'description' in the specified user language
-3. SPLIT multiple issues in a single comment into separate tasks
-4. Assign task_index starting from 0 for multiple tasks from same comment
-5. Only create tasks for comments requiring developer action
-6. Consider comment chains - don't create tasks for resolved issues
+3. Create MINIMAL tasks - only for the MOST IMPORTANT actionable items
+4. MAXIMUM %d tasks per comment (combine related items when possible)
+5. Assign task_index starting from 0 for multiple tasks
+6. Only create tasks for comments requiring developer action
+7. Consider comment chains - don't create tasks for resolved issues
 
-Task Splitting Guidelines:
-- One comment may contain multiple distinct issues or suggestions
-- Each issue should become a separate task with its own priority
-- All tasks from same comment share the same origin_text and source_comment_id
-- Use task_index to distinguish tasks: 0, 1, 2, etc.
+Task Generation Guidelines:
+- Prioritize creating ONE comprehensive task over multiple granular tasks
+- Only split into multiple tasks if truly independent actions are required
+- Combine related suggestions into a single actionable task
+- Focus on the primary intent of the review comment
 
-%s`, languageInstruction, priorityPrompt, reviewsData.String())
+%s`, languageInstruction, priorityPrompt, a.config.AISettings.MaxTasksPerComment, reviewsData.String())
 
 	return prompt
 }
@@ -616,7 +617,18 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 		}
 	}
 
-	return a.convertToStorageTasks(allTasks), nil
+	// Convert to storage tasks
+	storageTasks := a.convertToStorageTasks(allTasks)
+	
+	// Apply deduplication
+	dedupedTasks := a.deduplicateTasks(storageTasks)
+	
+	if a.config.AISettings.DeduplicationEnabled && len(dedupedTasks) < len(storageTasks) {
+		fmt.Printf("  🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n", 
+			len(storageTasks), len(dedupedTasks), len(storageTasks)-len(dedupedTasks))
+	}
+	
+	return dedupedTasks, nil
 }
 
 // generateTasksParallel processes comments in parallel using goroutines
@@ -745,19 +757,21 @@ CRITICAL: Return response as JSON array with this EXACT format:
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
 2. Generate clear, actionable 'description' in the specified user language
-3. SPLIT multiple issues in a single comment into separate tasks
-4. Assign task_index starting from 0 for multiple tasks from same comment
-5. Only create tasks for comments requiring developer action
-6. Consider if this comment has already been resolved in discussion chains
-7. Return empty array [] if no actionable tasks are needed
+3. Create MINIMAL tasks - only for the MOST IMPORTANT actionable items
+4. MAXIMUM %d tasks per comment (combine related items when possible)
+5. Assign task_index starting from 0 for multiple tasks
+6. Only create tasks for comments requiring developer action
+7. Consider if this comment has already been resolved in discussion chains
+8. Return empty array [] if no actionable tasks are needed
 
-Task Splitting Guidelines:
-- One comment may contain multiple distinct issues or suggestions
-- Each issue should become a separate task with its own priority
-- All tasks from same comment share the same origin_text and source_comment_id
-- Use task_index to distinguish tasks: 0, 1, 2, etc.`,
+Task Generation Guidelines:
+- Prioritize creating ONE comprehensive task over multiple granular tasks
+- Only split into multiple tasks if truly independent actions are required
+- Combine related suggestions into a single actionable task
+- Focus on the primary intent of the review comment`,
 		languageInstruction,
 		priorityPrompt,
+		a.config.AISettings.MaxTasksPerComment,
 		ctx.SourceReview.ID,
 		ctx.SourceReview.Reviewer,
 		ctx.SourceReview.State,
@@ -799,7 +813,167 @@ func (a *Analyzer) findClaudeCommand() (string, error) {
 func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
 	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
 	if err == nil {
+		// Tasks are already deduplicated in processCommentsParallel
 		fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))
 	}
 	return tasks, err
+}
+
+// deduplicateTasks removes duplicate tasks based on comment ID and similarity
+func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
+	if !a.config.AISettings.DeduplicationEnabled {
+		return tasks
+	}
+
+	// Group tasks by comment ID
+	tasksByComment := make(map[int64][]storage.Task)
+	for _, task := range tasks {
+		tasksByComment[task.SourceCommentID] = append(tasksByComment[task.SourceCommentID], task)
+	}
+
+	var result []storage.Task
+	
+	for commentID, commentTasks := range tasksByComment {
+		// Apply max tasks per comment limit
+		if len(commentTasks) > a.config.AISettings.MaxTasksPerComment {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks\n", 
+					commentID, len(commentTasks), a.config.AISettings.MaxTasksPerComment)
+			}
+			// Sort by priority to keep the most important tasks
+			sortedTasks := a.sortTasksByPriority(commentTasks)
+			commentTasks = sortedTasks[:a.config.AISettings.MaxTasksPerComment]
+		}
+		
+		// Apply similarity deduplication within the comment's tasks
+		deduped := a.deduplicateSimilarTasks(commentTasks)
+		result = append(result, deduped...)
+	}
+	
+	return result
+}
+
+// sortTasksByPriority sorts tasks by priority (critical > high > medium > low)
+func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
+	// Create a copy to avoid modifying the original
+	sorted := make([]storage.Task, len(tasks))
+	copy(sorted, tasks)
+	
+	priorityOrder := map[string]int{
+		"critical": 0,
+		"high":     1,
+		"medium":   2,
+		"low":      3,
+	}
+	
+	// Sort by priority, then by task index
+	for i := 0; i < len(sorted); i++ {
+		for j := i + 1; j < len(sorted); j++ {
+			pi, _ := priorityOrder[sorted[i].Priority]
+			pj, _ := priorityOrder[sorted[j].Priority]
+			
+			if pi > pj || (pi == pj && sorted[i].TaskIndex > sorted[j].TaskIndex) {
+				sorted[i], sorted[j] = sorted[j], sorted[i]
+			}
+		}
+	}
+	
+	return sorted
+}
+
+// deduplicateSimilarTasks removes tasks with similar descriptions
+func (a *Analyzer) deduplicateSimilarTasks(tasks []storage.Task) []storage.Task {
+	if len(tasks) <= 1 {
+		return tasks
+	}
+	
+	var result []storage.Task
+	seen := make(map[int]bool)
+	
+	for i, task1 := range tasks {
+		if seen[i] {
+			continue
+		}
+		
+		// Check similarity with remaining tasks
+		for j := i + 1; j < len(tasks); j++ {
+			if seen[j] {
+				continue
+			}
+			
+			similarity := a.calculateSimilarity(task1.Description, tasks[j].Description)
+			if similarity >= a.config.AISettings.SimilarityThreshold {
+				// Mark the lower priority task as seen (duplicate)
+				if a.getPriorityValue(task1.Priority) <= a.getPriorityValue(tasks[j].Priority) {
+					seen[j] = true
+					if a.config.AISettings.DebugMode {
+						fmt.Printf("  🔄 Deduplicating task: '%s' (similar to '%s', similarity: %.2f)\n",
+							tasks[j].Description, task1.Description, similarity)
+					}
+				} else {
+					seen[i] = true
+					break
+				}
+			}
+		}
+		
+		if !seen[i] {
+			result = append(result, task1)
+		}
+	}
+	
+	return result
+}
+
+// calculateSimilarity calculates the similarity between two strings (0.0 to 1.0)
+func (a *Analyzer) calculateSimilarity(s1, s2 string) float64 {
+	// Simple Jaccard similarity based on words
+	words1 := strings.Fields(strings.ToLower(s1))
+	words2 := strings.Fields(strings.ToLower(s2))
+	
+	if len(words1) == 0 && len(words2) == 0 {
+		return 1.0
+	}
+	if len(words1) == 0 || len(words2) == 0 {
+		return 0.0
+	}
+	
+	// Create word sets
+	set1 := make(map[string]bool)
+	set2 := make(map[string]bool)
+	
+	for _, w := range words1 {
+		set1[w] = true
+	}
+	for _, w := range words2 {
+		set2[w] = true
+	}
+	
+	// Calculate intersection and union
+	intersection := 0
+	for w := range set1 {
+		if set2[w] {
+			intersection++
+		}
+	}
+	
+	union := len(set1) + len(set2) - intersection
+	
+	return float64(intersection) / float64(union)
+}
+
+// getPriorityValue returns numeric value for priority comparison
+func (a *Analyzer) getPriorityValue(priority string) int {
+	switch priority {
+	case "critical":
+		return 0
+	case "high":
+		return 1
+	case "medium":
+		return 2
+	case "low":
+		return 3
+	default:
+		return 4
+	}
 }
