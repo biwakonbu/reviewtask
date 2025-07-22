@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 )
@@ -61,26 +60,25 @@ func TestCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output
-			oldStdout := os.Stdout
-			oldStderr := os.Stderr
+			// Use cobra's built-in testing approach with rootCmd directly
+			var buf bytes.Buffer
 			
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-			os.Stderr = w
-
-			// Create a new command instance for each test
+			// Store original output settings
+			originalOut := rootCmd.OutOrStdout()
+			originalErr := rootCmd.ErrOrStderr()
+			
+			// Set output capture
+			rootCmd.SetOut(&buf)
+			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.args)
 			
 			err := rootCmd.Execute()
 			
-			// Restore output
-			w.Close()
-			os.Stdout = oldStdout
-			os.Stderr = oldStderr
+			// Restore original settings
+			rootCmd.SetOut(originalOut)
+			rootCmd.SetErr(originalErr)
+			rootCmd.SetArgs([]string{})
 			
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
 			output := buf.String()
 
 			if tt.expectErr && err == nil {
@@ -98,8 +96,6 @@ func TestCommandIntegration(t *testing.T) {
 				}
 			}
 
-			// Reset command for next test
-			rootCmd.SetArgs([]string{})
 		})
 	}
 }
@@ -140,25 +136,25 @@ func TestDocumentedFlagsWork(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output
-			oldStdout := os.Stdout
-			oldStderr := os.Stderr
+			// Use cobra's built-in testing approach with rootCmd directly
+			var buf bytes.Buffer
 			
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-			os.Stderr = w
-
-			// Create fresh command for test
+			// Store original output settings
+			originalOut := rootCmd.OutOrStdout()
+			originalErr := rootCmd.ErrOrStderr()
+			
+			// Set output capture
+			rootCmd.SetOut(&buf)
+			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.args)
+			
 			err := rootCmd.Execute()
 			
-			// Restore output
-			w.Close()
-			os.Stdout = oldStdout
-			os.Stderr = oldStderr
+			// Restore original settings
+			rootCmd.SetOut(originalOut)
+			rootCmd.SetErr(originalErr)
+			rootCmd.SetArgs([]string{})
 			
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
 			output := buf.String()
 
 			if tt.expectErr && err == nil {
@@ -173,8 +169,6 @@ func TestDocumentedFlagsWork(t *testing.T) {
 				t.Errorf("Check function failed for output: %s", output)
 			}
 
-			// Reset command
-			rootCmd.SetArgs([]string{})
 		})
 	}
 }
@@ -228,19 +222,25 @@ func TestCommandHelpConsistency(t *testing.T) {
 
 	for _, tt := range commandTests {
 		t.Run("help_consistency_"+tt.command, func(t *testing.T) {
-			// Capture output
-			oldStdout := os.Stdout
-			r, w, _ := os.Pipe()
-			os.Stdout = w
-
+			// Use cobra's built-in testing approach with rootCmd directly
+			var buf bytes.Buffer
+			
+			// Store original output settings
+			originalOut := rootCmd.OutOrStdout()
+			originalErr := rootCmd.ErrOrStderr()
+			
+			// Set output capture
+			rootCmd.SetOut(&buf)
+			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.helpArgs)
+			
 			rootCmd.Execute()
 			
-			w.Close()
-			os.Stdout = oldStdout
+			// Restore original settings
+			rootCmd.SetOut(originalOut)
+			rootCmd.SetErr(originalErr)
+			rootCmd.SetArgs([]string{})
 			
-			var buf bytes.Buffer
-			buf.ReadFrom(r)
 			output := buf.String()
 
 			for _, required := range tt.mustContain {
@@ -250,8 +250,6 @@ func TestCommandHelpConsistency(t *testing.T) {
 				}
 			}
 
-			// Reset command
-			rootCmd.SetArgs([]string{})
 		})
 	}
 }
