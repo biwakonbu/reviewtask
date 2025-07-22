@@ -253,4 +253,3 @@ func TestCommandHelpConsistency(t *testing.T) {
 		})
 	}
 }
-
