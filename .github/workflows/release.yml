@@ -92,7 +92,7 @@ jobs:
 
     - name: Build cross-platform binaries
       run: |
-        export VERSION="${{ steps.version.outputs.version_clean }}"
+        export VERSION="${{ steps.version.outputs.version }}"
         export COMMIT_HASH="${{ steps.version.outputs.commit_hash }}"
         export BUILD_DATE="${{ steps.version.outputs.build_date }}"
         ./scripts/build.sh full
