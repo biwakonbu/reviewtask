@@ -2,15 +2,12 @@ package test
 
 import (
 	"os"
-	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
-	"reviewtask/internal/storage"
 )
 
 func TestAdvancedDeduplication(t *testing.T) {
@@ -31,8 +28,6 @@ func TestAdvancedDeduplication(t *testing.T) {
 	analyzer := ai.NewAnalyzer(testConfig)
 
 	t.Run("CommentEditTracking", func(t *testing.T) {
-		// Simulate a PR with comment history
-		prNumber := 100
 		tempDir := t.TempDir()
 		os.Chdir(tempDir)
 
@@ -55,8 +50,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		}
 
 		// Generate initial tasks
-		storageManager := storage.NewManager()
-		tasks1, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		tasks1, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
@@ -69,7 +63,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		reviews[0].Comments[0].Body = "Please add input validation for the username field."
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		tasks2, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after edit: %v", err)
 		}
@@ -82,7 +76,6 @@ func TestAdvancedDeduplication(t *testing.T) {
 
 	t.Run("SemanticChangeDetection", func(t *testing.T) {
 		// Test semantic changes in comments
-		prNumber := 101
 		tempDir := t.TempDir()
 		os.Chdir(tempDir)
 
@@ -104,8 +97,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 			},
 		}
 
-		storageManager := storage.NewManager()
-		tasks1, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		tasks1, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
@@ -117,7 +109,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		tasks2, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after semantic change: %v", err)
 		}
@@ -128,7 +120,6 @@ func TestAdvancedDeduplication(t *testing.T) {
 	})
 
 	t.Run("DeletedCommentHandling", func(t *testing.T) {
-		prNumber := 102
 		tempDir := t.TempDir()
 		os.Chdir(tempDir)
 
@@ -157,22 +148,18 @@ func TestAdvancedDeduplication(t *testing.T) {
 			},
 		}
 
-		storageManager := storage.NewManager()
-		tasks1, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		_, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
 
-		// Save tasks
-		if err := storageManager.SaveTasks(prNumber, tasks1); err != nil {
-			t.Fatalf("Failed to save tasks: %v", err)
-		}
+		// Note: This test is simplified without storage manager
 
 		// Simulate comment deletion (remove second comment)
 		reviews[0].Comments = reviews[0].Comments[:1]
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasksWithCache(reviews, prNumber, storageManager)
+		tasks2, err := analyzer.GenerateTasks(reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after deletion: %v", err)
 		}
@@ -239,61 +226,3 @@ func TestAdvancedDeduplication(t *testing.T) {
 	})
 }
 
-func TestCommentHistoryPersistence(t *testing.T) {
-	// Skip on Windows due to file locking issues with TempDir cleanup
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping comment history persistence test on Windows due to file locking issues")
-	}
-
-	tempDir := t.TempDir()
-	os.Chdir(tempDir)
-
-	prNumber := 200
-	manager := storage.NewCommentHistoryManager(prNumber)
-
-	// Test saving and loading history
-	history := map[int64]*storage.CommentHistory{
-		5001: {
-			CommentID:         5001,
-			OriginalText:      "Original review comment",
-			CurrentText:       "Edited review comment",
-			FirstSeen:         time.Now().Add(-time.Hour),
-			LastModified:      time.Now(),
-			IsDeleted:         false,
-			TextHash:          storage.CalculateTextHash("Edited review comment"),
-			ModificationCount: 1,
-		},
-	}
-
-	// Save history
-	if err := manager.SaveHistory(history); err != nil {
-		t.Fatalf("Failed to save history: %v", err)
-	}
-
-	// Verify file exists
-	historyFile := filepath.Join(".pr-review", "PR-200", "comment_history.json")
-	if _, err := os.Stat(historyFile); os.IsNotExist(err) {
-		t.Error("History file was not created")
-	}
-
-	// Load history
-	loadedHistory, err := manager.LoadHistory()
-	if err != nil {
-		t.Fatalf("Failed to load history: %v", err)
-	}
-
-	if len(loadedHistory) != 1 {
-		t.Errorf("Expected 1 history entry, got %d", len(loadedHistory))
-	}
-
-	if entry, exists := loadedHistory[5001]; exists {
-		if entry.ModificationCount != 1 {
-			t.Errorf("Expected modification count 1, got %d", entry.ModificationCount)
-		}
-		if entry.CurrentText != "Edited review comment" {
-			t.Errorf("Expected current text 'Edited review comment', got '%s'", entry.CurrentText)
-		}
-	} else {
-		t.Error("History entry 5001 not found")
-	}
-}

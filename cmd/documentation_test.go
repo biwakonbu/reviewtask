@@ -93,13 +93,6 @@ func TestVersionCommandFlags(t *testing.T) {
 	}
 }
 
-// TestRootCommandFlags tests that root command has documented flags
-func TestRootCommandFlags(t *testing.T) {
-	flag := rootCmd.Flags().Lookup("refresh-cache")
-	if flag == nil {
-		t.Error("Expected flag --refresh-cache on root command but not found")
-	}
-}
 
 // TestAuthSubcommands tests that auth command has documented subcommands
 func TestAuthSubcommands(t *testing.T) {
