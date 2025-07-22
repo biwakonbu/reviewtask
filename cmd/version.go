@@ -18,6 +18,9 @@ var (
 	showLatest  bool
 )
 
+// Function variables for testing
+var changeToVersion = changeToVersionImpl
+
 var versionCmd = &cobra.Command{
 	Use:   "version [VERSION]",
 	Short: "Show version information or change to a different version",
@@ -87,8 +90,8 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// changeToVersion handles changing to a different version
-func changeToVersion(targetVersion string) error {
+// changeToVersionImpl handles changing to a different version (implementation)
+func changeToVersionImpl(targetVersion string) error {
 	// Validate version argument
 	if err := validateVersionArgument(targetVersion); err != nil {
 		return err

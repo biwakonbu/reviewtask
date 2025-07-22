@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"

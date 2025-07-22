@@ -11,6 +11,9 @@ import (
 	"reviewtask/internal/version"
 )
 
+// Function variables for testing
+var getRecentReleases = getRecentReleasesImpl
+
 var versionsCmd = &cobra.Command{
 	Use:   "versions",
 	Short: "List recent versions with GitHub releases link",
@@ -66,8 +69,8 @@ func runVersions(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// getRecentReleases fetches recent releases from GitHub API
-func getRecentReleases(ctx context.Context, count int) ([]*version.Release, error) {
+// getRecentReleasesImpl fetches recent releases from GitHub API (implementation)
+func getRecentReleasesImpl(ctx context.Context, count int) ([]*version.Release, error) {
 	// Use GitHub API to get multiple releases
 	url := fmt.Sprintf("https://api.github.com/repos/biwakonbu/reviewtask/releases?per_page=%d", count)
 
