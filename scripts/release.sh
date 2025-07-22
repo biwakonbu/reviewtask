@@ -9,6 +9,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_SCRIPT="${SCRIPT_DIR}/version.sh"
 BUILD_SCRIPT="${SCRIPT_DIR}/build.sh"
+DETECT_LABEL_SCRIPT="${SCRIPT_DIR}/detect-release-label.sh"
 CHANGELOG_FILE="CHANGELOG.md"
 RELEASE_NOTES_FILE="RELEASE_NOTES.md"
 
@@ -258,15 +259,54 @@ prepare_release() {
 # Global flag for non-interactive mode
 AUTO_CONFIRM=${AUTO_CONFIRM:-false}
 
+# Detect release type from PR label
+detect_release_type_from_pr() {
+    local pr_number=$1
+    
+    if [ ! -f "$DETECT_LABEL_SCRIPT" ]; then
+        log_error "Label detection script not found: $DETECT_LABEL_SCRIPT"
+        exit 1
+    fi
+    
+    log_info "Detecting release type from PR #$pr_number..."
+    
+    local release_type
+    if release_type=$("$DETECT_LABEL_SCRIPT" -q "$pr_number" 2>/dev/null); then
+        log_success "Detected release type: $release_type"
+        echo "$release_type"
+    else
+        local exit_code=$?
+        case $exit_code in
+            1)
+                log_error "No release label found on PR #$pr_number"
+                log_info "Please add one of: release:major, release:minor, release:patch"
+                ;;
+            2)
+                log_error "Multiple release labels found on PR #$pr_number"
+                log_info "Please keep only one release label"
+                ;;
+            *)
+                log_error "Failed to detect release label from PR #$pr_number"
+                ;;
+        esac
+        exit 1
+    fi
+}
+
 # Main execution
 main() {
     # Parse arguments and collect non-flag arguments
     local args=()
+    local from_pr=""
     while [[ $# -gt 0 ]]; do
         case $1 in
             --yes|-y)
                 AUTO_CONFIRM=true
                 shift
+                ;;
+            --from-pr)
+                from_pr="$2"
+                shift 2
                 ;;
             *)
                 args+=("$1")
@@ -276,7 +316,18 @@ main() {
     done
     
     local command=${args[0]:-"prepare"}
-    local release_type=${args[1]:-"patch"}
+    local release_type=${args[1]:-""}
+    
+    # If --from-pr is specified, detect release type from PR label
+    if [ -n "$from_pr" ]; then
+        if [ -n "$release_type" ]; then
+            log_warning "Release type specified both via argument and --from-pr. Using PR label."
+        fi
+        release_type=$(detect_release_type_from_pr "$from_pr")
+    elif [ -z "$release_type" ]; then
+        # Default to patch if no release type specified
+        release_type="patch"
+    fi
     
     case "$command" in
         "prepare")
@@ -289,29 +340,36 @@ main() {
             create_release "$release_type" true
             ;;
         *)
-            echo "Usage: $0 [--yes] [prepare|release|dry-run] [major|minor|patch]"
+            echo "Usage: $0 [OPTIONS] [COMMAND] [RELEASE_TYPE]"
             echo ""
-            echo "Options:"
-            echo "  --yes, -y   - Auto-confirm prompts (useful for CI/CD)"
+            echo "OPTIONS:"
+            echo "  --yes, -y             Auto-confirm prompts (useful for CI/CD)"
+            echo "  --from-pr PR_NUMBER   Detect release type from PR label"
             echo ""
-            echo "Commands:"
+            echo "COMMANDS:"
             echo "  prepare   - Prepare and preview release (default)"
             echo "  release   - Create actual release"
             echo "  dry-run   - Simulate release creation"
             echo ""
-            echo "Release Types:"
+            echo "RELEASE TYPES:"
             echo "  major     - Breaking changes (x.0.0)"
             echo "  minor     - New features (x.y.0)"
-            echo "  patch     - Bug fixes (x.y.z)"
+            echo "  patch     - Bug fixes (x.y.z) [default]"
             echo ""
-            echo "Environment Variables:"
+            echo "EXAMPLES:"
+            echo "  $0                      # Prepare patch release"
+            echo "  $0 prepare minor        # Prepare minor release"
+            echo "  $0 release major        # Create major release"
+            echo "  $0 --from-pr 123        # Detect type from PR #123"
+            echo "  $0 --yes release --from-pr 456  # Auto-confirm release from PR"
+            echo ""
+            echo "ENVIRONMENT VARIABLES:"
             echo "  AUTO_CONFIRM=true  - Same as --yes flag"
             echo ""
-            echo "Examples:"
-            echo "  $0 prepare patch         - Prepare patch release"
-            echo "  $0 --yes release minor   - Create minor release (auto-confirm)"
-            echo "  $0 dry-run major         - Simulate major release"
-            echo "  AUTO_CONFIRM=true $0 release patch  - Auto-confirm via env var"
+            echo "PR LABELS:"
+            echo "  release:major - Triggers major version bump"
+            echo "  release:minor - Triggers minor version bump"
+            echo "  release:patch - Triggers patch version bump"
             exit 1
             ;;
     esac

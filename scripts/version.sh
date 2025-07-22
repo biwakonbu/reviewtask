@@ -8,6 +8,8 @@ set -e
 # Configuration
 VERSION_FILE="VERSION"
 DEFAULT_VERSION="0.1.0"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DETECT_LABEL_SCRIPT="${SCRIPT_DIR}/detect-release-label.sh"
 
 # Colors for output
 RED='\033[0;31m'
@@ -206,6 +208,46 @@ show_info() {
     echo "  Version File: $([ -f "$VERSION_FILE" ] && echo "exists" || echo "missing")"
 }
 
+# Bump version based on PR label
+bump_from_pr() {
+    local pr_number=$1
+    
+    if [ -z "$pr_number" ]; then
+        log_error "PR number is required"
+        echo "Usage: $0 bump-from-pr PR_NUMBER"
+        exit 1
+    fi
+    
+    if [ ! -f "$DETECT_LABEL_SCRIPT" ]; then
+        log_error "Label detection script not found: $DETECT_LABEL_SCRIPT"
+        exit 1
+    fi
+    
+    log_info "Detecting release type from PR #$pr_number..."
+    
+    local release_type
+    if release_type=$("$DETECT_LABEL_SCRIPT" -q "$pr_number" 2>/dev/null); then
+        log_success "Detected release type: $release_type"
+        bump_version "$release_type"
+    else
+        local exit_code=$?
+        case $exit_code in
+            1)
+                log_error "No release label found on PR #$pr_number"
+                echo "Please add one of: release:major, release:minor, release:patch"
+                ;;
+            2)
+                log_error "Multiple release labels found on PR #$pr_number"
+                echo "Please keep only one release label"
+                ;;
+            *)
+                log_error "Failed to detect release label from PR #$pr_number"
+                ;;
+        esac
+        exit 1
+    fi
+}
+
 # Main execution
 main() {
     local command=${1:-"current"}
@@ -217,6 +259,9 @@ main() {
         "bump")
             bump_version "$2"
             ;;
+        "bump-from-pr")
+            bump_from_pr "$2"
+            ;;
         "next")
             calculate_next_version "$2"
             ;;
@@ -227,21 +272,28 @@ main() {
             show_info
             ;;
         *)
-            echo "Usage: $0 [current|bump|next|set|info] [arguments]"
+            echo "Usage: $0 [COMMAND] [ARGUMENTS]"
             echo ""
-            echo "Commands:"
-            echo "  current           - Show current version"
-            echo "  bump <type>       - Bump version (major, minor, patch)"
-            echo "  next <type>       - Calculate next version without updating files"
-            echo "  set <version>     - Set specific version"
-            echo "  info              - Show detailed version information"
+            echo "COMMANDS:"
+            echo "  current              - Show current version"
+            echo "  bump <type>          - Bump version (major, minor, patch)"
+            echo "  bump-from-pr <PR#>   - Bump version based on PR label"
+            echo "  next <type>          - Calculate next version without updating"
+            echo "  set <version>        - Set specific version"
+            echo "  info                 - Show detailed version information"
             echo ""
-            echo "Examples:"
-            echo "  $0 current        - Show current version"
-            echo "  $0 bump patch     - Increment patch version"
-            echo "  $0 next minor     - Show what next minor version would be"
-            echo "  $0 set 1.2.3      - Set version to 1.2.3"
-            echo "  $0 info           - Show version details"
+            echo "EXAMPLES:"
+            echo "  $0 current           - Show current version"
+            echo "  $0 bump patch        - Increment patch version"
+            echo "  $0 bump-from-pr 123  - Bump based on PR #123 label"
+            echo "  $0 next minor        - Show what next minor version would be"
+            echo "  $0 set 1.2.3         - Set version to 1.2.3"
+            echo "  $0 info              - Show version details"
+            echo ""
+            echo "PR LABELS:"
+            echo "  release:major - Major version bump"
+            echo "  release:minor - Minor version bump"
+            echo "  release:patch - Patch version bump"
             exit 1
             ;;
     esac

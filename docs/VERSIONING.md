@@ -106,6 +106,9 @@ Given a version number `MAJOR.MINOR.PATCH`, increment the:
 
 # Increment major version (1.1.0 → 2.0.0)
 ./scripts/version.sh bump major
+
+# Increment based on PR label
+./scripts/version.sh bump-from-pr 123
 ```
 
 ### Set Specific Version
@@ -117,7 +120,9 @@ Given a version number `MAJOR.MINOR.PATCH`, increment the:
 
 ## Release Process
 
-### 1. Preparation
+### Manual Release
+
+#### 1. Preparation
 
 ```bash
 # Check current state
@@ -127,23 +132,52 @@ Given a version number `MAJOR.MINOR.PATCH`, increment the:
 ./scripts/release.sh prepare patch  # or minor/major
 ```
 
-### 2. Create Release
+#### 2. Create Release
 
 ```bash
 # Create actual release
 ./scripts/release.sh release patch  # or minor/major
 ```
 
-### 3. Automated Process
+### Label-based Release (Recommended)
 
-The release script automatically:
+#### 1. Add Release Label to PR
+
+When creating or reviewing a PR, add one of these labels:
+- `release:major` - For breaking changes
+- `release:minor` - For new features
+- `release:patch` - For bug fixes
+
+#### 2. Automatic Release on Merge
+
+When the PR is merged to main:
+1. GitHub Actions detects the release label
+2. Automatically creates the appropriate version bump
+3. Builds and publishes the release
+4. Posts a comment on the PR with release details
+5. Removes the release label to prevent re-triggering
+
+#### 3. Manual Trigger from PR
+
+```bash
+# Create release based on PR label
+./scripts/release.sh release --from-pr 123
+
+# Detect what version would be bumped
+./scripts/detect-release-label.sh 123
+```
+
+### Automated Process
+
+The release process automatically:
 1. Validates working directory is clean
-2. Bumps version using semantic versioning rules
-3. Creates git tag (`v1.2.3`)
-4. Builds cross-platform binaries
-5. Generates release notes from git commits
-6. Creates GitHub release
-7. Uploads distribution packages and checksums
+2. Detects version bump type from PR label (if using --from-pr)
+3. Bumps version using semantic versioning rules
+4. Creates git tag (`v1.2.3`)
+5. Builds cross-platform binaries
+6. Generates release notes from git commits
+7. Creates GitHub release
+8. Uploads distribution packages and checksums
 
 ## Version Sources Priority
 

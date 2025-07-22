@@ -338,14 +338,23 @@ Required GitHub API permissions:
 
 ## Contributing
 
+Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on:
+- Development setup and guidelines
+- Pull request process
+- Release labeling system
+- Code style and testing
+
+### Quick Start for Contributors
+
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Add appropriate release label (`release:major`, `release:minor`, or `release:patch`)
 5. Submit a pull request
 
 ### Development Documentation
 
+- [Contributing Guide](CONTRIBUTING.md) - Detailed contribution guidelines
 - [Versioning Guide](docs/VERSIONING.md) - Semantic versioning rules and release process
 - [Project Requirements](PRD.md) - Project vision and development guidelines
 
