@@ -3,6 +3,7 @@ package test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -12,19 +13,49 @@ import (
 func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 	// Note: Parallel execution disabled due to getwd issues in CI environment
 
-	// Use a relative path from the test directory
-	// This works whether tests are run from project root or test directory
-	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	// Find the workflow documentation file using multiple strategies
+	var workflowPath string
+	var lastErr error
 
-	// If the file doesn't exist at the relative path, try from current directory
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	// Try different paths in order of likelihood
+	possiblePaths := []string{
+		filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md"),              // From test directory
+		filepath.Join(".claude", "commands", "pr-review", "review-task-workflow.md"),                    // From project root
+		filepath.Join(".", "test", "..", ".claude", "commands", "pr-review", "review-task-workflow.md"), // Alternative
+	}
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			workflowPath = path
+			break
+		} else {
+			lastErr = err
+		}
+	}
+
+	// If still not found, try absolute path approach based on test file location
+	if workflowPath == "" {
+		// Get the directory of the current test file
+		_, filename, _, ok := runtime.Caller(0)
+		if ok {
+			testDir := filepath.Dir(filename)
+			projectRoot := filepath.Dir(testDir)
+			candidatePath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
+			if _, err := os.Stat(candidatePath); err == nil {
+				workflowPath = candidatePath
+			}
+		}
+	}
+
+	// Final check
+	if workflowPath == "" {
+		t.Fatalf("Failed to find workflow documentation file. Tried paths: %v. Last error: %v", possiblePaths, lastErr)
 	}
 
 	// Read the documentation file
 	content, err := os.ReadFile(workflowPath)
 	if err != nil {
-		t.Fatalf("Failed to read workflow documentation: %v", err)
+		t.Fatalf("Failed to read workflow documentation from %s: %v", workflowPath, err)
 	}
 
 	docContent := string(content)
@@ -142,18 +173,48 @@ func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 func TestDocumentationStructure(t *testing.T) {
 	// Note: Parallel execution disabled due to getwd issues in CI environment
 
-	// Use a relative path from the test directory
-	// This works whether tests are run from project root or test directory
-	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	// Find the workflow documentation file using multiple strategies
+	var workflowPath string
+	var lastErr error
 
-	// If the file doesn't exist at the relative path, try from current directory
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	// Try different paths in order of likelihood
+	possiblePaths := []string{
+		filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md"),              // From test directory
+		filepath.Join(".claude", "commands", "pr-review", "review-task-workflow.md"),                    // From project root
+		filepath.Join(".", "test", "..", ".claude", "commands", "pr-review", "review-task-workflow.md"), // Alternative
+	}
+
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			workflowPath = path
+			break
+		} else {
+			lastErr = err
+		}
+	}
+
+	// If still not found, try absolute path approach based on test file location
+	if workflowPath == "" {
+		// Get the directory of the current test file
+		_, filename, _, ok := runtime.Caller(0)
+		if ok {
+			testDir := filepath.Dir(filename)
+			projectRoot := filepath.Dir(testDir)
+			candidatePath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
+			if _, err := os.Stat(candidatePath); err == nil {
+				workflowPath = candidatePath
+			}
+		}
+	}
+
+	// Final check
+	if workflowPath == "" {
+		t.Fatalf("Failed to find workflow documentation file. Tried paths: %v. Last error: %v", possiblePaths, lastErr)
 	}
 
 	content, err := os.ReadFile(workflowPath)
 	if err != nil {
-		t.Fatalf("Failed to read workflow documentation: %v", err)
+		t.Fatalf("Failed to read workflow documentation from %s: %v", workflowPath, err)
 	}
 
 	docContent := string(content)
