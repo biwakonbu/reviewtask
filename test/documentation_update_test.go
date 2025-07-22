@@ -12,21 +12,14 @@ import (
 func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 	// Note: Parallel execution disabled due to getwd issues in CI environment
 
-	// Get the project root directory dynamically
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
+	// Use a relative path from the test directory
+	// This works whether tests are run from project root or test directory
+	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	
+	// If the file doesn't exist at the relative path, try from current directory
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
 	}
-
-	// If we're in the test directory, go up one level to get to project root
-	var projectRoot string
-	if filepath.Base(wd) == "test" {
-		projectRoot = filepath.Dir(wd)
-	} else {
-		projectRoot = wd
-	}
-
-	workflowPath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	// Read the documentation file
 	content, err := os.ReadFile(workflowPath)
@@ -149,21 +142,14 @@ func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 func TestDocumentationStructure(t *testing.T) {
 	// Note: Parallel execution disabled due to getwd issues in CI environment
 
-	// Get the project root directory dynamically
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
+	// Use a relative path from the test directory
+	// This works whether tests are run from project root or test directory
+	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	
+	// If the file doesn't exist at the relative path, try from current directory
+	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
+		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
 	}
-
-	// If we're in the test directory, go up one level to get to project root
-	var projectRoot string
-	if filepath.Base(wd) == "test" {
-		projectRoot = filepath.Dir(wd)
-	} else {
-		projectRoot = wd
-	}
-
-	workflowPath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	content, err := os.ReadFile(workflowPath)
 	if err != nil {
