@@ -139,6 +139,7 @@ fi`
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("version_%s", tt.version), func(t *testing.T) {
 			cmd := exec.Command("bash", tmpFile.Name(), tt.version)
+			cmd.Dir = filepath.Dir(tmpFile.Name())
 			output, err := cmd.CombinedOutput()
 			outputStr := strings.TrimSpace(string(output))
 			
