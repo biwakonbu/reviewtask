@@ -387,16 +387,16 @@ func TestIntegrationWithMockClient(t *testing.T) {
 // TestMockClient_NoPRFound tests the ErrNoPRFound error scenario
 func TestMockClient_NoPRFound(t *testing.T) {
 	mockClient := NewMockClient()
-	
+
 	// Set up the error
 	mockClient.SetError(ErrNoPRFound)
-	
+
 	// Test GetCurrentBranchPR returns ErrNoPRFound
 	_, err := mockClient.GetCurrentBranchPR(context.Background())
 	if err == nil {
 		t.Fatal("Expected error, got nil")
 	}
-	
+
 	// Check if it's the correct error type
 	if !errors.Is(err, ErrNoPRFound) {
 		t.Errorf("Expected ErrNoPRFound, got: %v", err)
