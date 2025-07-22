@@ -39,16 +39,33 @@ jobs:
         max_retries=3
         retry_count=0
         
+        # Determine which timeout command to use
+        if command -v gtimeout >/dev/null 2>&1; then
+          TIMEOUT_CMD="gtimeout"
+        elif command -v timeout >/dev/null 2>&1; then
+          TIMEOUT_CMD="timeout"
+        else
+          TIMEOUT_CMD=""
+        fi
+        
         while [ $retry_count -lt $max_retries ]; do
-          if timeout $timeout_duration go mod download; then
-            echo "Dependencies downloaded successfully"
-            break
-          else
-            retry_count=$((retry_count + 1))
-            echo "Download attempt $retry_count failed, retrying..."
-            if [ $retry_count -lt $max_retries ]; then
-              sleep 10
+          if [ -n "$TIMEOUT_CMD" ]; then
+            if $TIMEOUT_CMD $timeout_duration go mod download; then
+              echo "Dependencies downloaded successfully"
+              break
             fi
+          else
+            # Fallback: run without timeout on systems where it's not available
+            if go mod download; then
+              echo "Dependencies downloaded successfully (no timeout available)"
+              break
+            fi
+          fi
+          
+          retry_count=$((retry_count + 1))
+          echo "Download attempt $retry_count failed, retrying..."
+          if [ $retry_count -lt $max_retries ]; then
+            sleep 10
           fi
         done
         
@@ -65,27 +82,46 @@ jobs:
         $retryCount = 0
         
         while ($retryCount -lt $maxRetries) {
-          $timeoutJob = Start-Job -ScriptBlock { go mod download }
-          if (Wait-Job $timeoutJob -Timeout 300) {
-            $result = Receive-Job $timeoutJob
-            Remove-Job $timeoutJob
-            Write-Host "Dependencies downloaded successfully"
-            exit 0
-          } else {
-            Stop-Job $timeoutJob
-            Remove-Job $timeoutJob
-            $retryCount++
-            Write-Host "Download attempt $retryCount failed, retrying..."
-            if ($retryCount -lt $maxRetries) {
-              Start-Sleep -Seconds 10
+          Write-Host "Download attempt $($retryCount + 1) of $maxRetries"
+          
+          try {
+            $process = Start-Process -FilePath "go" -ArgumentList "mod", "download" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "download_output.txt" -RedirectStandardError "download_error.txt"
+            
+            if ($process.ExitCode -eq 0) {
+              Write-Host "Dependencies downloaded successfully"
+              if (Test-Path "download_output.txt") {
+                Get-Content "download_output.txt" | Write-Host
+                Remove-Item "download_output.txt" -ErrorAction SilentlyContinue
+              }
+              if (Test-Path "download_error.txt") {
+                Remove-Item "download_error.txt" -ErrorAction SilentlyContinue
+              }
+              exit 0
+            } else {
+              Write-Host "Download failed with exit code: $($process.ExitCode)"
+              if (Test-Path "download_error.txt") {
+                Write-Host "Error output:"
+                Get-Content "download_error.txt" | Write-Host
+                Remove-Item "download_error.txt" -ErrorAction SilentlyContinue
+              }
+              if (Test-Path "download_output.txt") {
+                Remove-Item "download_output.txt" -ErrorAction SilentlyContinue
+              }
             }
+          }
+          catch {
+            Write-Host "Exception occurred: $($_.Exception.Message)"
+          }
+          
+          $retryCount++
+          if ($retryCount -lt $maxRetries) {
+            Write-Host "Retrying in 10 seconds..."
+            Start-Sleep -Seconds 10
           }
         }
         
-        if ($retryCount -eq $maxRetries) {
-          Write-Host "Failed to download dependencies after $maxRetries attempts"
-          exit 1
-        }
+        Write-Host "Failed to download dependencies after $maxRetries attempts"
+        exit 1
       shell: powershell
     
     - name: Run tests
