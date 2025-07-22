@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -112,7 +113,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	return a.generateTasksParallel(allComments)
 }
 
-// GenerateTasksWithCache generates tasks using smart caching to avoid redundant AI processing
+// GenerateTasksWithCache generates tasks with MD5-based change detection using existing data
 func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
 	// Clear validation feedback to ensure clean state for each PR analysis
 	a.clearValidationFeedback()
@@ -121,18 +122,10 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		return []storage.Task{}, nil
 	}
 
-	// Initialize comment history manager
-	historyManager := storage.NewCommentHistoryManager(prNumber)
-	commentHistory, err := historyManager.LoadHistory()
-	if err != nil {
-		fmt.Printf("⚠️  Failed to load comment history: %v\n", err)
-		commentHistory = make(map[int64]*storage.CommentHistory)
-	}
-
-	// Extract all comments with their review context, filtering out resolved comments
+	// Extract all comments and create content hash map
 	var allComments []github.Comment
 	var allCommentsCtx []CommentContext
-	currentCommentsMap := make(map[int64]string)
+	commentHashMap := make(map[int64]string)
 	resolvedCommentCount := 0
 
 	for _, review := range reviews {
@@ -149,7 +142,8 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 				Comment:      comment,
 				SourceReview: review,
 			})
-			currentCommentsMap[comment.ID] = comment.Body
+			// Calculate MD5 hash of entire comment thread (main comment + all replies)
+			commentHashMap[comment.ID] = a.calculateCommentHash(comment)
 		}
 	}
 
@@ -161,150 +155,81 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		return []storage.Task{}, nil
 	}
 
-	// Analyze comment changes using history
-	commentChanges := historyManager.AnalyzeCommentChanges(currentCommentsMap, commentHistory)
-
-	// Analyze semantic changes for modified comments
-	semanticAnalyzer := NewSemanticAnalyzer(a.config)
-	semanticChangesMap, err := semanticAnalyzer.BatchAnalyzeChanges(commentChanges)
-	if err != nil {
-		fmt.Printf("⚠️  Failed to analyze semantic changes: %v\n", err)
-	}
-
-	// Update history with current state
-	updatedHistory := historyManager.UpdateHistory(commentChanges, commentHistory)
-	if err := historyManager.SaveHistory(updatedHistory); err != nil {
-		fmt.Printf("⚠️  Failed to save comment history: %v\n", err)
-	}
-
-	// Detect comment changes using cache (existing logic)
-	newComments, modifiedComments, err := storageManager.DetectCommentChanges(prNumber, allComments)
-	if err != nil {
-		fmt.Printf("⚠️  Cache detection failed, processing all comments: %v\n", err)
-		// Fallback to processing all comments if cache detection fails
-		return a.GenerateTasks(reviews)
-	}
-
-	// Filter modified comments to only include those with semantic changes
-	var semanticallyModifiedComments []github.Comment
-	for _, comment := range modifiedComments {
-		if hasSemanticChange, exists := semanticChangesMap[comment.ID]; exists && hasSemanticChange {
-			semanticallyModifiedComments = append(semanticallyModifiedComments, comment)
-		}
-	}
-
-	// Replace modifiedComments with only semantically changed ones
-	modifiedComments = semanticallyModifiedComments
-
-	commentsToProcess := append(newComments, modifiedComments...)
-	cachedComments, err := storageManager.GetCachedComments(prNumber, allComments)
-	if err != nil {
-		fmt.Printf("⚠️  Failed to get cached comments: %v\n", err)
-		cachedComments = []github.Comment{}
-	}
-
-	fmt.Printf("💾 Cache analysis: %d cached, %d new, %d modified comments\n",
-		len(cachedComments), len(newComments), len(modifiedComments))
-
-	var newTasks []storage.Task
-
-	if len(commentsToProcess) > 0 {
-		// Process only new and modified comments using prebuilt context
-		var commentsToProcessCtx []CommentContext
-		commentsToProcessMap := make(map[int64]bool)
-		for _, comment := range commentsToProcess {
-			commentsToProcessMap[comment.ID] = true
-		}
-
-		for _, commentCtx := range allCommentsCtx {
-			if commentsToProcessMap[commentCtx.Comment.ID] {
-				commentsToProcessCtx = append(commentsToProcessCtx, commentCtx)
-			}
-		}
-
-		fmt.Printf("🤖 Processing %d new/modified comments with AI...\n", len(commentsToProcessCtx))
-
-		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-			// Use validation mode for new/modified comments
-			generatedTasks, err := a.generateTasksParallelWithValidation(commentsToProcessCtx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate tasks with validation: %w", err)
-			}
-			newTasks = generatedTasks
-		} else {
-			// Use standard parallel processing
-			generatedTasks, err := a.generateTasksParallel(commentsToProcessCtx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to generate tasks: %w", err)
-			}
-			newTasks = generatedTasks
-		}
-
-		// Update cache with processed comments and their task IDs
-		var processedComments []github.Comment
-		commentTaskMap := make(map[int64][]string)
-
-		for _, task := range newTasks {
-			commentTaskMap[task.SourceCommentID] = append(commentTaskMap[task.SourceCommentID], task.ID)
-		}
-
-		var taskIDGroups [][]string
-		for _, comment := range commentsToProcess {
-			processedComments = append(processedComments, comment)
-			taskIDGroups = append(taskIDGroups, commentTaskMap[comment.ID])
-		}
-
-		if err := storageManager.UpdateCommentCache(prNumber, processedComments, taskIDGroups); err != nil {
-			fmt.Printf("⚠️  Failed to update cache: %v\n", err)
-		}
-	} else {
-		fmt.Printf("✅ All comments are cached - no AI processing needed\n")
-	}
-
-	// Load existing tasks for cached comments
+	// Load existing tasks to compare hashes
 	existingTasks, err := storageManager.GetTasksByPR(prNumber)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("failed to load existing tasks: %w", err)
 	}
 
-	// Filter existing tasks to only include those from cached comments
-	// Also handle tasks from deleted comments
-	var cachedTasks []storage.Task
-	var deletedCommentTasks []storage.Task
-	cachedCommentIDs := make(map[int64]bool)
-	deletedCommentIDs := make(map[int64]bool)
-
-	for _, comment := range cachedComments {
-		cachedCommentIDs[comment.ID] = true
-	}
-
-	// Identify deleted comments
-	for _, change := range commentChanges {
-		if change.Type == "deleted" {
-			deletedCommentIDs[change.CommentID] = true
-		}
-	}
-
+	// Create map of existing task hashes by comment ID
+	existingHashMap := make(map[int64]string)
+	existingTasksByComment := make(map[int64][]storage.Task)
 	for _, task := range existingTasks {
-		if deletedCommentIDs[task.SourceCommentID] {
-			// Mark task as from deleted comment
-			task.Status = "cancel"
-			task.UpdatedAt = time.Now().Format(time.RFC3339)
-			deletedCommentTasks = append(deletedCommentTasks, task)
-			fmt.Printf("⚠️  Task %s from deleted comment %d marked as cancelled\n", task.ID, task.SourceCommentID)
-		} else if cachedCommentIDs[task.SourceCommentID] {
-			cachedTasks = append(cachedTasks, task)
+		if task.CommentHash != "" {
+			existingHashMap[task.SourceCommentID] = task.CommentHash
+		}
+		existingTasksByComment[task.SourceCommentID] = append(existingTasksByComment[task.SourceCommentID], task)
+	}
+
+	// Detect changes by comparing current hashes with existing hashes
+	var changedCommentsCtx []CommentContext
+	var unchangedTasks []storage.Task
+
+	for _, commentCtx := range allCommentsCtx {
+		comment := commentCtx.Comment
+		currentHash := commentHashMap[comment.ID]
+		existingHash, hasExistingTasks := existingHashMap[comment.ID]
+
+		if !hasExistingTasks || existingHash != currentHash {
+			// Comment is new or has changed - needs reprocessing
+			changedCommentsCtx = append(changedCommentsCtx, commentCtx)
+		} else {
+			// Comment is unchanged - keep existing tasks
+			unchangedTasks = append(unchangedTasks, existingTasksByComment[comment.ID]...)
 		}
 	}
 
-	// Combine cached tasks with newly generated tasks
-	allTasks := append(cachedTasks, newTasks...)
-	allTasks = append(allTasks, deletedCommentTasks...)
+	fmt.Printf("📊 Change analysis: %d unchanged, %d changed/new comments\n",
+		len(allCommentsCtx)-len(changedCommentsCtx), len(changedCommentsCtx))
 
-	fmt.Printf("📋 Task summary: %d from cache + %d newly generated = %d total\n",
-		len(cachedTasks), len(newTasks), len(allTasks))
+	var newTasks []storage.Task
+	if len(changedCommentsCtx) > 0 {
+		fmt.Printf("🤖 Processing %d changed/new comments with AI...\n", len(changedCommentsCtx))
+
+		// Generate tasks only for changed comments
+		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+			newTasks, err = a.generateTasksParallelWithValidation(changedCommentsCtx)
+		} else {
+			newTasks, err = a.generateTasksParallel(changedCommentsCtx)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate tasks: %w", err)
+		}
+
+		// Set comment hash for new tasks
+		for i := range newTasks {
+			newTasks[i].CommentHash = commentHashMap[newTasks[i].SourceCommentID]
+		}
+	} else {
+		fmt.Printf("✅ All comments are unchanged - no AI processing needed\n")
+	}
+
+	// Combine unchanged tasks with newly generated tasks
+	allTasks := append(unchangedTasks, newTasks...)
+
+	fmt.Printf("📋 Task summary: %d unchanged + %d newly generated = %d total\n",
+		len(unchangedTasks), len(newTasks), len(allTasks))
 
 	return allTasks, nil
+}
+
+// calculateCommentHash generates MD5 hash of entire comment thread including replies
+func (a *Analyzer) calculateCommentHash(comment github.Comment) string {
+	content := comment.Body
+	for _, reply := range comment.Replies {
+		content += reply.Body
+	}
+	return fmt.Sprintf("%x", md5.Sum([]byte(content)))
 }
 
 type CommentContext struct {
