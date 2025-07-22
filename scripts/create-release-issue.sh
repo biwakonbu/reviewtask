@@ -7,7 +7,6 @@ set -e
 
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION_SCRIPT="${SCRIPT_DIR}/version.sh"
 ISSUE_TEMPLATE_FILE="/tmp/release_issue_template.md"
 
 # Colors for output
