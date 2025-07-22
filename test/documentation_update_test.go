@@ -11,7 +11,22 @@ import (
 // documentation has been updated to reflect current reviewtask tool specifications
 func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 	t.Parallel() // Allow parallel execution since this test only reads files
-	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	
+	// Get the project root directory dynamically
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	
+	// If we're in the test directory, go up one level to get to project root
+	var projectRoot string
+	if filepath.Base(wd) == "test" {
+		projectRoot = filepath.Dir(wd)
+	} else {
+		projectRoot = wd
+	}
+	
+	workflowPath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	// Read the documentation file
 	content, err := os.ReadFile(workflowPath)
@@ -133,7 +148,22 @@ func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 // TestDocumentationStructure validates the overall structure of the documentation
 func TestDocumentationStructure(t *testing.T) {
 	t.Parallel() // Allow parallel execution since this test only reads files
-	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
+	
+	// Get the project root directory dynamically
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	
+	// If we're in the test directory, go up one level to get to project root
+	var projectRoot string
+	if filepath.Base(wd) == "test" {
+		projectRoot = filepath.Dir(wd)
+	} else {
+		projectRoot = wd
+	}
+	
+	workflowPath := filepath.Join(projectRoot, ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	content, err := os.ReadFile(workflowPath)
 	if err != nil {
