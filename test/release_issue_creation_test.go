@@ -13,12 +13,12 @@ import (
 // TestReleaseIssueScript tests the create-release-issue.sh script
 func TestReleaseIssueScript(t *testing.T) {
 	scriptPath := filepath.Join("..", "scripts", "create-release-issue.sh")
-	
+
 	// Check if script exists and is executable
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Skipf("Script not found: %s (skipping test)", scriptPath)
 	}
-	
+
 	tests := []struct {
 		name        string
 		args        []string
@@ -56,20 +56,20 @@ func TestReleaseIssueScript(t *testing.T) {
 			expectHelp:  false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := exec.Command("bash", append([]string{scriptPath}, tt.args...)...)
 			output, err := cmd.CombinedOutput()
 			outputStr := string(output)
-			
+
 			if tt.expectHelp {
 				if !strings.Contains(outputStr, "Usage:") {
 					t.Errorf("Expected help output, got: %s", outputStr)
 				}
 				return
 			}
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but command succeeded. Output: %s", outputStr)
@@ -106,7 +106,7 @@ func TestVersionFormatValidation(t *testing.T) {
 		{"v-1.0.0", false},
 		{"va.b.c", false},
 	}
-	
+
 	// Create a temporary test script that only validates version format
 	testScript := `#!/bin/bash
 version=$1
@@ -120,33 +120,33 @@ else
     echo "invalid"
     exit 1
 fi`
-	
+
 	tmpFile, err := os.CreateTemp("", "version_test_*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
-	
+
 	if _, err := tmpFile.WriteString(testScript); err != nil {
 		t.Fatalf("Failed to write test script: %v", err)
 	}
 	tmpFile.Close()
-	
+
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		t.Fatalf("Failed to make script executable: %v", err)
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("version_%s", tt.version), func(t *testing.T) {
 			cmd := exec.Command("bash", tmpFile.Name(), tt.version)
 			cmd.Dir = filepath.Dir(tmpFile.Name())
 			output, err := cmd.CombinedOutput()
 			outputStr := strings.TrimSpace(string(output))
-			
+
 			isValid := err == nil && outputStr == "valid"
-			
+
 			if isValid != tt.valid {
-				t.Errorf("Version %s: expected valid=%t, got valid=%t (output: %s)", 
+				t.Errorf("Version %s: expected valid=%t, got valid=%t (output: %s)",
 					tt.version, tt.valid, isValid, outputStr)
 			}
 		})
@@ -168,7 +168,7 @@ func TestReleaseTypeDetection(t *testing.T) {
 		{"v1.3.0", "v1.2.5", "minor"},
 		{"v3.0.0", "v2.9.9", "major"},
 	}
-	
+
 	// Create a test script for release type detection
 	testScript := `#!/bin/bash
 determine_release_type() {
@@ -209,30 +209,31 @@ determine_release_type() {
 }
 
 determine_release_type "$1" "$2"`
-	
+
 	tmpFile, err := os.CreateTemp("", "release_type_test_*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
-	
+
 	if _, err := tmpFile.WriteString(testScript); err != nil {
 		t.Fatalf("Failed to write test script: %v", err)
 	}
 	tmpFile.Close()
-	
+
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		t.Fatalf("Failed to make script executable: %v", err)
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s_to_%s", tt.previous, tt.current), func(t *testing.T) {
 			cmd := exec.Command("bash", tmpFile.Name(), tt.current, tt.previous)
+			cmd.Dir = filepath.Dir(tmpFile.Name())
 			output, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("Script execution failed: %v, output: %s", err, output)
 			}
-			
+
 			result := strings.TrimSpace(string(output))
 			if result != tt.expected {
 				t.Errorf("Release type detection: current=%s, previous=%s, expected=%s, got=%s",
@@ -245,14 +246,19 @@ determine_release_type "$1" "$2"`
 // TestScriptPrerequisites tests prerequisite checking functionality
 func TestScriptPrerequisites(t *testing.T) {
 	scriptPath := filepath.Join("..", "scripts", "create-release-issue.sh")
-	
+
+	// Check if script exists first
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		t.Skipf("Script not found: %s (skipping test)", scriptPath)
+	}
+
 	// Test help function works even without prerequisites
 	cmd := exec.Command("bash", scriptPath, "--help")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Errorf("Help command should work without prerequisites, got error: %v", err)
 	}
-	
+
 	outputStr := string(output)
 	expectedSections := []string{"Usage:", "OPTIONS:", "EXAMPLES:", "ENVIRONMENT:"}
 	for _, section := range expectedSections {
@@ -267,13 +273,13 @@ func TestIssueTemplateSections(t *testing.T) {
 	// This test verifies the structure without actually creating an issue
 	expectedSections := []string{
 		"Release Information",
-		"Release Summary", 
+		"Release Summary",
 		"Installation & Downloads",
 		"Security & Verification",
 		"Links",
 		"Support",
 	}
-	
+
 	// Create a mock template by running parts of the script
 	testScript := `#!/bin/bash
 version="v1.2.3"
@@ -315,41 +321,42 @@ EOF
 
 cat "$template_file"
 rm -f "$template_file"`
-	
+
 	tmpFile, err := os.CreateTemp("", "template_test_*.sh")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tmpFile.Name())
-	
+
 	if _, err := tmpFile.WriteString(testScript); err != nil {
 		t.Fatalf("Failed to write test script: %v", err)
 	}
 	tmpFile.Close()
-	
+
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		t.Fatalf("Failed to make script executable: %v", err)
 	}
-	
+
 	cmd := exec.Command("bash", tmpFile.Name())
+	cmd.Dir = filepath.Dir(tmpFile.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Template generation failed: %v", err)
 	}
-	
+
 	templateContent := string(output)
-	
+
 	for _, section := range expectedSections {
 		if !strings.Contains(templateContent, section) {
 			t.Errorf("Template missing required section: %s", section)
 		}
 	}
-	
+
 	// Verify markdown structure
 	if !regexp.MustCompile(`(?m)^# .+ Release v\d+\.\d+\.\d+ - .+`).MatchString(templateContent) {
 		t.Error("Template should start with a proper release title")
 	}
-	
+
 	if !strings.Contains(templateContent, "**Release Information**") {
 		t.Error("Template should contain release information block")
 	}
