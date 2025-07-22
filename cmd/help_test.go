@@ -133,7 +133,7 @@ func TestAllCommandsHaveHelp(t *testing.T) {
 
 			// Check output contains expected elements
 			output := buf.String()
-			
+
 			// Should contain the command name in usage
 			if !strings.Contains(output, cmd.Name()) {
 				t.Errorf("Help for '%s' doesn't contain command name", cmd.Name())
@@ -144,9 +144,17 @@ func TestAllCommandsHaveHelp(t *testing.T) {
 				t.Errorf("Help for '%s' doesn't contain Usage section", cmd.Name())
 			}
 
-			// Should contain the short description
-			if cmd.Short != "" && !strings.Contains(output, cmd.Short) {
-				t.Errorf("Help for '%s' doesn't contain short description", cmd.Name())
+			// Should contain either the short or long description
+			// (Cobra shows Long description if available, otherwise Short)
+			hasDescription := false
+			if cmd.Long != "" && strings.Contains(output, cmd.Long) {
+				hasDescription = true
+			} else if cmd.Short != "" && strings.Contains(output, cmd.Short) {
+				hasDescription = true
+			}
+
+			if !hasDescription && (cmd.Short != "" || cmd.Long != "") {
+				t.Errorf("Help for '%s' doesn't contain expected description", cmd.Name())
 			}
 		})
 	}
@@ -177,7 +185,7 @@ func TestHelpListsAllCommands(t *testing.T) {
 		if !strings.Contains(output, cmd.Name()) {
 			t.Errorf("Command '%s' not listed in help output", cmd.Name())
 		}
-		
+
 		// Also check that the short description is shown
 		if cmd.Short != "" && !strings.Contains(output, cmd.Short) {
 			t.Errorf("Short description for '%s' not shown in help output", cmd.Name())

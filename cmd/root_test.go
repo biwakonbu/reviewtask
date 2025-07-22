@@ -136,17 +136,17 @@ func TestCommandStructure(t *testing.T) {
 // TestSubcommandUniqueness tests that all subcommands have unique names and aliases
 func TestSubcommandUniqueness(t *testing.T) {
 	root := rootCmd
-	
+
 	// Track all command names and aliases
 	usedNames := make(map[string]string) // name -> command that uses it
-	
+
 	for _, cmd := range root.Commands() {
 		// Check main command name
 		if existingCmd, exists := usedNames[cmd.Name()]; exists {
 			t.Errorf("Duplicate command name '%s' used by both '%s' and current command", cmd.Name(), existingCmd)
 		}
 		usedNames[cmd.Name()] = cmd.Name()
-		
+
 		// Check aliases
 		for _, alias := range cmd.Aliases {
 			if existingCmd, exists := usedNames[alias]; exists {
