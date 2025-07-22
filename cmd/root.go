@@ -139,7 +139,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 				if branchErr != nil {
 					currentBranch = "current branch"
 				}
-				
+
 				fmt.Printf("No pull request found for branch '%s'.\n\n", currentBranch)
 				fmt.Println("To use reviewtask, you need to:")
 				fmt.Println("1. Create a pull request for your branch:")
