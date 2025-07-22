@@ -378,7 +378,6 @@ func initTestGitRepo(dir string) error {
 	return nil
 }
 
-
 // TestMergeTasksForCommentCancelStatus tests that mergeTasksForComment uses "cancel" not "cancelled"
 func TestMergeTasksForCommentCancelStatus(t *testing.T) {
 	// Create manager instance

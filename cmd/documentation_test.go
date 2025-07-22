@@ -93,7 +93,6 @@ func TestVersionCommandFlags(t *testing.T) {
 	}
 }
 
-
 // TestAuthSubcommands tests that auth command has documented subcommands
 func TestAuthSubcommands(t *testing.T) {
 	cmd, _, err := rootCmd.Find([]string{"auth"})
