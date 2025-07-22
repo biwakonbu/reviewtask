@@ -1,0 +1,89 @@
+name: Label-based Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  check-and-release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: 'go.mod'
+    
+    - name: Install GitHub CLI
+      run: |
+        type gh >/dev/null 2>&1 || {
+          echo "Installing GitHub CLI..."
+          sudo apt-get update
+          sudo apt-get install -y gh
+        }
+    
+    - name: Check for release label
+      id: check_label
+      run: |
+        echo "Checking PR #${{ github.event.pull_request.number }} for release labels..."
+        
+        # Try to detect release label
+        if ./scripts/detect-release-label.sh -q ${{ github.event.pull_request.number }}; then
+          RELEASE_TYPE=$(./scripts/detect-release-label.sh -q ${{ github.event.pull_request.number }})
+          echo "Found release label: release:${RELEASE_TYPE}"
+          echo "should_release=true" >> $GITHUB_OUTPUT
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
+        else
+          echo "No release label found or error occurred"
+          echo "should_release=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Configure Git
+      if: steps.check_label.outputs.should_release == 'true'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+    
+    - name: Create release
+      if: steps.check_label.outputs.should_release == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        AUTO_CONFIRM: "true"
+      run: |
+        echo "Creating ${{ steps.check_label.outputs.release_type }} release..."
+        
+        # Use the release script with --from-pr option
+        ./scripts/release.sh release --from-pr ${{ github.event.pull_request.number }}
+    
+    - name: Post release comment
+      if: steps.check_label.outputs.should_release == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Get the new version from the latest tag
+        NEW_VERSION=$(git describe --tags --abbrev=0)
+        
+        # Post a comment on the PR
+        gh pr comment ${{ github.event.pull_request.number }} --body "🎉 Released as ${NEW_VERSION}! 
+
+        View the release: https://github.com/${{ github.repository }}/releases/tag/${NEW_VERSION}"
+    
+    - name: Remove release label
+      if: always() && steps.check_label.outputs.should_release == 'true'
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Remove the release label to prevent accidental re-triggering
+        RELEASE_LABEL="release:${{ steps.check_label.outputs.release_type }}"
+        gh pr edit ${{ github.event.pull_request.number }} --remove-label "${RELEASE_LABEL}" || true
