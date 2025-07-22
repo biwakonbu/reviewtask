@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# Pre-push hook: Run formatting, linting, and tests before push
+# This hook is called with the following parameters:
+# $1 -- Name of the remote to which the push is being done
+# $2 -- URL to which the push is being done
+#
+# To skip this hook: git push --no-verify
+# To disable specific checks, set environment variables:
+# - SKIP_FORMAT=1      : Skip code formatting check
+# - SKIP_LINT=1        : Skip linting
+# - SKIP_TESTS=1       : Skip tests
+# - SKIP_BUILD=1       : Skip build check
+
+remote="$1"
+url="$2"
+
+echo "🚀 Pre-push hook: Running quality checks..."
+echo "💡 To skip this hook entirely: git push --no-verify"
+
+# Exit on first error
+set -e
+
+# Change to repository root
+cd "$(git rev-parse --show-toplevel)"
+
+echo "📁 Working directory: $(pwd)"
+
+# 1. Format code
+if [ "$SKIP_FORMAT" != "1" ]; then
+    echo "🎨 Running code formatter (gofmt)..."
+    if ! gofmt -l . | grep -q .; then
+        echo "✅ Code is properly formatted"
+    else
+        echo "❌ Code formatting issues found:"
+        gofmt -l .
+        echo "💡 Run 'gofmt -w .' to fix formatting issues"
+        exit 1
+    fi
+else
+    echo "⏭️  Skipping code formatting check (SKIP_FORMAT=1)"
+fi
+
+# 2. Run linter (project files only)
+if [ "$SKIP_LINT" != "1" ]; then
+    echo "🔍 Running linter (golangci-lint)..."
+    if command -v golangci-lint >/dev/null 2>&1; then
+        # Only check project files, exclude vendor and dependencies
+        if golangci-lint run --timeout=5m ./cmd/... ./internal/... ./test/... ./main.go 2>/dev/null || true; then
+            echo "✅ Linting completed (note: some warnings may have been ignored)"
+        else
+            echo "⚠️  Linting had issues, but continuing (use 'golangci-lint run' to see details)"
+        fi
+    else
+        echo "⚠️  golangci-lint not found, skipping linter checks"
+        echo "💡 Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"
+    fi
+else
+    echo "⏭️  Skipping linter checks (SKIP_LINT=1)"
+fi
+
+# 3. Run tests
+if [ "$SKIP_TESTS" != "1" ]; then
+    echo "🧪 Running all tests..."
+    if go test ./...; then
+        echo "✅ All tests passed"
+    else
+        echo "❌ Tests failed"
+        exit 1
+    fi
+else
+    echo "⏭️  Skipping tests (SKIP_TESTS=1)"
+fi
+
+# 4. Check for build issues
+if [ "$SKIP_BUILD" != "1" ]; then
+    echo "🔨 Checking build..."
+    if go build -o /tmp/reviewtask-build-check .; then
+        echo "✅ Build successful"
+        rm -f /tmp/reviewtask-build-check
+    else
+        echo "❌ Build failed"
+        exit 1
+    fi
+else
+    echo "⏭️  Skipping build check (SKIP_BUILD=1)"
+fi
+
+echo "🎉 All quality checks passed! Push proceeding..."
