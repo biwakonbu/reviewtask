@@ -212,25 +212,30 @@ EOF
     # Add changelog section
     generate_changelog "$previous_tag" "$version" "$template_file"
     
+    # Get repository information dynamically
+    local repo_url=$(git remote get-url origin | sed 's/\.git$//')
+    local repo_name=$(basename "$repo_url")
+    local repo_owner=$(basename "$(dirname "$repo_url")")
+    
     # Add installation and download information
     cat >> "$template_file" << EOF
 
 ## 📦 Installation & Downloads
 
 ### Download Binary
-Download the appropriate binary for your platform from the [release assets](https://github.com/biwakonbu/reviewtask/releases/tag/${version}).
+Download the appropriate binary for your platform from the [release assets](${repo_url}/releases/tag/${version}).
 
 ### Install with Go
 \`\`\`bash
-go install github.com/biwakonbu/reviewtask@${version}
+go install ${repo_url#https://}@${version}
 \`\`\`
 
 ### Build from Source
 \`\`\`bash
-git clone https://github.com/biwakonbu/reviewtask.git
-cd reviewtask
+git clone ${repo_url}.git
+cd ${repo_name}
 git checkout ${version}
-go build -o reviewtask .
+go build -o ${repo_name} .
 \`\`\`
 
 ## 🔒 Security & Verification
@@ -240,8 +245,8 @@ Binary checksums are provided in the \`SHA256SUMS\` file attached to the release
 ### Verify Download Integrity
 \`\`\`bash
 # Download checksum file and binary
-curl -sL https://github.com/biwakonbu/reviewtask/releases/download/${version}/SHA256SUMS -o SHA256SUMS
-curl -sL https://github.com/biwakonbu/reviewtask/releases/download/${version}/reviewtask-\${version#v}-\${OS}-\${ARCH}.tar.gz -o reviewtask.tar.gz
+curl -sL ${repo_url}/releases/download/${version}/SHA256SUMS -o SHA256SUMS
+curl -sL ${repo_url}/releases/download/${version}/${repo_name}-\${version#v}-\${OS}-\${ARCH}.tar.gz -o ${repo_name}.tar.gz
 
 # Verify checksum
 sha256sum -c SHA256SUMS --ignore-missing
@@ -249,16 +254,16 @@ sha256sum -c SHA256SUMS --ignore-missing
 
 ## 🔗 Links
 
-- **GitHub Release**: https://github.com/biwakonbu/reviewtask/releases/tag/${version}
-- **Full Changelog**: https://github.com/biwakonbu/reviewtask/compare/${previous_tag}...${version}
-- **Documentation**: https://github.com/biwakonbu/reviewtask#readme
+- **GitHub Release**: ${repo_url}/releases/tag/${version}
+- **Full Changelog**: ${repo_url}/compare/${previous_tag}...${version}
+- **Documentation**: ${repo_url}#readme
 
 ## 📞 Support
 
 If you encounter any issues with this release, please:
-1. Check the [troubleshooting guide](https://github.com/biwakonbu/reviewtask#troubleshooting)
-2. Search [existing issues](https://github.com/biwakonbu/reviewtask/issues)
-3. [Create a new issue](https://github.com/biwakonbu/reviewtask/issues/new) with details
+1. Check the [troubleshooting guide](${repo_url}#troubleshooting)
+2. Search [existing issues](${repo_url}/issues)
+3. [Create a new issue](${repo_url}/issues/new) with details
 
 ---
 
