@@ -5,6 +5,25 @@ description: Execute PR review tasks systematically using reviewtask
 
 You are tasked with executing PR review tasks systematically using the reviewtask tool. 
 
+## Available Commands:
+
+The reviewtask tool provides the following commands for managing PR review tasks:
+
+- **`reviewtask`** - Fetch latest PR reviews and generate/update tasks
+- **`reviewtask status`** - Check overall task status and get summary
+- **`reviewtask show`** - Get next recommended task based on priority
+- **`reviewtask show <task-id>`** - Show detailed information for a specific task
+- **`reviewtask update <task-id> <status>`** - Update task status
+  - Status options: `todo`, `doing`, `done`, `pending`, `cancel`
+
+## Task Priority System:
+
+Tasks are automatically assigned priority levels that determine processing order:
+- **`critical`** - Security issues, critical bugs, breaking changes
+- **`high`** - Important functionality issues, major improvements
+- **`medium`** - Moderate improvements, refactoring suggestions
+- **`low`** - Minor improvements, style suggestions
+
 ## Initial Setup (Execute Once Per Command Invocation):
 
 **Fetch Latest Reviews**: Run `reviewtask` without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
@@ -21,7 +40,7 @@ After completing the initial setup, follow this exact workflow:
 2. **Identify Task**: 
    a) **Priority order**: Always work on tasks in this order:
       - **doing** tasks first (resume interrupted work)
-      - **todo** tasks next (new work)
+      - **todo** tasks next (new work, prioritized by: critical → high → medium → low)
       - **pending** tasks last (blocked work requiring decision)
    
    b) **For doing tasks**: Continue with the task already in progress
@@ -100,14 +119,69 @@ After completing the initial setup, follow this exact workflow:
 - Clear improvement suggestions for current code
 - Tasks with specific actionable requirements
 
+## AI Processing and Task Generation:
+
+The reviewtask tool includes intelligent AI processing that:
+- **Automatic Task Creation**: Analyzes PR review comments and automatically generates actionable tasks
+- **Task Deduplication**: Identifies and removes duplicate or similar tasks to avoid redundant work  
+- **Priority Assignment**: Automatically assigns priority levels based on comment content and context
+- **Task Validation**: Ensures generated tasks are actionable and properly scoped
+
+## Current Tool Features:
+
+This workflow leverages the full capabilities of the current reviewtask implementation:
+- **Multi-source Authentication**: Supports GitHub CLI, environment variables, and configuration files
+- **Task Management**: Complete lifecycle management with status tracking and validation
+- **AI-Enhanced Analysis**: Intelligent task generation and classification
+- **Progress Tracking**: Comprehensive status reporting and workflow optimization
+
 ## Important Notes:
 - Work only in the current branch
 - Always verify status changes before proceeding
 - Include proper commit message format with task details and comment references
-- **Task Priority**: Always work on `doing` tasks first, then `todo` tasks, then handle `pending` tasks
+- **Task Priority**: Always work on `doing` tasks first, then `todo` tasks (by priority level), then handle `pending` tasks
+- **Priority-Based Processing**: Within todo tasks, process critical → high → medium → low priority items
 - **Pending Task Management**: Pending tasks must be resolved by changing status to `doing`, `todo`, or `cancel`
 - **Efficient Task Management**: Classify duplicate/unnecessary tasks as `cancel` and uncertain tasks as `pending` to focus on actionable work
+- **Automatic Task Generation**: The tool intelligently creates tasks from review feedback with appropriate priorities
 - Continue until all tasks are completed or no more actionable tasks remain
 - The initial review fetch is executed only once per command invocation, not during the iterative workflow steps
+
+## Example Tool Output:
+
+Here are examples of actual reviewtask command outputs to demonstrate expected behavior:
+
+**`reviewtask status` output example:**
+```
+PR Review Tasks Status:
+┌────────┬──────────────────────────────────────────┬──────────┬──────────┐
+│ Status │ Task Description                         │ Priority │ ID       │
+├────────┼──────────────────────────────────────────┼──────────┼──────────┤
+│ doing  │ Add input validation for user data       │ critical │ task-001 │
+│ todo   │ Refactor error handling logic            │ high     │ task-002 │
+│ todo   │ Update documentation for API changes     │ medium   │ task-003 │
+│ pending│ Consider alternative data structure      │ low      │ task-004 │
+└────────┴──────────────────────────────────────────┴──────────┴──────────┘
+
+Next recommended task: task-001 (doing - critical priority)
+```
+
+**`reviewtask show` output example:**
+```
+Task ID: task-001
+Status: doing
+Priority: critical
+Description: Add input validation for user data
+
+Original Review Comment:
+"The function doesn't validate input parameters, which could lead to security vulnerabilities."
+
+Comment ID: r123456789
+Review URL: https://github.com/owner/repo/pull/42#discussion_r123456789
+
+Files to modify:
+- src/handlers/user.go
+- test/handlers/user_test.go
+```
 
 Execute this workflow now.
