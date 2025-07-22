@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -202,7 +203,9 @@ func TestScriptExecutionPermissions(t *testing.T) {
 			}
 
 			mode := info.Mode()
-			if mode&0111 == 0 {
+			// On Windows, executable permission checking is different
+			// Skip executable check on Windows as Git Bash handles .sh files regardless
+			if runtime.GOOS != "windows" && mode&0111 == 0 {
 				t.Errorf("Script %s is not executable (mode: %v)", script, mode)
 			}
 
