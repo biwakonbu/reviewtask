@@ -18,11 +18,11 @@ import (
 
 // UpdateOptions holds options for version updates
 type UpdateOptions struct {
-	TargetVersion    string
-	ForceDowngrade   bool
-	BackupDirectory  string
-	VerifyChecksum   bool
-	Timeout          time.Duration
+	TargetVersion   string
+	ForceDowngrade  bool
+	BackupDirectory string
+	VerifyChecksum  bool
+	Timeout         time.Duration
 }
 
 // UpdateResult represents the result of a version update
@@ -45,7 +45,7 @@ type BinaryUpdater struct {
 func NewBinaryUpdater() *BinaryUpdater {
 	return &BinaryUpdater{
 		owner:   "biwakonbu",
-		repo:    "reviewtask", 
+		repo:    "reviewtask",
 		timeout: 30 * time.Second,
 	}
 }
@@ -54,7 +54,7 @@ func NewBinaryUpdater() *BinaryUpdater {
 func DetectPlatform() (string, string) {
 	os := runtime.GOOS
 	arch := runtime.GOARCH
-	
+
 	// Normalize OS names to match GitHub release naming
 	switch os {
 	case "darwin", "linux", "windows":
@@ -63,7 +63,7 @@ func DetectPlatform() (string, string) {
 		// For unsupported OS, default to linux for unix-like systems
 		os = "linux"
 	}
-	
+
 	// Normalize architecture names
 	switch arch {
 	case "amd64", "arm64":
@@ -78,7 +78,7 @@ func DetectPlatform() (string, string) {
 		// For any other architecture, fallback to amd64
 		arch = "amd64"
 	}
-	
+
 	return os, arch
 }
 
@@ -96,13 +96,13 @@ func GetCurrentBinaryPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get executable path: %w", err)
 	}
-	
+
 	// Resolve symlinks
 	realPath, err := filepath.EvalSymlinks(executable)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve symlink: %w", err)
 	}
-	
+
 	return realPath, nil
 }
 
@@ -112,10 +112,10 @@ func (u *BinaryUpdater) GetAssetURL(version, os, arch string) string {
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
-	
+
 	// Construct filename based on platform
 	filename := fmt.Sprintf("reviewtask-%s-%s-%s.tar.gz", version, os, arch)
-	
+
 	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/%s",
 		u.owner, u.repo, version, filename)
 }
@@ -126,7 +126,7 @@ func (u *BinaryUpdater) GetChecksumURL(version string) string {
 	if !strings.HasPrefix(version, "v") {
 		version = "v" + version
 	}
-	
+
 	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/checksums.txt",
 		u.owner, u.repo, version)
 }
@@ -134,36 +134,36 @@ func (u *BinaryUpdater) GetChecksumURL(version string) string {
 // DownloadBinary downloads a binary from GitHub releases
 func (u *BinaryUpdater) DownloadBinary(ctx context.Context, version, os, arch string) ([]byte, error) {
 	url := u.GetAssetURL(version, os, arch)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create download request: %w", err)
 	}
-	
+
 	req.Header.Set("User-Agent", "reviewtask-updater")
-	
+
 	client := &http.Client{
 		Timeout: u.timeout,
 	}
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download binary: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		if resp.StatusCode == http.StatusNotFound {
 			return nil, fmt.Errorf("version %s not found for platform %s/%s", version, os, arch)
 		}
 		return nil, fmt.Errorf("download failed with status %d", resp.StatusCode)
 	}
-	
+
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read download response: %w", err)
 	}
-	
+
 	return data, nil
 }
 
@@ -171,48 +171,48 @@ func (u *BinaryUpdater) DownloadBinary(ctx context.Context, version, os, arch st
 func (u *BinaryUpdater) VerifyChecksum(ctx context.Context, version, os, arch string, data []byte) error {
 	// Download checksums file
 	checksumURL := u.GetChecksumURL(version)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", checksumURL, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create checksum request: %w", err)
 	}
-	
+
 	req.Header.Set("User-Agent", "reviewtask-updater")
-	
+
 	client := &http.Client{
 		Timeout: u.timeout,
 	}
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to download checksums: %w", err)
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("checksums file not available (status %d)", resp.StatusCode)
 	}
-	
+
 	checksumData, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read checksums: %w", err)
 	}
-	
+
 	// Parse checksums file and find our file
 	filename := fmt.Sprintf("reviewtask-%s-%s-%s.tar.gz", version, os, arch)
 	expectedChecksum := u.findChecksumForFile(string(checksumData), filename)
 	if expectedChecksum == "" {
 		return fmt.Errorf("checksum not found for file %s", filename)
 	}
-	
+
 	// Calculate actual checksum
 	hash := sha256.Sum256(data)
 	actualChecksum := fmt.Sprintf("%x", hash)
-	
+
 	if actualChecksum != expectedChecksum {
 		return fmt.Errorf("checksum mismatch: expected %s, got %s", expectedChecksum, actualChecksum)
 	}
-	
+
 	return nil
 }
 
@@ -243,13 +243,13 @@ func BackupCurrentBinary(currentPath, backupPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read current binary: %w", err)
 	}
-	
+
 	// Write backup
 	err = os.WriteFile(backupPath, data, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to write backup: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -268,13 +268,13 @@ func RestoreFromBackup(backupPath, targetPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read backup: %w", err)
 	}
-	
+
 	// Write to target
 	err = os.WriteFile(targetPath, data, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to restore from backup: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -286,14 +286,14 @@ func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]
 		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
 	defer gzReader.Close()
-	
+
 	// Create tar reader
 	tarReader := tar.NewReader(gzReader)
-	
+
 	// Find the binary file
 	binaryName := GetBinaryName(targetOS)
 	const maxFileSize = 100 * 1024 * 1024 // 100MB max
-	
+
 	for {
 		header, err := tarReader.Next()
 		if err == io.EOF {
@@ -302,17 +302,17 @@ func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]
 		if err != nil {
 			return nil, fmt.Errorf("failed to read tar entry: %w", err)
 		}
-		
+
 		// Security: Prevent path traversal attacks
 		if strings.Contains(header.Name, "..") || strings.HasPrefix(header.Name, "/") {
 			continue // Skip potentially dangerous paths
 		}
-		
+
 		// Security: Prevent tar bombs (excessively large files)
 		if header.Size > maxFileSize {
 			return nil, fmt.Errorf("file too large: %d bytes (max %d)", header.Size, maxFileSize)
 		}
-		
+
 		// Check if this is our binary file
 		if filepath.Base(header.Name) == binaryName {
 			// Read the binary data with size limit
@@ -323,7 +323,7 @@ func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]
 			return binaryData, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("binary '%s' not found in archive", binaryName)
 }
 
@@ -336,33 +336,33 @@ func AtomicReplace(currentPath string, newBinaryData []byte) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tempPath := tempFile.Name()
-	
+
 	// Ensure cleanup on error
 	defer func() {
 		tempFile.Close()
 		os.Remove(tempPath)
 	}()
-	
+
 	// Write new binary to temp file
 	if _, err := tempFile.Write(newBinaryData); err != nil {
 		return fmt.Errorf("failed to write to temp file: %w", err)
 	}
-	
+
 	// Make executable
 	if err := tempFile.Chmod(0755); err != nil {
 		return fmt.Errorf("failed to set executable permissions: %w", err)
 	}
-	
+
 	// Close before rename
 	if err := tempFile.Close(); err != nil {
 		return fmt.Errorf("failed to close temp file: %w", err)
 	}
-	
+
 	// Atomic rename
 	if err := os.Rename(tempPath, currentPath); err != nil {
 		return fmt.Errorf("failed to replace binary: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -371,18 +371,18 @@ func validateFilePath(path string) error {
 	if path == "" {
 		return fmt.Errorf("path cannot be empty")
 	}
-	
+
 	// Check for directory traversal patterns
 	if strings.Contains(path, "..") {
 		return fmt.Errorf("path contains directory traversal: %s", path)
 	}
-	
+
 	// Ensure the path is not absolute with suspicious patterns
-	if strings.HasPrefix(path, "/etc/") || strings.HasPrefix(path, "/usr/") || 
-	   strings.HasPrefix(path, "/bin/") || strings.HasPrefix(path, "/sbin/") {
+	if strings.HasPrefix(path, "/etc/") || strings.HasPrefix(path, "/usr/") ||
+		strings.HasPrefix(path, "/bin/") || strings.HasPrefix(path, "/sbin/") {
 		return fmt.Errorf("path targets system directory: %s", path)
 	}
-	
+
 	return nil
 }
 
@@ -393,11 +393,11 @@ func ValidateNewBinary(binaryPath string) error {
 	if err != nil {
 		return fmt.Errorf("binary not accessible: %w", err)
 	}
-	
+
 	// Check if file has executable permissions
 	if info.Mode()&0111 == 0 {
 		return fmt.Errorf("binary is not executable")
 	}
-	
+
 	return nil
 }

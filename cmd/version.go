@@ -263,11 +263,11 @@ func validateVersionArgument(version string) error {
 		if i == 2 && strings.Contains(part, "-") {
 			part = strings.Split(part, "-")[0]
 		}
-		
+
 		if part == "" {
 			return fmt.Errorf("invalid version format '%s': empty version part", version)
 		}
-		
+
 		// Check if it's a valid number
 		for _, char := range part {
 			if char < '0' || char > '9' {

@@ -51,7 +51,7 @@ func runVersions(cmd *cobra.Command, args []string) error {
 			status = " (current)"
 		}
 
-		fmt.Printf("%s%s    %s  %s\n", 
+		fmt.Printf("%s%s    %s  %s\n",
 			release.TagName,
 			status,
 			release.PublishedAt.Format("2006-01-02"),
@@ -70,7 +70,7 @@ func runVersions(cmd *cobra.Command, args []string) error {
 func getRecentReleases(ctx context.Context, count int) ([]*version.Release, error) {
 	// Use GitHub API to get multiple releases
 	url := fmt.Sprintf("https://api.github.com/repos/biwakonbu/reviewtask/releases?per_page=%d", count)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -113,7 +113,7 @@ func truncateReleaseNotes(text string, maxLength int) string {
 	if len(text) <= maxLength {
 		return text
 	}
-	
+
 	// Truncate and add ellipsis
 	return text[:maxLength-3] + "..."
 }
