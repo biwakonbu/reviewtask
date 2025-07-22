@@ -1,6 +1,8 @@
 package version
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -251,6 +253,83 @@ func RestoreFromBackup(backupPath, targetPath string) error {
 	err = os.WriteFile(targetPath, data, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to restore from backup: %w", err)
+	}
+	
+	return nil
+}
+
+// ExtractBinaryFromTarGz extracts the binary from a tar.gz archive
+func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]byte, error) {
+	// Create gzip reader
+	gzReader, err := gzip.NewReader(strings.NewReader(string(data)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
+	}
+	defer gzReader.Close()
+	
+	// Create tar reader
+	tarReader := tar.NewReader(gzReader)
+	
+	// Find the binary file
+	binaryName := GetBinaryName(targetOS)
+	
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read tar entry: %w", err)
+		}
+		
+		// Check if this is our binary file
+		if filepath.Base(header.Name) == binaryName {
+			// Read the binary data
+			binaryData, err := io.ReadAll(tarReader)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read binary from tar: %w", err)
+			}
+			return binaryData, nil
+		}
+	}
+	
+	return nil, fmt.Errorf("binary '%s' not found in archive", binaryName)
+}
+
+// AtomicReplace performs atomic replacement of the binary
+func AtomicReplace(currentPath string, newBinaryData []byte) error {
+	// Create a temporary file in the same directory as the target
+	dir := filepath.Dir(currentPath)
+	tempFile, err := os.CreateTemp(dir, "reviewtask-update-")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	
+	// Ensure cleanup on error
+	defer func() {
+		tempFile.Close()
+		os.Remove(tempPath)
+	}()
+	
+	// Write new binary to temp file
+	if _, err := tempFile.Write(newBinaryData); err != nil {
+		return fmt.Errorf("failed to write to temp file: %w", err)
+	}
+	
+	// Make executable
+	if err := tempFile.Chmod(0755); err != nil {
+		return fmt.Errorf("failed to set executable permissions: %w", err)
+	}
+	
+	// Close before rename
+	if err := tempFile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file: %w", err)
+	}
+	
+	// Atomic rename
+	if err := os.Rename(tempPath, currentPath); err != nil {
+		return fmt.Errorf("failed to replace binary: %w", err)
 	}
 	
 	return nil

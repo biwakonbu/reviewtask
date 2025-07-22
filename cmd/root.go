@@ -239,7 +239,7 @@ func checkForUpdatesAsync(cfg *config.Config) {
 		// Show notification if available
 		if notification != "" {
 			fmt.Println()
-			fmt.Println(notification)
+			fmt.Printf("💡 %s\n", notification)
 			fmt.Println()
 		}
 	}()

@@ -302,3 +302,338 @@ func TestVersionFlagCombinations(t *testing.T) {
 		})
 	}
 }
+
+// Tests for new self-update functionality
+
+func TestVersionCommand_WithVersionArgument(t *testing.T) {
+	// Mock changeToVersion function for testing
+	originalChangeToVersion := changeToVersion
+	var capturedVersion string
+	var mockError error
+	
+	changeToVersion = func(targetVersion string) error {
+		capturedVersion = targetVersion
+		return mockError
+	}
+	
+	defer func() {
+		changeToVersion = originalChangeToVersion
+	}()
+	
+	tests := []struct {
+		name            string
+		args            []string
+		expectedVersion string
+		mockError       error
+		shouldError     bool
+	}{
+		{
+			name:            "version latest",
+			args:            []string{"latest"},
+			expectedVersion: "latest",
+			mockError:       nil,
+			shouldError:     false,
+		},
+		{
+			name:            "specific version",
+			args:            []string{"v1.2.3"},
+			expectedVersion: "v1.2.3", 
+			mockError:       nil,
+			shouldError:     false,
+		},
+		{
+			name:            "version change fails",
+			args:            []string{"v1.2.3"},
+			expectedVersion: "v1.2.3",
+			mockError:       fmt.Errorf("version change failed"),
+			shouldError:     true,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			capturedVersion = ""
+			mockError = tt.mockError
+			
+			cmd := &cobra.Command{
+				Use:  "version",
+				RunE: runVersion,
+			}
+			
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetErr(&buf)
+			cmd.SetArgs(tt.args)
+			
+			err := cmd.Execute()
+			
+			if tt.shouldError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.shouldError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			
+			if capturedVersion != tt.expectedVersion {
+				t.Errorf("Expected version %s, got %s", tt.expectedVersion, capturedVersion)
+			}
+		})
+	}
+}
+
+func TestVersionsCommand_Basic(t *testing.T) {
+	// Mock getRecentReleases function
+	originalGetRecentReleases := getRecentReleases
+	getRecentReleases = func(ctx context.Context, count int) ([]*version.Release, error) {
+		return []*version.Release{
+			{
+				TagName:     "v1.2.0",
+				Name:        "Version 1.2.0 - Major improvements",
+				PublishedAt: time.Date(2023, 12, 1, 10, 0, 0, 0, time.UTC),
+			},
+			{
+				TagName:     "v1.1.0", 
+				Name:        "Version 1.1.0 - Bug fixes and enhancements",
+				PublishedAt: time.Date(2023, 11, 1, 10, 0, 0, 0, time.UTC),
+			},
+		}, nil
+	}
+	defer func() {
+		getRecentReleases = originalGetRecentReleases
+	}()
+	
+	// Save and set test version
+	originalVersion := appVersion
+	appVersion = "v1.1.0" // Current version for testing
+	defer func() {
+		appVersion = originalVersion
+	}()
+	
+	cmd := &cobra.Command{
+		Use:  "versions",
+		RunE: runVersions,
+	}
+	
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Command failed: %v", err)
+	}
+	
+	output := buf.String()
+	
+	// Verify expected content
+	if !strings.Contains(output, "Available recent versions:") {
+		t.Error("Missing header")
+	}
+	
+	if !strings.Contains(output, "v1.2.0 (latest)") {
+		t.Error("Missing latest version marker")
+	}
+	
+	if !strings.Contains(output, "v1.1.0 (current)") {
+		t.Error("Missing current version marker")
+	}
+	
+	if !strings.Contains(output, "2023-12-01") {
+		t.Error("Missing release date")
+	}
+	
+	if !strings.Contains(output, "For all versions, visit:") {
+		t.Error("Missing GitHub link")
+	}
+	
+	if !strings.Contains(output, "reviewtask version <VERSION>") {
+		t.Error("Missing usage instructions")
+	}
+}
+
+func TestTruncateReleaseNotes(t *testing.T) {
+	tests := []struct {
+		input    string
+		maxLen   int
+		expected string
+	}{
+		{"Short text", 20, "Short text"},
+		{"This is a very long release note that should be truncated", 30, "This is a very long releas..."},
+		{"Exactly thirty characters!!", 30, "Exactly thirty characters!!"},
+		{"", 10, ""},
+		{"Short", 100, "Short"},
+	}
+	
+	for _, tt := range tests {
+		result := truncateReleaseNotes(tt.input, tt.maxLen)
+		if result != tt.expected {
+			t.Errorf("truncateReleaseNotes(%q, %d) = %q, expected %q", 
+				tt.input, tt.maxLen, result, tt.expected)
+		}
+	}
+}
+
+func TestVersionCommand_ShowVersionWithUpdateCheck(t *testing.T) {
+	// Create mock server for version checking
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		release := version.Release{
+			TagName:     "v1.3.0",
+			Name:        "Version 1.3.0",
+			Body:        "Latest features",
+			Prerelease:  false,
+			PublishedAt: time.Now(),
+			HTMLURL:     "https://github.com/biwakonbu/reviewtask/releases/tag/v1.3.0",
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(release)
+	}))
+	defer server.Close()
+	
+	// Save original values
+	originalVersion := appVersion
+	originalCommitHash := appCommitHash 
+	originalBuildDate := appBuildDate
+	
+	appVersion = "v1.2.0"
+	appCommitHash = "abc123"
+	appBuildDate = "2023-01-01T00:00:00Z"
+	
+	defer func() {
+		appVersion = originalVersion
+		appCommitHash = originalCommitHash
+		appBuildDate = originalBuildDate
+	}()
+	
+	cmd := &cobra.Command{
+		Use:  "version",
+		RunE: runVersion,
+	}
+	
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	
+	// Test with no args (should show version and check for updates)
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Command failed: %v", err)
+	}
+	
+	output := buf.String()
+	
+	// Should contain basic version info
+	if !strings.Contains(output, "reviewtask version v1.2.0") {
+		t.Error("Missing version info")
+	}
+	
+	if !strings.Contains(output, "Commit: abc123") {
+		t.Error("Missing commit hash")
+	}
+	
+	if !strings.Contains(output, "Built: 2023-01-01T00:00:00Z") {
+		t.Error("Missing build date")
+	}
+	
+	// May contain update information (depends on network connectivity)
+	// We don't assert on update info since it requires network access
+}
+
+func TestVersionsCommand_ErrorHandling(t *testing.T) {
+	// Mock getRecentReleases to return error
+	originalGetRecentReleases := getRecentReleases
+	getRecentReleases = func(ctx context.Context, count int) ([]*version.Release, error) {
+		return nil, fmt.Errorf("network error")
+	}
+	defer func() {
+		getRecentReleases = originalGetRecentReleases
+	}()
+	
+	cmd := &cobra.Command{
+		Use:  "versions",
+		RunE: runVersions,
+	}
+	
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	
+	err := cmd.Execute()
+	if err == nil {
+		t.Error("Expected error but got none")
+	}
+	
+	if !strings.Contains(err.Error(), "failed to get recent versions") {
+		t.Errorf("Unexpected error message: %v", err)
+	}
+}
+
+func TestVersionsCommand_EmptyReleases(t *testing.T) {
+	// Mock getRecentReleases to return empty list
+	originalGetRecentReleases := getRecentReleases
+	getRecentReleases = func(ctx context.Context, count int) ([]*version.Release, error) {
+		return []*version.Release{}, nil
+	}
+	defer func() {
+		getRecentReleases = originalGetRecentReleases
+	}()
+	
+	cmd := &cobra.Command{
+		Use:  "versions", 
+		RunE: runVersions,
+	}
+	
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatalf("Command failed: %v", err)
+	}
+	
+	output := buf.String()
+	
+	if !strings.Contains(output, "No releases found") {
+		t.Error("Should show 'No releases found' message")
+	}
+}
+
+// Integration test placeholder
+func TestSelfUpdateIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+	
+	// This would test the full self-update workflow:
+	// 1. Detection of platform
+	// 2. Download simulation
+	// 3. Checksum verification
+	// 4. Backup and restore
+	// 5. Atomic replacement
+	
+	t.Log("Integration test placeholder for self-update functionality")
+	
+	// Test platform detection
+	osName, arch := version.DetectPlatform()
+	if osName == "" || arch == "" {
+		t.Error("Platform detection should return valid values")
+	}
+	
+	// Test binary updater creation
+	updater := version.NewBinaryUpdater()
+	if updater == nil {
+		t.Error("Should create binary updater")
+	}
+	
+	// Test URL generation
+	assetURL := updater.GetAssetURL("v1.2.3", osName, arch)
+	if !strings.Contains(assetURL, "v1.2.3") {
+		t.Error("Asset URL should contain version")
+	}
+	
+	if !strings.Contains(assetURL, osName) {
+		t.Error("Asset URL should contain OS")
+	}
+	
+	if !strings.Contains(assetURL, arch) {
+		t.Error("Asset URL should contain architecture")
+	}
+}

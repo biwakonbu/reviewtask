@@ -154,7 +154,7 @@ func changeToVersion(targetVersion string) error {
 	fmt.Printf("Downloading reviewtask-%s-%s-%s... ", targetVersion, osName, arch)
 	
 	// Download new binary
-	binaryData, err := updater.DownloadBinary(ctx, targetVersion, osName, arch)
+	archiveData, err := updater.DownloadBinary(ctx, targetVersion, osName, arch)
 	if err != nil {
 		fmt.Printf("❌\n")
 		return fmt.Errorf("download failed: %w", err)
@@ -164,15 +164,23 @@ func changeToVersion(targetVersion string) error {
 	fmt.Printf("Verifying checksum... ")
 	
 	// Verify checksum
-	err = updater.VerifyChecksum(ctx, targetVersion, osName, arch, binaryData)
+	err = updater.VerifyChecksum(ctx, targetVersion, osName, arch, archiveData)
 	if err != nil {
 		fmt.Printf("❌\n")
 		return fmt.Errorf("checksum verification failed: %w", err)
 	}
 	fmt.Printf("✓\n")
 	
-	// Extract binary from tar.gz (simplified - assuming tar.gz contains single binary)
-	// TODO: Implement proper tar.gz extraction
+	fmt.Printf("Extracting binary... ")
+	
+	// Extract binary from tar.gz
+	binaryData, err := updater.ExtractBinaryFromTarGz(archiveData, osName)
+	if err != nil {
+		fmt.Printf("❌\n")
+		return fmt.Errorf("failed to extract binary: %w", err)
+	}
+	fmt.Printf("✓\n")
+	
 	fmt.Printf("Installing version %s... ", targetVersion)
 	
 	// Backup current binary
@@ -182,15 +190,42 @@ func changeToVersion(targetVersion string) error {
 		return fmt.Errorf("failed to backup current binary: %w", err)
 	}
 	
-	// For now, assume binaryData is the raw binary (needs tar.gz extraction implementation)
-	// TODO: Extract from tar.gz properly
-	fmt.Printf("⚠️  Binary extraction from tar.gz not yet implemented\n")
-	fmt.Printf("Please download manually from: %s\n", updater.GetAssetURL(targetVersion, osName, arch))
-	
-	// Clean up backup on cancellation
+	// Set up rollback on failure
+	rollbackOnError := true
 	defer func() {
+		if rollbackOnError {
+			// Restore from backup if something went wrong
+			if restoreErr := version.RestoreFromBackup(backupPath, currentBinaryPath); restoreErr != nil {
+				fmt.Printf("\n❌ Failed to restore backup: %v\n", restoreErr)
+				fmt.Printf("Manual restore required from: %s\n", backupPath)
+			} else {
+				fmt.Printf("\n🔄 Restored previous version from backup\n")
+			}
+		}
+		// Clean up backup
 		os.Remove(backupPath)
 	}()
+	
+	// Perform atomic replacement
+	err = version.AtomicReplace(currentBinaryPath, binaryData)
+	if err != nil {
+		fmt.Printf("❌\n")
+		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+	
+	// Validate new binary
+	err = version.ValidateNewBinary(currentBinaryPath)
+	if err != nil {
+		fmt.Printf("❌\n")
+		return fmt.Errorf("binary validation failed: %w", err)
+	}
+	
+	// Success - don't rollback
+	rollbackOnError = false
+	fmt.Printf("✓\n")
+	
+	fmt.Printf("\n✅ Version change completed successfully!\n")
+	fmt.Printf("Updated to reviewtask version %s\n", targetVersion)
 	
 	return nil
 }
