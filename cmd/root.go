@@ -3,6 +3,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -131,6 +132,24 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		// Get PR number from current branch
 		prNumber, err = ghClient.GetCurrentBranchPR(ctx)
 		if err != nil {
+			// Check if it's a "no PR found" error
+			if errors.Is(err, github.ErrNoPRFound) {
+				// Get current branch name for helpful message
+				currentBranch, branchErr := storageManager.GetCurrentBranch()
+				if branchErr != nil {
+					currentBranch = "current branch"
+				}
+				
+				fmt.Printf("No pull request found for branch '%s'.\n\n", currentBranch)
+				fmt.Println("To use reviewtask, you need to:")
+				fmt.Println("1. Create a pull request for your branch:")
+				fmt.Printf("   gh pr create --title \"Your PR title\" --body \"Your PR description\"\n\n")
+				fmt.Println("2. Or specify a PR number directly:")
+				fmt.Println("   reviewtask <PR_NUMBER>")
+				fmt.Println("\nFor more information, run: reviewtask --help")
+				// Exit gracefully - this is not an error condition
+				os.Exit(0)
+			}
 			return fmt.Errorf("failed to get PR for current branch: %w", err)
 		}
 	}

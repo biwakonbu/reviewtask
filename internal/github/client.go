@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -9,6 +10,9 @@ import (
 	"github.com/google/go-github/v58/github"
 	"golang.org/x/oauth2"
 )
+
+// ErrNoPRFound is returned when no PR is found for the current branch
+var ErrNoPRFound = errors.New("no PR found for current branch")
 
 type Client struct {
 	client *github.Client
@@ -107,7 +111,7 @@ func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 	}
 
 	if len(prs) == 0 {
-		return 0, fmt.Errorf("no open PR found for branch '%s'", branch)
+		return 0, fmt.Errorf("%w: branch '%s'", ErrNoPRFound, branch)
 	}
 
 	return prs[0].GetNumber(), nil

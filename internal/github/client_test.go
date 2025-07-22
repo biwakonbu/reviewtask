@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -380,5 +381,24 @@ func TestIntegrationWithMockClient(t *testing.T) {
 
 	if len(retrievedReviews[0].Comments) != 2 {
 		t.Errorf("Expected 2 comments, got: %d", len(retrievedReviews[0].Comments))
+	}
+}
+
+// TestMockClient_NoPRFound tests the ErrNoPRFound error scenario
+func TestMockClient_NoPRFound(t *testing.T) {
+	mockClient := NewMockClient()
+	
+	// Set up the error
+	mockClient.SetError(ErrNoPRFound)
+	
+	// Test GetCurrentBranchPR returns ErrNoPRFound
+	_, err := mockClient.GetCurrentBranchPR(context.Background())
+	if err == nil {
+		t.Fatal("Expected error, got nil")
+	}
+	
+	// Check if it's the correct error type
+	if !errors.Is(err, ErrNoPRFound) {
+		t.Errorf("Expected ErrNoPRFound, got: %v", err)
 	}
 }
