@@ -312,7 +312,9 @@ install_binary() {
     if [[ "$platform" == windows* ]]; then
         archive_ext="zip"
     fi
-    local archive_filename="${BINARY_NAME}-${version}-${platform_dash}.${archive_ext}"
+    # Remove 'v' prefix from version for filename
+    local version_no_v="${version#v}"
+    local archive_filename="${BINARY_NAME}-${version_no_v}-${platform_dash}.${archive_ext}"
     local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${archive_filename}"
     local checksum_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/SHA256SUMS"
     
