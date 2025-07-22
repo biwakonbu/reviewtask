@@ -228,8 +228,8 @@ func (c *Checker) CheckAndNotify(ctx context.Context, currentVersion string, not
 	}
 
 	if comparison == VersionOlder {
-		return fmt.Sprintf("✨ Update available: %s → %s\nRelease notes: %s",
-			currentVersion, latestVersion.TagName, latestVersion.HTMLURL), nil
+		return fmt.Sprintf("reviewtask %s is available (you have %s). Run 'reviewtask version latest' to upgrade.",
+			latestVersion.TagName, currentVersion), nil
 	}
 
 	return "", nil

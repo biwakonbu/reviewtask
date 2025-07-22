@@ -14,14 +14,15 @@ func TestRootCommandRegistration(t *testing.T) {
 
 	// Expected commands that should be registered
 	expectedCommands := map[string]bool{
-		"status":  false,
-		"update":  false,
-		"show":    false,
-		"stats":   false,
-		"version": false,
-		"auth":    false,
-		"init":    false,
-		"claude":  false,
+		"status":   false,
+		"update":   false,
+		"show":     false,
+		"stats":    false,
+		"version":  false,
+		"versions": false,
+		"auth":     false,
+		"init":     false,
+		"claude":   false,
 	}
 
 	// Check all registered commands

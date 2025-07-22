@@ -69,6 +69,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(versionsCmd)
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
@@ -238,7 +239,7 @@ func checkForUpdatesAsync(cfg *config.Config) {
 		// Show notification if available
 		if notification != "" {
 			fmt.Println()
-			fmt.Println(notification)
+			fmt.Printf("💡 %s\n", notification)
 			fmt.Println()
 		}
 	}()
