@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,6 +39,7 @@ type Task struct {
 	CreatedAt       string `json:"created_at"`
 	UpdatedAt       string `json:"updated_at"`
 	PRNumber        int    `json:"pr_number"`
+	CommentHash     string `json:"comment_hash"` // MD5 hash of comment content for change detection
 }
 
 type TasksFile struct {
@@ -81,20 +80,6 @@ type StatusSummary struct {
 	Done      int `json:"done"`
 	Pending   int `json:"pending"`
 	Cancelled int `json:"cancelled"`
-}
-
-type CommentCache struct {
-	CommentID      int64    `json:"comment_id"`
-	ContentHash    string   `json:"content_hash"`
-	ThreadDepth    int      `json:"thread_depth"`
-	LastProcessed  string   `json:"last_processed"`
-	TasksGenerated []string `json:"tasks_generated"`
-}
-
-type ReviewCache struct {
-	PRNumber      int            `json:"pr_number"`
-	LastUpdated   string         `json:"last_updated"`
-	CommentCaches []CommentCache `json:"comment_caches"`
 }
 
 func NewManager() *Manager {
@@ -540,184 +525,4 @@ func (m *Manager) GetAllPRNumbers() ([]int, error) {
 	}
 
 	return prNumbers, nil
-}
-
-// LoadReviewCache loads the review cache for a PR
-func (m *Manager) LoadReviewCache(prNumber int) (*ReviewCache, error) {
-	cachePath := filepath.Join(m.getPRDir(prNumber), "review_cache.json")
-
-	data, err := os.ReadFile(cachePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// Return empty cache if file doesn't exist
-			return &ReviewCache{
-				PRNumber:      prNumber,
-				LastUpdated:   time.Now().Format("2006-01-02T15:04:05Z"),
-				CommentCaches: []CommentCache{},
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to read review cache: %w", err)
-	}
-
-	var cache ReviewCache
-	if err := json.Unmarshal(data, &cache); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal review cache: %w", err)
-	}
-
-	return &cache, nil
-}
-
-// SaveReviewCache saves the review cache for a PR
-func (m *Manager) SaveReviewCache(cache *ReviewCache) error {
-	prDir := m.getPRDir(cache.PRNumber)
-	if err := m.ensureDir(prDir); err != nil {
-		return err
-	}
-
-	cache.LastUpdated = time.Now().Format("2006-01-02T15:04:05Z")
-
-	cachePath := filepath.Join(prDir, "review_cache.json")
-	data, err := json.MarshalIndent(cache, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal review cache: %w", err)
-	}
-
-	return os.WriteFile(cachePath, data, 0644)
-}
-
-// GenerateContentHash creates a SHA256 hash of comment content including replies
-func (m *Manager) GenerateContentHash(comment github.Comment) string {
-	hasher := sha256.New()
-
-	// Hash comment ID to ensure uniqueness
-	hasher.Write([]byte(fmt.Sprintf("%d", comment.ID)))
-
-	// Hash main comment content
-	hasher.Write([]byte(comment.Body))
-	hasher.Write([]byte(comment.Author))
-	hasher.Write([]byte(fmt.Sprintf("%d", comment.Line)))
-	hasher.Write([]byte(comment.File))
-
-	// Hash replies
-	for _, reply := range comment.Replies {
-		hasher.Write([]byte(reply.Body))
-		hasher.Write([]byte(reply.Author))
-		hasher.Write([]byte(reply.CreatedAt))
-	}
-
-	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-// DetectCommentChanges compares current comments with cached versions
-func (m *Manager) DetectCommentChanges(prNumber int, currentComments []github.Comment) ([]github.Comment, []github.Comment, error) {
-	cache, err := m.LoadReviewCache(prNumber)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load review cache: %w", err)
-	}
-
-	// Create map of cached comments for quick lookup
-	cachedComments := make(map[int64]CommentCache)
-	for _, cc := range cache.CommentCaches {
-		cachedComments[cc.CommentID] = cc
-	}
-
-	var newComments []github.Comment
-	var modifiedComments []github.Comment
-
-	for _, comment := range currentComments {
-		currentHash := m.GenerateContentHash(comment)
-		currentThreadDepth := len(comment.Replies)
-
-		cached, exists := cachedComments[comment.ID]
-
-		if !exists {
-			// New comment
-			newComments = append(newComments, comment)
-		} else if cached.ContentHash != currentHash || cached.ThreadDepth != currentThreadDepth {
-			// Modified comment or thread depth changed
-			modifiedComments = append(modifiedComments, comment)
-		}
-		// If exists and hash matches, it's unchanged - skip it
-	}
-
-	return newComments, modifiedComments, nil
-}
-
-// UpdateCommentCache updates the cache with processed comments
-func (m *Manager) UpdateCommentCache(prNumber int, processedComments []github.Comment, taskIDsByComment [][]string) error {
-	cache, err := m.LoadReviewCache(prNumber)
-	if err != nil {
-		return fmt.Errorf("failed to load review cache: %w", err)
-	}
-
-	// Create map for quick lookup of existing cache entries
-	cacheMap := make(map[int64]int)
-	for i, cc := range cache.CommentCaches {
-		cacheMap[cc.CommentID] = i
-	}
-
-	now := time.Now().Format("2006-01-02T15:04:05Z")
-
-	for i, comment := range processedComments {
-		commentCache := CommentCache{
-			CommentID:      comment.ID,
-			ContentHash:    m.GenerateContentHash(comment),
-			ThreadDepth:    len(comment.Replies),
-			LastProcessed:  now,
-			TasksGenerated: []string{},
-		}
-
-		// Assign task IDs if provided
-		if i < len(taskIDsByComment) {
-			commentCache.TasksGenerated = taskIDsByComment[i]
-		}
-
-		// Update or add to cache
-		if existingIndex, exists := cacheMap[comment.ID]; exists {
-			cache.CommentCaches[existingIndex] = commentCache
-		} else {
-			cache.CommentCaches = append(cache.CommentCaches, commentCache)
-		}
-	}
-
-	return m.SaveReviewCache(cache)
-}
-
-// ClearCache removes the review cache for a PR (for manual refresh)
-func (m *Manager) ClearCache(prNumber int) error {
-	cachePath := filepath.Join(m.getPRDir(prNumber), "review_cache.json")
-
-	if err := os.Remove(cachePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove review cache: %w", err)
-	}
-
-	return nil
-}
-
-// GetCachedComments returns comments that are already cached and don't need reprocessing
-func (m *Manager) GetCachedComments(prNumber int, allComments []github.Comment) ([]github.Comment, error) {
-	cache, err := m.LoadReviewCache(prNumber)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load review cache: %w", err)
-	}
-
-	// Create map of cached comments
-	cachedComments := make(map[int64]CommentCache)
-	for _, cc := range cache.CommentCaches {
-		cachedComments[cc.CommentID] = cc
-	}
-
-	var cached []github.Comment
-
-	for _, comment := range allComments {
-		currentHash := m.GenerateContentHash(comment)
-
-		if cachedComment, exists := cachedComments[comment.ID]; exists {
-			if cachedComment.ContentHash == currentHash && cachedComment.ThreadDepth == len(comment.Replies) {
-				cached = append(cached, comment)
-			}
-		}
-	}
-
-	return cached, nil
 }

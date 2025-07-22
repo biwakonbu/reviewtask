@@ -89,7 +89,7 @@ func TestReleaseIssueErrorHandling(t *testing.T) {
 			name:           "Missing version",
 			args:           []string{},
 			expectError:    true,
-			expectedOutput: "Version is required",
+			expectedOutput: "Version is required", // Partial match - full message is "Version is required. Use --version or provide as first argument."
 		},
 		{
 			name:           "Invalid version format - no dots",
@@ -119,25 +119,75 @@ func TestReleaseIssueErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set a short timeout to avoid hanging on network calls
-			cmd := exec.Command("timeout", "30s", "bash", scriptPath)
+			// Create command with timeout handling
+			// Convert relative script path to absolute path
+			absoluteScriptPath, absErr := filepath.Abs(scriptPath)
+			if absErr != nil {
+				t.Fatalf("Failed to get absolute path for script: %v", absErr)
+			}
+
+			cmd := exec.Command("bash", absoluteScriptPath)
 			cmd.Args = append(cmd.Args, tt.args...)
 
-			// Capture both stdout and stderr
-			output, err := cmd.CombinedOutput()
+			// Set working directory to project root to ensure consistent execution
+			projectRoot := filepath.Join("..", "..")
+			absoluteProjectRoot, absErr2 := filepath.Abs(projectRoot)
+			if absErr2 != nil {
+				t.Fatalf("Failed to get absolute path for project root: %v", absErr2)
+			}
+			cmd.Dir = absoluteProjectRoot
+
+			// Disable git operations to prevent test pollution and ensure consistent error handling
+			cmd.Env = append(os.Environ(), "TESTING=true")
+
+			// Set timeout using context
+			done := make(chan bool, 1)
+			var output []byte
+			var err error
+
+			go func() {
+				output, err = cmd.CombinedOutput()
+				done <- true
+			}()
+
+			select {
+			case <-done:
+				// Command completed
+			case <-time.After(30 * time.Second):
+				// Timeout occurred
+				if cmd.Process != nil {
+					cmd.Process.Kill()
+				}
+				t.Fatalf("Command timed out after 30 seconds")
+			}
+
 			outputStr := string(output)
 
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("Expected error but command succeeded. Output: %s", outputStr)
+					// Log debugging info on unexpected success
+					t.Logf("Command: bash %s %v", absoluteScriptPath, tt.args)
+					t.Logf("Working directory: %s", absoluteProjectRoot)
 				}
 
 				if tt.expectedOutput != "" && !strings.Contains(outputStr, tt.expectedOutput) {
 					t.Errorf("Expected output to contain '%s', got: %s", tt.expectedOutput, outputStr)
+					// Additional debugging information
+					t.Logf("Command: bash %s %v", absoluteScriptPath, tt.args)
+					t.Logf("Working directory: %s", absoluteProjectRoot)
+					t.Logf("Exit code: %v", err)
+					t.Logf("Output length: %d bytes", len(output))
+					t.Logf("Full output for debugging:\n%s", outputStr)
 				}
 			} else {
 				if err != nil {
 					t.Errorf("Expected success but got error: %v. Output: %s", err, outputStr)
+					// Log debugging info on unexpected failure
+					t.Logf("Command: bash %s %v", absoluteScriptPath, tt.args)
+					t.Logf("Working directory: %s", absoluteProjectRoot)
+					t.Logf("Exit code: %v", err)
+					t.Logf("Full output for debugging:\n%s", outputStr)
 				}
 			}
 		})

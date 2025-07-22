@@ -109,14 +109,6 @@ func TestDocumentedFlagsWork(t *testing.T) {
 		checkFunc func(string) bool
 	}{
 		{
-			name:      "refresh-cache flag recognized",
-			args:      []string{"--refresh-cache", "--help"},
-			expectErr: false,
-			checkFunc: func(output string) bool {
-				return strings.Contains(output, "refresh-cache")
-			},
-		},
-		{
 			name:      "stats all flag works",
 			args:      []string{"stats", "--all", "--help"},
 			expectErr: false,

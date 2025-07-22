@@ -127,11 +127,6 @@ func TestCommandStructure(t *testing.T) {
 		t.Error("Root command should have Args validation")
 	}
 
-	// Test persistent flags
-	refreshFlag := root.PersistentFlags().Lookup("refresh-cache")
-	if refreshFlag == nil {
-		t.Error("Root command should have 'refresh-cache' persistent flag")
-	}
 }
 
 // TestSubcommandUniqueness tests that all subcommands have unique names and aliases
