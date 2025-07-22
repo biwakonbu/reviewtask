@@ -345,7 +345,7 @@ rm -f "$template_file"`
 	}
 	
 	// Verify markdown structure
-	if !regexp.MustCompile(`^# .+ Release v\d+\.\d+\.\d+`).MatchString(templateContent) {
+	if !regexp.MustCompile(`(?m)^# .+ Release v\d+\.\d+\.\d+ - .+`).MatchString(templateContent) {
 		t.Error("Template should start with a proper release title")
 	}
 	
