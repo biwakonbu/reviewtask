@@ -306,29 +306,29 @@ detect_release_type_from_pr() {
     local pr_number=$1
     
     if [ ! -f "$DETECT_LABEL_SCRIPT" ]; then
-        log_error "Label detection script not found: $DETECT_LABEL_SCRIPT"
+        log_error "Label detection script not found: $DETECT_LABEL_SCRIPT" >&2
         exit 1
     fi
     
-    log_info "Detecting release type from PR #$pr_number..."
+    log_info "Detecting release type from PR #$pr_number..." >&2
     
     local release_type
     if release_type=$("$DETECT_LABEL_SCRIPT" -q "$pr_number" 2>/dev/null); then
-        log_success "Detected release type: $release_type"
+        log_success "Detected release type: $release_type" >&2
         echo "$release_type"
     else
         local exit_code=$?
         case $exit_code in
             1)
-                log_error "No release label found on PR #$pr_number"
-                log_info "Please add one of: release:major, release:minor, release:patch"
+                log_error "No release label found on PR #$pr_number" >&2
+                log_info "Please add one of: release:major, release:minor, release:patch" >&2
                 ;;
             2)
-                log_error "Multiple release labels found on PR #$pr_number"
-                log_info "Please keep only one release label"
+                log_error "Multiple release labels found on PR #$pr_number" >&2
+                log_info "Please keep only one release label" >&2
                 ;;
             *)
-                log_error "Failed to detect release label from PR #$pr_number"
+                log_error "Failed to detect release label from PR #$pr_number" >&2
                 ;;
         esac
         exit 1
