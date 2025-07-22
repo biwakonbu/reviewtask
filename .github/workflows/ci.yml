@@ -29,7 +29,6 @@ jobs:
         key: ${{ runner.os }}-${{ runner.arch }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-${{ runner.arch }}-go-
-        lookup-only: false
         enableCrossOsArchive: false
     
     - name: Download dependencies (Unix)
@@ -140,7 +139,7 @@ jobs:
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       uses: codecov/codecov-action@v5
       with:
-        file: ./coverage-${{ matrix.os }}.out
+        files: ./coverage-${{ matrix.os }}.out
         flags: unittests
         name: codecov-umbrella
 
