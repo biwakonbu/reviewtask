@@ -25,7 +25,7 @@ If no TASK_ID is provided, shows the current task (doing status) or next task (t
 }
 
 func init() {
-	rootCmd.AddCommand(showCmd)
+	// No command registration needed here - done in root.go
 }
 
 func runShow(cmd *cobra.Command, args []string) error {

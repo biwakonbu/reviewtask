@@ -61,10 +61,13 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&refreshCache, "refresh-cache", false, "Clear cache and reprocess all comments")
-	rootCmd.AddCommand(statusCmd)
-	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(authCmd)
+	rootCmd.AddCommand(claudeCmd)
+	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(showCmd)
 	rootCmd.AddCommand(statsCmd)
+	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(versionCmd)
 }
 

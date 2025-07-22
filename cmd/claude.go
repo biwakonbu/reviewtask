@@ -23,7 +23,7 @@ Examples:
 }
 
 func init() {
-	rootCmd.AddCommand(claudeCmd)
+	// Command registration moved to root.go
 }
 
 func runClaude(cmd *cobra.Command, args []string) error {

@@ -225,8 +225,6 @@ func calculateTaskStats(tasks []storage.Task) TaskStats {
 }
 
 func init() {
-	rootCmd.AddCommand(statusCmd)
-
 	// Add flags
 	statusCmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
 	statusCmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
