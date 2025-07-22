@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -26,21 +27,74 @@ func TestCancelTaskIntegration(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Build the binary
-	projectRoot := filepath.Join(origDir, "..")
-	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
+	// Find project root by looking for go.mod
+	// Start from the executable's directory rather than working directory
+	_, testFile, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(testFile)
+	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
+
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
 
-	// Copy binary to temp dir
-	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
-		t.Fatalf("Failed to move binary: %v", err)
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
+	}
+
+	// Initialize git repository
+	gitInitCmd := exec.Command("git", "init")
+	gitInitCmd.Dir = tempDir
+	if output, err := gitInitCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to init git repo: %v\nOutput: %s", err, output)
+	}
+
+	// Configure git user
+	gitConfigUserCmd := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfigUserCmd.Dir = tempDir
+	if output, err := gitConfigUserCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.email: %v\nOutput: %s", err, output)
+	}
+
+	gitConfigNameCmd := exec.Command("git", "config", "user.name", "Test User")
+	gitConfigNameCmd.Dir = tempDir
+	if output, err := gitConfigNameCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.name: %v\nOutput: %s", err, output)
+	}
+
+	// Create and checkout a branch
+	gitCheckoutCmd := exec.Command("git", "checkout", "-b", "test-branch")
+	gitCheckoutCmd.Dir = tempDir
+	if output, err := gitCheckoutCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to checkout branch: %v\nOutput: %s", err, output)
 	}
 
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
+
+	// Create PR info file to link branch with PR
+	prInfo := map[string]interface{}{
+		"pr_number": 1,
+		"title":     "Test PR",
+		"author":    "testuser",
+		"branch":    "test-branch",
+		"state":     "open",
+	}
+	infoData, err := json.MarshalIndent(prInfo, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(prDir, "info.json"), infoData, 0644))
 
 	// Create test tasks
 	tasks := []storage.Task{
@@ -82,12 +136,12 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("update_task_to_cancel_status", func(t *testing.T) {
 		// Update task-1 to cancel status
-		cmd := exec.Command("./reviewtask", "update", "task-1", "cancel")
+		cmd := exec.Command(execCmd, "update", "task-1", "cancel")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
 		// Verify the task was updated
-		assert.Contains(t, string(output), "✅ Task status updated successfully")
+		assert.Contains(t, string(output), "✓ Updated task 'task-1' status to 'cancel'")
 
 		// Load tasks and verify status
 		updatedData, err := os.ReadFile(tasksFile)
@@ -111,7 +165,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("status_command_shows_cancelled_tasks", func(t *testing.T) {
 		// Run status command
-		cmd := exec.Command("./reviewtask", "status")
+		cmd := exec.Command(execCmd, "status")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
@@ -128,7 +182,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("show_command_skips_cancelled_tasks", func(t *testing.T) {
 		// First cancel the doing task
-		cmd := exec.Command("./reviewtask", "update", "task-2", "cancel")
+		cmd := exec.Command(execCmd, "update", "task-2", "cancel")
 		_, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
@@ -161,21 +215,74 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Build the binary
-	projectRoot := filepath.Join(origDir, "..")
-	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
+	// Find project root by looking for go.mod
+	// Start from the executable's directory rather than working directory
+	_, testFile, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(testFile)
+	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
+
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
 
-	// Copy binary to temp dir
-	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
-		t.Fatalf("Failed to move binary: %v", err)
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
+	}
+
+	// Initialize git repository
+	gitInitCmd := exec.Command("git", "init")
+	gitInitCmd.Dir = tempDir
+	if output, err := gitInitCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to init git repo: %v\nOutput: %s", err, output)
+	}
+
+	// Configure git user
+	gitConfigUserCmd := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfigUserCmd.Dir = tempDir
+	if output, err := gitConfigUserCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.email: %v\nOutput: %s", err, output)
+	}
+
+	gitConfigNameCmd := exec.Command("git", "config", "user.name", "Test User")
+	gitConfigNameCmd.Dir = tempDir
+	if output, err := gitConfigNameCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.name: %v\nOutput: %s", err, output)
+	}
+
+	// Create and checkout a branch
+	gitCheckoutCmd := exec.Command("git", "checkout", "-b", "test-branch")
+	gitCheckoutCmd.Dir = tempDir
+	if output, err := gitCheckoutCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to checkout branch: %v\nOutput: %s", err, output)
 	}
 
 	// Create test data with old "cancelled" status
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
+
+	// Create PR info file to link branch with PR
+	prInfo := map[string]interface{}{
+		"pr_number": 1,
+		"title":     "Test PR",
+		"author":    "testuser",
+		"branch":    "test-branch",
+		"state":     "open",
+	}
+	infoData, err := json.MarshalIndent(prInfo, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(prDir, "info.json"), infoData, 0644))
 
 	// Create tasks with mixed cancel/cancelled statuses
 	tasksData := storage.TasksFile{
@@ -208,7 +315,7 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run status command
-	cmd := exec.Command("./reviewtask", "status")
+	cmd := exec.Command(execCmd, "status")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
@@ -232,6 +339,33 @@ func TestMergeWithCancelledTasks(t *testing.T) {
 	origDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(origDir)
+
+	// Initialize git repository
+	gitInitCmd := exec.Command("git", "init")
+	gitInitCmd.Dir = tempDir
+	if output, err := gitInitCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to init git repo: %v\nOutput: %s", err, output)
+	}
+
+	// Configure git user
+	gitConfigUserCmd := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfigUserCmd.Dir = tempDir
+	if output, err := gitConfigUserCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.email: %v\nOutput: %s", err, output)
+	}
+
+	gitConfigNameCmd := exec.Command("git", "config", "user.name", "Test User")
+	gitConfigNameCmd.Dir = tempDir
+	if output, err := gitConfigNameCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.name: %v\nOutput: %s", err, output)
+	}
+
+	// Create and checkout a branch
+	gitCheckoutCmd := exec.Command("git", "checkout", "-b", "test-branch")
+	gitCheckoutCmd.Dir = tempDir
+	if output, err := gitCheckoutCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to checkout branch: %v\nOutput: %s", err, output)
+	}
 
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
@@ -301,21 +435,74 @@ func TestShowCommandPriority(t *testing.T) {
 	defer os.Chdir(origDir)
 
 	// Build the binary
-	projectRoot := filepath.Join(origDir, "..")
-	buildCmd := exec.Command("go", "build", "-o", "reviewtask", filepath.Join(projectRoot, "main.go"))
+	// Find project root by looking for go.mod
+	// Start from the executable's directory rather than working directory
+	_, testFile, _, _ := runtime.Caller(0)
+	testDir := filepath.Dir(testFile)
+	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
+
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
 	}
 
-	// Copy binary to temp dir
-	if err := os.Rename(filepath.Join(projectRoot, "reviewtask"), filepath.Join(tempDir, "reviewtask")); err != nil {
-		t.Fatalf("Failed to move binary: %v", err)
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
+	}
+
+	// Initialize git repository
+	gitInitCmd := exec.Command("git", "init")
+	gitInitCmd.Dir = tempDir
+	if output, err := gitInitCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to init git repo: %v\nOutput: %s", err, output)
+	}
+
+	// Configure git user
+	gitConfigUserCmd := exec.Command("git", "config", "user.email", "test@example.com")
+	gitConfigUserCmd.Dir = tempDir
+	if output, err := gitConfigUserCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.email: %v\nOutput: %s", err, output)
+	}
+
+	gitConfigNameCmd := exec.Command("git", "config", "user.name", "Test User")
+	gitConfigNameCmd.Dir = tempDir
+	if output, err := gitConfigNameCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to config git user.name: %v\nOutput: %s", err, output)
+	}
+
+	// Create and checkout a branch
+	gitCheckoutCmd := exec.Command("git", "checkout", "-b", "test-branch")
+	gitCheckoutCmd.Dir = tempDir
+	if output, err := gitCheckoutCmd.CombinedOutput(); err != nil {
+		t.Fatalf("Failed to checkout branch: %v\nOutput: %s", err, output)
 	}
 
 	// Create test data
 	prDir := filepath.Join(".pr-review", "PR-1")
 	require.NoError(t, os.MkdirAll(prDir, 0755))
+
+	// Create PR info file to link branch with PR
+	prInfo := map[string]interface{}{
+		"pr_number": 1,
+		"title":     "Test PR",
+		"author":    "testuser",
+		"branch":    "test-branch",
+		"state":     "open",
+	}
+	infoData, err := json.MarshalIndent(prInfo, "", "  ")
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(prDir, "info.json"), infoData, 0644))
 
 	// Create tasks with cancelled high priority and active medium priority
 	tasksData := storage.TasksFile{
@@ -351,7 +538,7 @@ func TestShowCommandPriority(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run show command
-	cmd := exec.Command("./reviewtask", "show")
+	cmd := exec.Command(execCmd, "show")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
