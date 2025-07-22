@@ -32,7 +32,14 @@ func TestCancelTaskIntegration(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, "reviewtask"), ".")
+	
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+	
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
@@ -121,7 +128,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("update_task_to_cancel_status", func(t *testing.T) {
 		// Update task-1 to cancel status
-		cmd := exec.Command("./reviewtask", "update", "task-1", "cancel")
+		cmd := exec.Command(filepath.Join(".", execName), "update", "task-1", "cancel")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
@@ -150,7 +157,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("status_command_shows_cancelled_tasks", func(t *testing.T) {
 		// Run status command
-		cmd := exec.Command("./reviewtask", "status")
+		cmd := exec.Command(filepath.Join(".", execName), "status")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
@@ -167,7 +174,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("show_command_skips_cancelled_tasks", func(t *testing.T) {
 		// First cancel the doing task
-		cmd := exec.Command("./reviewtask", "update", "task-2", "cancel")
+		cmd := exec.Command(filepath.Join(".", execName), "update", "task-2", "cancel")
 		_, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
@@ -205,7 +212,14 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, "reviewtask"), ".")
+	
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+	
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
@@ -285,7 +299,7 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run status command
-	cmd := exec.Command("./reviewtask", "status")
+	cmd := exec.Command(filepath.Join(".", execName), "status")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
@@ -410,7 +424,14 @@ func TestShowCommandPriority(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, "reviewtask"), ".")
+	
+	// Windows requires .exe extension
+	execName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		execName = "reviewtask.exe"
+	}
+	
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
@@ -493,7 +514,7 @@ func TestShowCommandPriority(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run show command
-	cmd := exec.Command("./reviewtask", "show")
+	cmd := exec.Command(filepath.Join(".", execName), "show")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
