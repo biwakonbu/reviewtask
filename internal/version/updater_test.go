@@ -10,6 +10,27 @@ import (
 	"testing"
 )
 
+// Helper function to check if file permissions are correct for the platform
+func checkExecutablePermissions(t *testing.T, filePath string) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		t.Fatalf("Failed to stat file: %v", err)
+	}
+
+	if runtime.GOOS == "windows" {
+		// On Windows, just check if the file exists and is readable
+		// Windows doesn't use Unix-style file permissions
+		if info.Mode()&0444 == 0 {
+			t.Errorf("File should be readable on Windows")
+		}
+	} else {
+		// On Unix-like systems, check for executable permissions
+		if info.Mode()&0755 != 0755 {
+			t.Errorf("File permissions incorrect: got %v, expected 0755", info.Mode())
+		}
+	}
+}
+
 func TestDetectPlatform(t *testing.T) {
 	os, arch := DetectPlatform()
 
@@ -246,15 +267,8 @@ func TestBackupCurrentBinary(t *testing.T) {
 		t.Errorf("Backup content mismatch: got %s, expected %s", string(backupContent), string(mockContent))
 	}
 
-	// Verify backup has executable permissions
-	info, err := os.Stat(backupBinary)
-	if err != nil {
-		t.Fatalf("Failed to stat backup file: %v", err)
-	}
-
-	if info.Mode()&0755 != 0755 {
-		t.Errorf("Backup file permissions incorrect: got %v, expected 0755", info.Mode())
-	}
+	// Verify backup has correct permissions for the platform
+	checkExecutablePermissions(t, backupBinary)
 }
 
 func TestRestoreFromBackup(t *testing.T) {
@@ -285,15 +299,8 @@ func TestRestoreFromBackup(t *testing.T) {
 		t.Errorf("Restored content mismatch: got %s, expected %s", string(targetContent), string(mockContent))
 	}
 
-	// Verify target has executable permissions
-	info, err := os.Stat(targetBinary)
-	if err != nil {
-		t.Fatalf("Failed to stat target file: %v", err)
-	}
-
-	if info.Mode()&0755 != 0755 {
-		t.Errorf("Target file permissions incorrect: got %v, expected 0755", info.Mode())
-	}
+	// Verify target has correct permissions for the platform
+	checkExecutablePermissions(t, targetBinary)
 }
 
 func TestAtomicReplace(t *testing.T) {
@@ -324,15 +331,8 @@ func TestAtomicReplace(t *testing.T) {
 		t.Errorf("Replaced content mismatch: got %s, expected %s", string(actualContent), string(newContent))
 	}
 
-	// Verify permissions are correct
-	info, err := os.Stat(targetBinary)
-	if err != nil {
-		t.Fatalf("Failed to stat replaced binary: %v", err)
-	}
-
-	if info.Mode()&0755 != 0755 {
-		t.Errorf("Replaced binary permissions incorrect: got %v, expected 0755", info.Mode())
-	}
+	// Verify permissions are correct for the platform
+	checkExecutablePermissions(t, targetBinary)
 }
 
 func TestValidateNewBinary(t *testing.T) {
@@ -357,15 +357,17 @@ func TestValidateNewBinary(t *testing.T) {
 		t.Error("ValidateNewBinary should fail for non-existent binary")
 	}
 
-	// Test non-executable binary
-	nonExecBinary := filepath.Join(tempDir, "non-executable")
-	if err := os.WriteFile(nonExecBinary, []byte("mock binary"), 0644); err != nil {
-		t.Fatalf("Failed to create non-executable binary: %v", err)
-	}
+	// Test non-executable binary (Unix-like systems only)
+	if runtime.GOOS != "windows" {
+		nonExecBinary := filepath.Join(tempDir, "non-executable")
+		if err := os.WriteFile(nonExecBinary, []byte("mock binary"), 0644); err != nil {
+			t.Fatalf("Failed to create non-executable binary: %v", err)
+		}
 
-	err = ValidateNewBinary(nonExecBinary)
-	if err == nil {
-		t.Error("ValidateNewBinary should fail for non-executable binary")
+		err = ValidateNewBinary(nonExecBinary)
+		if err == nil {
+			t.Error("ValidateNewBinary should fail for non-executable binary")
+		}
 	}
 }
 

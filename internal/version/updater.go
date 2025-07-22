@@ -394,10 +394,13 @@ func ValidateNewBinary(binaryPath string) error {
 		return fmt.Errorf("binary not accessible: %w", err)
 	}
 
-	// Check if file has executable permissions
-	if info.Mode()&0111 == 0 {
-		return fmt.Errorf("binary is not executable")
+	// Check if file has executable permissions (Unix-like systems only)
+	if runtime.GOOS != "windows" {
+		if info.Mode()&0111 == 0 {
+			return fmt.Errorf("binary is not executable")
+		}
 	}
+	// On Windows, just having read access is sufficient for our validation
 
 	return nil
 }
