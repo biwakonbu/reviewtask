@@ -35,6 +35,8 @@ jobs:
     
     - name: Check for release label
       id: check_label
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "Checking PR #${{ github.event.pull_request.number }} for release labels..."
         
@@ -64,7 +66,7 @@ jobs:
         echo "Creating ${{ steps.check_label.outputs.release_type }} release..."
         
         # Use the release script with --from-pr option
-        ./scripts/release.sh release --from-pr ${{ github.event.pull_request.number }}
+        ./scripts/release.sh release --from-pr ${{ github.event.pull_request.number }} --yes
     
     - name: Post release comment
       if: steps.check_label.outputs.should_release == 'true'
