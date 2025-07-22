@@ -111,10 +111,20 @@ show_current() {
 # Bump version
 bump_version() {
     local increment_type=$1
+    local force=${2:-false}
     
     if [ -z "$increment_type" ]; then
         log_error "Increment type required (major, minor, or patch)"
         exit 1
+    fi
+    
+    # Check for source changes unless forced
+    if [[ "$force" != "true" ]] && git rev-parse --git-dir > /dev/null 2>&1; then
+        if ! has_source_changes; then
+            log_error "No source changes detected since last release"
+            log_info "Use 'bump --force $increment_type' to override this check"
+            exit 1
+        fi
     fi
     
     local current_version
@@ -183,6 +193,27 @@ calculate_next_version() {
     echo "$new_version"
 }
 
+# Check if there are source changes since last release
+has_source_changes() {
+    local last_tag
+    last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    
+    if [[ -z "$last_tag" ]]; then
+        # No previous tag, so we have changes
+        return 0
+    fi
+    
+    # Check for changes in files that affect the binary (Go source code and dependencies only)
+    local changes
+    changes=$(git diff --name-only "$last_tag"..HEAD | grep -E '^(cmd/.*\.go$|internal/.*\.go$|main\.go$|go\.mod$|go\.sum$)' || true)
+    
+    if [[ -n "$changes" ]]; then
+        return 0  # Has changes
+    else
+        return 1  # No changes
+    fi
+}
+
 # Show version information
 show_info() {
     local current_version
@@ -201,10 +232,24 @@ show_info() {
         fi
     fi
     
+    local last_tag
+    last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+    
+    local has_changes="unknown"
+    if git rev-parse --git-dir > /dev/null 2>&1; then
+        if has_source_changes; then
+            has_changes="yes"
+        else
+            has_changes="no"
+        fi
+    fi
+    
     echo "Version Information:"
     echo "  Current Version: $current_version"
     echo "  Git Commit: $git_commit$is_dirty"
     echo "  Git Tag: $git_tag"
+    echo "  Last Release Tag: $last_tag"
+    echo "  Source Changes Since Last Release: $has_changes"
     echo "  Version File: $([ -f "$VERSION_FILE" ] && echo "exists" || echo "missing")"
 }
 
@@ -251,13 +296,23 @@ bump_from_pr() {
 # Main execution
 main() {
     local command=${1:-"current"}
+    local force_flag=false
+    
+    # Check for --force flag
+    if [[ "$command" == "--force" ]]; then
+        force_flag=true
+        command=${2:-"current"}
+        shift # Remove --force from arguments
+        shift # Remove command, so $2 becomes $1, etc.
+        set -- "$command" "$@" # Rebuild arguments without --force
+    fi
     
     case "$command" in
         "current")
             show_current
             ;;
         "bump")
-            bump_version "$2"
+            bump_version "$2" "$force_flag"
             ;;
         "bump-from-pr")
             bump_from_pr "$2"
@@ -272,7 +327,10 @@ main() {
             show_info
             ;;
         *)
-            echo "Usage: $0 [COMMAND] [ARGUMENTS]"
+            echo "Usage: $0 [--force] [COMMAND] [ARGUMENTS]"
+            echo ""
+            echo "OPTIONS:"
+            echo "  --force              - Force version bump even without source changes"
             echo ""
             echo "COMMANDS:"
             echo "  current              - Show current version"
@@ -285,6 +343,7 @@ main() {
             echo "EXAMPLES:"
             echo "  $0 current           - Show current version"
             echo "  $0 bump patch        - Increment patch version"
+            echo "  $0 --force bump patch - Force increment patch version"
             echo "  $0 bump-from-pr 123  - Bump based on PR #123 label"
             echo "  $0 next minor        - Show what next minor version would be"
             echo "  $0 set 1.2.3         - Set version to 1.2.3"
@@ -294,6 +353,15 @@ main() {
             echo "  release:major - Major version bump"
             echo "  release:minor - Minor version bump"
             echo "  release:patch - Patch version bump"
+            echo ""
+            echo "SOURCE CHANGE DETECTION:"
+            echo "  Version bumps are prevented if no binary changes are detected"
+            echo "  since the last release. Use --force to override this check."
+            echo "  Only these files trigger version bumps:"
+            echo "    - Go source code: cmd/*.go, internal/*.go, main.go"
+            echo "    - Go dependencies: go.mod, go.sum"
+            echo "  Excluded (no version bump needed):"
+            echo "    - Scripts, documentation, tests, configs, etc."
             exit 1
             ;;
     esac

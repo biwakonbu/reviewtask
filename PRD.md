@@ -11,12 +11,22 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 #### 2.1 Command Interface
 - **Command Name**: `reviewtask`
 - **Usage**:
-  - `reviewtask` - Check reviews for the current branch's PR
-  - `reviewtask <PR_NUMBER>` - Check reviews for the specified PR number
-  - `reviewtask status` - Show current task status and statistics
+  - `reviewtask [PR_NUMBER]` - Check reviews for current branch or specified PR number
+  - `reviewtask --refresh-cache` - Clear cache and reprocess all comments
+  - `reviewtask status [options]` - Show current task status and statistics
+  - `reviewtask show [task-id]` - Show current/next task or specific task details
+  - `reviewtask stats [PR_NUMBER] [options]` - Show detailed task statistics with comment breakdown
   - `reviewtask update <task-id> <new-status>` - Update task status
+  - `reviewtask version [VERSION]` - Show version information or switch to specific version
+  - `reviewtask versions` - List available versions from GitHub releases
+  - `reviewtask claude <target>` - Generate Claude Code integration templates
   - `reviewtask init` - Initialize repository for reviewtask
   - `reviewtask auth <login|logout|status|check>` - Authentication management
+
+##### Command Options
+- **Global Options**: `--refresh-cache` for cache management
+- **Filtering Options**: `--all`, `--pr <number>`, `--branch <name>` for status/stats commands
+- **Version Options**: `--check` for update checking
 
 #### 2.2 Data Collection
 - Fetch PR information from GitHub API
@@ -69,6 +79,35 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 - **Configuration**: Default priority rules and settings generation
 - **Validation**: Comprehensive authentication and permission checks
 
+#### 2.7 Advanced Analytics and Statistics
+- **Detailed Statistics**: Comment-level task breakdown with `stats` command
+- **Multi-dimensional Filtering**: Support for `--all`, `--pr <number>`, and `--branch <name>` options
+- **Progress Tracking**: Task completion rates and priority distribution analysis
+- **File-level Summary**: Task grouping by affected files for targeted development focus
+- **Performance Metrics**: Processing time and cache efficiency monitoring
+
+#### 2.8 Version Management and Self-Update
+- **Automatic Update Detection**: Checks for newer versions on startup
+- **GitHub Releases Integration**: Direct binary downloads from GitHub releases
+- **Version Switching**: Easy switching between versions with `version <VERSION>` command
+- **Release Information**: Display of recent versions with `versions` command
+- **Rollback Capability**: Return to previous versions if needed
+- **Update Notifications**: Proactive notifications of available updates
+
+#### 2.9 Performance Optimization and Cache Management
+- **Intelligent Caching**: Avoids re-processing unchanged comments for improved performance
+- **Selective Refresh**: Only processes changed or new content by default
+- **Manual Cache Override**: `--refresh-cache` flag for complete data reprocessing
+- **Cache Consistency**: Maintains task state preservation across cache operations
+- **Performance Monitoring**: Cache hit rates and processing time optimization
+
+#### 2.10 Claude Code Integration
+- **Template Generation**: Creates optimized Claude Code command templates
+- **Workflow Integration**: PR review analysis workflow templates for `.claude/commands/`
+- **Structured Analysis**: Integration with existing reviewtask data structures
+- **Quality Consistency**: Standardized review format and approach
+- **Development Efficiency**: Streamlined AI-assisted development workflows
+
 ### 3. Technical Specifications
 
 #### 3.1 Implementation
@@ -88,6 +127,27 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 - Automatic detection from local `.git` configuration
 - Support for current working directory Git repository
 - Validation of GitHub remote and access permissions
+
+#### 3.4 Statistics and Analytics Implementation
+- **Data Aggregation**: Comment-level task counting and categorization
+- **Filtering Engine**: Multi-dimensional data filtering by PR, branch, and status
+- **Performance Metrics**: Cache hit rates, processing times, and efficiency monitoring
+- **Output Formatting**: Structured display with priority and status breakdowns
+- **Real-time Calculation**: Dynamic statistics computation from current task data
+
+#### 3.5 Version Management System
+- **GitHub API Integration**: Releases API for version information retrieval
+- **Binary Management**: Automatic download and installation of specific versions
+- **Version Detection**: Current version embedding and comparison logic
+- **Update Mechanism**: Automatic replacement of current binary with new version
+- **Rollback Support**: Preservation of previous versions for fallback scenarios
+
+#### 3.6 Cache Management Architecture
+- **Content Hashing**: Comment content change detection using hash comparison
+- **State Preservation**: Task status maintenance across cache operations
+- **Selective Processing**: Intelligent determination of changed content requiring reprocessing
+- **Performance Optimization**: Reduced AI processing load through effective caching
+- **Cache Invalidation**: Manual and automatic cache clearing mechanisms
 
 ### 4. Data Schema
 
@@ -266,16 +326,26 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 
 ### 6. Future Considerations
 
-#### 6.1 Potential Enhancements
-- Integration with existing task management tools
-- Support for multiple repository monitoring
-- Review status tracking and updates
-- Automated task completion detection
+#### 6.1 Implemented Features (Now Core Functionality)
+- ✅ **Advanced Statistics and Analytics**: Detailed task breakdown with multi-dimensional filtering
+- ✅ **Version Management System**: GitHub releases integration with self-update capability  
+- ✅ **Performance Optimization**: Intelligent caching with selective refresh capabilities
+- ✅ **Claude Code Integration**: Template generation for AI-assisted development workflows
 
-#### 6.2 Extensibility
-- Plugin architecture for custom AI analyzers
-- Configurable output formats
-- Custom task generation rules
+#### 6.2 Potential Future Enhancements
+- Integration with external task management tools (Jira, Asana, GitHub Issues)
+- Support for multiple repository monitoring and cross-repository analytics
+- Automated task completion detection based on commit analysis
+- Team collaboration features with shared task states
+- Custom AI analyzer plugins for domain-specific review patterns
+- Web dashboard for visual analytics and progress tracking
+
+#### 6.3 Extensibility Framework
+- Plugin architecture for custom AI analyzers and task generators
+- Configurable output formats (JSON, XML, CSV export)
+- Custom priority rules and task generation logic
+- Integration APIs for third-party development tools
+- Webhook support for real-time notifications and integrations
 
 ### 7. Success Criteria
 

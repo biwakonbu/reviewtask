@@ -225,14 +225,42 @@ Authentication sources (in order of preference):
 
 | Command | Description |
 |---------|-------------|
-| `reviewtask` | Analyze current branch's PR |
-| `reviewtask <PR_NUMBER>` | Analyze specific PR |
-| `reviewtask status` | Show task status and statistics |
+| `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
+| `reviewtask --refresh-cache` | Clear cache and reprocess all comments |
+| `reviewtask status [options]` | Show task status and statistics |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status |
-| `reviewtask version` | Show version, build, and runtime information |
+| `reviewtask stats [PR_NUMBER] [options]` | Show detailed task statistics with comment breakdown |
+| `reviewtask version [VERSION]` | Show version information or switch to specific version |
+| `reviewtask versions` | List available versions from GitHub releases |
+| `reviewtask claude <target>` | Generate Claude Code integration templates |
 | `reviewtask init` | Initialize repository |
 | `reviewtask auth <cmd>` | Authentication management |
+
+### Command Options
+
+#### Global Options
+- `--refresh-cache` - Clear cache and reprocess all comments (available with main command)
+
+#### Status and Stats Options  
+- `--all` - Show information for all PRs
+- `--pr <number>` - Show information for specific PR
+- `--branch <name>` - Show information for specific branch
+
+#### Authentication Commands
+- `reviewtask auth login` - Interactive GitHub token setup
+- `reviewtask auth status` - Show current authentication source and user
+- `reviewtask auth logout` - Remove local authentication
+- `reviewtask auth check` - Comprehensive validation of token and permissions
+
+#### Version Commands
+- `reviewtask version` - Show current version with update check
+- `reviewtask version <VERSION>` - Switch to specific version (e.g., `v1.2.3`, `latest`)
+- `reviewtask version --check` - Check for available updates
+- `reviewtask versions` - List recent 5 versions with release information
+
+#### Claude Integration
+- `reviewtask claude pr-review` - Generate PR review workflow template for Claude Code
 
 ## Configuration
 
@@ -301,18 +329,143 @@ Edit `.pr-review/config.json` to customize priority rules:
 - Cancels outdated tasks and creates new ones as needed
 - Preserves completed work and prevents duplicate tasks
 
+### Statistics and Analytics
+
+Use the `reviewtask stats` command to get detailed task analytics:
+
+```bash
+# Current branch statistics
+reviewtask stats
+
+# Statistics for specific PR
+reviewtask stats 123
+reviewtask stats --pr 123
+
+# Statistics for all PRs
+reviewtask stats --all
+
+# Statistics for specific branch
+reviewtask stats --branch feature/new-feature
+```
+
+#### Statistics Output Format
+- **Comment-level breakdown**: Task counts per review comment
+- **Priority distribution**: Critical/high/medium/low task counts  
+- **Status distribution**: Todo/doing/done/pending/cancel counts
+- **Completion metrics**: Task completion rates and progress tracking
+- **File-level summary**: Tasks grouped by affected files
+
+### Version Management and Updates
+
+The tool includes built-in version management capabilities:
+
+```bash
+# Show current version and check for updates
+reviewtask version
+
+# List available versions from GitHub releases
+reviewtask versions
+
+# Switch to specific version
+reviewtask version v1.2.3
+reviewtask version latest
+
+# Check for updates only
+reviewtask version --check
+```
+
+#### Self-Update Features
+- **Automatic update detection**: Checks for newer versions on startup
+- **GitHub releases integration**: Downloads binaries directly from GitHub
+- **Version switching**: Easy switching between versions
+- **Rollback capability**: Return to previous versions if needed
+
+### Cache Management
+
+Improve performance and handle data consistency with cache controls:
+
+```bash
+# Force cache refresh (reprocess all comments)
+reviewtask --refresh-cache
+
+# When to use --refresh-cache:
+# - After significant PR changes
+# - When comment content has been updated
+# - To regenerate tasks with updated priority rules
+# - Troubleshooting inconsistent task generation
+```
+
+#### Cache Behavior
+- **Performance optimization**: Avoids re-processing unchanged comments
+- **Consistency preservation**: Maintains task state across runs  
+- **Selective refresh**: Only processes changed or new content
+- **Manual override**: `--refresh-cache` bypasses all caching
+
+### Claude Code Integration
+
+Streamline your Claude Code workflows with generated templates:
+
+```bash
+# Generate PR review workflow template
+reviewtask claude pr-review
+```
+
+This creates optimized Claude Code command templates in `.claude/commands/` directory for:
+- Structured PR review analysis workflows
+- Task generation and management integration
+- Consistent review quality and format
+- Integration with existing reviewtask data structures
+
 ## Troubleshooting
 
 ### Authentication Issues
 
 ```bash
-# Check token permissions
-./reviewtask auth check
+# Check token permissions and repository access
+reviewtask auth check
+
+# View current authentication status
+reviewtask auth status
+
+# Re-authenticate if needed
+reviewtask auth logout
+reviewtask auth login
 
 # Common solutions:
 export GITHUB_TOKEN="your_token_here"
 # or
 gh auth login
+```
+
+### Version and Update Issues
+
+```bash
+# Check current version and available updates
+reviewtask version
+
+# View available versions
+reviewtask versions
+
+# Switch to stable version if experiencing issues
+reviewtask version latest
+
+# Manually check GitHub releases
+# https://github.com/biwakonbu/reviewtask/releases
+```
+
+### Cache and Performance Issues
+
+```bash
+# Clear cache and reprocess all data
+reviewtask --refresh-cache
+
+# Check statistics for diagnostic information
+reviewtask stats --all
+
+# Symptoms requiring cache refresh:
+# - Inconsistent task generation
+# - Missing tasks for recent comments
+# - Outdated task content
 ```
 
 ### Claude Code Integration
@@ -322,6 +475,9 @@ Ensure Claude Code CLI is properly installed and accessible:
 ```bash
 # Test Claude Code availability
 claude --version
+
+# Generate integration templates if missing
+reviewtask claude pr-review
 
 # Common issues:
 # - Claude Code not in PATH
@@ -335,6 +491,8 @@ Required GitHub API permissions:
 - `repo` (for private repositories)
 - `public_repo` (for public repositories)
 - `read:org` (for organization repositories)
+
+Use `reviewtask auth check` for comprehensive permission validation.
 
 ## Contributing
 

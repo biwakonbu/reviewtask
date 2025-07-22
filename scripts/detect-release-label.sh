@@ -89,14 +89,53 @@ if [[ -n "$REPO" ]]; then
     GH_ARGS+=(-R "$REPO")
 fi
 
-# Get PR labels
-if ! PR_LABELS=$(gh pr view "${PR_NUMBER}" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
+# Get PR details including linked issues
+if ! PR_DATA=$(gh pr view "${PR_NUMBER}" "${GH_ARGS[@]}" --json labels,body,title 2>/dev/null); then
     echo -e "${RED}Error: Failed to fetch PR #${PR_NUMBER}${NC}" >&2
     exit 3
 fi
 
-# Filter release labels
-RELEASE_LABELS=$(echo "$PR_LABELS" | grep '^release:' || true)
+# Get PR labels first
+PR_LABELS=$(echo "$PR_DATA" | jq -r '.labels[].name')
+
+# Try to find linked issues from PR body and title
+PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // ""')
+
+# Look for issue references in PR body and title (e.g., "fixes #123", "closes #456")
+LINKED_ISSUES=$(echo -e "$PR_BODY\n$PR_TITLE" | grep -oE '#[0-9]+|[Ff]ix(es|ed)?\s+#[0-9]+|[Cc]lose[sd]?\s+#[0-9]+|[Rr]esolve[sd]?\s+#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
+
+# Collect all release labels from PR and linked issues
+ALL_RELEASE_LABELS=""
+
+# Add PR release labels
+if [[ -n "$PR_LABELS" ]]; then
+    PR_RELEASE_LABELS=$(echo "$PR_LABELS" | grep '^release:' || true)
+    if [[ -n "$PR_RELEASE_LABELS" ]]; then
+        ALL_RELEASE_LABELS="$PR_RELEASE_LABELS"
+    fi
+fi
+
+# Check labels from linked issues
+if [[ -n "$LINKED_ISSUES" ]]; then
+    while IFS= read -r issue_num; do
+        if [[ -n "$issue_num" ]]; then
+            if ISSUE_LABELS=$(gh issue view "$issue_num" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
+                ISSUE_RELEASE_LABELS=$(echo "$ISSUE_LABELS" | grep '^release:' || true)
+                if [[ -n "$ISSUE_RELEASE_LABELS" ]]; then
+                    if [[ -n "$ALL_RELEASE_LABELS" ]]; then
+                        ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$ISSUE_RELEASE_LABELS"
+                    else
+                        ALL_RELEASE_LABELS="$ISSUE_RELEASE_LABELS"
+                    fi
+                fi
+            fi
+        fi
+    done <<< "$LINKED_ISSUES"
+fi
+
+# Use collected labels
+RELEASE_LABELS="$ALL_RELEASE_LABELS"
 
 # Count release labels
 LABEL_COUNT=$(echo "$RELEASE_LABELS" | grep -c '^release:' || echo 0)
@@ -104,10 +143,14 @@ LABEL_COUNT=$(echo "$RELEASE_LABELS" | grep -c '^release:' || echo 0)
 # Validate label count
 if [[ $LABEL_COUNT -eq 0 ]]; then
     if [[ "$QUIET" != "true" ]]; then
-        echo -e "${YELLOW}No release label found on PR #${PR_NUMBER}${NC}" >&2
-        echo "Available labels: $(echo "$PR_LABELS" | tr '\n' ', ' | sed 's/, $//')" >&2
+        echo -e "${YELLOW}No release label found on PR #${PR_NUMBER} or its linked issues${NC}" >&2
+        if [[ -n "$LINKED_ISSUES" ]]; then
+            echo "Checked linked issues: $(echo "$LINKED_ISSUES" | tr '\n' ', ' | sed 's/, $//')" >&2
+        else
+            echo "No linked issues found in PR body or title" >&2
+        fi
         echo "" >&2
-        echo "To specify a release type, add one of these labels to the PR:" >&2
+        echo "To specify a release type, add one of these labels to the PR or its linked issue:" >&2
         echo "  - release:major (for breaking changes)" >&2
         echo "  - release:minor (for new features)" >&2
         echo "  - release:patch (for bug fixes)" >&2
@@ -115,11 +158,11 @@ if [[ $LABEL_COUNT -eq 0 ]]; then
     exit 1
 elif [[ $LABEL_COUNT -gt 1 ]]; then
     if [[ "$QUIET" != "true" ]]; then
-        echo -e "${RED}Error: Multiple release labels found on PR #${PR_NUMBER}${NC}" >&2
+        echo -e "${RED}Error: Multiple release labels found on PR #${PR_NUMBER} or its linked issues${NC}" >&2
         echo "Found labels:" >&2
         echo "$RELEASE_LABELS" | sed 's/^/  - /' >&2
         echo "" >&2
-        echo "Please remove all but one release label from the PR." >&2
+        echo "Please remove all but one release label from the PR and its linked issues." >&2
     fi
     exit 2
 fi

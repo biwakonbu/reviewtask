@@ -37,6 +37,27 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Check if there are source changes since last release (same as version.sh)
+has_source_changes() {
+    local last_tag
+    last_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    
+    if [[ -z "$last_tag" ]]; then
+        # No previous tag, so we have changes
+        return 0
+    fi
+    
+    # Check for changes in files that affect the binary (Go source code and dependencies only)
+    local changes
+    changes=$(git diff --name-only "$last_tag"..HEAD | grep -E '^(cmd/.*\.go$|internal/.*\.go$|main\.go$|go\.mod$|go\.sum$)' || true)
+    
+    if [[ -n "$changes" ]]; then
+        return 0  # Has changes
+    else
+        return 1  # No changes
+    fi
+}
+
 # Check prerequisites
 check_prerequisites() {
     log_info "Checking prerequisites..."
@@ -67,6 +88,13 @@ check_prerequisites() {
     if ! git diff --cached --quiet || ! git diff --quiet; then
         log_error "Working directory is not clean. Please commit or stash changes."
         git status --porcelain
+        exit 1
+    fi
+    
+    # Check for source changes (unless forced)
+    if [[ "$FORCE_RELEASE" != "true" ]] && ! has_source_changes; then
+        log_error "No source changes detected since last release"
+        log_info "Use --force flag to override this check"
         exit 1
     fi
     
@@ -256,8 +284,9 @@ prepare_release() {
     log_info "Run '$0 release $release_type' to create the actual release"
 }
 
-# Global flag for non-interactive mode
+# Global flags
 AUTO_CONFIRM=${AUTO_CONFIRM:-false}
+FORCE_RELEASE=${FORCE_RELEASE:-false}
 
 # Detect release type from PR label
 detect_release_type_from_pr() {
@@ -304,6 +333,10 @@ main() {
                 AUTO_CONFIRM=true
                 shift
                 ;;
+            --force)
+                FORCE_RELEASE=true
+                shift
+                ;;
             --from-pr)
                 from_pr="$2"
                 shift 2
@@ -344,7 +377,8 @@ main() {
             echo ""
             echo "OPTIONS:"
             echo "  --yes, -y             Auto-confirm prompts (useful for CI/CD)"
-            echo "  --from-pr PR_NUMBER   Detect release type from PR label"
+            echo "  --force               Force release even without source changes"
+            echo "  --from-pr PR_NUMBER   Detect release type from PR/issue label"
             echo ""
             echo "COMMANDS:"
             echo "  prepare   - Prepare and preview release (default)"
@@ -360,13 +394,28 @@ main() {
             echo "  $0                      # Prepare patch release"
             echo "  $0 prepare minor        # Prepare minor release"
             echo "  $0 release major        # Create major release"
-            echo "  $0 --from-pr 123        # Detect type from PR #123"
+            echo "  $0 --force release patch # Force patch release without source changes"
+            echo "  $0 --from-pr 123        # Detect type from PR #123 and its linked issues"
             echo "  $0 --yes release --from-pr 456  # Auto-confirm release from PR"
             echo ""
             echo "ENVIRONMENT VARIABLES:"
             echo "  AUTO_CONFIRM=true  - Same as --yes flag"
+            echo "  FORCE_RELEASE=true - Same as --force flag"
             echo ""
-            echo "PR LABELS:"
+            echo "RELEASE PREVENTION:"
+            echo "  Releases are blocked if:"
+            echo "  - No release labels found on PR or linked issues"
+            echo "  - No source changes detected since last release"
+            echo "  Use --force flag to override source change check"
+            echo ""
+            echo "SOURCE CHANGE DETECTION:"
+            echo "  Only these files trigger version bumps:"
+            echo "    - Go source code: cmd/*.go, internal/*.go, main.go"
+            echo "    - Go dependencies: go.mod, go.sum"
+            echo "  Excluded (no version bump needed):"
+            echo "    - Scripts, documentation, tests, configs, etc."
+            echo ""
+            echo "RELEASE LABELS (PR or Issue):"
             echo "  release:major - Triggers major version bump"
             echo "  release:minor - Triggers minor version bump"
             echo "  release:patch - Triggers patch version bump"
