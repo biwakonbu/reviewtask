@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_SCRIPT="${SCRIPT_DIR}/version.sh"
 BUILD_SCRIPT="${SCRIPT_DIR}/build.sh"
 DETECT_LABEL_SCRIPT="${SCRIPT_DIR}/detect-release-label.sh"
+RELEASE_ISSUE_SCRIPT="${SCRIPT_DIR}/create-release-issue.sh"
 CHANGELOG_FILE="CHANGELOG.md"
 RELEASE_NOTES_FILE="RELEASE_NOTES.md"
 
@@ -233,6 +234,18 @@ create_release() {
     
     # Publish the release
     gh release edit "v$new_version" --draft=false
+    
+    # Create GitHub Issue for release notes
+    log_info "Creating GitHub Issue for release documentation..."
+    if [ -f "$RELEASE_ISSUE_SCRIPT" ]; then
+        if "$RELEASE_ISSUE_SCRIPT" --version "v$new_version" --previous-tag "$previous_tag"; then
+            log_success "Release issue created successfully"
+        else
+            log_warning "Failed to create release issue - continuing with release"
+        fi
+    else
+        log_warning "Release issue script not found: $RELEASE_ISSUE_SCRIPT"
+    fi
     
     log_success "Release v$new_version created successfully!"
     echo
