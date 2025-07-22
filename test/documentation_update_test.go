@@ -15,7 +15,7 @@ func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 	// Use a relative path from the test directory
 	// This works whether tests are run from project root or test directory
 	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
-	
+
 	// If the file doesn't exist at the relative path, try from current directory
 	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
 		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
@@ -145,7 +145,7 @@ func TestDocumentationStructure(t *testing.T) {
 	// Use a relative path from the test directory
 	// This works whether tests are run from project root or test directory
 	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
-	
+
 	// If the file doesn't exist at the relative path, try from current directory
 	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
 		workflowPath = filepath.Join(".", ".claude", "commands", "pr-review", "review-task-workflow.md")
