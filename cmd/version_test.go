@@ -423,7 +423,7 @@ func TestVersionsCommand_Basic(t *testing.T) {
 	var buf bytes.Buffer
 	buf.ReadFrom(r)
 	os.Stdout = originalStdout
-	
+
 	if err != nil {
 		t.Fatalf("Command failed: %v", err)
 	}
@@ -515,7 +515,7 @@ func TestVersionCommand_ShowVersionWithUpdateCheck(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Execute the function directly  
+	// Execute the function directly
 	err := runVersion(nil, []string{})
 	w.Close()
 
