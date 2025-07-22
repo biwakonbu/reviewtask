@@ -410,15 +410,20 @@ func TestVersionsCommand_Basic(t *testing.T) {
 		appVersion = originalVersion
 	}()
 
-	cmd := &cobra.Command{
-		Use:  "versions",
-		RunE: runVersions,
-	}
+	// Capture stdout
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 
+	// Execute the function directly
+	err := runVersions(nil, []string{})
+	w.Close()
+
+	// Read the output
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
-
-	err := cmd.Execute()
+	buf.ReadFrom(r)
+	os.Stdout = originalStdout
+	
 	if err != nil {
 		t.Fatalf("Command failed: %v", err)
 	}
@@ -427,27 +432,27 @@ func TestVersionsCommand_Basic(t *testing.T) {
 
 	// Verify expected content
 	if !strings.Contains(output, "Available recent versions:") {
-		t.Error("Missing header")
+		t.Errorf("Missing header. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "v1.2.0 (latest)") {
-		t.Error("Missing latest version marker")
+		t.Errorf("Missing latest version marker. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "v1.1.0 (current)") {
-		t.Error("Missing current version marker")
+		t.Errorf("Missing current version marker. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "2023-12-01") {
-		t.Error("Missing release date")
+		t.Errorf("Missing release date. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "For all versions, visit:") {
-		t.Error("Missing GitHub link")
+		t.Errorf("Missing GitHub link. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "reviewtask version <VERSION>") {
-		t.Error("Missing usage instructions")
+		t.Errorf("Missing usage instructions. Output:\n%s", output)
 	}
 }
 
@@ -458,7 +463,7 @@ func TestTruncateReleaseNotes(t *testing.T) {
 		expected string
 	}{
 		{"Short text", 20, "Short text"},
-		{"This is a very long release note that should be truncated", 30, "This is a very long releas..."},
+		{"This is a very long release note that should be truncated", 30, "This is a very long release..."},
 		{"Exactly thirty characters!!", 30, "Exactly thirty characters!!"},
 		{"", 10, ""},
 		{"Short", 100, "Short"},
@@ -505,16 +510,20 @@ func TestVersionCommand_ShowVersionWithUpdateCheck(t *testing.T) {
 		appBuildDate = originalBuildDate
 	}()
 
-	cmd := &cobra.Command{
-		Use:  "version",
-		RunE: runVersion,
-	}
+	// Capture stdout
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 
+	// Execute the function directly  
+	err := runVersion(nil, []string{})
+	w.Close()
+
+	// Read the output
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
+	buf.ReadFrom(r)
+	os.Stdout = originalStdout
 
-	// Test with no args (should show version and check for updates)
-	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Command failed: %v", err)
 	}
@@ -523,15 +532,15 @@ func TestVersionCommand_ShowVersionWithUpdateCheck(t *testing.T) {
 
 	// Should contain basic version info
 	if !strings.Contains(output, "reviewtask version v1.2.0") {
-		t.Error("Missing version info")
+		t.Errorf("Missing version info. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "Commit: abc123") {
-		t.Error("Missing commit hash")
+		t.Errorf("Missing commit hash. Output:\n%s", output)
 	}
 
 	if !strings.Contains(output, "Built: 2023-01-01T00:00:00Z") {
-		t.Error("Missing build date")
+		t.Errorf("Missing build date. Output:\n%s", output)
 	}
 
 	// May contain update information (depends on network connectivity)
@@ -577,15 +586,20 @@ func TestVersionsCommand_EmptyReleases(t *testing.T) {
 		getRecentReleases = originalGetRecentReleases
 	}()
 
-	cmd := &cobra.Command{
-		Use:  "versions",
-		RunE: runVersions,
-	}
+	// Capture stdout
+	originalStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
 
+	// Execute the function directly
+	err := runVersions(nil, []string{})
+	w.Close()
+
+	// Read the output
 	var buf bytes.Buffer
-	cmd.SetOut(&buf)
+	buf.ReadFrom(r)
+	os.Stdout = originalStdout
 
-	err := cmd.Execute()
 	if err != nil {
 		t.Fatalf("Command failed: %v", err)
 	}
@@ -593,7 +607,7 @@ func TestVersionsCommand_EmptyReleases(t *testing.T) {
 	output := buf.String()
 
 	if !strings.Contains(output, "No releases found") {
-		t.Error("Should show 'No releases found' message")
+		t.Errorf("Should show 'No releases found' message. Output:\n%s", output)
 	}
 }
 
