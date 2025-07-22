@@ -84,7 +84,6 @@ type StatusSummary struct {
 	Cancelled int `json:"cancelled"`
 }
 
-
 func NewManager() *Manager {
 	return &Manager{
 		baseDir: StorageDir,
@@ -529,4 +528,3 @@ func (m *Manager) GetAllPRNumbers() ([]int, error) {
 
 	return prNumbers, nil
 }
-

@@ -33,7 +33,6 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 	appBuildDate = buildDate
 }
 
-
 var rootCmd = &cobra.Command{
 	Use:   "reviewtask [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
@@ -175,7 +174,6 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	if err := storageManager.SaveReviews(prNumber, reviews); err != nil {
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
-
 
 	// Generate tasks using AI with smart caching
 	analyzer := ai.NewAnalyzer(cfg)
