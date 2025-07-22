@@ -38,8 +38,11 @@ jobs:
       run: |
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           go test -v -coverprofile=coverage-${{ matrix.os }}.out ./...
-        else
+        elif [[ "$RUNNER_OS" == "Linux" ]]; then
           go test -v -race -coverprofile=coverage-${{ matrix.os }}.out ./...
+        else
+          # macOS: Run race tests without coverage to avoid file conflicts
+          go test -v -race ./...
         fi
     
     - name: Upload coverage to Codecov
