@@ -2,6 +2,7 @@ package version
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"crypto/sha256"
@@ -261,7 +262,7 @@ func RestoreFromBackup(backupPath, targetPath string) error {
 // ExtractBinaryFromTarGz extracts the binary from a tar.gz archive
 func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]byte, error) {
 	// Create gzip reader
-	gzReader, err := gzip.NewReader(strings.NewReader(string(data)))
+	gzReader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
