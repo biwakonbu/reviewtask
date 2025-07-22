@@ -37,16 +37,16 @@ jobs:
       shell: bash
       run: |
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          go test -v -coverprofile=coverage.out ./...
+          go test -v -coverprofile=coverage-${{ matrix.os }}.out ./...
         else
-          go test -v -race -coverprofile=coverage.out ./...
+          go test -v -race -coverprofile=coverage-${{ matrix.os }}.out ./...
         fi
     
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       uses: codecov/codecov-action@v5
       with:
-        file: ./coverage.out
+        file: ./coverage-${{ matrix.os }}.out
         flags: unittests
         name: codecov-umbrella
 
