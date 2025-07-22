@@ -32,17 +32,25 @@ func TestCancelTaskIntegration(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	
+
 	// Windows requires .exe extension
 	execName := "reviewtask"
 	if runtime.GOOS == "windows" {
 		execName = "reviewtask.exe"
 	}
-	
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
+	}
+
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
 	}
 
 	// Initialize git repository
@@ -128,7 +136,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("update_task_to_cancel_status", func(t *testing.T) {
 		// Update task-1 to cancel status
-		cmd := exec.Command(filepath.Join(".", execName), "update", "task-1", "cancel")
+		cmd := exec.Command(execCmd, "update", "task-1", "cancel")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
@@ -157,7 +165,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("status_command_shows_cancelled_tasks", func(t *testing.T) {
 		// Run status command
-		cmd := exec.Command(filepath.Join(".", execName), "status")
+		cmd := exec.Command(execCmd, "status")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 
@@ -174,7 +182,7 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 	t.Run("show_command_skips_cancelled_tasks", func(t *testing.T) {
 		// First cancel the doing task
-		cmd := exec.Command(filepath.Join(".", execName), "update", "task-2", "cancel")
+		cmd := exec.Command(execCmd, "update", "task-2", "cancel")
 		_, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
@@ -212,17 +220,25 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	
+
 	// Windows requires .exe extension
 	execName := "reviewtask"
 	if runtime.GOOS == "windows" {
 		execName = "reviewtask.exe"
 	}
-	
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
+	}
+
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
 	}
 
 	// Initialize git repository
@@ -299,7 +315,7 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run status command
-	cmd := exec.Command(filepath.Join(".", execName), "status")
+	cmd := exec.Command(execCmd, "status")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
@@ -424,17 +440,25 @@ func TestShowCommandPriority(t *testing.T) {
 	_, testFile, _, _ := runtime.Caller(0)
 	testDir := filepath.Dir(testFile)
 	projectRoot := filepath.Dir(testDir) // go up from test/ to project root
-	
+
 	// Windows requires .exe extension
 	execName := "reviewtask"
 	if runtime.GOOS == "windows" {
 		execName = "reviewtask.exe"
 	}
-	
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tempDir, execName), ".")
+
+	// Build executable path
+	execPath := filepath.Join(tempDir, execName)
+	buildCmd := exec.Command("go", "build", "-o", execPath, ".")
 	buildCmd.Dir = projectRoot
 	if output, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build binary: %v\nOutput: %s", err, output)
+	}
+
+	// Prepare the command to run the executable
+	execCmd := "./" + execName
+	if runtime.GOOS == "windows" {
+		execCmd = ".\\" + execName
 	}
 
 	// Initialize git repository
@@ -514,7 +538,7 @@ func TestShowCommandPriority(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	// Run show command
-	cmd := exec.Command(filepath.Join(".", execName), "show")
+	cmd := exec.Command(execCmd, "show")
 	output, err := cmd.CombinedOutput()
 	require.NoError(t, err, "Command failed: %s", output)
 
