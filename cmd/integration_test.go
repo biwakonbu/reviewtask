@@ -9,52 +9,52 @@ import (
 // TestCommandIntegration tests basic command integration without external dependencies
 func TestCommandIntegration(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
+		name      string
+		args      []string
 		expectErr bool
-		contains []string
+		contains  []string
 	}{
 		{
-			name:     "version command shows version info",
-			args:     []string{"version"},
+			name:      "version command shows version info",
+			args:      []string{"version"},
 			expectErr: false,
-			contains: []string{"reviewtask version"},
+			contains:  []string{"reviewtask version"},
 		},
 		{
-			name:     "help command shows usage",
-			args:     []string{"--help"},
+			name:      "help command shows usage",
+			args:      []string{"--help"},
 			expectErr: false,
-			contains: []string{"reviewtask", "Usage:", "Available Commands:"},
+			contains:  []string{"reviewtask", "Usage:", "Available Commands:"},
 		},
 		{
-			name:     "auth help shows subcommands",
-			args:     []string{"auth", "--help"}, 
+			name:      "auth help shows subcommands",
+			args:      []string{"auth", "--help"},
 			expectErr: false,
-			contains: []string{"login", "logout", "status", "check"},
+			contains:  []string{"login", "logout", "status", "check"},
 		},
 		{
-			name:     "stats help shows options",
-			args:     []string{"stats", "--help"},
+			name:      "stats help shows options",
+			args:      []string{"stats", "--help"},
 			expectErr: false,
-			contains: []string{"--all", "--pr", "--branch"},
+			contains:  []string{"--all", "--pr", "--branch"},
 		},
 		{
-			name:     "status help shows options",
-			args:     []string{"status", "--help"},
+			name:      "status help shows options",
+			args:      []string{"status", "--help"},
 			expectErr: false,
-			contains: []string{"--all", "--pr", "--branch"},
+			contains:  []string{"--all", "--pr", "--branch"},
 		},
 		{
-			name:     "versions command available",
-			args:     []string{"versions", "--help"},
+			name:      "versions command available",
+			args:      []string{"versions", "--help"},
 			expectErr: false,
-			contains: []string{"versions", "List"},
+			contains:  []string{"versions", "List"},
 		},
 		{
-			name:     "claude command available",
-			args:     []string{"claude", "--help"},
+			name:      "claude command available",
+			args:      []string{"claude", "--help"},
 			expectErr: false,
-			contains: []string{"claude", "target"},
+			contains:  []string{"claude", "target"},
 		},
 	}
 
@@ -62,29 +62,29 @@ func TestCommandIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use cobra's built-in testing approach with rootCmd directly
 			var buf bytes.Buffer
-			
+
 			// Store original output settings
 			originalOut := rootCmd.OutOrStdout()
 			originalErr := rootCmd.ErrOrStderr()
-			
+
 			// Set output capture
 			rootCmd.SetOut(&buf)
 			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.args)
-			
+
 			err := rootCmd.Execute()
-			
+
 			// Restore original settings
 			rootCmd.SetOut(originalOut)
 			rootCmd.SetErr(originalErr)
 			rootCmd.SetArgs([]string{})
-			
+
 			output := buf.String()
 
 			if tt.expectErr && err == nil {
 				t.Errorf("Expected error but got none")
 			}
-			
+
 			if !tt.expectErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
@@ -103,30 +103,30 @@ func TestCommandIntegration(t *testing.T) {
 // TestDocumentedFlagsWork tests that documented flags are functional
 func TestDocumentedFlagsWork(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
+		name      string
+		args      []string
 		expectErr bool
 		checkFunc func(string) bool
 	}{
 		{
-			name:     "refresh-cache flag recognized",
-			args:     []string{"--refresh-cache", "--help"},
+			name:      "refresh-cache flag recognized",
+			args:      []string{"--refresh-cache", "--help"},
 			expectErr: false,
 			checkFunc: func(output string) bool {
 				return strings.Contains(output, "refresh-cache")
 			},
 		},
 		{
-			name:     "stats all flag works",
-			args:     []string{"stats", "--all", "--help"},
+			name:      "stats all flag works",
+			args:      []string{"stats", "--all", "--help"},
 			expectErr: false,
 			checkFunc: func(output string) bool {
 				return strings.Contains(output, "all")
 			},
 		},
 		{
-			name:     "version check flag works",
-			args:     []string{"version", "--check", "--help"},
+			name:      "version check flag works",
+			args:      []string{"version", "--check", "--help"},
 			expectErr: false,
 			checkFunc: func(output string) bool {
 				return strings.Contains(output, "check")
@@ -138,31 +138,31 @@ func TestDocumentedFlagsWork(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use cobra's built-in testing approach with rootCmd directly
 			var buf bytes.Buffer
-			
+
 			// Store original output settings
 			originalOut := rootCmd.OutOrStdout()
 			originalErr := rootCmd.ErrOrStderr()
-			
+
 			// Set output capture
 			rootCmd.SetOut(&buf)
 			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.args)
-			
+
 			err := rootCmd.Execute()
-			
+
 			// Restore original settings
 			rootCmd.SetOut(originalOut)
 			rootCmd.SetErr(originalErr)
 			rootCmd.SetArgs([]string{})
-			
+
 			output := buf.String()
 
 			if tt.expectErr && err == nil {
 				t.Errorf("Expected error but got none")
 			}
-			
+
 			if !tt.expectErr && err != nil {
-				t.Errorf("Unexpected error: %v", err) 
+				t.Errorf("Unexpected error: %v", err)
 			}
 
 			if tt.checkFunc != nil && !tt.checkFunc(output) {
@@ -176,8 +176,8 @@ func TestDocumentedFlagsWork(t *testing.T) {
 // TestCommandHelpConsistency tests that help text matches documented functionality
 func TestCommandHelpConsistency(t *testing.T) {
 	commandTests := []struct {
-		command  string
-		helpArgs []string
+		command     string
+		helpArgs    []string
 		mustContain []string
 	}{
 		{
@@ -186,7 +186,7 @@ func TestCommandHelpConsistency(t *testing.T) {
 			mustContain: []string{
 				"statistics",
 				"--all",
-				"--pr", 
+				"--pr",
 				"--branch",
 				"comment",
 			},
@@ -224,28 +224,28 @@ func TestCommandHelpConsistency(t *testing.T) {
 		t.Run("help_consistency_"+tt.command, func(t *testing.T) {
 			// Use cobra's built-in testing approach with rootCmd directly
 			var buf bytes.Buffer
-			
+
 			// Store original output settings
 			originalOut := rootCmd.OutOrStdout()
 			originalErr := rootCmd.ErrOrStderr()
-			
+
 			// Set output capture
 			rootCmd.SetOut(&buf)
 			rootCmd.SetErr(&buf)
 			rootCmd.SetArgs(tt.helpArgs)
-			
+
 			rootCmd.Execute()
-			
+
 			// Restore original settings
 			rootCmd.SetOut(originalOut)
 			rootCmd.SetErr(originalErr)
 			rootCmd.SetArgs([]string{})
-			
+
 			output := buf.String()
 
 			for _, required := range tt.mustContain {
 				if !strings.Contains(strings.ToLower(output), strings.ToLower(required)) {
-					t.Errorf("Help for %s command should contain '%s' but output was: %s", 
+					t.Errorf("Help for %s command should contain '%s' but output was: %s",
 						tt.command, required, output)
 				}
 			}
@@ -253,3 +253,4 @@ func TestCommandHelpConsistency(t *testing.T) {
 		})
 	}
 }
+

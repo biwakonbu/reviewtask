@@ -146,4 +146,3 @@ func TestVersionCommandArguments(t *testing.T) {
 		t.Logf("version command has Args validation configured")
 	}
 }
-
