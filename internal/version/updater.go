@@ -57,22 +57,25 @@ func DetectPlatform() (string, string) {
 	
 	// Normalize OS names to match GitHub release naming
 	switch os {
-	case "darwin":
-		os = "darwin"
-	case "linux":
+	case "darwin", "linux", "windows":
+		// These are supported as-is
+	default:
+		// For unsupported OS, default to linux for unix-like systems
 		os = "linux"
-	case "windows":
-		os = "windows"
 	}
 	
 	// Normalize architecture names
 	switch arch {
-	case "amd64":
+	case "amd64", "arm64":
+		// These are supported as-is
+	case "386":
+		// 32-bit x86 - not typically supported, fallback to amd64
 		arch = "amd64"
-	case "arm64":
+	case "arm":
+		// 32-bit ARM - fallback to arm64
 		arch = "arm64"
 	default:
-		// Fallback to amd64 for other architectures
+		// For any other architecture, fallback to amd64
 		arch = "amd64"
 	}
 	
@@ -227,6 +230,14 @@ func (u *BinaryUpdater) findChecksumForFile(checksumContent, filename string) st
 
 // BackupCurrentBinary creates a backup of the current binary
 func BackupCurrentBinary(currentPath, backupPath string) error {
+	// Validate paths to prevent directory traversal
+	if err := validateFilePath(currentPath); err != nil {
+		return fmt.Errorf("invalid current path: %w", err)
+	}
+	if err := validateFilePath(backupPath); err != nil {
+		return fmt.Errorf("invalid backup path: %w", err)
+	}
+
 	// Read current binary
 	data, err := os.ReadFile(currentPath)
 	if err != nil {
@@ -244,6 +255,14 @@ func BackupCurrentBinary(currentPath, backupPath string) error {
 
 // RestoreFromBackup restores binary from backup
 func RestoreFromBackup(backupPath, targetPath string) error {
+	// Validate paths to prevent directory traversal
+	if err := validateFilePath(backupPath); err != nil {
+		return fmt.Errorf("invalid backup path: %w", err)
+	}
+	if err := validateFilePath(targetPath); err != nil {
+		return fmt.Errorf("invalid target path: %w", err)
+	}
+
 	// Read backup
 	data, err := os.ReadFile(backupPath)
 	if err != nil {
@@ -273,6 +292,7 @@ func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]
 	
 	// Find the binary file
 	binaryName := GetBinaryName(targetOS)
+	const maxFileSize = 100 * 1024 * 1024 // 100MB max
 	
 	for {
 		header, err := tarReader.Next()
@@ -283,10 +303,20 @@ func (u *BinaryUpdater) ExtractBinaryFromTarGz(data []byte, targetOS string) ([]
 			return nil, fmt.Errorf("failed to read tar entry: %w", err)
 		}
 		
+		// Security: Prevent path traversal attacks
+		if strings.Contains(header.Name, "..") || strings.HasPrefix(header.Name, "/") {
+			continue // Skip potentially dangerous paths
+		}
+		
+		// Security: Prevent tar bombs (excessively large files)
+		if header.Size > maxFileSize {
+			return nil, fmt.Errorf("file too large: %d bytes (max %d)", header.Size, maxFileSize)
+		}
+		
 		// Check if this is our binary file
 		if filepath.Base(header.Name) == binaryName {
-			// Read the binary data
-			binaryData, err := io.ReadAll(tarReader)
+			// Read the binary data with size limit
+			binaryData, err := io.ReadAll(io.LimitReader(tarReader, maxFileSize))
 			if err != nil {
 				return nil, fmt.Errorf("failed to read binary from tar: %w", err)
 			}
@@ -331,6 +361,26 @@ func AtomicReplace(currentPath string, newBinaryData []byte) error {
 	// Atomic rename
 	if err := os.Rename(tempPath, currentPath); err != nil {
 		return fmt.Errorf("failed to replace binary: %w", err)
+	}
+	
+	return nil
+}
+
+// validateFilePath validates a file path to prevent directory traversal attacks
+func validateFilePath(path string) error {
+	if path == "" {
+		return fmt.Errorf("path cannot be empty")
+	}
+	
+	// Check for directory traversal patterns
+	if strings.Contains(path, "..") {
+		return fmt.Errorf("path contains directory traversal: %s", path)
+	}
+	
+	// Ensure the path is not absolute with suspicious patterns
+	if strings.HasPrefix(path, "/etc/") || strings.HasPrefix(path, "/usr/") || 
+	   strings.HasPrefix(path, "/bin/") || strings.HasPrefix(path, "/sbin/") {
+		return fmt.Errorf("path targets system directory: %s", path)
 	}
 	
 	return nil

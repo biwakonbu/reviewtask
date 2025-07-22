@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -66,18 +68,44 @@ func runVersions(cmd *cobra.Command, args []string) error {
 
 // getRecentReleases fetches recent releases from GitHub API
 func getRecentReleases(ctx context.Context, count int) ([]*version.Release, error) {
-	// This would typically use a paginated API call to get multiple releases
-	// For now, we'll use a simplified approach that gets the latest and mock others
+	// Use GitHub API to get multiple releases
+	url := fmt.Sprintf("https://api.github.com/repos/biwakonbu/reviewtask/releases?per_page=%d", count)
 	
-	checker := version.NewChecker(0)
-	latest, err := checker.GetLatestVersion(ctx)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Return just the latest for now
-	// TODO: Implement proper GitHub API pagination to get multiple releases
-	return []*version.Release{latest}, nil
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+	req.Header.Set("User-Agent", "reviewtask-version-checker")
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch release info: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("no releases found for biwakonbu/reviewtask")
+		}
+		if resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("GitHub API rate limit exceeded")
+		}
+		return nil, fmt.Errorf("GitHub API returned status %d", resp.StatusCode)
+	}
+
+	var releases []*version.Release
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(&releases); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return releases, nil
 }
 
 // truncateReleaseNotes truncates release notes to specified length

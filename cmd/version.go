@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -90,12 +89,17 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 // changeToVersion handles changing to a different version
 func changeToVersion(targetVersion string) error {
+	// Validate version argument
+	if err := validateVersionArgument(targetVersion); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	checker := version.NewChecker(0)
 	updater := version.NewBinaryUpdater()
-	
+
 	// Handle 'latest' version
 	if targetVersion == "latest" {
 		latestVersion, err := checker.GetLatestVersion(ctx)
@@ -104,17 +108,17 @@ func changeToVersion(targetVersion string) error {
 		}
 		targetVersion = latestVersion.TagName
 	}
-	
+
 	// Show current and target versions
 	fmt.Printf("Current version: %s\n", appVersion)
 	fmt.Printf("Target version: %s", targetVersion)
-	
+
 	// Compare versions to determine if it's upgrade or downgrade
 	comparison, err := checker.CompareVersions(appVersion, targetVersion)
 	if err != nil {
 		return fmt.Errorf("failed to compare versions: %w", err)
 	}
-	
+
 	switch comparison {
 	case version.VersionSame:
 		fmt.Printf(" (no change)\n")
@@ -130,29 +134,29 @@ func changeToVersion(targetVersion string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read input: %w", err)
 		}
-		
+
 		response = strings.TrimSpace(strings.ToLower(response))
 		if response != "y" && response != "yes" {
 			fmt.Println("❌ Downgrade cancelled")
 			return nil
 		}
 	}
-	
+
 	// Detect platform
 	osName, arch := version.DetectPlatform()
 	fmt.Printf("Platform: %s/%s\n", osName, arch)
-	
+
 	// Get current binary path
 	currentBinaryPath, err := version.GetCurrentBinaryPath()
 	if err != nil {
 		return fmt.Errorf("failed to get current binary path: %w", err)
 	}
-	
+
 	// Create backup path
 	backupPath := currentBinaryPath + ".backup." + appVersion
-	
+
 	fmt.Printf("Downloading reviewtask-%s-%s-%s... ", targetVersion, osName, arch)
-	
+
 	// Download new binary
 	archiveData, err := updater.DownloadBinary(ctx, targetVersion, osName, arch)
 	if err != nil {
@@ -160,9 +164,9 @@ func changeToVersion(targetVersion string) error {
 		return fmt.Errorf("download failed: %w", err)
 	}
 	fmt.Printf("✓\n")
-	
+
 	fmt.Printf("Verifying checksum... ")
-	
+
 	// Verify checksum
 	err = updater.VerifyChecksum(ctx, targetVersion, osName, arch, archiveData)
 	if err != nil {
@@ -170,9 +174,9 @@ func changeToVersion(targetVersion string) error {
 		return fmt.Errorf("checksum verification failed: %w", err)
 	}
 	fmt.Printf("✓\n")
-	
+
 	fmt.Printf("Extracting binary... ")
-	
+
 	// Extract binary from tar.gz
 	binaryData, err := updater.ExtractBinaryFromTarGz(archiveData, osName)
 	if err != nil {
@@ -180,16 +184,16 @@ func changeToVersion(targetVersion string) error {
 		return fmt.Errorf("failed to extract binary: %w", err)
 	}
 	fmt.Printf("✓\n")
-	
+
 	fmt.Printf("Installing version %s... ", targetVersion)
-	
+
 	// Backup current binary
 	err = version.BackupCurrentBinary(currentBinaryPath, backupPath)
 	if err != nil {
 		fmt.Printf("❌\n")
 		return fmt.Errorf("failed to backup current binary: %w", err)
 	}
-	
+
 	// Set up rollback on failure
 	rollbackOnError := true
 	defer func() {
@@ -205,27 +209,72 @@ func changeToVersion(targetVersion string) error {
 		// Clean up backup
 		os.Remove(backupPath)
 	}()
-	
+
 	// Perform atomic replacement
 	err = version.AtomicReplace(currentBinaryPath, binaryData)
 	if err != nil {
 		fmt.Printf("❌\n")
 		return fmt.Errorf("failed to replace binary: %w", err)
 	}
-	
+
 	// Validate new binary
 	err = version.ValidateNewBinary(currentBinaryPath)
 	if err != nil {
 		fmt.Printf("❌\n")
 		return fmt.Errorf("binary validation failed: %w", err)
 	}
-	
+
 	// Success - don't rollback
 	rollbackOnError = false
 	fmt.Printf("✓\n")
-	
+
 	fmt.Printf("\n✅ Version change completed successfully!\n")
 	fmt.Printf("Updated to reviewtask version %s\n", targetVersion)
-	
+
+	return nil
+}
+
+// validateVersionArgument validates the version argument format
+func validateVersionArgument(version string) error {
+	if version == "" {
+		return fmt.Errorf("version cannot be empty")
+	}
+
+	// Allow 'latest' as a special case
+	if version == "latest" {
+		return nil
+	}
+
+	// Check if it starts with 'v' and remove it for validation
+	cleanVersion := version
+	if strings.HasPrefix(version, "v") {
+		cleanVersion = version[1:]
+	}
+
+	// Basic semantic version validation
+	parts := strings.Split(cleanVersion, ".")
+	if len(parts) != 3 {
+		return fmt.Errorf("invalid version format '%s': expected format v1.2.3 or 1.2.3", version)
+	}
+
+	// Validate each part is a number
+	for i, part := range parts {
+		// Remove prerelease suffix for validation (e.g., 1.0.0-beta1)
+		if i == 2 && strings.Contains(part, "-") {
+			part = strings.Split(part, "-")[0]
+		}
+		
+		if part == "" {
+			return fmt.Errorf("invalid version format '%s': empty version part", version)
+		}
+		
+		// Check if it's a valid number
+		for _, char := range part {
+			if char < '0' || char > '9' {
+				return fmt.Errorf("invalid version format '%s': non-numeric version part '%s'", version, part)
+			}
+		}
+	}
+
 	return nil
 }
