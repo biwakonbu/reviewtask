@@ -28,7 +28,8 @@ func TestRootCommandRegistration(t *testing.T) {
 	for _, cmd := range root.Commands() {
 		if _, expected := expectedCommands[cmd.Name()]; expected {
 			expectedCommands[cmd.Name()] = true
-		} else {
+		} else if cmd.Name() != "completion" && cmd.Name() != "help" {
+			// Ignore auto-generated commands
 			t.Errorf("Unexpected command registered: %s", cmd.Name())
 		}
 	}
