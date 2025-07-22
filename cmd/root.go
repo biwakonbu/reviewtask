@@ -69,6 +69,7 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(versionsCmd)
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
