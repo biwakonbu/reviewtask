@@ -10,6 +10,7 @@ import (
 // TestReviewTaskWorkflowDocumentationUpdate validates that the review-task-workflow.md
 // documentation has been updated to reflect current reviewtask tool specifications
 func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
+	t.Parallel() // Allow parallel execution since this test only reads files
 	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	// Read the documentation file
@@ -131,6 +132,7 @@ func TestReviewTaskWorkflowDocumentationUpdate(t *testing.T) {
 
 // TestDocumentationStructure validates the overall structure of the documentation
 func TestDocumentationStructure(t *testing.T) {
+	t.Parallel() // Allow parallel execution since this test only reads files
 	workflowPath := filepath.Join("..", ".claude", "commands", "pr-review", "review-task-workflow.md")
 
 	content, err := os.ReadFile(workflowPath)
