@@ -17,7 +17,7 @@ func TestDocumentationAccuracy(t *testing.T) {
 			expect:  true,
 		},
 		{
-			name:    "versions command exists", 
+			name:    "versions command exists",
 			command: "versions",
 			expect:  true,
 		},
@@ -34,11 +34,11 @@ func TestDocumentationAccuracy(t *testing.T) {
 			if err != nil && tt.expect {
 				t.Errorf("Expected command %s to exist but got error: %v", tt.command, err)
 			}
-			
+
 			if cmd == nil && tt.expect {
 				t.Errorf("Expected command %s to exist but got nil", tt.command)
 			}
-			
+
 			if cmd != nil && cmd.Name() != tt.command && tt.expect {
 				t.Errorf("Expected command name %s but got %s", tt.command, cmd.Name())
 			}
@@ -54,7 +54,7 @@ func TestStatsCommandDocumentedFlags(t *testing.T) {
 	}
 
 	expectedFlags := []string{"all", "pr", "branch"}
-	
+
 	for _, flagName := range expectedFlags {
 		flag := cmd.Flags().Lookup(flagName)
 		if flag == nil {
@@ -63,7 +63,7 @@ func TestStatsCommandDocumentedFlags(t *testing.T) {
 	}
 }
 
-// TestStatusCommandDocumentedFlags tests that status command has documented flags  
+// TestStatusCommandDocumentedFlags tests that status command has documented flags
 func TestStatusCommandDocumentedFlags(t *testing.T) {
 	cmd, _, err := rootCmd.Find([]string{"status"})
 	if err != nil {
@@ -71,7 +71,7 @@ func TestStatusCommandDocumentedFlags(t *testing.T) {
 	}
 
 	expectedFlags := []string{"all", "pr", "branch"}
-	
+
 	for _, flagName := range expectedFlags {
 		flag := cmd.Flags().Lookup(flagName)
 		if flag == nil {
@@ -109,7 +109,7 @@ func TestAuthSubcommands(t *testing.T) {
 	}
 
 	expectedSubcommands := []string{"login", "logout", "status", "check"}
-	
+
 	for _, subcommandName := range expectedSubcommands {
 		subcmd, _, err := cmd.Find([]string{subcommandName})
 		if err != nil || subcmd == nil || subcmd.Name() != subcommandName {
@@ -146,3 +146,4 @@ func TestVersionCommandArguments(t *testing.T) {
 		t.Logf("version command has Args validation configured")
 	}
 }
+
