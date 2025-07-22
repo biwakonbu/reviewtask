@@ -24,7 +24,7 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	// Command registration moved to root.go
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
