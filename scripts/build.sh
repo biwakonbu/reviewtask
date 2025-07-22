@@ -18,7 +18,10 @@ PLATFORMS=(
 )
 
 # Get version information
-VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "dev")}
+# Get version from git tags or environment variable
+RAW_VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "dev")}
+# Remove 'v' prefix for consistency with release artifacts
+VERSION=${RAW_VERSION#v}
 COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
