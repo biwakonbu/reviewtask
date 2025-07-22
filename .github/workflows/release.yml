@@ -202,6 +202,26 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Create Release Issue
+      run: |
+        # Create GitHub Issue for release documentation
+        VERSION="${{ steps.version.outputs.version }}"
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${VERSION}$" | head -n1 || echo "")
+        
+        echo "Creating release issue for ${VERSION}..."
+        if [ -f "scripts/create-release-issue.sh" ]; then
+          chmod +x scripts/create-release-issue.sh
+          if ./scripts/create-release-issue.sh --version "${VERSION}" --previous-tag "${PREVIOUS_TAG}"; then
+            echo "✅ Release issue created successfully"
+          else
+            echo "⚠️ Failed to create release issue - continuing with release"
+          fi
+        else
+          echo "⚠️ Release issue script not found"
+        fi
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
