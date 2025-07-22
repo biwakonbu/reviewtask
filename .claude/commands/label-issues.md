@@ -39,14 +39,15 @@ graph TD
 ### 1. Issues一覧の取得と分析
 
 ```bash
-# 全Issues取得（ラベル情報含む）
-gh issue list --state all --json number,title,labels,state,body
+# OPENのIssues取得（ラベル情報含む）
+gh issue list --state open --json number,title,labels,state,body
 
 # 既存ラベル体系の確認
-gh api repos/{owner}/{repo}/labels
+gh api repos/biwakonbu/reviewtask/labels | jq '.[] | select(.name | startswith("release:"))'
 ```
 
 **分析ポイント:**
+- **OPENのissuesのみ対象**: CLOSEDのissuesはラベル設定対象外
 - リリースラベル（`release:major`, `release:minor`, `release:patch`）が設定されていないissuesを特定
 - 既存ラベルに `bug`, `enhancement`, `question` 等がある場合はその情報も考慮
 - 既存のリリースラベル体系を確認（release:major, release:minor, release:patch）
