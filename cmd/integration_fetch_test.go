@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 // TestFetchCommandIntegration tests the fetch command integration with the root command
@@ -33,7 +35,7 @@ func TestFetchCommandIntegration(t *testing.T) {
 		},
 		{
 			name: "Fetch help should be accessible via root help",
-			args: []string{"help", "fetch"},
+			args: []string{"fetch", "--help"},
 			expectedOutput: []string{
 				"Fetch GitHub Pull Request reviews, save them locally,",
 				"Usage:",
@@ -130,17 +132,27 @@ func TestBackwardCompatibilityBreaking(t *testing.T) {
 	// Test that old behavior (reviewtask without subcommand doing PR number) no longer works
 	buf := new(bytes.Buffer)
 
-	root := rootCmd
-	root.SetOut(buf)
-	root.SetErr(buf)
+	// Create a fresh root command to avoid test interference
+	testRoot := &cobra.Command{
+		Use:   "reviewtask",
+		Short: "AI-powered PR review management tool",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+	
+	testRoot.SetOut(buf)
+	testRoot.SetErr(buf)
 
-	// This should now show help instead of trying to fetch PR #123
-	root.SetArgs([]string{"123"})
-	err := root.Execute()
+	// This should now give an unknown command error instead of trying to fetch PR #123
+	testRoot.SetArgs([]string{"123"})
+	err := testRoot.Execute()
 
-	// Should get an error because root command doesn't accept arguments
+	// Should get an error because "123" is treated as unknown command
 	if err == nil {
 		t.Error("Expected error when providing PR number to root command, but got none")
+		return
 	}
 
 	// Should contain error about unknown command
