@@ -10,7 +10,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 ## Features
 
 - **🔍 PR Review Fetching**: Automatically retrieves reviews from GitHub API with nested comment structure
-- **🤖 AI Analysis**: Uses Claude Code integration to generate structured, actionable tasks from review content
+- **🤖 AI Analysis**: Supports multiple AI providers for generating structured, actionable tasks from review content
 - **💾 Local Storage**: Stores data in structured JSON format under `.pr-review/` directory
 - **📋 Task Management**: Full lifecycle management with status tracking (todo/doing/done/pending/cancel)
 - **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
@@ -18,6 +18,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🎯 Priority-based Analysis**: Customizable priority rules for task generation
 - **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
+- **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
 
 ## Installation
 
@@ -141,10 +142,14 @@ cd reviewtask
 go build -o reviewtask
 ```
 
-3. Install Claude Code CLI (required for AI analysis):
+3. Install AI Provider CLI (required for AI analysis):
 ```bash
+# For Claude Code (default)
 # Follow Claude Code installation instructions
 # https://docs.anthropic.com/en/docs/claude-code
+
+# For other providers (future support)
+# Install the respective provider's CLI tool
 ```
 
 ### Verify Installation
@@ -198,7 +203,7 @@ Authentication sources (in order of preference):
 
 # The tool will:
 # - Fetch PR reviews and comments
-# - Process comments in parallel using Claude Code
+# - Process comments in parallel using configured AI provider
 # - Generate actionable tasks with priorities
 # - Save results to .pr-review/PR-{number}/
 ```
@@ -233,7 +238,8 @@ Authentication sources (in order of preference):
 | `reviewtask stats [PR_NUMBER] [options]` | Show detailed task statistics with comment breakdown |
 | `reviewtask version [VERSION]` | Show version information or switch to specific version |
 | `reviewtask versions` | List available versions from GitHub releases |
-| `reviewtask claude <target>` | Generate Claude Code integration templates |
+| `reviewtask prompt <provider> <target>` | Generate AI provider command templates |
+| `reviewtask claude <target>` | (Deprecated) Use `reviewtask prompt claude <target>` |
 | `reviewtask init` | Initialize repository |
 | `reviewtask auth <cmd>` | Authentication management |
 
@@ -259,8 +265,10 @@ Authentication sources (in order of preference):
 - `reviewtask version --check` - Check for available updates
 - `reviewtask versions` - List recent 5 versions with release information
 
-#### Claude Integration
-- `reviewtask claude pr-review` - Generate PR review workflow template for Claude Code
+#### AI Provider Integration
+- `reviewtask prompt claude pr-review` - Generate PR review workflow template for Claude Code
+- `reviewtask prompt stdout <target>` - Output prompts to stdout for redirection or piping
+- `reviewtask prompt <provider> <target>` - Generate templates for various AI providers (extensible)
 
 ## Configuration
 
@@ -321,7 +329,7 @@ Edit `.pr-review/config.json` to customize priority rules:
 
 - Each comment is processed independently using goroutines
 - Reduced prompt sizes (3,000-6,000 characters vs 57,760)
-- Better performance and Claude Code reliability
+- Better performance and AI provider reliability
 
 ### Comment Change Detection
 
@@ -401,20 +409,33 @@ reviewtask --refresh-cache
 - **Selective refresh**: Only processes changed or new content
 - **Manual override**: `--refresh-cache` bypasses all caching
 
-### Claude Code Integration
+### AI Provider Integration
 
-Streamline your Claude Code workflows with generated templates:
+Streamline your AI workflows with generated templates for various providers:
 
 ```bash
-# Generate PR review workflow template
-reviewtask claude pr-review
+# Generate PR review workflow template for Claude Code (writes to .claude/commands/)
+reviewtask prompt claude pr-review
+
+# Output prompts to stdout for redirection or piping
+reviewtask prompt stdout pr-review                    # Display on terminal
+reviewtask prompt stdout pr-review > my-workflow.md   # Save to custom file
+reviewtask prompt stdout pr-review | pbcopy           # Copy to clipboard (macOS)
+reviewtask prompt stdout pr-review | xclip            # Copy to clipboard (Linux)
+
+# Extensible architecture for future AI providers
+# reviewtask prompt <provider> <target>
 ```
 
-This creates optimized Claude Code command templates in `.claude/commands/` directory for:
+This provides flexible options for AI integration:
+- **Claude provider**: Creates optimized command templates in `.claude/commands/` directory
+- **Stdout provider**: Outputs prompts to standard output for maximum flexibility
 - Structured PR review analysis workflows
 - Task generation and management integration
 - Consistent review quality and format
 - Integration with existing reviewtask data structures
+
+**Note**: The `reviewtask claude` command is deprecated. Please use `reviewtask prompt claude` for future compatibility.
 
 ## Troubleshooting
 
@@ -468,19 +489,19 @@ reviewtask stats --all
 # - Outdated task content
 ```
 
-### Claude Code Integration
+### AI Provider Integration
 
-Ensure Claude Code CLI is properly installed and accessible:
+Ensure your AI provider CLI is properly installed and accessible:
 
 ```bash
-# Test Claude Code availability
+# Test Claude Code availability (for Claude provider)
 claude --version
 
 # Generate integration templates if missing
-reviewtask claude pr-review
+reviewtask prompt claude pr-review
 
 # Common issues:
-# - Claude Code not in PATH
+# - AI provider CLI not in PATH
 # - Authentication required
 # - Network connectivity
 ```
