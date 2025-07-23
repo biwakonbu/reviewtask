@@ -241,8 +241,9 @@ test_mock_installation() {
 
 test_verbose_output() {
     # Test verbose vs non-verbose output modes
-    local temp_output
-    temp_output=$(mktemp)
+    local verbose_out quiet_out
+    verbose_out=$(mktemp)
+    quiet_out=$(mktemp)
     
     # Test that verbose mode produces more output
     bash -c '
@@ -250,10 +251,10 @@ test_verbose_output() {
         VERBOSE=true
         print_verbose "This should appear in verbose mode"
         print_progress "This should always appear"
-    ' > "$temp_output" 2>&1
+    ' > "$verbose_out" 2>&1
     
     local verbose_lines
-    verbose_lines=$(wc -l < "$temp_output")
+    verbose_lines=$(wc -l < "$verbose_out")
     
     # Test non-verbose mode
     bash -c '
@@ -261,12 +262,12 @@ test_verbose_output() {
         VERBOSE=false
         print_verbose "This should NOT appear in non-verbose mode"
         print_progress "This should always appear"
-    ' > "$temp_output" 2>&1
+    ' > "$quiet_out" 2>&1
     
     local quiet_lines
-    quiet_lines=$(wc -l < "$temp_output")
+    quiet_lines=$(wc -l < "$quiet_out")
     
-    rm -f "$temp_output"
+    rm -f "$verbose_out" "$quiet_out"
     
     # Verbose mode should produce more output
     [[ $verbose_lines -gt $quiet_lines ]]
@@ -284,6 +285,40 @@ test_output_functions() {
         print_error "Error message" >/dev/null 2>&1 &&
         print_progress "Progress message" >/dev/null 2>&1
     '
+}
+
+test_path_instructions_always_shown() {
+    # Test that PATH instructions are always shown when binary is not in PATH
+    local test_out
+    test_out=$(mktemp)
+    
+    # Test non-verbose mode with binary not in PATH
+    bash -c '
+        source '"$INSTALL_SCRIPT"'
+        BIN_DIR="/tmp/test_path_instructions"
+        BINARY_NAME="nonexistent_binary_test"
+        VERBOSE=false
+        mkdir -p "$BIN_DIR"
+        echo "#!/bin/bash" > "$BIN_DIR/nonexistent_binary_test"
+        echo "echo test" >> "$BIN_DIR/nonexistent_binary_test"
+        chmod +x "$BIN_DIR/nonexistent_binary_test"
+        verify_installation
+    ' > "$test_out" 2>&1
+    
+    # Check that detailed PATH instructions are shown even in non-verbose mode
+    local has_path_instructions
+    if grep -q "To add reviewtask to your PATH" "$test_out" && 
+       grep -q "Add this line to your" "$test_out" && 
+       grep -q "export PATH=" "$test_out"; then
+        has_path_instructions=true
+    else
+        has_path_instructions=false
+    fi
+    
+    rm -f "$test_out"
+    rm -rf "/tmp/test_path_instructions"
+    
+    [[ "$has_path_instructions" == "true" ]]
 }
 
 # Test PowerShell script syntax (if PowerShell is available)
@@ -333,6 +368,7 @@ main() {
     run_test "Mock Installation" test_mock_installation
     run_test "Verbose Output Mode" test_verbose_output
     run_test "Output Functions" test_output_functions
+    run_test "PATH Instructions Always Shown" test_path_instructions_always_shown
     run_test "PowerShell Script Syntax" test_powershell_syntax
     
     # Cleanup

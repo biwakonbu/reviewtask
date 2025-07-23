@@ -573,12 +573,10 @@ verify_installation() {
     
     # Check if binary is in PATH
     if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
-        if [[ "$VERBOSE" == "true" ]]; then
-            show_path_instructions
-        else
-            print_progress "Installed to $BIN_DIR/$BINARY_NAME"
-            print_warning "$BIN_DIR is not in your PATH. Add it to PATH or use full path: $BIN_DIR/$BINARY_NAME"
-        fi
+        # Always show detailed PATH instructions when binary is not in PATH
+        # regardless of verbose mode, as this is critical information for users
+        print_progress "Installed to $BIN_DIR/$BINARY_NAME"
+        show_path_instructions
     else
         if [[ "$VERBOSE" == "true" ]]; then
             print_success "reviewtask is available in your PATH"
