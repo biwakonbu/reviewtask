@@ -60,7 +60,7 @@ jobs:
         if [[ -n "$APPLIED_LABEL" ]]; then
           RELEASE_TYPE="${APPLIED_LABEL#release:}"
           
-          cat <<EOF | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+          cat <<-EOF | gh pr comment ${{ github.event.pull_request.number }} --body-file -
           🏷️ **Auto-labeling completed**
           
           This PR has been automatically labeled with \`${APPLIED_LABEL}\` based on linked issues in the Development section.
@@ -73,5 +73,5 @@ jobs:
           4. ✅ Default to \`release:minor\` if no labels found
           
           This ensures consistent release labeling and enables automated release processes.
-EOF
+		EOF
         fi
