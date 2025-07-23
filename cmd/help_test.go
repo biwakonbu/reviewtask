@@ -23,9 +23,9 @@ func TestHelpCommand(t *testing.T) {
 				"reviewtask [flags]",
 				"Available Commands:",
 				"auth",
-				"claude",
 				"fetch",
 				"init",
+				"prompt",
 				"show",
 				"stats",
 				"status",
@@ -181,8 +181,13 @@ func TestHelpListsAllCommands(t *testing.T) {
 	// Get the output
 	output := buf.String()
 
-	// Check that all commands are listed
+	// Check that all commands are listed (except deprecated ones which are hidden)
 	for _, cmd := range root.Commands() {
+		// Skip deprecated commands as they are hidden from help output
+		if cmd.Deprecated != "" {
+			continue
+		}
+
 		if !strings.Contains(output, cmd.Name()) {
 			t.Errorf("Command '%s' not listed in help output", cmd.Name())
 		}
