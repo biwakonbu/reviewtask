@@ -172,11 +172,11 @@ func TestVersionEmbedding(t *testing.T) {
 	}()
 
 	// Test version command
-	bin := "test-binary"
+	bin := "./test-binary"
 	if runtime.GOOS == "windows" {
-		bin += ".exe"
+		bin = "./test-binary.exe"
 	}
-	testCmd := exec.Command(filepath.Join(".", bin), "version")
+	testCmd := exec.Command(bin, "version")
 	testCmd.Dir = projectRoot
 	output, err := testCmd.CombinedOutput()
 	if err != nil {
