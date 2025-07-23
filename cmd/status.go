@@ -2,13 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
 	"reviewtask/internal/tui"
 )
 
@@ -79,7 +79,7 @@ func runAIMode(storageManager *storage.Manager) error {
 		for _, prNumber := range prNumbers {
 			tasks, err := storageManager.GetTasksByPR(prNumber)
 			if err != nil {
-				continue // Skip PRs that can't be read
+				return fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
 			}
 			allTasks = append(allTasks, tasks...)
 		}
@@ -103,7 +103,7 @@ func runAIMode(storageManager *storage.Manager) error {
 		for _, prNumber := range prNumbers {
 			tasks, err := storageManager.GetTasksByPR(prNumber)
 			if err != nil {
-				continue // Skip PRs that can't be read
+				return fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
 			}
 			allTasks = append(allTasks, tasks...)
 		}
@@ -142,7 +142,7 @@ func displayAIModeEmpty() error {
 
 // displayAIModeContent shows tasks in AI mode format
 func displayAIModeContent(allTasks []storage.Task, contextDescription string) error {
-	stats := calculateTaskStats(allTasks)
+	stats := tasks.CalculateTaskStats(allTasks)
 	total := len(allTasks)
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
 	completionRate := float64(completed) / float64(total) * 100
@@ -167,20 +167,20 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 
 	// Current Task (single active task)
 	fmt.Println("Current Task:")
-	doingTasks := filterTasksByStatus(allTasks, "doing")
+	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
 	if len(doingTasks) == 0 {
 		fmt.Println("  アクティブなタスクはありません")
 	} else {
 		// Show first doing task with work order format: 着手順, ID, Priority, Title
 		task := doingTasks[0]
-		fmt.Printf("  1. %s  %s    %s\n", generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+		fmt.Printf("  1. %s  %s    %s\n", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
 	}
 	fmt.Println()
 
 	// Next Tasks (up to 5)
 	fmt.Println("Next Tasks (up to 5):")
-	todoTasks := filterTasksByStatus(allTasks, "todo")
-	sortTasksByPriority(todoTasks)
+	todoTasks := tasks.FilterTasksByStatus(allTasks, "todo")
+	tasks.SortTasksByPriority(todoTasks)
 
 	if len(todoTasks) == 0 {
 		fmt.Println("  待機中のタスクはありません")
@@ -193,7 +193,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
-			fmt.Printf("  %d. %s  %s    %s\n", i+1, generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+			fmt.Printf("  %d. %s  %s    %s\n", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
 		}
 	}
 	fmt.Println()
@@ -202,11 +202,6 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	fmt.Printf("Last updated: %s\n", time.Now().Format("15:04:05"))
 
 	return nil
-}
-
-// generateTaskID creates a task ID in TSK-XXX format
-func generateTaskID(task storage.Task) string {
-	return fmt.Sprintf("TSK-%03d", task.PRNumber)
 }
 
 // runHumanMode implements rich TUI dashboard with real-time updates
@@ -222,57 +217,6 @@ func runHumanMode(storageManager *storage.Manager) error {
 	}
 
 	return nil
-}
-
-func filterTasksByStatus(tasks []storage.Task, status string) []storage.Task {
-	var filtered []storage.Task
-	for _, task := range tasks {
-		if task.Status == status {
-			filtered = append(filtered, task)
-		}
-	}
-	return filtered
-}
-
-func sortTasksByPriority(tasks []storage.Task) {
-	// Simple priority sorting: critical > high > medium > low
-	priorityOrder := map[string]int{
-		"critical": 0,
-		"high":     1,
-		"medium":   2,
-		"low":      3,
-	}
-
-	sort.Slice(tasks, func(i, j int) bool {
-		return priorityOrder[tasks[i].Priority] < priorityOrder[tasks[j].Priority]
-	})
-}
-
-type TaskStats struct {
-	StatusCounts   map[string]int
-	PriorityCounts map[string]int
-	PRCounts       map[int]int
-}
-
-func calculateTaskStats(tasks []storage.Task) TaskStats {
-	stats := TaskStats{
-		StatusCounts:   make(map[string]int),
-		PriorityCounts: make(map[string]int),
-		PRCounts:       make(map[int]int),
-	}
-
-	for _, task := range tasks {
-		// Normalize "cancelled" to "cancel" for backward compatibility
-		status := task.Status
-		if status == "cancelled" {
-			status = "cancel"
-		}
-		stats.StatusCounts[status]++
-		stats.PriorityCounts[task.Priority]++
-		stats.PRCounts[task.PRNumber]++
-	}
-
-	return stats
 }
 
 func init() {

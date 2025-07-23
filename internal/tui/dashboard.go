@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
 )
 
 // UI layout constants
@@ -26,7 +26,7 @@ const (
 type Model struct {
 	storageManager *storage.Manager
 	tasks          []storage.Task
-	stats          TaskStats
+	stats          tasks.TaskStats
 	width          int
 	height         int
 	lastUpdate     time.Time
@@ -204,12 +204,12 @@ func (m Model) renderTaskSummary() string {
 }
 
 func (m Model) renderCurrentTask() string {
-	doingTasks := filterTasksByStatus(m.tasks, "doing")
+	doingTasks := tasks.FilterTasksByStatus(m.tasks, "doing")
 
 	content := "│ アクティブなタスクはありません - すべて完了しています！                     │"
 	if len(doingTasks) > 0 {
 		task := doingTasks[0]
-		taskLine := fmt.Sprintf("1. %s  %s    %s", generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+		taskLine := fmt.Sprintf("1. %s  %s    %s", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
 		content = fmt.Sprintf("│ %s", padToWidth(taskLine, m.width-taskBoxPadding)) + " │"
 	}
 
@@ -224,8 +224,8 @@ func (m Model) renderCurrentTask() string {
 }
 
 func (m Model) renderNextTasks() string {
-	todoTasks := filterTasksByStatus(m.tasks, "todo")
-	sortTasksByPriority(todoTasks)
+	todoTasks := tasks.FilterTasksByStatus(m.tasks, "todo")
+	tasks.SortTasksByPriority(todoTasks)
 
 	var taskLines []string
 	if len(todoTasks) == 0 {
@@ -238,7 +238,7 @@ func (m Model) renderNextTasks() string {
 
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
-			taskLine := fmt.Sprintf("%d. %s  %s    %s", i+1, generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+			taskLine := fmt.Sprintf("%d. %s  %s    %s", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
 			line := fmt.Sprintf("│ │ %s", padToWidth(taskLine, m.width-progressBarPadding)) + " │   │"
 			taskLines = append(taskLines, line)
 		}
@@ -257,33 +257,6 @@ func (m Model) renderNextTasks() string {
 }
 
 // Helper functions
-
-func filterTasksByStatus(tasks []storage.Task, status string) []storage.Task {
-	var filtered []storage.Task
-	for _, task := range tasks {
-		if task.Status == status {
-			filtered = append(filtered, task)
-		}
-	}
-	return filtered
-}
-
-func sortTasksByPriority(tasks []storage.Task) {
-	priorityOrder := map[string]int{
-		"critical": 0,
-		"high":     1,
-		"medium":   2,
-		"low":      3,
-	}
-
-	sort.Slice(tasks, func(i, j int) bool {
-		return priorityOrder[tasks[i].Priority] < priorityOrder[tasks[j].Priority]
-	})
-}
-
-func generateTaskID(task storage.Task) string {
-	return fmt.Sprintf("TSK-%03d", task.PRNumber)
-}
 
 // padToWidth pads or truncates a string to fit the specified width
 // accounting for multibyte characters
@@ -320,7 +293,7 @@ func truncateString(s string, width int) string {
 
 type tasksLoadedMsg struct {
 	tasks []storage.Task
-	stats TaskStats
+	stats tasks.TaskStats
 	err   error
 }
 
@@ -336,12 +309,12 @@ func (m Model) loadTasks() tea.Msg {
 	if m.specificPR > 0 {
 		allTasks, err = m.storageManager.GetTasksByPR(m.specificPR)
 		if err != nil {
-			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: tasks.TaskStats{}, err: err}
 		}
 	} else if m.branch != "" {
 		prNumbers, err := m.storageManager.GetPRsForBranch(m.branch)
 		if err != nil {
-			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: tasks.TaskStats{}, err: err}
 		}
 		for _, prNumber := range prNumbers {
 			tasks, err := m.storageManager.GetTasksByPR(prNumber)
@@ -354,16 +327,16 @@ func (m Model) loadTasks() tea.Msg {
 	} else if m.showAll {
 		allTasks, err = m.storageManager.GetAllTasks()
 		if err != nil {
-			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: tasks.TaskStats{}, err: err}
 		}
 	} else {
 		currentBranch, err := m.storageManager.GetCurrentBranch()
 		if err != nil {
-			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: tasks.TaskStats{}, err: err}
 		}
 		prNumbers, err := m.storageManager.GetPRsForBranch(currentBranch)
 		if err != nil {
-			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: tasks.TaskStats{}, err: err}
 		}
 		for _, prNumber := range prNumbers {
 			tasks, err := m.storageManager.GetTasksByPR(prNumber)
@@ -375,7 +348,7 @@ func (m Model) loadTasks() tea.Msg {
 		}
 	}
 
-	stats := calculateTaskStats(allTasks)
+	stats := tasks.CalculateTaskStats(allTasks)
 
 	return tasksLoadedMsg{
 		tasks: allTasks,
@@ -388,32 +361,4 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
-}
-
-// TaskStats represents statistics about tasks
-type TaskStats struct {
-	StatusCounts   map[string]int
-	PriorityCounts map[string]int
-	PRCounts       map[int]int
-}
-
-func calculateTaskStats(tasks []storage.Task) TaskStats {
-	stats := TaskStats{
-		StatusCounts:   make(map[string]int),
-		PriorityCounts: make(map[string]int),
-		PRCounts:       make(map[int]int),
-	}
-
-	for _, task := range tasks {
-		// Normalize "cancelled" to "cancel" for backward compatibility
-		status := task.Status
-		if status == "cancelled" {
-			status = "cancel"
-		}
-		stats.StatusCounts[status]++
-		stats.PriorityCounts[task.Priority]++
-		stats.PRCounts[task.PRNumber]++
-	}
-
-	return stats
 }

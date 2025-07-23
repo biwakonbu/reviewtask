@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
 )
 
 // TestStatusCommand tests the status command functionality
@@ -343,7 +344,7 @@ func TestStatusCommandFlags(t *testing.T) {
 // TestStatusTaskSorting tests the task sorting functionality
 func TestStatusTaskSorting(t *testing.T) {
 	// Mock tasks with different priorities
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Priority: "low", Description: "Low priority task"},
 		{Priority: "critical", Description: "Critical task"},
 		{Priority: "medium", Description: "Medium task"},
@@ -352,12 +353,12 @@ func TestStatusTaskSorting(t *testing.T) {
 	}
 
 	// Sort tasks
-	sortTasksByPriority(tasks)
+	tasks.SortTasksByPriority(testTasks)
 
 	// Verify sorting order
 	expectedOrder := []string{"critical", "high", "medium", "medium", "low"}
 
-	for i, task := range tasks {
+	for i, task := range testTasks {
 		if task.Priority != expectedOrder[i] {
 			t.Errorf("Expected task %d to have priority '%s', got '%s'", i, expectedOrder[i], task.Priority)
 		}
@@ -366,7 +367,7 @@ func TestStatusTaskSorting(t *testing.T) {
 
 // TestStatusTaskFiltering tests the task filtering functionality
 func TestStatusTaskFiltering(t *testing.T) {
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Status: "todo", Description: "Todo task 1"},
 		{Status: "doing", Description: "Doing task 1"},
 		{Status: "done", Description: "Done task 1"},
@@ -387,7 +388,7 @@ func TestStatusTaskFiltering(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		filtered := filterTasksByStatus(tasks, tt.status)
+		filtered := tasks.FilterTasksByStatus(testTasks, tt.status)
 		if len(filtered) != tt.expected {
 			t.Errorf("Expected %d tasks with status '%s', got %d", tt.expected, tt.status, len(filtered))
 		}
@@ -403,7 +404,7 @@ func TestStatusTaskFiltering(t *testing.T) {
 
 // TestStatusTaskStats tests the task statistics calculation
 func TestStatusTaskStats(t *testing.T) {
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Status: "todo", Priority: "high", PRNumber: 1},
 		{Status: "doing", Priority: "medium", PRNumber: 1},
 		{Status: "done", Priority: "high", PRNumber: 2},
@@ -411,7 +412,7 @@ func TestStatusTaskStats(t *testing.T) {
 		{Status: "cancel", Priority: "critical", PRNumber: 1},
 	}
 
-	stats := calculateTaskStats(tasks)
+	stats := tasks.CalculateTaskStats(testTasks)
 
 	// Test status counts
 	expectedStatusCounts := map[string]int{
@@ -483,7 +484,7 @@ func TestDisplayAIModeEmpty(t *testing.T) {
 // TestDisplayAIModeContent tests the AI mode content output
 func TestDisplayAIModeContent(t *testing.T) {
 	// Create test tasks
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{
 			ID:          "task1",
 			Description: "Fix authentication bug",
@@ -536,7 +537,7 @@ func TestDisplayAIModeContent(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(tasks, "test context")
+	err := displayAIModeContent(testTasks, "test context")
 	require.NoError(t, err)
 
 	w.Close()
@@ -583,7 +584,7 @@ func TestGenerateTaskID(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("PR_%d", tc.prNumber), func(t *testing.T) {
 			task := storage.Task{PRNumber: tc.prNumber}
-			id := generateTaskID(task)
+			id := tasks.GenerateTaskID(task)
 			assert.Equal(t, tc.expected, id)
 		})
 	}
@@ -591,7 +592,7 @@ func TestGenerateTaskID(t *testing.T) {
 
 // TestCalculateTaskStatsNormalization tests the normalization of "cancelled" to "cancel"
 func TestCalculateTaskStatsNormalization(t *testing.T) {
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Status: "todo", Priority: "high", PRNumber: 1},
 		{Status: "doing", Priority: "medium", PRNumber: 1},
 		{Status: "done", Priority: "high", PRNumber: 2},
@@ -600,7 +601,7 @@ func TestCalculateTaskStatsNormalization(t *testing.T) {
 		{Status: "pending", Priority: "medium", PRNumber: 3},
 	}
 
-	stats := calculateTaskStats(tasks)
+	stats := tasks.CalculateTaskStats(testTasks)
 
 	// Check status counts
 	assert.Equal(t, 1, stats.StatusCounts["todo"])
