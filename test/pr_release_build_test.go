@@ -158,12 +158,12 @@ func TestVersionEmbedding(t *testing.T) {
 	}
 	version := strings.TrimSpace(string(versionOutput))
 
-	// Build with version embedding  
+	// Build with version embedding
 	binName := "test-binary"
 	if runtime.GOOS == "windows" {
 		binName = "test-binary.exe"
 	}
-	
+
 	buildCmd := exec.Command("go", "build", "-ldflags", "-X main.version="+version, "-o", binName, ".")
 	buildCmd.Dir = projectRoot
 	if err := buildCmd.Run(); err != nil {
