@@ -305,14 +305,16 @@ create_release_issue() {
     
     if [[ -n "$labels" ]]; then
         # Try to create with labels first
-        issue_url=$(gh issue create \
+        local create_error
+        create_error=$(gh issue create \
             --title "$issue_title" \
             --body-file "$template_file" \
-            --label "$labels" 2>/dev/null || echo "")
+            --label "$labels" 2>&1) && issue_url="$create_error" || issue_url=""
         
         # If label creation failed, try without labels
         if [[ -z "$issue_url" ]]; then
-            log_warning "Failed to create issue with labels, trying without labels..."
+            log_warning "Failed to create issue with labels: $create_error"
+            log_warning "Trying without labels..."
             issue_url=$(gh issue create \
                 --title "$issue_title" \
                 --body-file "$template_file" 2>/dev/null || echo "")
