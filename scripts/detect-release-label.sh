@@ -100,8 +100,9 @@ else
         OWNER=$(echo "$REPO_INFO" | jq -r '.owner.login')
         REPO_NAME=$(echo "$REPO_INFO" | jq -r '.name')
     else
-        OWNER=""
-        REPO_NAME=""
+        echo -e "${RED}Error: Unable to determine repository owner/name${NC}" >&2
+        echo "Please check GitHub CLI authentication or specify repository with -r option" >&2
+        exit 3
     fi
 fi
 

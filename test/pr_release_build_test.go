@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -163,10 +164,19 @@ func TestVersionEmbedding(t *testing.T) {
 	if err := buildCmd.Run(); err != nil {
 		t.Fatalf("Failed to build with version embedding: %v", err)
 	}
-	defer os.Remove(filepath.Join(projectRoot, "test-binary"))
+	defer func() {
+		os.Remove(filepath.Join(projectRoot, "test-binary"))
+		if runtime.GOOS == "windows" {
+			os.Remove(filepath.Join(projectRoot, "test-binary.exe"))
+		}
+	}()
 
 	// Test version command
-	testCmd := exec.Command("./test-binary", "version")
+	bin := "test-binary"
+	if runtime.GOOS == "windows" {
+		bin += ".exe"
+	}
+	testCmd := exec.Command(filepath.Join(".", bin), "version")
 	testCmd.Dir = projectRoot
 	output, err := testCmd.CombinedOutput()
 	if err != nil {

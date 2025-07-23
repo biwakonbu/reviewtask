@@ -60,18 +60,18 @@ jobs:
         if [[ -n "$APPLIED_LABEL" ]]; then
           RELEASE_TYPE="${APPLIED_LABEL#release:}"
           
-          cat << EOF | gh pr comment ${{ github.event.pull_request.number }} --body-file -
-🏷️ **Auto-labeling completed**
-
-This PR has been automatically labeled with \`${APPLIED_LABEL}\` based on linked issues in the Development section.
-
-**Release Type**: ${RELEASE_TYPE^} release
-**How it works**: 
-1. ✅ Check Development section for linked issues
-2. ✅ Extract release labels from linked issues  
-3. ✅ Apply highest priority label to PR (major > minor > patch)
-4. ✅ Default to \`release:minor\` if no labels found
-
-This ensures consistent release labeling and enables automated release processes.
+          cat <<EOF | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+          🏷️ **Auto-labeling completed**
+          
+          This PR has been automatically labeled with \`${APPLIED_LABEL}\` based on linked issues in the Development section.
+          
+          **Release Type**: ${RELEASE_TYPE^} release
+          **How it works**:
+          1. ✅ Check Development section for linked issues
+          2. ✅ Extract release labels from linked issues
+          3. ✅ Apply highest priority label to PR (major > minor > patch)
+          4. ✅ Default to \`release:minor\` if no labels found
+          
+          This ensures consistent release labeling and enables automated release processes.
 EOF
         fi
