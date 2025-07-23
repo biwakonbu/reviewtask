@@ -184,7 +184,8 @@ create_release() {
     # Bump version
     log_info "Bumping version from $current_version ($release_type)"
     local new_version
-    new_version=$("$VERSION_SCRIPT" bump "$release_type")
+    # Capture only the version number from the output, filtering out log messages
+    new_version=$("$VERSION_SCRIPT" bump "$release_type" 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
     
     if [ "$dry_run" = true ]; then
         log_info "DRY RUN: Would create release v$new_version"
