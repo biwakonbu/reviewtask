@@ -213,11 +213,16 @@ check_existing_installation() {
     local binary_path="$BIN_DIR/$BINARY_NAME"
     
     if [[ -f "$binary_path" ]] && [[ "$FORCE" != "true" ]]; then
-        print_warning "reviewtask is already installed at $binary_path"
         local current_version
         current_version=$("$binary_path" version 2>/dev/null | head -1 | awk '{print $3}' || echo "unknown")
-        print_info "Current version: $current_version"
-        print_info "Use --force to overwrite the existing installation"
+        
+        if [[ "$VERBOSE" == "true" ]]; then
+            print_warning "reviewtask is already installed at $binary_path"
+            print_info "Current version: $current_version"
+            print_info "Use --force to overwrite the existing installation"
+        else
+            print_error "reviewtask $current_version is already installed. Use --force to overwrite."
+        fi
         exit 1
     fi
 }

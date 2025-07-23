@@ -155,10 +155,11 @@ test_argument_parsing() {
     # Test command line argument parsing
     bash -c '
         source '"$INSTALL_SCRIPT"'
-        parse_args --version v1.2.3 --bin-dir /tmp/test --force
+        parse_args --version v1.2.3 --bin-dir /tmp/test --force --verbose
         [[ "$VERSION" == "v1.2.3" ]] &&
         [[ "$BIN_DIR" == "/tmp/test" ]] &&
-        [[ "$FORCE" == "true" ]]
+        [[ "$FORCE" == "true" ]] &&
+        [[ "$VERBOSE" == "true" ]]
     ' >/dev/null 2>&1
 }
 
@@ -238,6 +239,53 @@ test_mock_installation() {
     ' >/dev/null 2>&1
 }
 
+test_verbose_output() {
+    # Test verbose vs non-verbose output modes
+    local temp_output
+    temp_output=$(mktemp)
+    
+    # Test that verbose mode produces more output
+    bash -c '
+        source '"$INSTALL_SCRIPT"'
+        VERBOSE=true
+        print_verbose "This should appear in verbose mode"
+        print_progress "This should always appear"
+    ' > "$temp_output" 2>&1
+    
+    local verbose_lines
+    verbose_lines=$(wc -l < "$temp_output")
+    
+    # Test non-verbose mode
+    bash -c '
+        source '"$INSTALL_SCRIPT"'
+        VERBOSE=false
+        print_verbose "This should NOT appear in non-verbose mode"
+        print_progress "This should always appear"
+    ' > "$temp_output" 2>&1
+    
+    local quiet_lines
+    quiet_lines=$(wc -l < "$temp_output")
+    
+    rm -f "$temp_output"
+    
+    # Verbose mode should produce more output
+    [[ $verbose_lines -gt $quiet_lines ]]
+}
+
+test_output_functions() {
+    # Test that all output functions work correctly
+    bash -c '
+        source '"$INSTALL_SCRIPT"'
+        
+        # Test all output functions
+        print_info "Info message" >/dev/null 2>&1 &&
+        print_success "Success message" >/dev/null 2>&1 &&
+        print_warning "Warning message" >/dev/null 2>&1 &&
+        print_error "Error message" >/dev/null 2>&1 &&
+        print_progress "Progress message" >/dev/null 2>&1
+    '
+}
+
 # Test PowerShell script syntax (if PowerShell is available)
 test_powershell_syntax() {
     local ps_script="$SCRIPT_DIR/install.ps1"
@@ -283,6 +331,8 @@ main() {
     run_test "Error Handling" test_error_handling
     run_test "Script Permissions" test_script_permissions
     run_test "Mock Installation" test_mock_installation
+    run_test "Verbose Output Mode" test_verbose_output
+    run_test "Output Functions" test_output_functions
     run_test "PowerShell Script Syntax" test_powershell_syntax
     
     # Cleanup
