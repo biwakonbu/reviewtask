@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/reviewtask)](https://goreportcard.com/report/github.com/biwakonbu/reviewtask)
 [![GoDoc](https://godoc.org/github.com/biwakonbu/reviewtask?status.svg)](https://godoc.org/github.com/biwakonbu/reviewtask)
 
-A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers.
+A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers to address feedback systematically.
 
 ## Features
 
