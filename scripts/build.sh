@@ -22,6 +22,11 @@ VERSION=${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "d
 COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Sanitize version information (remove newlines and whitespace)
+VERSION=$(echo "${VERSION}" | tr -d '\n\r' | xargs)
+COMMIT_HASH=$(echo "${COMMIT_HASH}" | tr -d '\n\r' | xargs)
+BUILD_DATE=$(echo "${BUILD_DATE}" | tr -d '\n\r' | xargs)
+
 # Build flags
 LDFLAGS="-s -w -X main.version=${VERSION} -X main.commitHash=${COMMIT_HASH} -X main.buildDate=${BUILD_DATE}"
 
