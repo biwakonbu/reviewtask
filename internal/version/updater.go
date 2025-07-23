@@ -127,7 +127,7 @@ func (u *BinaryUpdater) GetChecksumURL(version string) string {
 		version = "v" + version
 	}
 
-	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/checksums.txt",
+	return fmt.Sprintf("https://github.com/%s/%s/releases/download/%s/SHA256SUMS",
 		u.owner, u.repo, version)
 }
 

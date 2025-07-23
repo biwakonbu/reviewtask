@@ -337,7 +337,8 @@ func TestAssetNamingConventions(t *testing.T) {
 		scriptText := string(content)
 
 		// Check for consistent naming pattern
-		namingPattern := regexp.MustCompile(`\$\{BINARY_NAME\}-\$\{VERSION\}-\$\{goos\}-\$\{goarch\}`)
+		// Check for the updated naming pattern that includes version_with_v
+		namingPattern := regexp.MustCompile(`\$\{BINARY_NAME\}-\$\{version_with_v\}-\$\{goos\}-\$\{goarch\}`)
 		if !namingPattern.MatchString(scriptText) {
 			t.Error("Build script does not follow expected asset naming convention")
 		}

@@ -84,7 +84,12 @@ build_all() {
     for platform in "${PLATFORMS[@]}"; do
         local goos=${platform%/*}
         local goarch=${platform#*/}
-        local output_name="${BINARY_NAME}-${VERSION}-${goos}-${goarch}"
+        # Ensure version has v prefix for filename consistency with updater
+        local version_with_v="${VERSION}"
+        if [[ ! "${VERSION}" =~ ^v ]]; then
+            version_with_v="v${VERSION}"
+        fi
+        local output_name="${BINARY_NAME}-${version_with_v}-${goos}-${goarch}"
         
         if [ "${goos}" = "windows" ]; then
             output_name="${output_name}.exe"
@@ -118,14 +123,21 @@ create_packages() {
     
     cd "${DIST_DIR}"
     
-    for file in ${BINARY_NAME}-${VERSION}-*; do
+    # Handle version with v prefix for filename consistency
+    local version_pattern="${VERSION}"
+    if [[ ! "${VERSION}" =~ ^v ]]; then
+        version_pattern="v${VERSION}"
+    fi
+    for file in ${BINARY_NAME}-${version_pattern}-*; do
         if [[ "${file}" == *"windows"* ]]; then
             local zip_name="${file%.*}.zip"
+            # Create zip with original name for Windows
             zip -q "${zip_name}" "${file}"
             log_success "Created ${zip_name}"
         else
             local tar_name="${file}.tar.gz"
-            tar -czf "${tar_name}" "${file}"
+            # Create tar.gz with binary renamed to just 'reviewtask' for easier extraction
+            tar -czf "${tar_name}" --transform "s|${file}|reviewtask|" "${file}"
             log_success "Created ${tar_name}"
         fi
     done
