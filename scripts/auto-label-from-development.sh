@@ -110,10 +110,16 @@ if [[ -z "$PR_NUMBER" ]]; then
     exit 3
 fi
 
-# Check if gh CLI is installed
+# Check prerequisites
 if ! command -v gh &> /dev/null; then
     log_error "GitHub CLI (gh) is not installed"
     echo "Please install it from: https://cli.github.com" >&2
+    exit 3
+fi
+
+if ! command -v jq &> /dev/null; then
+    log_error "jq is not installed"
+    echo "Please install it from your package manager (e.g., apt install jq, brew install jq)" >&2
     exit 3
 fi
 

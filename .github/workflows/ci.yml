@@ -125,17 +125,97 @@ jobs:
       shell: powershell
     
     - name: Run tests
+      id: test
       shell: bash
       run: |
+        # Set up test command based on OS
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./...
+          TEST_CMD="go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         elif [[ "$RUNNER_OS" == "Linux" ]]; then
-          go test -v -race -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./...
+          TEST_CMD="go test -v -race -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         else
           # macOS: Run tests sequentially with coverage to avoid race condition issues
-          go test -v -p 1 -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out ./...
+          TEST_CMD="go test -v -p 1 -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         fi
+        
+        echo "Running: $TEST_CMD"
+        
+        # Run tests and capture exit code
+        set +e
+        $TEST_CMD
+        TEST_EXIT_CODE=$?
+        set -e
+        
+        # If tests failed, provide detailed debugging information
+        if [ $TEST_EXIT_CODE -ne 0 ]; then
+          echo "::error::Tests failed with exit code $TEST_EXIT_CODE"
+          echo "::group::Failed Test Summary"
+          echo "Exit code: $TEST_EXIT_CODE"
+          echo "Test command: $TEST_CMD"
+          echo "Working directory: $(pwd)"
+          echo "Go version: $(go version)"
+          echo "Environment variables:"
+          env | grep -E "^(GO|CI|GITHUB_)" | sort
+          echo "::endgroup::"
+          
+          # Try to extract specific test failures
+          echo "::group::Test Failure Details"
+          if [ -f coverage-${{ matrix.os }}.out ]; then
+            echo "Coverage file exists, but tests failed"
+            # Try to find FAIL lines in recent output
+            go test -v ./... 2>&1 | grep -E "^(FAIL|--- FAIL:|Error:|panic:)" || true
+          else
+            echo "No coverage file generated"
+          fi
+          echo "::endgroup::"
+          
+          exit $TEST_EXIT_CODE
+        fi
+        
+        echo "All tests passed successfully!"
     
+    - name: Debug test failures
+      if: failure() && steps.test.outcome == 'failure'
+      shell: bash
+      run: |
+        echo "::group::Detailed Test Failure Analysis"
+        echo "Analyzing test failures for debugging..."
+        
+        # Run tests again with JSON output for structured analysis
+        echo "Re-running failed tests with JSON output..."
+        set +e
+        go test -json ./... 2>&1 | tee test-output.json | jq -r 'select(.Action == "fail" or .Test != null and .Output != null) | "\(.Time // "") \(.Action // "") \(.Package // "") \(.Test // "") \(.Output // "")"' || true
+        set -e
+        
+        # Look for specific error patterns
+        echo "::endgroup::"
+        
+        echo "::group::Common Error Patterns"
+        if [ -f test-output.json ]; then
+          echo "Race conditions:"
+          grep -i "race" test-output.json || echo "No race conditions detected"
+          
+          echo -e "\nPanics:"
+          grep -i "panic" test-output.json || echo "No panics detected"
+          
+          echo -e "\nTimeout errors:"
+          grep -i "timeout" test-output.json || echo "No timeout errors detected"
+          
+          echo -e "\nPermission errors:"
+          grep -i "permission" test-output.json || echo "No permission errors detected"
+        fi
+        echo "::endgroup::"
+
+    - name: Upload test artifacts on failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-failure-logs-${{ matrix.os }}-${{ matrix.go-version }}
+        path: |
+          test-output.json
+          coverage-*.out
+        retention-days: 7
+
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       uses: codecov/codecov-action@v5
@@ -176,11 +256,26 @@ jobs:
     
     - name: Check formatting
       run: |
-        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+        echo "Checking code formatting..."
+        UNFORMATTED_FILES=$(gofmt -s -l .)
+        if [ -n "$UNFORMATTED_FILES" ]; then
+          echo "::error::Code formatting issues detected"
+          echo "::group::Files requiring formatting"
           echo "The following files are not formatted correctly:"
-          gofmt -s -l .
+          echo "$UNFORMATTED_FILES"
+          echo "::endgroup::"
+          
+          echo "::group::Formatting differences"
+          for file in $UNFORMATTED_FILES; do
+            echo "=== $file ==="
+            gofmt -s -d "$file"
+          done
+          echo "::endgroup::"
+          
+          echo "To fix formatting issues, run: gofmt -s -w ."
           exit 1
         fi
+        echo "All files are properly formatted!"
 
   vet:
     name: Go Vet
@@ -195,7 +290,28 @@ jobs:
         go-version: '1.23'
     
     - name: Run go vet
-      run: go vet ./...
+      run: |
+        echo "Running go vet..."
+        set +e
+        go vet ./... 2>&1 | tee vet.log
+        VET_EXIT_CODE=$?
+        set -e
+        
+        if [ $VET_EXIT_CODE -ne 0 ]; then
+          echo "::error::go vet found issues"
+          echo "::group::Go Vet Issues"
+          cat vet.log
+          echo "::endgroup::"
+          
+          echo "::group::Common go vet issues"
+          echo "1. Printf format errors: Check format strings match arguments"
+          echo "2. Unreachable code: Remove code after return/panic statements"
+          echo "3. Struct tag issues: Ensure struct tags are properly formatted"
+          echo "4. Copy lock issues: Don't copy types containing sync.Mutex"
+          echo "::endgroup::"
+          exit $VET_EXIT_CODE
+        fi
+        echo "go vet passed successfully!"
 
   # security:
   #   name: Security Scan
@@ -230,12 +346,48 @@ jobs:
         go-version: '1.23'
     
     - name: Build binary
-      run: go build -v .
+      id: build
+      shell: bash
+      run: |
+        echo "Building binary..."
+        set +e
+        go build -v . 2>&1 | tee build.log
+        BUILD_EXIT_CODE=$?
+        set -e
+        
+        if [ $BUILD_EXIT_CODE -ne 0 ]; then
+          echo "::error::Build failed with exit code $BUILD_EXIT_CODE"
+          echo "::group::Build Error Details"
+          echo "Exit code: $BUILD_EXIT_CODE"
+          echo "Working directory: $(pwd)"
+          echo "Go version: $(go version)"
+          echo "Build output:"
+          cat build.log
+          echo "::endgroup::"
+          exit $BUILD_EXIT_CODE
+        fi
+        
+        echo "Build completed successfully!"
     
     - name: Test binary execution
-      run: ./reviewtask --help
-      if: matrix.os != 'windows-latest'
-    
-    - name: Test binary execution (Windows)
-      run: .\reviewtask.exe --help
-      if: matrix.os == 'windows-latest'
+      shell: bash
+      run: |
+        echo "Testing binary execution..."
+        if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+          ./reviewtask.exe --help || {
+            echo "::error::Failed to execute binary on Windows"
+            echo "Binary info:"
+            ls -la reviewtask.exe || true
+            file reviewtask.exe || true
+            exit 1
+          }
+        else
+          ./reviewtask --help || {
+            echo "::error::Failed to execute binary on ${{ matrix.os }}"
+            echo "Binary info:"
+            ls -la reviewtask || true
+            file reviewtask || true
+            exit 1
+          }
+        fi
+        echo "Binary execution test passed!"
