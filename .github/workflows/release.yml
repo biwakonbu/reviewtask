@@ -282,15 +282,14 @@ jobs:
     - name: Test binary execution
       run: |
         # Extract and test Linux amd64 binary
-        VERSION_CLEAN="${{ needs.release.outputs.version_clean || github.ref_name }}"
-        VERSION_CLEAN="${VERSION_CLEAN#v}"
+        VERSION="${{ needs.release.outputs.version || github.ref_name }}"
         
-        if [ -f "reviewtask-${VERSION_CLEAN}-linux-amd64.tar.gz" ]; then
-          tar -xzf "reviewtask-${VERSION_CLEAN}-linux-amd64.tar.gz"
-          chmod +x "reviewtask-${VERSION_CLEAN}-linux-amd64"
+        if [ -f "reviewtask-${VERSION}-linux-amd64.tar.gz" ]; then
+          tar -xzf "reviewtask-${VERSION}-linux-amd64.tar.gz"
+          chmod +x "reviewtask-${VERSION}-linux-amd64"
           
           # Test version command
-          ./"reviewtask-${VERSION_CLEAN}-linux-amd64" version
+          ./"reviewtask-${VERSION}-linux-amd64" version
         else
           echo "Linux amd64 binary not found"
           ls -la
