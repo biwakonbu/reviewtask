@@ -262,8 +262,13 @@ prepare_release() {
     
     if [ "$dry_run" = true ]; then
         log_info "DRY RUN: Simulating release preparation..."
-        # Skip prerequisites check for dry-run in CI environment
-        log_info "DRY RUN: Skipping prerequisites check"
+        # Skip prerequisites check only if in CI environment
+        if [ "$CI" = "true" ] || [ -n "$GITHUB_ACTIONS" ]; then
+            log_info "DRY RUN: Skipping prerequisites check (CI environment detected)"
+        else
+            log_info "DRY RUN: Running prerequisites check on developer workstation"
+            check_prerequisites
+        fi
     else
         check_prerequisites
     fi
