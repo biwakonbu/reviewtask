@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -9,6 +10,16 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 	"reviewtask/internal/storage"
+)
+
+// UI layout constants
+const (
+	dashboardTitlePrefix   = "┌─ ReviewTask Status Dashboard "
+	dashboardBorderPadding = 2
+	progressBarPadding     = 10
+	taskBoxWidth           = 75  // Width of task content boxes
+	taskBoxPadding         = 6   // Padding for task box content
+	footerPadding          = 58  // Padding for footer text
 )
 
 // Model represents the TUI dashboard state
@@ -22,6 +33,7 @@ type Model struct {
 	showAll        bool
 	specificPR     int
 	branch         string
+	loadError      error
 }
 
 // NewModel creates a new TUI dashboard model
@@ -51,8 +63,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 	case tasksLoadedMsg:
-		m.tasks = msg.tasks
-		m.stats = msg.stats
+		if msg.err != nil {
+			// Store error for display
+			m.loadError = msg.err
+		} else {
+			m.tasks = msg.tasks
+			m.stats = msg.stats
+			m.loadError = nil
+		}
 
 	case tickMsg:
 		return m, tea.Batch(
@@ -89,10 +107,23 @@ func (m Model) View() string {
 	var sections []string
 
 	// Header
-	header := borderStyle.Width(m.width - 2).Render(
-		titleStyle.Render("┌─ ReviewTask Status Dashboard " + strings.Repeat("─", m.width-34) + "┐"),
+	headerWidth := m.width - dashboardBorderPadding
+	titleLength := len(dashboardTitlePrefix) + 1 // +1 for closing "┐"
+	header := borderStyle.Width(headerWidth).Render(
+		titleStyle.Render(dashboardTitlePrefix + strings.Repeat("─", m.width-titleLength-1) + "┐"),
 	)
 	sections = append(sections, header)
+
+	// Error display
+	if m.loadError != nil {
+		errorStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
+		errorMsg := fmt.Sprintf("│ ⚠️  Error loading tasks: %s", m.loadError.Error())
+		errorLine := errorStyle.Render(padToWidth(errorMsg, m.width-3)) + " │"
+		sections = append(sections, errorLine)
+		sections = append(sections, "│"+strings.Repeat(" ", m.width-2)+"│")
+	}
 
 	// Progress Overview
 	sections = append(sections, m.renderProgressSection())
@@ -107,12 +138,13 @@ func (m Model) View() string {
 	sections = append(sections, m.renderNextTasks())
 
 	// Footer
-	footer := fmt.Sprintf("│ Press Ctrl+C to exit                                    Last updated: %s │",
+	footer := fmt.Sprintf("│ Press Ctrl+C to exit%sLast updated: %s │",
+		strings.Repeat(" ", footerPadding-24), // 24 is the length of "Press Ctrl+C to exit" + "Last updated: "
 		m.lastUpdate.Format("15:04"))
 	sections = append(sections, footer)
 
 	// Bottom border
-	sections = append(sections, "└"+strings.Repeat("─", m.width-2)+"┘")
+	sections = append(sections, "└"+strings.Repeat("─", m.width-dashboardBorderPadding)+"┘")
 
 	return strings.Join(sections, "\n")
 }
@@ -127,7 +159,7 @@ func (m Model) renderProgressSection() string {
 	percentage := float64(completed) / float64(total) * 100
 
 	// Progress bar
-	barWidth := m.width - 10
+	barWidth := m.width - progressBarPadding
 	filledWidth := int(float64(barWidth) * percentage / 100)
 	emptyWidth := barWidth - filledWidth
 
@@ -142,7 +174,7 @@ func (m Model) renderProgressSection() string {
 }
 
 func (m Model) renderEmptyProgress() string {
-	barWidth := m.width - 10
+	barWidth := m.width - progressBarPadding
 	progressBar := strings.Repeat("░", barWidth)
 
 	return fmt.Sprintf(`│                                                                               │
@@ -162,10 +194,13 @@ func (m Model) renderTaskSummary() string {
 		m.stats.StatusCounts["cancel"])
 
 	return fmt.Sprintf(`│ Task Summary                                                                  │
-│ ┌─────────────────────────────────────────────────────────────────────────┐   │
+│ ┌%s┐   │
 │ │%s│   │
-│ └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │`, summary)
+│ └%s┘   │
+│                                                                               │`, 
+		strings.Repeat("─", taskBoxWidth-2),
+		summary,
+		strings.Repeat("─", taskBoxWidth-2))
 }
 
 func (m Model) renderCurrentTask() string {
@@ -175,14 +210,17 @@ func (m Model) renderCurrentTask() string {
 	if len(doingTasks) > 0 {
 		task := doingTasks[0]
 		taskLine := fmt.Sprintf("1. %s  %s    %s", generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-		content = fmt.Sprintf("│ %s", padToWidth(taskLine, m.width-6)) + " │"
+		content = fmt.Sprintf("│ %s", padToWidth(taskLine, m.width-taskBoxPadding)) + " │"
 	}
 
 	return fmt.Sprintf(`│ Current Task                                                                  │
-│ ┌─────────────────────────────────────────────────────────────────────────┐   │
+│ ┌%s┐   │
 %s   │
-│ └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │`, content)
+│ └%s┘   │
+│                                                                               │`, 
+		strings.Repeat("─", taskBoxWidth-2),
+		content,
+		strings.Repeat("─", taskBoxWidth-2))
 }
 
 func (m Model) renderNextTasks() string {
@@ -201,7 +239,7 @@ func (m Model) renderNextTasks() string {
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
 			taskLine := fmt.Sprintf("%d. %s  %s    %s", i+1, generateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-			line := fmt.Sprintf("│ │ %s", padToWidth(taskLine, m.width-10)) + " │   │"
+			line := fmt.Sprintf("│ │ %s", padToWidth(taskLine, m.width-progressBarPadding)) + " │   │"
 			taskLines = append(taskLines, line)
 		}
 	}
@@ -209,10 +247,13 @@ func (m Model) renderNextTasks() string {
 	content := strings.Join(taskLines, "\n")
 
 	return fmt.Sprintf(`│ Next Tasks (up to 5)                                                         │
-│ ┌─────────────────────────────────────────────────────────────────────────┐   │
+│ ┌%s┐   │
 %s
-│ └─────────────────────────────────────────────────────────────────────────┘   │
-│                                                                               │`, content)
+│ └%s┘   │
+│                                                                               │`, 
+		strings.Repeat("─", taskBoxWidth-2),
+		content,
+		strings.Repeat("─", taskBoxWidth-2))
 }
 
 // Helper functions
@@ -235,13 +276,9 @@ func sortTasksByPriority(tasks []storage.Task) {
 		"low":      3,
 	}
 
-	for i := 0; i < len(tasks)-1; i++ {
-		for j := 0; j < len(tasks)-i-1; j++ {
-			if priorityOrder[tasks[j].Priority] > priorityOrder[tasks[j+1].Priority] {
-				tasks[j], tasks[j+1] = tasks[j+1], tasks[j]
-			}
-		}
-	}
+	sort.Slice(tasks, func(i, j int) bool {
+		return priorityOrder[tasks[i].Priority] < priorityOrder[tasks[j].Priority]
+	})
 }
 
 func generateTaskID(task storage.Task) string {
@@ -284,6 +321,7 @@ func truncateString(s string, width int) string {
 type tasksLoadedMsg struct {
 	tasks []storage.Task
 	stats TaskStats
+	err   error
 }
 
 type tickMsg time.Time
@@ -297,35 +335,44 @@ func (m Model) loadTasks() tea.Msg {
 
 	if m.specificPR > 0 {
 		allTasks, err = m.storageManager.GetTasksByPR(m.specificPR)
+		if err != nil {
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+		}
 	} else if m.branch != "" {
 		prNumbers, err := m.storageManager.GetPRsForBranch(m.branch)
-		if err == nil {
-			for _, prNumber := range prNumbers {
-				tasks, err := m.storageManager.GetTasksByPR(prNumber)
-				if err == nil {
-					allTasks = append(allTasks, tasks...)
-				}
+		if err != nil {
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+		}
+		for _, prNumber := range prNumbers {
+			tasks, err := m.storageManager.GetTasksByPR(prNumber)
+			if err != nil {
+				// Log individual PR errors but continue processing others
+				continue
 			}
+			allTasks = append(allTasks, tasks...)
 		}
 	} else if m.showAll {
 		allTasks, err = m.storageManager.GetAllTasks()
+		if err != nil {
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+		}
 	} else {
 		currentBranch, err := m.storageManager.GetCurrentBranch()
-		if err == nil {
-			prNumbers, err := m.storageManager.GetPRsForBranch(currentBranch)
-			if err == nil {
-				for _, prNumber := range prNumbers {
-					tasks, err := m.storageManager.GetTasksByPR(prNumber)
-					if err == nil {
-						allTasks = append(allTasks, tasks...)
-					}
-				}
-			}
+		if err != nil {
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
 		}
-	}
-
-	if err != nil {
-		allTasks = []storage.Task{}
+		prNumbers, err := m.storageManager.GetPRsForBranch(currentBranch)
+		if err != nil {
+			return tasksLoadedMsg{tasks: []storage.Task{}, stats: TaskStats{}, err: err}
+		}
+		for _, prNumber := range prNumbers {
+			tasks, err := m.storageManager.GetTasksByPR(prNumber)
+			if err != nil {
+				// Log individual PR errors but continue processing others
+				continue
+			}
+			allTasks = append(allTasks, tasks...)
+		}
 	}
 
 	stats := calculateTaskStats(allTasks)
@@ -333,6 +380,7 @@ func (m Model) loadTasks() tea.Msg {
 	return tasksLoadedMsg{
 		tasks: allTasks,
 		stats: stats,
+		err:   nil,
 	}
 }
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -113,7 +114,11 @@ func TestStatusCommandIntegration(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		binaryName += ".exe"
 	}
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, binaryName), "..")
+	// Build from the module root directory
+	moduleRoot, err := filepath.Abs("..")
+	require.NoError(t, err)
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, binaryName))
+	buildCmd.Dir = moduleRoot
 	err = buildCmd.Run()
 	require.NoError(t, err)
 
@@ -303,10 +308,8 @@ func TestCharacterWidthCalculation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			// This would test the actual runewidth calculation
-			// In real implementation, this would call the padToWidth or truncateString functions
-			// For now, we're just documenting the expected behavior
-			t.Logf("Text: %s, Expected width: %d", tc.text, tc.expectedWidth)
+			actualWidth := runewidth.StringWidth(tc.text)
+			assert.Equal(t, tc.expectedWidth, actualWidth, "Width calculation mismatch for: %s", tc.text)
 		})
 	}
 }

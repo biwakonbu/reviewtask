@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -146,7 +147,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
 	completionRate := float64(completed) / float64(total) * 100
 
-	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d)\n", completionRate, completed, total)
+	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
 	fmt.Println()
 
 	// Progress bar
@@ -242,14 +243,9 @@ func sortTasksByPriority(tasks []storage.Task) {
 		"low":      3,
 	}
 
-	// Bubble sort for simplicity
-	for i := 0; i < len(tasks)-1; i++ {
-		for j := 0; j < len(tasks)-i-1; j++ {
-			if priorityOrder[tasks[j].Priority] > priorityOrder[tasks[j+1].Priority] {
-				tasks[j], tasks[j+1] = tasks[j+1], tasks[j]
-			}
-		}
-	}
+	sort.Slice(tasks, func(i, j int) bool {
+		return priorityOrder[tasks[i].Priority] < priorityOrder[tasks[j].Priority]
+	})
 }
 
 type TaskStats struct {
