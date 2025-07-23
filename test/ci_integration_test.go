@@ -1,26 +1,26 @@
 package test
 
 import (
+	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"gopkg.in/yaml.v3"
 )
 
 // CIWorkflow represents the structure of a GitHub Actions workflow
 type CIWorkflow struct {
-	Name string `yaml:"name"`
+	Name string                 `yaml:"name"`
 	On   map[string]interface{} `yaml:"on"`
-	Jobs map[string]CIJob `yaml:"jobs"`
+	Jobs map[string]CIJob       `yaml:"jobs"`
 }
 
 // CIJob represents a job in the workflow
 type CIJob struct {
-	Name     string              `yaml:"name"`
-	RunsOn   interface{}         `yaml:"runs-on"`
+	Name     string                 `yaml:"name"`
+	RunsOn   interface{}            `yaml:"runs-on"`
 	Strategy map[string]interface{} `yaml:"strategy,omitempty"`
-	Steps    []CIStep            `yaml:"steps"`
+	Steps    []CIStep               `yaml:"steps"`
 }
 
 // CIStep represents a step in a job
