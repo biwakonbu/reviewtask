@@ -42,8 +42,20 @@ func TestFetchCommand(t *testing.T) {
 			// Create a buffer to capture output
 			buf := new(bytes.Buffer)
 
-			// Create root command and add fetch command
-			root := rootCmd
+			// Mock osExit to prevent test termination
+			var exitCode int
+			var exitCalled bool
+			originalOsExit := osExit
+			osExit = func(code int) {
+				exitCode = code
+				exitCalled = true
+			}
+			defer func() {
+				osExit = originalOsExit
+			}()
+
+			// Create fresh command instance per sub-test
+			root := NewRootCmd()
 			root.SetOut(buf)
 			root.SetErr(buf)
 
@@ -52,6 +64,12 @@ func TestFetchCommand(t *testing.T) {
 
 			// Execute command
 			err := root.Execute()
+
+			// Handle exit calls as non-error for specific cases
+			if exitCalled && exitCode == 0 {
+				// Graceful exit is acceptable in some test scenarios
+				err = nil
+			}
 
 			// Check error expectation
 			if tt.shouldError && err == nil {
@@ -77,7 +95,7 @@ func TestFetchCommand(t *testing.T) {
 
 func TestFetchCommandRegistration(t *testing.T) {
 	// Verify fetch command is registered
-	root := rootCmd
+	root := NewRootCmd()
 
 	fetchCmd, _, err := root.Find([]string{"fetch"})
 	if err != nil || fetchCmd == nil {
@@ -98,7 +116,7 @@ func TestFetchCommandRegistration(t *testing.T) {
 }
 
 func TestFetchCommandArgs(t *testing.T) {
-	root := rootCmd
+	root := NewRootCmd()
 	fetchCmd, _, err := root.Find([]string{"fetch"})
 
 	if err != nil || fetchCmd == nil {

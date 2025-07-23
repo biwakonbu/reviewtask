@@ -50,8 +50,8 @@ func TestFetchCommandIntegration(t *testing.T) {
 			// Create a buffer to capture output
 			buf := new(bytes.Buffer)
 
-			// Get root command
-			root := rootCmd
+			// Get fresh root command instance
+			root := NewRootCmd()
 			root.SetOut(buf)
 			root.SetErr(buf)
 
@@ -83,8 +83,8 @@ func TestRootCommandDefaultBehavior(t *testing.T) {
 	// Create a buffer to capture output
 	buf := new(bytes.Buffer)
 
-	// Get root command
-	root := rootCmd
+	// Get fresh root command instance
+	root := NewRootCmd()
 	root.SetOut(buf)
 	root.SetErr(buf)
 

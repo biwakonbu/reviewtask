@@ -10,7 +10,7 @@ import (
 // TestRootCommandRegistration tests that commands are registered correctly
 func TestRootCommandRegistration(t *testing.T) {
 	// Get the root command
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Expected commands that should be registered
 	expectedCommands := map[string]bool{
@@ -47,7 +47,7 @@ func TestRootCommandRegistration(t *testing.T) {
 // TestNoDuplicateCommands tests that no commands are registered multiple times
 func TestNoDuplicateCommands(t *testing.T) {
 	// Get the root command
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Map to track command names
 	commandNames := make(map[string]int)
@@ -68,7 +68,7 @@ func TestNoDuplicateCommands(t *testing.T) {
 // TestCommandInitialization tests that all commands are properly initialized
 func TestCommandInitialization(t *testing.T) {
 	// Get the root command
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Test each command has proper configuration
 	for _, cmd := range root.Commands() {
@@ -112,7 +112,7 @@ func TestRootCommandHelp(t *testing.T) {
 
 // TestCommandStructure tests the overall command structure
 func TestCommandStructure(t *testing.T) {
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Test root command properties
 	if root.Use != "reviewtask" {
@@ -132,7 +132,7 @@ func TestCommandStructure(t *testing.T) {
 
 // TestSubcommandUniqueness tests that all subcommands have unique names and aliases
 func TestSubcommandUniqueness(t *testing.T) {
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Track all command names and aliases
 	usedNames := make(map[string]string) // name -> command that uses it
