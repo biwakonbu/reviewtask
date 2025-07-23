@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -107,12 +108,16 @@ func TestStatusCommandIntegration(t *testing.T) {
 	err = os.WriteFile(branchFile, []byte("123"), 0644)
 	require.NoError(t, err)
 
-	// Build the reviewtask binary
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, "reviewtask"), "..")
+	// Build the reviewtask binary with proper extension for Windows
+	binaryName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, binaryName), "..")
 	err = buildCmd.Run()
 	require.NoError(t, err)
 
-	reviewtaskPath := filepath.Join(testDir, "reviewtask")
+	reviewtaskPath := filepath.Join(testDir, binaryName)
 
 	t.Run("AI Mode Output", func(t *testing.T) {
 		cmd := exec.Command(reviewtaskPath, "status", "--pr", "123")
