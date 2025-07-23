@@ -5,8 +5,10 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tui"
 )
 
 var (
@@ -208,9 +210,16 @@ func generateTaskID(task storage.Task) string {
 
 // runHumanMode implements rich TUI dashboard with real-time updates
 func runHumanMode(storageManager *storage.Manager) error {
-	// TODO: Implement TUI dashboard using bubbletea
-	fmt.Println("Human Mode (TUI Dashboard) - Coming Soon!")
-	fmt.Println("Use 'reviewtask status' for AI mode output.")
+	// Import the TUI dashboard
+	model := tui.NewModel(storageManager, statusShowAll, statusSpecificPR, statusBranch)
+	
+	// Create and run the bubbletea program
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	
+	if _, err := p.Run(); err != nil {
+		return fmt.Errorf("error running TUI: %w", err)
+	}
+	
 	return nil
 }
 
