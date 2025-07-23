@@ -431,7 +431,7 @@ EOF
     log_success "Release issue creation completed!"
     echo
     echo "📋 Issue URL: $issue_url"
-    echo "🏷️  Labels: release, changelog, release:$release_type"
+    echo "🏷️  Labels: release:$release_type"
     echo "📝 Title: Release $version - ${release_type^} Release"
 }
 
