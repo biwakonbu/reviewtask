@@ -24,6 +24,7 @@ BIN_DIR="$DEFAULT_BIN_DIR"
 VERSION="$DEFAULT_VERSION"
 FORCE=false
 PRERELEASE=false
+VERBOSE=false
 
 # Print colored output
 print_info() {
