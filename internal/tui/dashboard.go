@@ -194,33 +194,27 @@ func (m Model) renderTaskSummary() string {
 		m.stats.StatusCounts["cancel"])
 
 	return fmt.Sprintf(`│ Task Summary                                                                  │
-│ ┌%s┐   │
-│ │%s│   │
-│ └%s┘   │
+│                                                                               │
+│ %s  │
 │                                                                               │`,
-		strings.Repeat("─", taskBoxWidth-2),
-		summary,
-		strings.Repeat("─", taskBoxWidth-2))
+		summary)
 }
 
 func (m Model) renderCurrentTask() string {
 	doingTasks := tasks.FilterTasksByStatus(m.tasks, "doing")
 
-	content := "│ アクティブなタスクはありません - すべて完了しています！                     │"
+	content := "  アクティブなタスクはありません - すべて完了しています！"
 	if len(doingTasks) > 0 {
 		task := doingTasks[0]
 		taskLine := fmt.Sprintf("1. %s  %s    %s", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-		content = fmt.Sprintf("│ %s", padToWidth(taskLine, m.width-taskBoxPadding)) + " │"
+		content = fmt.Sprintf("  %s", taskLine)
 	}
 
 	return fmt.Sprintf(`│ Current Task                                                                  │
-│ ┌%s┐   │
-%s   │
-│ └%s┘   │
+│                                                                               │
+│ %s  │
 │                                                                               │`,
-		strings.Repeat("─", taskBoxWidth-2),
-		content,
-		strings.Repeat("─", taskBoxWidth-2))
+		padToWidth(content, m.width-taskBoxPadding))
 }
 
 func (m Model) renderNextTasks() string {
@@ -229,7 +223,7 @@ func (m Model) renderNextTasks() string {
 
 	var taskLines []string
 	if len(todoTasks) == 0 {
-		taskLines = append(taskLines, "│ │ 待機中のタスクはありません                                               │   │")
+		taskLines = append(taskLines, "│   待機中のタスクはありません                                                  │")
 	} else {
 		maxDisplay := 5
 		if len(todoTasks) < maxDisplay {
@@ -238,8 +232,8 @@ func (m Model) renderNextTasks() string {
 
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
-			taskLine := fmt.Sprintf("%d. %s  %s    %s", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-			line := fmt.Sprintf("│ │ %s", padToWidth(taskLine, m.width-progressBarPadding)) + " │   │"
+			taskLine := fmt.Sprintf("  %d. %s  %s    %s", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+			line := fmt.Sprintf("│ %s  │", padToWidth(taskLine, m.width-taskBoxPadding))
 			taskLines = append(taskLines, line)
 		}
 	}
@@ -247,13 +241,10 @@ func (m Model) renderNextTasks() string {
 	content := strings.Join(taskLines, "\n")
 
 	return fmt.Sprintf(`│ Next Tasks (up to 5)                                                         │
-│ ┌%s┐   │
+│                                                                               │
 %s
-│ └%s┘   │
 │                                                                               │`,
-		strings.Repeat("─", taskBoxWidth-2),
-		content,
-		strings.Repeat("─", taskBoxWidth-2))
+		content)
 }
 
 // Helper functions
