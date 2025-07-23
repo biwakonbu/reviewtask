@@ -17,9 +17,9 @@ const (
 	dashboardTitlePrefix   = "┌─ ReviewTask Status Dashboard "
 	dashboardBorderPadding = 2
 	progressBarPadding     = 10
-	taskBoxWidth           = 75  // Width of task content boxes
-	taskBoxPadding         = 6   // Padding for task box content
-	footerPadding          = 58  // Padding for footer text
+	taskBoxWidth           = 75 // Width of task content boxes
+	taskBoxPadding         = 6  // Padding for task box content
+	footerPadding          = 58 // Padding for footer text
 )
 
 // Model represents the TUI dashboard state
@@ -197,7 +197,7 @@ func (m Model) renderTaskSummary() string {
 │ ┌%s┐   │
 │ │%s│   │
 │ └%s┘   │
-│                                                                               │`, 
+│                                                                               │`,
 		strings.Repeat("─", taskBoxWidth-2),
 		summary,
 		strings.Repeat("─", taskBoxWidth-2))
@@ -217,7 +217,7 @@ func (m Model) renderCurrentTask() string {
 │ ┌%s┐   │
 %s   │
 │ └%s┘   │
-│                                                                               │`, 
+│                                                                               │`,
 		strings.Repeat("─", taskBoxWidth-2),
 		content,
 		strings.Repeat("─", taskBoxWidth-2))
@@ -250,7 +250,7 @@ func (m Model) renderNextTasks() string {
 │ ┌%s┐   │
 %s
 │ └%s┘   │
-│                                                                               │`, 
+│                                                                               │`,
 		strings.Repeat("─", taskBoxWidth-2),
 		content,
 		strings.Repeat("─", taskBoxWidth-2))
