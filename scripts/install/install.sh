@@ -43,6 +43,18 @@ print_error() {
     echo -e "${RED}$1${NC}" >&2
 }
 
+# Conditional output - only shown in verbose mode
+print_verbose() {
+    if [[ "$VERBOSE" == "true" ]]; then
+        print_info "$1"
+    fi
+}
+
+# Clean progress indicator with checkmark
+print_progress() {
+    echo -e "${GREEN}✓${NC} $1"
+}
+
 # Show usage information
 usage() {
     cat << EOF
@@ -57,6 +69,7 @@ OPTIONS:
     --bin-dir DIR       Installation directory (default: ~/.local/bin)
     --force             Overwrite existing installation
     --prerelease        Include pre-release versions
+    --verbose           Show detailed installation information
     --help              Show this help message
 
 EXAMPLES:
@@ -101,6 +114,10 @@ parse_args() {
                 ;;
             --prerelease)
                 PRERELEASE=true
+                shift
+                ;;
+            --verbose)
+                VERBOSE=true
                 shift
                 ;;
             --help)
@@ -208,7 +225,7 @@ check_existing_installation() {
 # Create installation directory if it doesn't exist
 create_install_dir() {
     if [[ ! -d "$BIN_DIR" ]]; then
-        print_info "Creating installation directory: $BIN_DIR"
+        print_verbose "Creating installation directory: $BIN_DIR"
         if ! mkdir -p "$BIN_DIR" 2>/dev/null; then
             print_error "Failed to create directory $BIN_DIR"
             print_info "You may need to run with sudo or choose a different directory with --bin-dir"
@@ -230,7 +247,7 @@ download_with_verification() {
     local output_file="$2"
     local checksum_url="$3"
     
-    print_info "Downloading $url"
+    print_verbose "Downloading $url"
     
     # Download the binary
     if command -v curl >/dev/null 2>&1; then
@@ -260,7 +277,7 @@ download_with_verification() {
             return
         fi
 
-        print_info "Verifying checksum..."
+        print_verbose "Verifying checksum..."
         local expected_checksum
         if command -v curl >/dev/null 2>&1; then
             expected_checksum=$(curl -fsSL "$checksum_url" | grep "$(basename "$output_file")" | awk '{print $1}')
@@ -279,7 +296,7 @@ download_with_verification() {
                 rm -f "$output_file"
                 exit 1
             fi
-            print_success "Checksum verification passed"
+            print_verbose "Checksum verification passed"
         else
             print_error "Checksum not found for $(basename "$output_file"); aborting"
             rm -f "$output_file"
@@ -295,13 +312,13 @@ install_binary() {
     
     # Resolve latest version if needed
     if [[ "$version" == "latest" ]]; then
-        print_info "Resolving latest version..."
+        print_verbose "Resolving latest version..."
         version=$(get_latest_version)
         if [[ -z "$version" ]]; then
             print_error "Failed to determine latest version"
             exit 1
         fi
-        print_info "Latest version: $version"
+        print_verbose "Latest version: $version"
     fi
     
     validate_version "$version"
@@ -326,11 +343,18 @@ install_binary() {
     # Cleanup function with proper variable handling
     trap "rm -rf '$temp_dir'" EXIT
     
+    # Show simple progress or detailed information
+    if [[ "$VERBOSE" == "true" ]]; then
+        echo "Installing reviewtask $version..."
+    else
+        echo "Installing reviewtask $version..."
+    fi
+    
     # Download and verify the archive
     download_with_verification "$download_url" "$temp_archive" "$checksum_url"
     
-    # Extract the binary from archive
-    print_info "Extracting binary from archive..."
+    # Extract the binary from archive  
+    print_verbose "Extracting binary from archive..."
     case "$archive_ext" in
         "tar.gz")
             if ! tar -xzf "$temp_archive" -C "$temp_dir"; then
@@ -365,7 +389,7 @@ install_binary() {
     
     # Ensure installation directory exists
     if [ ! -d "$BIN_DIR" ]; then
-        print_info "Creating installation directory: $BIN_DIR"
+        print_verbose "Creating installation directory: $BIN_DIR"
         if ! mkdir -p "$BIN_DIR" 2>/dev/null; then
             print_error "Failed to create directory: $BIN_DIR"
             print_info "Try one of the following:"
@@ -387,7 +411,7 @@ install_binary() {
     
     # Move to final location
     local final_path="$BIN_DIR/$BINARY_NAME"
-    print_info "Installing to $final_path"
+    print_verbose "Installing to $final_path"
     
     if ! install -m 0755 "$temp_binary" "${final_path}.tmp" || ! mv -f "${final_path}.tmp" "$final_path"; then
         print_error "Failed to install binary to $final_path"
@@ -395,7 +419,10 @@ install_binary() {
         exit 1
     fi
     
-    print_success "Successfully installed reviewtask $version to $final_path"
+    # Show simple success message in non-verbose mode
+    if [[ "$VERBOSE" == "true" ]]; then
+        print_success "Successfully installed reviewtask $version to $final_path"
+    fi
 }
 
 # Detect user's shell
@@ -515,7 +542,7 @@ show_path_instructions() {
 verify_installation() {
     local binary_path="$BIN_DIR/$BINARY_NAME"
     
-    print_info "Verifying installation..."
+    print_verbose "Verifying installation..."
     
     # Check if binary exists and is executable
     if [[ ! -x "$binary_path" ]]; then
@@ -531,37 +558,56 @@ verify_installation() {
     
     local installed_version
     installed_version=$("$binary_path" version 2>/dev/null | head -1 | awk '{print $3}' || echo "unknown")
-    print_success "Installation verified successfully"
-    print_info "Installed version: $installed_version"
+    
+    if [[ "$VERBOSE" == "true" ]]; then
+        print_success "Installation verified successfully"
+        print_info "Installed version: $installed_version"
+    else
+        print_progress "Downloaded and verified"
+    fi
     
     # Check if binary is in PATH
     if ! command -v "$BINARY_NAME" >/dev/null 2>&1; then
-        show_path_instructions
+        if [[ "$VERBOSE" == "true" ]]; then
+            show_path_instructions
+        else
+            print_progress "Installed to $BIN_DIR/$BINARY_NAME"
+            print_warning "$BIN_DIR is not in your PATH. Add it to PATH or use full path: $BIN_DIR/$BINARY_NAME"
+        fi
     else
-        print_success "reviewtask is available in your PATH"
-        print_info "You can now run: reviewtask --help"
+        if [[ "$VERBOSE" == "true" ]]; then
+            print_success "reviewtask is available in your PATH"
+            print_info "You can now run: reviewtask --help"
+        else
+            print_progress "Ready to use: reviewtask --help"
+        fi
     fi
 }
 
 # Main installation function
 main() {
-    print_info "reviewtask Installation Script"
-    print_info "Repository: https://github.com/$GITHUB_REPO"
-    
-    # Parse arguments
+    # Parse arguments first to determine verbose mode
     parse_args "$@"
+    
+    # Show minimal header or detailed header based on verbose mode
+    if [[ "$VERBOSE" == "true" ]]; then
+        print_info "reviewtask Installation Script"
+        print_info "Repository: https://github.com/$GITHUB_REPO"
+    fi
     
     # Detect platform
     local platform
     platform=$(detect_platform)
-    print_info "Detected platform: $platform"
+    print_verbose "Detected platform: $platform"
     
-    # Show configuration
-    print_info "Configuration:"
-    print_info "  Version: $VERSION"
-    print_info "  Install directory: $BIN_DIR"
-    print_info "  Force overwrite: $FORCE"
-    print_info "  Include prereleases: $PRERELEASE"
+    # Show configuration only in verbose mode
+    if [[ "$VERBOSE" == "true" ]]; then
+        print_info "Configuration:"
+        print_info "  Version: $VERSION"
+        print_info "  Install directory: $BIN_DIR"
+        print_info "  Force overwrite: $FORCE"
+        print_info "  Include prereleases: $PRERELEASE"
+    fi
     
     # Check existing installation
     check_existing_installation
@@ -569,13 +615,11 @@ main() {
     # Create installation directory
     create_install_dir
     
-    # Install binary
+    # Install binary with clean progress
     install_binary "$platform" "$VERSION"
     
     # Verify installation
     verify_installation
-    
-    print_success "Installation completed successfully!"
 }
 
 # Run main function with all arguments only if script is executed directly
