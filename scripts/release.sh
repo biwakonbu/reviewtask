@@ -225,19 +225,13 @@ create_release() {
     git push origin "v$new_version"
     log_success "Tag v$new_version created and pushed"
     
-    # Create GitHub release
+    # Create GitHub release with assets
     log_info "Creating GitHub release..."
+    # Create release directly as published (not draft) with all assets
     gh release create "v$new_version" \
         --title "Release v$new_version" \
         --notes-file "$RELEASE_NOTES_FILE" \
-        --draft
-    
-    # Upload release assets
-    log_info "Uploading release assets..."
-    gh release upload "v$new_version" dist/*.tar.gz dist/*.zip dist/SHA256SUMS
-    
-    # Publish the release
-    gh release edit "v$new_version" --draft=false
+        dist/*.tar.gz dist/*.zip dist/SHA256SUMS
     
     # Create GitHub Issue for release notes
     log_info "Creating GitHub Issue for release documentation..."
