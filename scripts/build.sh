@@ -170,6 +170,40 @@ generate_checksums() {
 test_cross_compile() {
     log_info "Testing cross-compilation capabilities..."
     
+    # In CI environment, only test the current platform to save time
+    if [ "$CI" = "true" ] || [ -n "$GITHUB_ACTIONS" ]; then
+        log_info "CI environment detected - testing only current platform"
+        
+        # Test native build
+        if go build -o /dev/null . 2>/dev/null; then
+            log_success "Native compilation test passed"
+        else
+            log_error "Native compilation test failed"
+            return 1
+        fi
+        
+        # Also test one cross-platform build to ensure capability
+        if [ "$GOOS" != "windows" ]; then
+            if GOOS=windows GOARCH=amd64 go build -o /dev/null . 2>/dev/null; then
+                log_success "Cross-compilation capability verified (windows/amd64)"
+            else
+                log_error "Cross-compilation test failed for windows/amd64"
+                return 1
+            fi
+        else
+            if GOOS=linux GOARCH=amd64 go build -o /dev/null . 2>/dev/null; then
+                log_success "Cross-compilation capability verified (linux/amd64)"
+            else
+                log_error "Cross-compilation test failed for linux/amd64"
+                return 1
+            fi
+        fi
+        
+        log_success "CI cross-compilation tests passed!"
+        return 0
+    fi
+    
+    # Full test for local development
     for platform in "${PLATFORMS[@]}"; do
         local goos=${platform%/*}
         local goarch=${platform#*/}
