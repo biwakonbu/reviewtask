@@ -23,6 +23,7 @@ func TestRootCommandRegistration(t *testing.T) {
 		"auth":     false,
 		"init":     false,
 		"claude":   false,
+		"fetch":    false,
 	}
 
 	// Check all registered commands
@@ -114,7 +115,7 @@ func TestCommandStructure(t *testing.T) {
 	root := rootCmd
 
 	// Test root command properties
-	if root.Use != "reviewtask [PR_NUMBER]" {
+	if root.Use != "reviewtask" {
 		t.Errorf("Unexpected root command Use: %s", root.Use)
 	}
 
@@ -122,7 +123,7 @@ func TestCommandStructure(t *testing.T) {
 		t.Errorf("Root command Short description doesn't match expected: %s", root.Short)
 	}
 
-	// Test that root command accepts max 1 argument
+	// Test that root command accepts no arguments (now shows help)
 	if root.Args == nil {
 		t.Error("Root command should have Args validation")
 	}

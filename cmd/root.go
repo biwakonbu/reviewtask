@@ -34,20 +34,22 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "reviewtask [PR_NUMBER]",
+	Use:   "reviewtask",
 	Short: "AI-powered PR review management tool",
 	Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
 Examples:
-  reviewtask          # Check reviews for current branch's PR
-  reviewtask 123      # Check reviews for PR #123
-  reviewtask status   # Show current task status
-  reviewtask show     # Show current/next task details
+  reviewtask fetch        # Check reviews for current branch's PR
+  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask status       # Show current task status
+  reviewtask show         # Show current/next task details
   reviewtask show <task-id>  # Show specific task details
   reviewtask update <task-id> doing  # Update task status`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runReviewTask,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
+	},
 }
 
 func Execute() error {
