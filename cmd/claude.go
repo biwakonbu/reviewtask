@@ -17,9 +17,18 @@ Available targets:
   pr-review    Output PR review workflow command template to .claude/commands/pr-review/
 
 Examples:
-  reviewtask claude pr-review    # Output review-task-workflow command template for Claude Code`,
-	Args: cobra.ExactArgs(1),
-	RunE: runClaude,
+  reviewtask claude pr-review    # Output review-task-workflow command template for Claude Code
+
+DEPRECATION WARNING:
+  This command is deprecated. Please use 'reviewtask prompt claude' instead.
+  The 'reviewtask claude' command will be removed in a future major version.
+  
+  Migration examples:
+    Old: reviewtask claude pr-review
+    New: reviewtask prompt claude pr-review`,
+	Args:       cobra.ExactArgs(1),
+	RunE:       runClaude,
+	Deprecated: "use 'reviewtask prompt claude' instead. This command will be removed in a future major version.",
 }
 
 func init() {
@@ -27,6 +36,11 @@ func init() {
 }
 
 func runClaude(cmd *cobra.Command, args []string) error {
+	// Show deprecation warning
+	fmt.Fprintf(os.Stderr, "⚠️  DEPRECATION WARNING: The 'reviewtask claude' command is deprecated.\n")
+	fmt.Fprintf(os.Stderr, "⚠️  Please use 'reviewtask prompt claude %s' instead.\n", args[0])
+	fmt.Fprintf(os.Stderr, "⚠️  This command will be removed in a future major version.\n\n")
+
 	target := args[0]
 
 	switch target {

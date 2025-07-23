@@ -24,6 +24,7 @@ func TestRootCommandRegistration(t *testing.T) {
 		"init":     false,
 		"claude":   false,
 		"fetch":    false,
+		"prompt":   false,
 	}
 
 	// Check all registered commands

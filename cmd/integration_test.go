@@ -56,6 +56,18 @@ func TestCommandIntegration(t *testing.T) {
 			expectErr: false,
 			contains:  []string{"claude", "target"},
 		},
+		{
+			name:      "prompt command available",
+			args:      []string{"prompt", "--help"},
+			expectErr: false,
+			contains:  []string{"prompt", "AI providers", "claude"},
+		},
+		{
+			name:      "prompt claude subcommand available",
+			args:      []string{"prompt", "claude", "--help"},
+			expectErr: false,
+			contains:  []string{"claude", "target", "pr-review"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -183,6 +195,15 @@ func TestCommandHelpConsistency(t *testing.T) {
 				"claude",
 				"target",
 				"template",
+			},
+		},
+		{
+			command:  "prompt",
+			helpArgs: []string{"prompt", "--help"},
+			mustContain: []string{
+				"prompt",
+				"AI providers",
+				"claude",
 			},
 		},
 		{
