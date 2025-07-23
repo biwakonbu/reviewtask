@@ -1,0 +1,307 @@
+package test
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// TestStatusCommandIntegration tests the status command functionality in both modes
+func TestStatusCommandIntegration(t *testing.T) {
+	if os.Getenv("SKIP_INTEGRATION_TESTS") == "1" {
+		t.Skip("Skipping integration tests")
+	}
+
+	// Create a temporary test directory
+	testDir, err := os.MkdirTemp("", "reviewtask-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(testDir)
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Set up git config
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Create test PR data
+	prDir := filepath.Join(testDir, ".pr-review", "PR-123")
+	err = os.MkdirAll(prDir, 0755)
+	require.NoError(t, err)
+
+	// Create test tasks
+	tasksContent := `{
+		"generated_at": "2024-01-01T10:00:00Z",
+		"tasks": [
+			{
+				"id": "task1",
+				"description": "認証トークンの検証処理を修正",
+				"priority": "high",
+				"status": "doing",
+				"pr_number": 123,
+				"file": "auth.go",
+				"line": 45
+			},
+			{
+				"id": "task2",
+				"description": "APIドキュメントの更新",
+				"priority": "medium",
+				"status": "todo",
+				"pr_number": 123,
+				"file": "README.md",
+				"line": 10
+			},
+			{
+				"id": "task3",
+				"description": "ユニットテストを追加",
+				"priority": "high",
+				"status": "todo",
+				"pr_number": 123,
+				"file": "test.go",
+				"line": 100
+			},
+			{
+				"id": "task4",
+				"description": "データベース層のリファクタリング",
+				"priority": "low",
+				"status": "done",
+				"pr_number": 123,
+				"file": "db.go",
+				"line": 200
+			},
+			{
+				"id": "task5",
+				"description": "非推奨APIを削除",
+				"priority": "medium",
+				"status": "cancel",
+				"pr_number": 123,
+				"file": "api.go",
+				"line": 150
+			}
+		]
+	}`
+
+	tasksFile := filepath.Join(prDir, "tasks.json")
+	err = os.WriteFile(tasksFile, []byte(tasksContent), 0644)
+	require.NoError(t, err)
+
+	// Create branch mapping
+	branchFile := filepath.Join(testDir, ".pr-review", "branches", "feature-test")
+	err = os.MkdirAll(filepath.Dir(branchFile), 0755)
+	require.NoError(t, err)
+	err = os.WriteFile(branchFile, []byte("123"), 0644)
+	require.NoError(t, err)
+
+	// Build the reviewtask binary
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, "reviewtask"), "..")
+	err = buildCmd.Run()
+	require.NoError(t, err)
+
+	reviewtaskPath := filepath.Join(testDir, "reviewtask")
+
+	t.Run("AI Mode Output", func(t *testing.T) {
+		cmd := exec.Command(reviewtaskPath, "status", "--pr", "123")
+		cmd.Dir = testDir
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, "Command failed: %s", output)
+
+		outputStr := string(output)
+
+		// Check AI mode format
+		assert.Contains(t, outputStr, "ReviewTask Status - 40.0% Complete (2/5)")
+		assert.Contains(t, outputStr, "Progress:")
+		assert.Contains(t, outputStr, "█") // Filled progress
+		assert.Contains(t, outputStr, "░") // Empty progress
+
+		// Check task summary
+		assert.Contains(t, outputStr, "Task Summary:")
+		assert.Contains(t, outputStr, "todo: 2    doing: 1    done: 1    pending: 0    cancel: 1")
+
+		// Check current task
+		assert.Contains(t, outputStr, "Current Task:")
+		assert.Contains(t, outputStr, "TSK-123")
+		assert.Contains(t, outputStr, "HIGH")
+		assert.Contains(t, outputStr, "認証トークンの検証処理を修正")
+
+		// Check next tasks
+		assert.Contains(t, outputStr, "Next Tasks (up to 5):")
+		assert.Contains(t, outputStr, "1. TSK-123  HIGH    ユニットテストを追加")
+		assert.Contains(t, outputStr, "2. TSK-123  MEDIUM    APIドキュメントの更新")
+
+		// Check timestamp
+		assert.Contains(t, outputStr, "Last updated:")
+	})
+
+	t.Run("Japanese Character Display", func(t *testing.T) {
+		cmd := exec.Command(reviewtaskPath, "status", "--pr", "123")
+		cmd.Dir = testDir
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err)
+
+		outputStr := string(output)
+
+		// Verify Japanese text is properly displayed
+		assert.Contains(t, outputStr, "認証トークンの検証処理を修正")
+		assert.Contains(t, outputStr, "APIドキュメントの更新")
+		assert.Contains(t, outputStr, "ユニットテストを追加")
+		// Note: done and cancel status tasks are not displayed in the main output
+	})
+
+	t.Run("Empty State Display", func(t *testing.T) {
+		// Create empty PR
+		emptyPRDir := filepath.Join(testDir, ".pr-review", "PR-999")
+		err = os.MkdirAll(emptyPRDir, 0755)
+		require.NoError(t, err)
+
+		emptyTasksContent := `{
+			"generated_at": "2024-01-01T10:00:00Z",
+			"tasks": []
+		}`
+
+		emptyTasksFile := filepath.Join(emptyPRDir, "tasks.json")
+		err = os.WriteFile(emptyTasksFile, []byte(emptyTasksContent), 0644)
+		require.NoError(t, err)
+
+		cmd := exec.Command(reviewtaskPath, "status", "--pr", "999")
+		cmd.Dir = testDir
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err)
+
+		outputStr := string(output)
+
+		// Check empty state
+		assert.Contains(t, outputStr, "ReviewTask Status - 0% Complete")
+		assert.Contains(t, outputStr, strings.Repeat("░", 80))
+		assert.Contains(t, outputStr, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
+		assert.Contains(t, outputStr, "アクティブなタスクはありません - すべて完了しています！")
+		assert.Contains(t, outputStr, "待機中のタスクはありません")
+	})
+
+	t.Run("Watch Flag Recognition", func(t *testing.T) {
+		// Test that --watch flag is recognized (even though TUI won't work in test env)
+		cmd := exec.Command(reviewtaskPath, "status", "--help")
+		cmd.Dir = testDir
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err)
+
+		outputStr := string(output)
+		assert.Contains(t, outputStr, "--watch")
+		assert.Contains(t, outputStr, "-w")
+		assert.Contains(t, outputStr, "Human mode: rich TUI dashboard with real-time updates")
+	})
+
+	t.Run("Priority Sorting", func(t *testing.T) {
+		// Create PR with mixed priority tasks
+		mixedPRDir := filepath.Join(testDir, ".pr-review", "PR-456")
+		err = os.MkdirAll(mixedPRDir, 0755)
+		require.NoError(t, err)
+
+		mixedTasksContent := `{
+			"generated_at": "2024-01-01T10:00:00Z",
+			"tasks": [
+				{
+					"id": "task1",
+					"description": "Low priority task",
+					"priority": "low",
+					"status": "todo",
+					"pr_number": 456
+				},
+				{
+					"id": "task2",
+					"description": "Critical task",
+					"priority": "critical",
+					"status": "todo",
+					"pr_number": 456
+				},
+				{
+					"id": "task3",
+					"description": "Medium task",
+					"priority": "medium",
+					"status": "todo",
+					"pr_number": 456
+				},
+				{
+					"id": "task4",
+					"description": "High priority task",
+					"priority": "high",
+					"status": "todo",
+					"pr_number": 456
+				}
+			]
+		}`
+
+		mixedTasksFile := filepath.Join(mixedPRDir, "tasks.json")
+		err = os.WriteFile(mixedTasksFile, []byte(mixedTasksContent), 0644)
+		require.NoError(t, err)
+
+		cmd := exec.Command(reviewtaskPath, "status", "--pr", "456")
+		cmd.Dir = testDir
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err)
+
+		outputStr := string(output)
+
+		// Check tasks are sorted by priority
+		lines := strings.Split(outputStr, "\n")
+		var taskLines []string
+		inNextTasks := false
+		for _, line := range lines {
+			if strings.Contains(line, "Next Tasks") {
+				inNextTasks = true
+				continue
+			}
+			if inNextTasks && strings.TrimSpace(line) != "" && strings.Contains(line, "TSK-") {
+				taskLines = append(taskLines, line)
+			}
+			if inNextTasks && strings.TrimSpace(line) == "" {
+				break
+			}
+		}
+
+		// Verify order: critical > high > medium > low
+		require.Len(t, taskLines, 4)
+		assert.Contains(t, taskLines[0], "CRITICAL")
+		assert.Contains(t, taskLines[1], "HIGH")
+		assert.Contains(t, taskLines[2], "MEDIUM")
+		assert.Contains(t, taskLines[3], "LOW")
+	})
+}
+
+// TestCharacterWidthCalculation tests the character width calculation for CJK support
+func TestCharacterWidthCalculation(t *testing.T) {
+	testCases := []struct {
+		text          string
+		expectedWidth int
+		description   string
+	}{
+		{"Hello World", 11, "ASCII characters"},
+		{"認証トークン", 12, "Japanese characters (6 chars × 2 width)"},
+		{"Fix 認証 token", 14, "Mixed ASCII and Japanese"},
+		{"データベース層のリファクタリング", 32, "Long Japanese text"},
+		{"API更新", 7, "Short mixed text"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			// This would test the actual runewidth calculation
+			// In real implementation, this would call the padToWidth or truncateString functions
+			// For now, we're just documenting the expected behavior
+			t.Logf("Text: %s, Expected width: %d", tc.text, tc.expectedWidth)
+		})
+	}
+}

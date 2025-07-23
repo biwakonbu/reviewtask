@@ -170,7 +170,7 @@ func (m Model) renderTaskSummary() string {
 
 func (m Model) renderCurrentTask() string {
 	doingTasks := filterTasksByStatus(m.tasks, "doing")
-	
+
 	content := "│ アクティブなタスクはありません - すべて完了しています！                     │"
 	if len(doingTasks) > 0 {
 		task := doingTasks[0]
@@ -266,7 +266,7 @@ func padToWidth(s string, width int) string {
 func truncateString(s string, width int) string {
 	var result []rune
 	currentWidth := 0
-	
+
 	for _, r := range s {
 		rWidth := runewidth.RuneWidth(r)
 		if currentWidth+rWidth > width {
@@ -275,7 +275,7 @@ func truncateString(s string, width int) string {
 		result = append(result, r)
 		currentWidth += rWidth
 	}
-	
+
 	return string(result)
 }
 

@@ -212,14 +212,14 @@ func generateTaskID(task storage.Task) string {
 func runHumanMode(storageManager *storage.Manager) error {
 	// Import the TUI dashboard
 	model := tui.NewModel(storageManager, statusShowAll, statusSpecificPR, statusBranch)
-	
+
 	// Create and run the bubbletea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
-	
+
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running TUI: %w", err)
 	}
-	
+
 	return nil
 }
 
