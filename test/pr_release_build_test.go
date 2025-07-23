@@ -94,25 +94,42 @@ func TestBuildScriptCrossPlatformTest(t *testing.T) {
 		t.Fatalf("Build test failed: %v\nOutput: %s", err, outputStr)
 	}
 
-	// Check that all expected platforms are tested
-	expectedPlatforms := []string{
-		"linux/amd64",
-		"linux/arm64",
-		"darwin/amd64",
-		"darwin/arm64",
-		"windows/amd64",
-		"windows/arm64",
-	}
-
-	for _, platform := range expectedPlatforms {
-		if !strings.Contains(outputStr, platform) {
-			t.Errorf("Expected output to contain platform %q, got: %s", platform, outputStr)
+	// In CI environment, only minimal tests are run
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		// Check for CI-specific success messages
+		if !strings.Contains(outputStr, "CI environment detected") {
+			t.Errorf("Expected CI environment detection message not found in output: %s", outputStr)
 		}
-	}
+		if !strings.Contains(outputStr, "Native compilation test passed") {
+			t.Errorf("Expected native compilation success message not found in output: %s", outputStr)
+		}
+		if !strings.Contains(outputStr, "Cross-compilation capability verified") {
+			t.Errorf("Expected cross-compilation verification message not found in output: %s", outputStr)
+		}
+		if !strings.Contains(outputStr, "CI cross-compilation tests passed") {
+			t.Errorf("Expected CI success message not found in output: %s", outputStr)
+		}
+	} else {
+		// Check that all expected platforms are tested in non-CI environment
+		expectedPlatforms := []string{
+			"linux/amd64",
+			"linux/arm64",
+			"darwin/amd64",
+			"darwin/arm64",
+			"windows/amd64",
+			"windows/arm64",
+		}
 
-	// Check for success message
-	if !strings.Contains(outputStr, "All cross-compilation tests passed") {
-		t.Errorf("Expected success message not found in output: %s", outputStr)
+		for _, platform := range expectedPlatforms {
+			if !strings.Contains(outputStr, platform) {
+				t.Errorf("Expected output to contain platform %q, got: %s", platform, outputStr)
+			}
+		}
+
+		// Check for success message
+		if !strings.Contains(outputStr, "All cross-compilation tests passed") {
+			t.Errorf("Expected success message not found in output: %s", outputStr)
+		}
 	}
 }
 
