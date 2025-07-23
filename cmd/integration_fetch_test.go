@@ -141,7 +141,7 @@ func TestBackwardCompatibilityBreaking(t *testing.T) {
 			return cmd.Help()
 		},
 	}
-	
+
 	testRoot.SetOut(buf)
 	testRoot.SetErr(buf)
 
