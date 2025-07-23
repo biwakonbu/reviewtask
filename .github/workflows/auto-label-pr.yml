@@ -1,0 +1,77 @@
+name: Auto Label PR from Development
+
+on:
+  pull_request:
+    types: [opened, synchronize, edited]
+    branches: [main]
+
+jobs:
+  auto-label:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: read
+      contents: read
+      
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Auto-label PR from linked issues
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Auto-labeling PR #${{ github.event.pull_request.number }} from Development section..."
+        
+        # Make script executable
+        chmod +x scripts/auto-label-from-development.sh
+        
+        # Run the auto-labeling script
+        if ./scripts/auto-label-from-development.sh ${{ github.event.pull_request.number }}; then
+          echo "✅ Auto-labeling completed successfully"
+        else
+          exit_code=$?
+          case $exit_code in
+            1)
+              echo "⚠️ No release labels found - default applied"
+              ;;
+            2)
+              echo "⚠️ Multiple conflicting release labels found"
+              ;;
+            3)
+              echo "❌ Auto-labeling failed due to API or configuration error"
+              exit 1
+              ;;
+            *)
+              echo "❌ Auto-labeling failed with unknown error (exit code: $exit_code)"
+              exit 1
+              ;;
+          esac
+        fi
+    
+    - name: Comment on PR about auto-labeling
+      if: success()
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Get the applied label
+        APPLIED_LABEL=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[] | select(.name | startswith("release:")) | .name' | head -1)
+        
+        if [[ -n "$APPLIED_LABEL" ]]; then
+          RELEASE_TYPE="${APPLIED_LABEL#release:}"
+          
+          cat << EOF | gh pr comment ${{ github.event.pull_request.number }} --body-file -
+🏷️ **Auto-labeling completed**
+
+This PR has been automatically labeled with \`${APPLIED_LABEL}\` based on linked issues in the Development section.
+
+**Release Type**: ${RELEASE_TYPE^} release
+**How it works**: 
+1. ✅ Check Development section for linked issues
+2. ✅ Extract release labels from linked issues  
+3. ✅ Apply highest priority label to PR (major > minor > patch)
+4. ✅ Default to \`release:minor\` if no labels found
+
+This ensures consistent release labeling and enables automated release processes.
+EOF
+        fi

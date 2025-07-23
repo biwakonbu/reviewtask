@@ -282,36 +282,55 @@ create_release_issue() {
     
     log_info "Creating GitHub Issue for release $version..."
     
-    # Determine labels based on release type
-    local labels="release,changelog"
+    # Determine labels based on release type (only use release:type labels)
+    local labels=""
     case "$release_type" in
         "major")
-            labels="${labels},release:major"
+            labels="release:major"
             ;;
         "minor")
-            labels="${labels},release:minor"
+            labels="release:minor"
             ;;
         "patch")
-            labels="${labels},release:patch"
+            labels="release:patch"
             ;;
         "initial")
-            labels="${labels},release:initial"
+            labels="release:initial"
             ;;
     esac
     
-    # Create the issue
+    # Create the issue with or without labels
     local issue_url
-    issue_url=$(gh issue create \
-        --title "Release ${version} - ${release_type^} Release" \
-        --body-file "$template_file" \
-        --label "$labels")
+    local issue_title="Release ${version} - ${release_type^} Release"
     
-    if [[ $? -eq 0 && -n "$issue_url" ]]; then
+    if [[ -n "$labels" ]]; then
+        # Try to create with labels first
+        issue_url=$(gh issue create \
+            --title "$issue_title" \
+            --body-file "$template_file" \
+            --label "$labels" 2>/dev/null || echo "")
+        
+        # If label creation failed, try without labels
+        if [[ -z "$issue_url" ]]; then
+            log_warning "Failed to create issue with labels, trying without labels..."
+            issue_url=$(gh issue create \
+                --title "$issue_title" \
+                --body-file "$template_file" 2>/dev/null || echo "")
+        fi
+    else
+        # Create without labels
+        issue_url=$(gh issue create \
+            --title "$issue_title" \
+            --body-file "$template_file" 2>/dev/null || echo "")
+    fi
+    
+    if [[ -n "$issue_url" ]]; then
         log_success "Release issue created: $issue_url"
         echo "$issue_url"
+        return 0
     else
-        log_error "Failed to create GitHub Issue"
-        exit 1
+        log_warning "Failed to create GitHub Issue - this won't prevent the release"
+        return 1
     fi
 }
 
