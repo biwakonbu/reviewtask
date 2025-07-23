@@ -147,11 +147,11 @@ func TestGetChecksumURL(t *testing.T) {
 	}{
 		{
 			"v1.2.3",
-			"https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/checksums.txt",
+			"https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/SHA256SUMS",
 		},
 		{
 			"1.2.3",
-			"https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/checksums.txt",
+			"https://github.com/biwakonbu/reviewtask/releases/download/v1.2.3/SHA256SUMS",
 		},
 	}
 
