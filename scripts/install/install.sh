@@ -52,7 +52,12 @@ print_verbose() {
 
 # Clean progress indicator with checkmark
 print_progress() {
-    echo -e "${GREEN}✓${NC} $1"
+    local tick="✓"
+    # Fallback to ASCII if locale is not UTF-8
+    if [[ $(locale charmap 2>/dev/null) != "UTF-8" ]]; then
+        tick="*"
+    fi
+    printf "${GREEN}%b${NC} %s\n" "${tick}" "$1"
 }
 
 # Show usage information
@@ -87,6 +92,9 @@ EXAMPLES:
 
     # Force overwrite existing installation
     curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --force
+
+    # Run with verbose output
+    curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.sh | bash -s -- --verbose
 EOF
 }
 
@@ -348,12 +356,8 @@ install_binary() {
     # Cleanup function with proper variable handling
     trap "rm -rf '$temp_dir'" EXIT
     
-    # Show simple progress or detailed information
-    if [[ "$VERBOSE" == "true" ]]; then
-        echo "Installing reviewtask $version..."
-    else
-        echo "Installing reviewtask $version..."
-    fi
+    # Show installation progress
+    echo "Installing reviewtask $version..."
     
     # Download and verify the archive
     download_with_verification "$download_url" "$temp_archive" "$checksum_url"
@@ -424,9 +428,11 @@ install_binary() {
         exit 1
     fi
     
-    # Show simple success message in non-verbose mode
+    # Show success message appropriate to verbosity level
     if [[ "$VERBOSE" == "true" ]]; then
         print_success "Successfully installed reviewtask $version to $final_path"
+    else
+        print_progress "Installed reviewtask $version"
     fi
 }
 
