@@ -34,6 +34,7 @@ jobs:
     - name: Download dependencies (Unix)
       if: runner.os != 'Windows'
       run: |
+        set -euo pipefail
         timeout_duration=300
         max_retries=3
         retry_count=0
