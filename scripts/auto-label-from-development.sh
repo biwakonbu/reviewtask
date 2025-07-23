@@ -119,6 +119,7 @@ fi
 
 if ! command -v jq &> /dev/null; then
     log_error "jq is not installed"
+    echo "Please install it from your package manager (e.g., apt install jq, brew install jq)" >&2
     exit 3
 fi
 
