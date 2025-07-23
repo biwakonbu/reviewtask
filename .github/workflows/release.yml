@@ -286,10 +286,10 @@ jobs:
         
         if [ -f "reviewtask-${VERSION}-linux-amd64.tar.gz" ]; then
           tar -xzf "reviewtask-${VERSION}-linux-amd64.tar.gz"
-          chmod +x "reviewtask-${VERSION}-linux-amd64"
+          chmod +x reviewtask
           
           # Test version command
-          ./"reviewtask-${VERSION}-linux-amd64" version
+          ./reviewtask version
         else
           echo "Linux amd64 binary not found"
           ls -la

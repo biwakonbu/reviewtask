@@ -89,6 +89,70 @@ if [[ -n "$REPO" ]]; then
     GH_ARGS+=(-R "$REPO")
 fi
 
+# Get repository info for GraphQL
+if [[ -n "$REPO" ]]; then
+    OWNER="${REPO%/*}"
+    REPO_NAME="${REPO#*/}"
+else
+    # Get current repo info
+    REPO_INFO=$(gh repo view "${GH_ARGS[@]}" --json owner,name 2>/dev/null || echo "")
+    if [[ -n "$REPO_INFO" ]]; then
+        OWNER=$(echo "$REPO_INFO" | jq -r '.owner.login')
+        REPO_NAME=$(echo "$REPO_INFO" | jq -r '.name')
+    else
+        echo -e "${RED}Error: Unable to determine repository owner/name${NC}" >&2
+        echo "Please check GitHub CLI authentication or specify repository with -r option" >&2
+        exit 3
+    fi
+fi
+
+# Function to get linked issues from Development section using GraphQL (priority method)
+get_development_issues() {
+    if [[ -z "$OWNER" || -z "$REPO_NAME" ]]; then
+        return 1
+    fi
+    
+    local graphql_query='
+    query($owner: String!, $repo: String!, $pr_number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+          timelineItems(first: 50, itemTypes: [CONNECTED_EVENT]) {
+            nodes {
+              ... on ConnectedEvent {
+                subject {
+                  ... on Issue {
+                    number
+                    labels(first: 20) {
+                      nodes {
+                        name
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }'
+    
+    local result
+    result=$(gh api graphql \
+        --field query="$graphql_query" \
+        --field owner="$OWNER" \
+        --field repo="$REPO_NAME" \
+        --field pr_number="$PR_NUMBER" 2>/dev/null || echo "")
+    
+    if [[ -n "$result" ]]; then
+        echo "$result" | jq -r '
+            .data.repository.pullRequest.timelineItems.nodes[]? |
+            select(.subject) |
+            .subject.labels.nodes[].name |
+            select(startswith("release:"))
+        ' 2>/dev/null || echo ""
+    fi
+}
+
 # Get PR details including linked issues
 if ! PR_DATA=$(gh pr view "${PR_NUMBER}" "${GH_ARGS[@]}" --json labels,body,title 2>/dev/null); then
     echo -e "${RED}Error: Failed to fetch PR #${PR_NUMBER}${NC}" >&2
@@ -97,13 +161,6 @@ fi
 
 # Get PR labels first
 PR_LABELS=$(echo "$PR_DATA" | jq -r '.labels[].name')
-
-# Try to find linked issues from PR body and title
-PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
-PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // ""')
-
-# Look for issue references in PR body and title (e.g., "fixes #123", "closes #456")
-LINKED_ISSUES=$(echo -e "$PR_BODY\n$PR_TITLE" | grep -oE '#[0-9]+|[Ff]ix(es|ed)?\s+#[0-9]+|[Cc]lose[sd]?\s+#[0-9]+|[Rr]esolve[sd]?\s+#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
 
 # Collect all release labels from PR and linked issues
 ALL_RELEASE_LABELS=""
@@ -116,22 +173,39 @@ if [[ -n "$PR_LABELS" ]]; then
     fi
 fi
 
-# Check labels from linked issues
-if [[ -n "$LINKED_ISSUES" ]]; then
-    while IFS= read -r issue_num; do
-        if [[ -n "$issue_num" ]]; then
-            if ISSUE_LABELS=$(gh issue view "$issue_num" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
-                ISSUE_RELEASE_LABELS=$(echo "$ISSUE_LABELS" | grep '^release:' || true)
-                if [[ -n "$ISSUE_RELEASE_LABELS" ]]; then
-                    if [[ -n "$ALL_RELEASE_LABELS" ]]; then
-                        ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$ISSUE_RELEASE_LABELS"
-                    else
-                        ALL_RELEASE_LABELS="$ISSUE_RELEASE_LABELS"
+# Priority 1: Try Development section first
+DEV_RELEASE_LABELS=$(get_development_issues)
+if [[ -n "$DEV_RELEASE_LABELS" ]]; then
+    if [[ -n "$ALL_RELEASE_LABELS" ]]; then
+        ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$DEV_RELEASE_LABELS"
+    else
+        ALL_RELEASE_LABELS="$DEV_RELEASE_LABELS"
+    fi
+else
+    # Priority 2: Fallback to text analysis of PR body and title
+    PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+    PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // ""')
+    
+    # Look for issue references in PR body and title (e.g., "fixes #123", "closes #456")
+    LINKED_ISSUES=$(echo -e "$PR_BODY\n$PR_TITLE" | grep -oE '#[0-9]+|[Ff]ix(es|ed)?\s+#[0-9]+|[Cc]lose[sd]?\s+#[0-9]+|[Rr]esolve[sd]?\s+#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
+    
+    # Check labels from found issues
+    if [[ -n "$LINKED_ISSUES" ]]; then
+        while IFS= read -r issue_num; do
+            if [[ -n "$issue_num" ]]; then
+                if ISSUE_LABELS=$(gh issue view "$issue_num" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
+                    ISSUE_RELEASE_LABELS=$(echo "$ISSUE_LABELS" | grep '^release:' || true)
+                    if [[ -n "$ISSUE_RELEASE_LABELS" ]]; then
+                        if [[ -n "$ALL_RELEASE_LABELS" ]]; then
+                            ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$ISSUE_RELEASE_LABELS"
+                        else
+                            ALL_RELEASE_LABELS="$ISSUE_RELEASE_LABELS"
+                        fi
                     fi
                 fi
             fi
-        fi
-    done <<< "$LINKED_ISSUES"
+        done <<< "$LINKED_ISSUES"
+    fi
 fi
 
 # Use collected labels
