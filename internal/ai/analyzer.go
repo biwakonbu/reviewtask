@@ -109,7 +109,6 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 		return []storage.Task{}, nil
 	}
 
-	fmt.Printf("Processing %d comments in parallel...\n", len(allComments))
 	return a.generateTasksParallel(allComments)
 }
 
@@ -194,7 +193,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 
 	var newTasks []storage.Task
 	if len(changedCommentsCtx) > 0 {
-		fmt.Printf("🤖 Processing %d changed/new comments with AI...\n", len(changedCommentsCtx))
+		fmt.Printf("🤖 Generating tasks for %d changed/new comments...\n", len(changedCommentsCtx))
 
 		// Generate tasks only for changed comments
 		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {

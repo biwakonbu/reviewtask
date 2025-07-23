@@ -26,6 +26,9 @@ var (
 	appBuildDate  = "unknown"
 )
 
+// osExit is a variable that holds the os.Exit function for testing purposes
+var osExit = os.Exit
+
 // SetVersionInfo sets the version information from build-time variables
 func SetVersionInfo(version, commitHash, buildDate string) {
 	appVersion = version
@@ -33,21 +36,60 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 	appBuildDate = buildDate
 }
 
+// NewRootCmd creates a new instance of the root command for testing
+// This prevents shared state issues in concurrent tests
+func NewRootCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reviewtask",
+		Short: "AI-powered PR review management tool",
+		Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
+and uses AI to analyze review content for task generation.
+
+Examples:
+  reviewtask fetch        # Check reviews for current branch's PR
+  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask status       # Show current task status
+  reviewtask show         # Show current/next task details
+  reviewtask show <task-id>  # Show specific task details
+  reviewtask update <task-id> doing  # Update task status`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+
+	// Add all subcommands
+	cmd.AddCommand(fetchCmd)
+	cmd.AddCommand(statusCmd)
+	cmd.AddCommand(updateCmd)
+	cmd.AddCommand(showCmd)
+	cmd.AddCommand(statsCmd)
+	cmd.AddCommand(versionCmd)
+	cmd.AddCommand(versionsCmd)
+	cmd.AddCommand(authCmd)
+	cmd.AddCommand(initCmd)
+	cmd.AddCommand(claudeCmd)
+
+	return cmd
+}
+
 var rootCmd = &cobra.Command{
-	Use:   "reviewtask [PR_NUMBER]",
+	Use:   "reviewtask",
 	Short: "AI-powered PR review management tool",
 	Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
 Examples:
-  reviewtask          # Check reviews for current branch's PR
-  reviewtask 123      # Check reviews for PR #123
-  reviewtask status   # Show current task status
-  reviewtask show     # Show current/next task details
+  reviewtask fetch        # Check reviews for current branch's PR
+  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask status       # Show current task status
+  reviewtask show         # Show current/next task details
   reviewtask show <task-id>  # Show specific task details
   reviewtask update <task-id> doing  # Update task status`,
-	Args: cobra.MaximumNArgs(1),
-	RunE: runReviewTask,
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
+	},
 }
 
 func Execute() error {
@@ -146,7 +188,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 				fmt.Println("   reviewtask <PR_NUMBER>")
 				fmt.Println("\nFor more information, run: reviewtask --help")
 				// Exit gracefully - this is not an error condition
-				os.Exit(0)
+				osExit(0)
 			}
 			return fmt.Errorf("failed to get PR for current branch: %w", err)
 		}

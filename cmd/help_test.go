@@ -20,10 +20,11 @@ func TestHelpCommand(t *testing.T) {
 			expectedOutput: []string{
 				"reviewtask fetches GitHub Pull Request reviews",
 				"Usage:",
-				"reviewtask [PR_NUMBER]",
+				"reviewtask [flags]",
 				"Available Commands:",
 				"auth",
 				"claude",
+				"fetch",
 				"init",
 				"show",
 				"stats",
@@ -80,8 +81,8 @@ func TestHelpCommand(t *testing.T) {
 			// Create a buffer to capture output
 			buf := new(bytes.Buffer)
 
-			// Reset the command for each test
-			root := rootCmd
+			// Create fresh command for each test
+			root := NewRootCmd()
 			root.SetOut(buf)
 			root.SetErr(buf)
 			root.SetArgs(tt.args)
@@ -112,7 +113,7 @@ func TestHelpCommand(t *testing.T) {
 
 // TestAllCommandsHaveHelp tests that all commands have help text
 func TestAllCommandsHaveHelp(t *testing.T) {
-	root := rootCmd
+	root := NewRootCmd()
 
 	// Test each command
 	for _, cmd := range root.Commands() {
@@ -166,7 +167,7 @@ func TestHelpListsAllCommands(t *testing.T) {
 	buf := new(bytes.Buffer)
 
 	// Set up the root command
-	root := rootCmd
+	root := NewRootCmd()
 	root.SetOut(buf)
 	root.SetErr(buf)
 	root.SetArgs([]string{"--help"})

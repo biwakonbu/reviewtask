@@ -60,24 +60,16 @@ func TestCommandIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Use cobra's built-in testing approach with rootCmd directly
+			// Use fresh command instance for each test
 			var buf bytes.Buffer
-
-			// Store original output settings
-			originalOut := rootCmd.OutOrStdout()
-			originalErr := rootCmd.ErrOrStderr()
+			root := NewRootCmd()
 
 			// Set output capture
-			rootCmd.SetOut(&buf)
-			rootCmd.SetErr(&buf)
-			rootCmd.SetArgs(tt.args)
+			root.SetOut(&buf)
+			root.SetErr(&buf)
+			root.SetArgs(tt.args)
 
-			err := rootCmd.Execute()
-
-			// Restore original settings
-			rootCmd.SetOut(originalOut)
-			rootCmd.SetErr(originalErr)
-			rootCmd.SetArgs([]string{})
+			err := root.Execute()
 
 			output := buf.String()
 
@@ -128,24 +120,16 @@ func TestDocumentedFlagsWork(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Use cobra's built-in testing approach with rootCmd directly
+			// Use fresh command instance for each test
 			var buf bytes.Buffer
-
-			// Store original output settings
-			originalOut := rootCmd.OutOrStdout()
-			originalErr := rootCmd.ErrOrStderr()
+			root := NewRootCmd()
 
 			// Set output capture
-			rootCmd.SetOut(&buf)
-			rootCmd.SetErr(&buf)
-			rootCmd.SetArgs(tt.args)
+			root.SetOut(&buf)
+			root.SetErr(&buf)
+			root.SetArgs(tt.args)
 
-			err := rootCmd.Execute()
-
-			// Restore original settings
-			rootCmd.SetOut(originalOut)
-			rootCmd.SetErr(originalErr)
-			rootCmd.SetArgs([]string{})
+			err := root.Execute()
 
 			output := buf.String()
 
@@ -214,24 +198,16 @@ func TestCommandHelpConsistency(t *testing.T) {
 
 	for _, tt := range commandTests {
 		t.Run("help_consistency_"+tt.command, func(t *testing.T) {
-			// Use cobra's built-in testing approach with rootCmd directly
+			// Use fresh command instance for each test
 			var buf bytes.Buffer
-
-			// Store original output settings
-			originalOut := rootCmd.OutOrStdout()
-			originalErr := rootCmd.ErrOrStderr()
+			root := NewRootCmd()
 
 			// Set output capture
-			rootCmd.SetOut(&buf)
-			rootCmd.SetErr(&buf)
-			rootCmd.SetArgs(tt.helpArgs)
+			root.SetOut(&buf)
+			root.SetErr(&buf)
+			root.SetArgs(tt.helpArgs)
 
-			rootCmd.Execute()
-
-			// Restore original settings
-			rootCmd.SetOut(originalOut)
-			rootCmd.SetErr(originalErr)
-			rootCmd.SetArgs([]string{})
+			root.Execute()
 
 			output := buf.String()
 
