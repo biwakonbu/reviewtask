@@ -258,8 +258,15 @@ create_release() {
 # Prepare release (without creating)
 prepare_release() {
     local release_type=${1:-"patch"}
+    local dry_run=${2:-false}
     
-    check_prerequisites
+    if [ "$dry_run" = true ]; then
+        log_info "DRY RUN: Simulating release preparation..."
+        # Skip prerequisites check for dry-run in CI environment
+        log_info "DRY RUN: Skipping prerequisites check"
+    else
+        check_prerequisites
+    fi
     
     local current_version
     current_version=$("$VERSION_SCRIPT" current)
@@ -294,7 +301,11 @@ prepare_release() {
     fi
     
     echo
-    log_info "Run '$0 release $release_type' to create the actual release"
+    if [ "$dry_run" = true ]; then
+        log_info "DRY RUN: Release preparation simulation completed"
+    else
+        log_info "Run '$0 release $release_type' to create the actual release"
+    fi
 }
 
 # Global flags
@@ -340,6 +351,7 @@ main() {
     # Parse arguments and collect non-flag arguments
     local args=()
     local from_pr=""
+    local dry_run=false
     while [[ $# -gt 0 ]]; do
         case $1 in
             --yes|-y)
@@ -353,6 +365,10 @@ main() {
             --from-pr)
                 from_pr="$2"
                 shift 2
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
                 ;;
             *)
                 args+=("$1")
@@ -377,7 +393,7 @@ main() {
     
     case "$command" in
         "prepare")
-            prepare_release "$release_type"
+            prepare_release "$release_type" "$dry_run"
             ;;
         "release")
             create_release "$release_type" false
@@ -392,6 +408,7 @@ main() {
             echo "  --yes, -y             Auto-confirm prompts (useful for CI/CD)"
             echo "  --force               Force release even without source changes"
             echo "  --from-pr PR_NUMBER   Detect release type from PR/issue label"
+            echo "  --dry-run             Simulate operations without making changes"
             echo ""
             echo "COMMANDS:"
             echo "  prepare   - Prepare and preview release (default)"

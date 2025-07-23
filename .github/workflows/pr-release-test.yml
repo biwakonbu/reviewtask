@@ -1,0 +1,37 @@
+name: PR Release Build Test
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+
+jobs:
+  test-release-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - name: Test cross-platform builds
+        run: ./scripts/build.sh test
+      
+      - name: Test version embedding
+        run: |
+          VERSION=$(./scripts/version.sh current)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "Building with version: $VERSION, commit: $COMMIT_HASH, date: $BUILD_DATE"
+          go build -ldflags="-X main.version=$VERSION -X main.commitHash=$COMMIT_HASH -X main.buildDate=$BUILD_DATE" .
+          echo "Verifying version embedding..."
+          ./reviewtask version | grep -E "(version|commit|Built)" || (echo "Version embedding validation failed" && exit 1)
+      
+      - name: Simulate release preparation
+        run: ./scripts/release.sh prepare patch --dry-run
