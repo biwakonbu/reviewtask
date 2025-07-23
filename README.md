@@ -1,5 +1,6 @@
 # reviewtask - AI-Powered PR Review Management Tool
 
+[![Latest Release](https://img.shields.io/github/v/release/biwakonbu/reviewtask)](https://github.com/biwakonbu/reviewtask/releases/latest)
 [![CI](https://github.com/biwakonbu/reviewtask/workflows/CI/badge.svg)](https://github.com/biwakonbu/reviewtask/actions)
 [![codecov](https://codecov.io/gh/biwakonbu/reviewtask/branch/main/graph/badge.svg)](https://codecov.io/gh/biwakonbu/reviewtask)
 [![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/reviewtask)](https://goreportcard.com/report/github.com/biwakonbu/reviewtask)

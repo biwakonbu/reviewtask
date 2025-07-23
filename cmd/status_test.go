@@ -2,11 +2,17 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
+	"io"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
 )
 
 // TestStatusCommand tests the status command functionality
@@ -338,7 +344,7 @@ func TestStatusCommandFlags(t *testing.T) {
 // TestStatusTaskSorting tests the task sorting functionality
 func TestStatusTaskSorting(t *testing.T) {
 	// Mock tasks with different priorities
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Priority: "low", Description: "Low priority task"},
 		{Priority: "critical", Description: "Critical task"},
 		{Priority: "medium", Description: "Medium task"},
@@ -347,12 +353,12 @@ func TestStatusTaskSorting(t *testing.T) {
 	}
 
 	// Sort tasks
-	sortTasksByPriority(tasks)
+	tasks.SortTasksByPriority(testTasks)
 
 	// Verify sorting order
 	expectedOrder := []string{"critical", "high", "medium", "medium", "low"}
 
-	for i, task := range tasks {
+	for i, task := range testTasks {
 		if task.Priority != expectedOrder[i] {
 			t.Errorf("Expected task %d to have priority '%s', got '%s'", i, expectedOrder[i], task.Priority)
 		}
@@ -361,7 +367,7 @@ func TestStatusTaskSorting(t *testing.T) {
 
 // TestStatusTaskFiltering tests the task filtering functionality
 func TestStatusTaskFiltering(t *testing.T) {
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Status: "todo", Description: "Todo task 1"},
 		{Status: "doing", Description: "Doing task 1"},
 		{Status: "done", Description: "Done task 1"},
@@ -382,7 +388,7 @@ func TestStatusTaskFiltering(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		filtered := filterTasksByStatus(tasks, tt.status)
+		filtered := tasks.FilterTasksByStatus(testTasks, tt.status)
 		if len(filtered) != tt.expected {
 			t.Errorf("Expected %d tasks with status '%s', got %d", tt.expected, tt.status, len(filtered))
 		}
@@ -398,7 +404,7 @@ func TestStatusTaskFiltering(t *testing.T) {
 
 // TestStatusTaskStats tests the task statistics calculation
 func TestStatusTaskStats(t *testing.T) {
-	tasks := []storage.Task{
+	testTasks := []storage.Task{
 		{Status: "todo", Priority: "high", PRNumber: 1},
 		{Status: "doing", Priority: "medium", PRNumber: 1},
 		{Status: "done", Priority: "high", PRNumber: 2},
@@ -406,7 +412,7 @@ func TestStatusTaskStats(t *testing.T) {
 		{Status: "cancel", Priority: "critical", PRNumber: 1},
 	}
 
-	stats := calculateTaskStats(tasks)
+	stats := tasks.CalculateTaskStats(testTasks)
 
 	// Test status counts
 	expectedStatusCounts := map[string]int{
@@ -446,5 +452,231 @@ func TestStatusTaskStats(t *testing.T) {
 		if stats.PRCounts[pr] != expected {
 			t.Errorf("Expected %d tasks for PR %d, got %d", expected, pr, stats.PRCounts[pr])
 		}
+	}
+}
+
+// TestDisplayAIModeEmpty tests the AI mode empty state output
+func TestDisplayAIModeEmpty(t *testing.T) {
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := displayAIModeEmpty()
+	require.NoError(t, err)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Check essential parts of empty state
+	assert.Contains(t, output, "ReviewTask Status - 0% Complete")
+	assert.Contains(t, output, strings.Repeat("░", 80))
+	assert.Contains(t, output, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
+	assert.Contains(t, output, "アクティブなタスクはありません - すべて完了しています！")
+	assert.Contains(t, output, "待機中のタスクはありません")
+	assert.Contains(t, output, "Last updated:")
+}
+
+// TestDisplayAIModeContent tests the AI mode content output
+func TestDisplayAIModeContent(t *testing.T) {
+	// Create test tasks
+	testTasks := []storage.Task{
+		{
+			ID:          "task1",
+			Description: "Fix authentication bug",
+			Priority:    "high",
+			Status:      "doing",
+			PRNumber:    123,
+			File:        "auth.go",
+			Line:        45,
+		},
+		{
+			ID:          "task2",
+			Description: "Update documentation",
+			Priority:    "medium",
+			Status:      "todo",
+			PRNumber:    123,
+			File:        "README.md",
+			Line:        10,
+		},
+		{
+			ID:          "task3",
+			Description: "Add unit tests",
+			Priority:    "high",
+			Status:      "todo",
+			PRNumber:    123,
+			File:        "test.go",
+			Line:        100,
+		},
+		{
+			ID:          "task4",
+			Description: "Refactor database layer",
+			Priority:    "low",
+			Status:      "done",
+			PRNumber:    123,
+			File:        "db.go",
+			Line:        200,
+		},
+		{
+			ID:          "task5",
+			Description: "Remove deprecated API",
+			Priority:    "medium",
+			Status:      "cancel",
+			PRNumber:    123,
+			File:        "api.go",
+			Line:        150,
+		},
+	}
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := displayAIModeContent(testTasks, "test context")
+	require.NoError(t, err)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Check completion rate (2 completed out of 5 = 40%)
+	assert.Contains(t, output, "ReviewTask Status - 40.0% Complete (2/5)")
+
+	// Check progress bar has both filled and empty parts
+	assert.Contains(t, output, "█")
+	assert.Contains(t, output, "░")
+
+	// Check task summary
+	assert.Contains(t, output, "todo: 2    doing: 1    done: 1    pending: 0    cancel: 1")
+
+	// Check current task shows the doing task
+	assert.Contains(t, output, "Current Task:")
+	assert.Contains(t, output, "TSK-123")
+	assert.Contains(t, output, "HIGH")
+	assert.Contains(t, output, "Fix authentication bug")
+
+	// Check next tasks are sorted by priority
+	assert.Contains(t, output, "Next Tasks (up to 5):")
+	assert.Contains(t, output, "1. TSK-123  HIGH    Add unit tests")
+	assert.Contains(t, output, "2. TSK-123  MEDIUM    Update documentation")
+}
+
+// TestGenerateTaskID tests task ID generation
+func TestGenerateTaskID(t *testing.T) {
+	testCases := []struct {
+		prNumber int
+		expected string
+	}{
+		{42, "TSK-042"},
+		{1234, "TSK-1234"},
+		{1, "TSK-001"},
+		{999, "TSK-999"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("PR_%d", tc.prNumber), func(t *testing.T) {
+			task := storage.Task{PRNumber: tc.prNumber}
+			id := tasks.GenerateTaskID(task)
+			assert.Equal(t, tc.expected, id)
+		})
+	}
+}
+
+// TestCalculateTaskStatsNormalization tests the normalization of "cancelled" to "cancel"
+func TestCalculateTaskStatsNormalization(t *testing.T) {
+	testTasks := []storage.Task{
+		{Status: "todo", Priority: "high", PRNumber: 1},
+		{Status: "doing", Priority: "medium", PRNumber: 1},
+		{Status: "done", Priority: "high", PRNumber: 2},
+		{Status: "cancelled", Priority: "low", PRNumber: 2}, // Should be normalized to "cancel"
+		{Status: "cancel", Priority: "critical", PRNumber: 1},
+		{Status: "pending", Priority: "medium", PRNumber: 3},
+	}
+
+	stats := tasks.CalculateTaskStats(testTasks)
+
+	// Check status counts
+	assert.Equal(t, 1, stats.StatusCounts["todo"])
+	assert.Equal(t, 1, stats.StatusCounts["doing"])
+	assert.Equal(t, 1, stats.StatusCounts["done"])
+	assert.Equal(t, 2, stats.StatusCounts["cancel"]) // Both "cancel" and "cancelled"
+	assert.Equal(t, 1, stats.StatusCounts["pending"])
+	assert.Equal(t, 0, stats.StatusCounts["cancelled"]) // Should not exist
+
+	// Check priority counts
+	assert.Equal(t, 1, stats.PriorityCounts["critical"])
+	assert.Equal(t, 2, stats.PriorityCounts["high"])
+	assert.Equal(t, 2, stats.PriorityCounts["medium"])
+	assert.Equal(t, 1, stats.PriorityCounts["low"])
+
+	// Check PR counts
+	assert.Equal(t, 3, stats.PRCounts[1])
+	assert.Equal(t, 2, stats.PRCounts[2])
+	assert.Equal(t, 1, stats.PRCounts[3])
+}
+
+// TestWatchFlag tests the watch flag functionality
+func TestWatchFlag(t *testing.T) {
+	// Reset flags
+	statusWatch = false
+
+	cmd := &cobra.Command{
+		Use: "status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// Just check if watch mode is triggered
+			if statusWatch {
+				fmt.Fprint(cmd.OutOrStdout(), "Human Mode (TUI Dashboard) - Coming Soon!")
+			} else {
+				fmt.Fprint(cmd.OutOrStdout(), "AI Mode Output")
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVarP(&statusWatch, "watch", "w", false, "Human mode: rich TUI dashboard with real-time updates")
+
+	tests := []struct {
+		name     string
+		args     []string
+		expected string
+	}{
+		{
+			name:     "Without watch flag",
+			args:     []string{},
+			expected: "AI Mode Output",
+		},
+		{
+			name:     "With watch flag",
+			args:     []string{"--watch"},
+			expected: "Human Mode (TUI Dashboard) - Coming Soon!",
+		},
+		{
+			name:     "With short watch flag",
+			args:     []string{"-w"},
+			expected: "Human Mode (TUI Dashboard) - Coming Soon!",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			statusWatch = false // Reset before each test
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
+			cmd.SetArgs(tt.args)
+
+			err := cmd.Execute()
+			require.NoError(t, err)
+
+			output := buf.String()
+			assert.Contains(t, output, tt.expected)
+		})
 	}
 }
