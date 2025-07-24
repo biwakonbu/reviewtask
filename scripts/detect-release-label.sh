@@ -162,54 +162,53 @@ fi
 # Get PR labels first
 PR_LABELS=$(echo "$PR_DATA" | jq -r '.labels[].name')
 
-# Collect all release labels from PR and linked issues
-ALL_RELEASE_LABELS=""
-
-# Add PR release labels
+# Check PR labels first - PR labels take priority
+PR_RELEASE_LABELS=""
 if [[ -n "$PR_LABELS" ]]; then
     PR_RELEASE_LABELS=$(echo "$PR_LABELS" | grep '^release:' || true)
-    if [[ -n "$PR_RELEASE_LABELS" ]]; then
-        ALL_RELEASE_LABELS="$PR_RELEASE_LABELS"
-    fi
 fi
 
-# Priority 1: Try Development section first
-DEV_RELEASE_LABELS=$(get_development_issues)
-if [[ -n "$DEV_RELEASE_LABELS" ]]; then
-    if [[ -n "$ALL_RELEASE_LABELS" ]]; then
-        ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$DEV_RELEASE_LABELS"
-    else
-        ALL_RELEASE_LABELS="$DEV_RELEASE_LABELS"
-    fi
+# If PR has release labels, use only those (ignore linked issues)
+if [[ -n "$PR_RELEASE_LABELS" ]]; then
+    RELEASE_LABELS="$PR_RELEASE_LABELS"
 else
-    # Priority 2: Fallback to text analysis of PR body and title
-    PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
-    PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // ""')
+    # Only check linked issues if PR has no release labels
+    ALL_RELEASE_LABELS=""
     
-    # Look for issue references in PR body and title (e.g., "fixes #123", "closes #456")
-    LINKED_ISSUES=$(echo -e "$PR_BODY\n$PR_TITLE" | grep -oE '#[0-9]+|[Ff]ix(es|ed)?\s+#[0-9]+|[Cc]lose[sd]?\s+#[0-9]+|[Rr]esolve[sd]?\s+#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
-    
-    # Check labels from found issues
-    if [[ -n "$LINKED_ISSUES" ]]; then
-        while IFS= read -r issue_num; do
-            if [[ -n "$issue_num" ]]; then
-                if ISSUE_LABELS=$(gh issue view "$issue_num" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
-                    ISSUE_RELEASE_LABELS=$(echo "$ISSUE_LABELS" | grep '^release:' || true)
-                    if [[ -n "$ISSUE_RELEASE_LABELS" ]]; then
-                        if [[ -n "$ALL_RELEASE_LABELS" ]]; then
-                            ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$ISSUE_RELEASE_LABELS"
-                        else
-                            ALL_RELEASE_LABELS="$ISSUE_RELEASE_LABELS"
+    # Priority 1: Try Development section first
+    DEV_RELEASE_LABELS=$(get_development_issues)
+    if [[ -n "$DEV_RELEASE_LABELS" ]]; then
+        ALL_RELEASE_LABELS="$DEV_RELEASE_LABELS"
+    else
+        # Priority 2: Fallback to text analysis of PR body and title
+        PR_BODY=$(echo "$PR_DATA" | jq -r '.body // ""')
+        PR_TITLE=$(echo "$PR_DATA" | jq -r '.title // ""')
+        
+        # Look for issue references in PR body and title (e.g., "fixes #123", "closes #456")
+        LINKED_ISSUES=$(echo -e "$PR_BODY\n$PR_TITLE" | grep -oE '#[0-9]+|[Ff]ix(es|ed)?\s+#[0-9]+|[Cc]lose[sd]?\s+#[0-9]+|[Rr]esolve[sd]?\s+#[0-9]+' | grep -oE '[0-9]+' | sort -u || true)
+        
+        # Check labels from found issues
+        if [[ -n "$LINKED_ISSUES" ]]; then
+            while IFS= read -r issue_num; do
+                if [[ -n "$issue_num" ]]; then
+                    if ISSUE_LABELS=$(gh issue view "$issue_num" "${GH_ARGS[@]}" --json labels -q '.labels[].name' 2>/dev/null); then
+                        ISSUE_RELEASE_LABELS=$(echo "$ISSUE_LABELS" | grep '^release:' || true)
+                        if [[ -n "$ISSUE_RELEASE_LABELS" ]]; then
+                            if [[ -n "$ALL_RELEASE_LABELS" ]]; then
+                                ALL_RELEASE_LABELS="$ALL_RELEASE_LABELS"$'\n'"$ISSUE_RELEASE_LABELS"
+                            else
+                                ALL_RELEASE_LABELS="$ISSUE_RELEASE_LABELS"
+                            fi
                         fi
                     fi
                 fi
-            fi
-        done <<< "$LINKED_ISSUES"
+            done <<< "$LINKED_ISSUES"
+        fi
     fi
+    
+    # Use collected labels from issues
+    RELEASE_LABELS="$ALL_RELEASE_LABELS"
 fi
-
-# Use collected labels
-RELEASE_LABELS="$ALL_RELEASE_LABELS"
 
 # Count release labels
 LABEL_COUNT=$(echo "$RELEASE_LABELS" | grep -c '^release:' || echo 0)
