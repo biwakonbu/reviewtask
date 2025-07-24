@@ -37,9 +37,9 @@ func TestDashboardView(t *testing.T) {
 	result := model.View()
 
 	// Verify no box borders are present
-	if strings.Contains(result, "┌") || strings.Contains(result, "┐") || 
-	   strings.Contains(result, "└") || strings.Contains(result, "┘") ||
-	   strings.Contains(result, "│") {
+	if strings.Contains(result, "┌") || strings.Contains(result, "┐") ||
+		strings.Contains(result, "└") || strings.Contains(result, "┘") ||
+		strings.Contains(result, "│") {
 		t.Errorf("Dashboard should not contain any border characters")
 	}
 
@@ -90,9 +90,9 @@ func TestDashboardViewEmpty(t *testing.T) {
 	result := model.View()
 
 	// Verify no box borders
-	if strings.Contains(result, "┌") || strings.Contains(result, "┐") || 
-	   strings.Contains(result, "└") || strings.Contains(result, "┘") ||
-	   strings.Contains(result, "│") {
+	if strings.Contains(result, "┌") || strings.Contains(result, "┐") ||
+		strings.Contains(result, "└") || strings.Contains(result, "┘") ||
+		strings.Contains(result, "│") {
 		t.Errorf("Dashboard should not contain any border characters")
 	}
 

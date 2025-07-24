@@ -95,11 +95,11 @@ func TestDashboardFullRender(t *testing.T) {
 // TestDashboardErrorState tests dashboard rendering when there's an error
 func TestDashboardErrorState(t *testing.T) {
 	testError := strings.Join([]string{"test", "error"}, " ")
-	
+
 	model := Model{
-		width:     80,
-		height:    30,
-		loadError: &testErrorType{msg: testError},
+		width:      80,
+		height:     30,
+		loadError:  &testErrorType{msg: testError},
 		lastUpdate: time.Now(),
 		stats: tasks.TaskStats{
 			StatusCounts: map[string]int{
@@ -145,8 +145,8 @@ func TestDashboardEmptyState(t *testing.T) {
 				"cancel":  0,
 			},
 		},
-		width:  80,
-		height: 30,
+		width:      80,
+		height:     30,
 		lastUpdate: time.Now(),
 	}
 
@@ -252,13 +252,13 @@ func TestMultibyteCharacterHandling(t *testing.T) {
 						"cancel":  0,
 					},
 				},
-				width: 80,
+				width:      80,
 				lastUpdate: time.Now(),
 			}
 
 			// This should not panic
 			result := model.View()
-			
+
 			if !strings.Contains(result, tc.description) {
 				t.Errorf("Expected description to be displayed: %s", tc.description)
 			}

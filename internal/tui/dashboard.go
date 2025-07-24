@@ -10,7 +10,6 @@ import (
 	"reviewtask/internal/tasks"
 )
 
-
 // Model represents the TUI dashboard state
 type Model struct {
 	storageManager *storage.Manager
@@ -138,7 +137,7 @@ func (m Model) View() string {
 	sections = append(sections, "Next Tasks (up to 5):")
 	todoTasks := tasks.FilterTasksByStatus(m.tasks, "todo")
 	tasks.SortTasksByPriority(todoTasks)
-	
+
 	if len(todoTasks) == 0 {
 		sections = append(sections, "  待機中のタスクはありません")
 	} else {
@@ -158,8 +157,6 @@ func (m Model) View() string {
 
 	return strings.Join(sections, "\n")
 }
-
-
 
 // Messages
 

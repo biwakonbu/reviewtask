@@ -17,7 +17,27 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
     
+    - name: Check existing labels
+      id: check_labels
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Checking for existing release labels on PR #${{ github.event.pull_request.number }}..."
+        
+        # Check if PR already has a release label
+        EXISTING_LABEL=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q '.labels[] | select(.name | startswith("release:")) | .name' | head -1)
+        
+        if [[ -n "$EXISTING_LABEL" ]]; then
+          echo "✅ PR already has label: $EXISTING_LABEL"
+          echo "has_label=true" >> $GITHUB_OUTPUT
+          echo "existing_label=$EXISTING_LABEL" >> $GITHUB_OUTPUT
+        else
+          echo "ℹ️ No release label found on PR"
+          echo "has_label=false" >> $GITHUB_OUTPUT
+        fi
+    
     - name: Auto-label PR from linked issues
+      if: steps.check_labels.outputs.has_label != 'true'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
@@ -50,7 +70,7 @@ jobs:
         fi
     
     - name: Comment on PR about auto-labeling
-      if: success()
+      if: success() && steps.check_labels.outputs.has_label != 'true'
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
