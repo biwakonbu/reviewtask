@@ -35,8 +35,10 @@ type ProjectSpecific struct {
 }
 
 type TaskSettings struct {
-	DefaultStatus  string `json:"default_status"`
-	AutoPrioritize bool   `json:"auto_prioritize"`
+	DefaultStatus       string   `json:"default_status"`
+	AutoPrioritize      bool     `json:"auto_prioritize"`
+	LowPriorityPatterns []string `json:"low_priority_patterns"`
+	LowPriorityStatus   string   `json:"low_priority_status"`
 }
 
 type AISettings struct {
@@ -76,8 +78,10 @@ func defaultConfig() *Config {
 			Low:      "",
 		},
 		TaskSettings: TaskSettings{
-			DefaultStatus:  "todo",
-			AutoPrioritize: true,
+			DefaultStatus:       "todo",
+			AutoPrioritize:      true,
+			LowPriorityPatterns: []string{"nit:", "nits:", "minor:", "suggestion:", "consider:", "optional:", "style:"},
+			LowPriorityStatus:   "pending",
 		},
 		AISettings: AISettings{
 			UserLanguage:         "English",
@@ -163,6 +167,12 @@ func mergeWithDefaults(config *Config) {
 	// Merge task settings
 	if config.TaskSettings.DefaultStatus == "" {
 		config.TaskSettings.DefaultStatus = defaults.TaskSettings.DefaultStatus
+	}
+	if len(config.TaskSettings.LowPriorityPatterns) == 0 {
+		config.TaskSettings.LowPriorityPatterns = defaults.TaskSettings.LowPriorityPatterns
+	}
+	if config.TaskSettings.LowPriorityStatus == "" {
+		config.TaskSettings.LowPriorityStatus = defaults.TaskSettings.LowPriorityStatus
 	}
 
 	// Merge AI settings
