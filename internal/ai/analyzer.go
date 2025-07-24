@@ -509,6 +509,12 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	now := time.Now().Format("2006-01-02T15:04:05Z")
 
 	for _, task := range tasks {
+		// Determine initial status based on low-priority patterns
+		status := a.config.TaskSettings.DefaultStatus
+		if a.isLowPriorityComment(task.OriginText) {
+			status = a.config.TaskSettings.LowPriorityStatus
+		}
+
 		storageTask := storage.Task{
 			// UUID-based ID generation ensures global uniqueness and security
 			ID:              uuid.New().String(),
@@ -520,7 +526,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 			TaskIndex:       task.TaskIndex,
 			File:            task.File,
 			Line:            task.Line,
-			Status:          a.config.TaskSettings.DefaultStatus,
+			Status:          status,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
@@ -528,6 +534,29 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	}
 
 	return result
+}
+
+// isLowPriorityComment checks if a comment body contains any low-priority patterns
+func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
+	if len(a.config.TaskSettings.LowPriorityPatterns) == 0 {
+		return false
+	}
+
+	// Convert to lowercase for case-insensitive matching
+	lowerBody := strings.ToLower(commentBody)
+
+	for _, pattern := range a.config.TaskSettings.LowPriorityPatterns {
+		// Check if the comment starts with the pattern (case-insensitive)
+		if strings.HasPrefix(lowerBody, strings.ToLower(pattern)) {
+			return true
+		}
+		// Also check if the pattern appears after newline (for multi-line comments)
+		if strings.Contains(lowerBody, "\n"+strings.ToLower(pattern)) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (a *Analyzer) callClaudeCodeWithRetry(reviews []github.Review, attempt int) ([]TaskRequest, error) {
