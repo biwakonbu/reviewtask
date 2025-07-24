@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -172,7 +173,7 @@ func BenchmarkDashboardRender(b *testing.B) {
 	var testTasks []storage.Task
 	for i := 0; i < 50; i++ {
 		testTasks = append(testTasks, storage.Task{
-			ID:          string(rune('a' + i)),
+			ID:          fmt.Sprintf("task%d", i),
 			PRNumber:    1,
 			Priority:    "medium",
 			Status:      "todo",
