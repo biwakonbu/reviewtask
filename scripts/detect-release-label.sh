@@ -210,6 +210,9 @@ else
     RELEASE_LABELS="$ALL_RELEASE_LABELS"
 fi
 
+# Remove duplicates that may come from multiple linked issues
+RELEASE_LABELS=$(echo "$RELEASE_LABELS" | sort -u)
+
 # Count release labels
 LABEL_COUNT=$(echo "$RELEASE_LABELS" | grep -c '^release:' || echo 0)
 
