@@ -10,8 +10,27 @@ import (
 )
 
 // TestLowPriorityDetectionE2E tests the complete end-to-end workflow
-// for detecting and handling low-priority comments
+// for detecting and handling low-priority comments.
+//
+// ARCHITECTURE NOTE: This is an integration test that requires the Claude Code CLI.
+// The current Analyzer implementation directly calls exec.Command without abstraction,
+// making it difficult to inject mocks. Proper mocking would require:
+// 1. Extracting an AI interface (e.g., type AIClient interface { GenerateTasks(...) })
+// 2. Modifying Analyzer to accept this interface via dependency injection
+// 3. Creating mock implementations for testing
+//
+// As this would require significant production code changes, this test remains
+// an integration test. The core low-priority detection logic is unit tested in:
+// - internal/ai/analyzer_test.go: TestIsLowPriorityComment (pattern matching)
+// - internal/ai/analyzer_test.go: TestConvertToStorageTasksWithLowPriorityStatus (status assignment)
+//
+// To run this test, ensure Claude Code CLI is available in your PATH.
+// Skip with: go test -short
 func TestLowPriorityDetectionE2E(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Create configuration with low-priority patterns
 	cfg := &config.Config{
 		PriorityRules: config.PriorityRules{
@@ -80,6 +99,9 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 		t.Fatalf("Failed to generate tasks: %v", err)
 	}
 
+	// NOTE: This test assumes that SourceCommentID is preserved from the
+	// GitHub comment ID to the generated task. This assumption is validated
+	// in the unit tests at internal/ai/analyzer_test.go
 	// Expected outcomes
 	expectedStatuses := map[int64]string{
 		101: "pending", // nit: pattern
@@ -149,8 +171,14 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 	}
 }
 
-// TestComplexCommentPatterns tests various edge cases and complex patterns
+// TestComplexCommentPatterns tests various edge cases and complex patterns.
+// NOTE: This test also uses real Analyzer with Claude Code CLI dependency.
+// See TestLowPriorityDetectionE2E comments for architectural notes.
 func TestComplexCommentPatterns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
 			DefaultStatus:       "todo",
