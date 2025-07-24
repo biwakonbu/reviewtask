@@ -54,19 +54,19 @@ func TestDashboardFullRender(t *testing.T) {
 	output := model.View()
 
 	// Basic structure tests
-	if !strings.Contains(output, "ReviewTask Status Dashboard") {
+	if !strings.Contains(output, "ReviewTask Status") {
 		t.Error("Dashboard should contain title")
 	}
 
-	if !strings.Contains(output, "Progress Overview") {
+	if !strings.Contains(output, "Progress:") {
 		t.Error("Dashboard should contain progress section")
 	}
 
-	if !strings.Contains(output, "Task Summary") {
+	if !strings.Contains(output, "Task Summary:") {
 		t.Error("Dashboard should contain task summary")
 	}
 
-	if !strings.Contains(output, "Current Task") {
+	if !strings.Contains(output, "Current Task:") {
 		t.Error("Dashboard should contain current task section")
 	}
 
@@ -84,20 +84,10 @@ func TestDashboardFullRender(t *testing.T) {
 	}
 
 	// Test that content sections don't have box borders
-	lines := strings.Split(output, "\n")
-	for i, line := range lines {
-		// Skip header and footer lines
-		if i < 5 || i > len(lines)-3 {
-			continue
-		}
-
-		// Check for box border characters in content areas
-		if strings.Contains(line, "│ ┌") || strings.Contains(line, "│ └") {
-			if strings.Contains(lines[i-1], "Task Summary") ||
-				strings.Contains(lines[i-1], "Current Task") ||
-				strings.Contains(lines[i-1], "Next Tasks") {
-				t.Errorf("Content section at line %d should not have box borders: %s", i, line)
-			}
+	borderChars := []string{"┌", "┐", "└", "┘", "├", "┤", "─", "│"}
+	for _, char := range borderChars {
+		if strings.Contains(output, char) {
+			t.Errorf("Dashboard should not contain border character '%s'", char)
 		}
 	}
 }
@@ -105,11 +95,21 @@ func TestDashboardFullRender(t *testing.T) {
 // TestDashboardErrorState tests dashboard rendering when there's an error
 func TestDashboardErrorState(t *testing.T) {
 	testError := strings.Join([]string{"test", "error"}, " ")
-
+	
 	model := Model{
 		width:     80,
 		height:    30,
 		loadError: &testErrorType{msg: testError},
+		lastUpdate: time.Now(),
+		stats: tasks.TaskStats{
+			StatusCounts: map[string]int{
+				"todo":    0,
+				"doing":   0,
+				"done":    0,
+				"pending": 0,
+				"cancel":  0,
+			},
+		},
 	}
 
 	output := model.View()
@@ -147,6 +147,7 @@ func TestDashboardEmptyState(t *testing.T) {
 		},
 		width:  80,
 		height: 30,
+		lastUpdate: time.Now(),
 	}
 
 	output := model.View()
@@ -242,21 +243,24 @@ func TestMultibyteCharacterHandling(t *testing.T) {
 						Description: tc.description,
 					},
 				},
+				stats: tasks.TaskStats{
+					StatusCounts: map[string]int{
+						"todo":    0,
+						"doing":   1,
+						"done":    0,
+						"pending": 0,
+						"cancel":  0,
+					},
+				},
 				width: 80,
+				lastUpdate: time.Now(),
 			}
 
 			// This should not panic
-			result := model.renderCurrentTask()
-
-			if tc.expectError && strings.Contains(result, tc.description) {
-				t.Errorf("Expected error handling for: %s", tc.description)
-			}
-
-			if !tc.expectError && !strings.Contains(result, tc.description) {
-				// Check if it was truncated (should have "...")
-				if !strings.Contains(result, "...") {
-					t.Errorf("Expected description to be displayed or truncated: %s", tc.description)
-				}
+			result := model.View()
+			
+			if !strings.Contains(result, tc.description) {
+				t.Errorf("Expected description to be displayed: %s", tc.description)
 			}
 		})
 	}

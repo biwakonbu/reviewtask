@@ -6,21 +6,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-runewidth"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 )
 
-// UI layout constants
-const (
-	dashboardTitlePrefix   = "┌─ ReviewTask Status Dashboard "
-	dashboardBorderPadding = 2
-	progressBarPadding     = 10
-	taskBoxWidth           = 75 // Width of task content boxes
-	taskBoxPadding         = 6  // Padding for task box content
-	footerPadding          = 58 // Padding for footer text
-)
 
 // Model represents the TUI dashboard state
 type Model struct {
@@ -94,191 +83,83 @@ func (m Model) View() string {
 		return "Initializing..."
 	}
 
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62"))
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("230"))
-
 	// Build the dashboard
 	var sections []string
 
-	// Header
-	headerWidth := m.width - dashboardBorderPadding
-	titleLength := len(dashboardTitlePrefix) + 1 // +1 for closing "┐"
-	header := borderStyle.Width(headerWidth).Render(
-		titleStyle.Render(dashboardTitlePrefix + strings.Repeat("─", m.width-titleLength-1) + "┐"),
-	)
-	sections = append(sections, header)
+	// Calculate stats
+	total := len(m.tasks)
+	completed := m.stats.StatusCounts["done"] + m.stats.StatusCounts["cancel"]
+	completionRate := float64(0)
+	if total > 0 {
+		completionRate = float64(completed) / float64(total) * 100
+	}
+
+	// Title
+	if total == 0 {
+		sections = append(sections, "ReviewTask Status - 0% Complete")
+	} else {
+		sections = append(sections, fmt.Sprintf("ReviewTask Status - %.1f%% Complete (%d/%d)", completionRate, completed, total))
+	}
+	sections = append(sections, "")
 
 	// Error display
 	if m.loadError != nil {
-		errorStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true)
-		errorMsg := fmt.Sprintf("│ ⚠️  Error loading tasks: %s", m.loadError.Error())
-		errorLine := errorStyle.Render(padToWidth(errorMsg, m.width-3)) + " │"
-		sections = append(sections, errorLine)
-		sections = append(sections, "│"+strings.Repeat(" ", m.width-2)+"│")
+		sections = append(sections, fmt.Sprintf("⚠️  Error loading tasks: %s", m.loadError.Error()))
+		sections = append(sections, "")
 	}
-
-	// Progress Overview
-	sections = append(sections, m.renderProgressSection())
-
-	// Task Summary
-	sections = append(sections, m.renderTaskSummary())
-
-	// Current Task
-	sections = append(sections, m.renderCurrentTask())
-
-	// Next Tasks
-	sections = append(sections, m.renderNextTasks())
-
-	// Footer
-	footer := fmt.Sprintf("│ Press Ctrl+C to exit%sLast updated: %s │",
-		strings.Repeat(" ", footerPadding-24), // 24 is the length of "Press Ctrl+C to exit" + "Last updated: "
-		m.lastUpdate.Format("15:04"))
-	sections = append(sections, footer)
-
-	// Bottom border
-	sections = append(sections, "└"+strings.Repeat("─", m.width-dashboardBorderPadding)+"┘")
-
-	return strings.Join(sections, "\n")
-}
-
-func (m Model) renderProgressSection() string {
-	if len(m.tasks) == 0 {
-		return m.renderEmptyProgress()
-	}
-
-	completed := m.stats.StatusCounts["done"] + m.stats.StatusCounts["cancel"]
-	total := len(m.tasks)
-	percentage := float64(completed) / float64(total) * 100
 
 	// Progress bar
-	barWidth := m.width - progressBarPadding
-	filledWidth := int(float64(barWidth) * percentage / 100)
-	emptyWidth := barWidth - filledWidth
-
+	progressWidth := 80
+	filledWidth := int(float64(progressWidth) * completionRate / 100)
+	emptyWidth := progressWidth - filledWidth
 	progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	sections = append(sections, fmt.Sprintf("Progress: %s", progressBar))
+	sections = append(sections, "")
 
-	return fmt.Sprintf(`│                                                                               │
-│ Progress Overview                                                             │
-│ %s │
-│ [%s] %.0f%%   │
-│                                                                               │`,
-		progressBar, progressBar, percentage)
-}
+	// Task Summary
+	sections = append(sections, "Task Summary:")
+	sections = append(sections, fmt.Sprintf("  todo: %d    doing: %d    done: %d    pending: %d    cancel: %d",
+		m.stats.StatusCounts["todo"], m.stats.StatusCounts["doing"], m.stats.StatusCounts["done"],
+		m.stats.StatusCounts["pending"], m.stats.StatusCounts["cancel"]))
+	sections = append(sections, "")
 
-func (m Model) renderEmptyProgress() string {
-	barWidth := m.width - progressBarPadding
-	progressBar := strings.Repeat("░", barWidth)
-
-	return fmt.Sprintf(`│                                                                               │
-│ Progress Overview                                                             │
-│ %s │
-│ [%s] 0%%    │
-│                                                                               │`,
-		progressBar, strings.Repeat(" ", barWidth))
-}
-
-func (m Model) renderTaskSummary() string {
-	summary := fmt.Sprintf("  Todo: %d    Doing: %d    Done: %d    Pending: %d    Cancel: %d              ",
-		m.stats.StatusCounts["todo"],
-		m.stats.StatusCounts["doing"],
-		m.stats.StatusCounts["done"],
-		m.stats.StatusCounts["pending"],
-		m.stats.StatusCounts["cancel"])
-
-	return fmt.Sprintf(`│ Task Summary                                                                  │
-│                                                                               │
-│ %s  │
-│                                                                               │`,
-		summary)
-}
-
-func (m Model) renderCurrentTask() string {
+	// Current Task
+	sections = append(sections, "Current Task:")
 	doingTasks := tasks.FilterTasksByStatus(m.tasks, "doing")
-
-	content := "  アクティブなタスクはありません - すべて完了しています！"
-	if len(doingTasks) > 0 {
+	if len(doingTasks) == 0 {
+		sections = append(sections, "  アクティブなタスクはありません - すべて完了しています！")
+	} else {
 		task := doingTasks[0]
-		taskLine := fmt.Sprintf("1. %s  %s    %s", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-		content = fmt.Sprintf("  %s", taskLine)
+		sections = append(sections, fmt.Sprintf("  1. %s  %s    %s", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description))
 	}
+	sections = append(sections, "")
 
-	return fmt.Sprintf(`│ Current Task                                                                  │
-│                                                                               │
-│ %s  │
-│                                                                               │`,
-		padToWidth(content, m.width-taskBoxPadding))
-}
-
-func (m Model) renderNextTasks() string {
+	// Next Tasks
+	sections = append(sections, "Next Tasks (up to 5):")
 	todoTasks := tasks.FilterTasksByStatus(m.tasks, "todo")
 	tasks.SortTasksByPriority(todoTasks)
-
-	var taskLines []string
+	
 	if len(todoTasks) == 0 {
-		taskLines = append(taskLines, "│   待機中のタスクはありません                                                  │")
+		sections = append(sections, "  待機中のタスクはありません")
 	} else {
 		maxDisplay := 5
 		if len(todoTasks) < maxDisplay {
 			maxDisplay = len(todoTasks)
 		}
-
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
-			taskLine := fmt.Sprintf("  %d. %s  %s    %s", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
-			line := fmt.Sprintf("│ %s  │", padToWidth(taskLine, m.width-taskBoxPadding))
-			taskLines = append(taskLines, line)
+			sections = append(sections, fmt.Sprintf("  %d. %s  %s    %s", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description))
 		}
 	}
+	sections = append(sections, "")
 
-	content := strings.Join(taskLines, "\n")
+	// Footer
+	sections = append(sections, fmt.Sprintf("Last updated: %s", m.lastUpdate.Format("15:04:05")))
 
-	return fmt.Sprintf(`│ Next Tasks (up to 5)                                                         │
-│                                                                               │
-%s
-│                                                                               │`,
-		content)
+	return strings.Join(sections, "\n")
 }
 
-// Helper functions
 
-// padToWidth pads or truncates a string to fit the specified width
-// accounting for multibyte characters
-func padToWidth(s string, width int) string {
-	currentWidth := runewidth.StringWidth(s)
-	if currentWidth > width {
-		// Truncate with ellipsis
-		truncated := truncateString(s, width-3)
-		return truncated + "..."
-	}
-	// Pad with spaces
-	return s + strings.Repeat(" ", width-currentWidth)
-}
-
-// truncateString truncates a string to the specified display width
-// accounting for multibyte characters
-func truncateString(s string, width int) string {
-	var result []rune
-	currentWidth := 0
-
-	for _, r := range s {
-		rWidth := runewidth.RuneWidth(r)
-		if currentWidth+rWidth > width {
-			break
-		}
-		result = append(result, r)
-		currentWidth += rWidth
-	}
-
-	return string(result)
-}
 
 // Messages
 
