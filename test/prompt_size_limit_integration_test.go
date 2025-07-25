@@ -77,7 +77,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		callCount := mockClient.callCount
 		sizeErrorCount := mockClient.sizeErrorCount
 		mockClient.mu.Unlock()
-		
+
 		if callCount < 50 { // Expect many individual calls
 			t.Errorf("Expected many Claude calls for parallel processing, got %d", callCount)
 		}
@@ -116,7 +116,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		alwaysSizeErrorClient.mu.Lock()
 		finalCallCount := alwaysSizeErrorClient.callCount
 		alwaysSizeErrorClient.mu.Unlock()
-		
+
 		if finalCallCount > 5 {
 			t.Errorf("Expected minimal retries for size errors, got %d calls", finalCallCount)
 		}
@@ -211,7 +211,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 type MockClaudeClientForIntegration struct {
 	callCount          int
 	sizeErrorCount     int
-	sizeLimitThreshold int // Prompt size threshold for triggering errors
+	sizeLimitThreshold int        // Prompt size threshold for triggering errors
 	mu                 sync.Mutex // Protect concurrent access to counters
 }
 
