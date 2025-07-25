@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 )
 
 // MockClaudeClient implements ClaudeClient for testing
@@ -18,6 +19,8 @@ type MockClaudeClient struct {
 	CallCount int
 	// LastInput tracks the last input received
 	LastInput string
+	// mu protects concurrent access to CallCount and LastInput
+	mu sync.Mutex
 }
 
 // NewMockClaudeClient creates a new mock Claude client
@@ -29,8 +32,11 @@ func NewMockClaudeClient() *MockClaudeClient {
 
 // Execute returns a mocked response
 func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
+	// Protect concurrent access
+	m.mu.Lock()
 	m.CallCount++
 	m.LastInput = input
+	m.mu.Unlock()
 
 	if m.Error != nil {
 		return "", m.Error
@@ -172,6 +178,8 @@ type MockCommandExecutor struct {
 	LastCommand string
 	// LastArgs tracks the last args used
 	LastArgs []string
+	// mu protects concurrent access to CallCount, LastCommand, and LastArgs
+	mu sync.Mutex
 }
 
 // NewMockCommandExecutor creates a new mock command executor
@@ -183,9 +191,12 @@ func NewMockCommandExecutor() *MockCommandExecutor {
 
 // Execute returns a mocked response
 func (m *MockCommandExecutor) Execute(ctx context.Context, name string, args []string, stdin io.Reader) ([]byte, error) {
+	// Protect concurrent access
+	m.mu.Lock()
 	m.CallCount++
 	m.LastCommand = name
 	m.LastArgs = args
+	m.mu.Unlock()
 
 	if m.Error != nil {
 		return nil, m.Error
