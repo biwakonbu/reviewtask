@@ -214,6 +214,10 @@ func TestConvertToStorageTasksEmptyInput(t *testing.T) {
 	}
 }
 
+// TestConvertToStorageTasksPreservesAllFields verifies that all fields from TaskRequest
+// are correctly preserved when converting to storage.Task. This includes critical fields
+// like SourceCommentID which is used to map tasks back to their original GitHub comments.
+// This test addresses the code review concern about ID mapping assumptions.
 func TestConvertToStorageTasksPreservesAllFields(t *testing.T) {
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
@@ -255,6 +259,7 @@ func TestConvertToStorageTasksPreservesAllFields(t *testing.T) {
 	if task.SourceReviewID != testTask.SourceReviewID {
 		t.Errorf("SourceReviewID mismatch: expected %d, got %d", testTask.SourceReviewID, task.SourceReviewID)
 	}
+	// Critical: Verify SourceCommentID is preserved for mapping tasks to GitHub comments
 	if task.SourceCommentID != testTask.SourceCommentID {
 		t.Errorf("SourceCommentID mismatch: expected %d, got %d", testTask.SourceCommentID, task.SourceCommentID)
 	}
@@ -423,4 +428,177 @@ func TestTaskIDUniquenessAcrossMultipleGenerations(t *testing.T) {
 	}
 
 	t.Logf("Successfully generated %d unique UUID task IDs across %d batches", totalTasks, numBatches)
+}
+
+func TestIsLowPriorityComment(t *testing.T) {
+	// Create analyzer with low-priority patterns
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			LowPriorityPatterns: []string{"nit:", "nits:", "minor:", "suggestion:", "consider:", "optional:", "style:"},
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	tests := []struct {
+		name     string
+		comment  string
+		expected bool
+	}{
+		{
+			name:     "Comment starting with nit:",
+			comment:  "nit: Consider using const instead of let",
+			expected: true,
+		},
+		{
+			name:     "Comment starting with NITS: (uppercase)",
+			comment:  "NITS: Fix indentation",
+			expected: true,
+		},
+		{
+			name:     "Comment starting with minor:",
+			comment:  "minor: Could improve variable naming",
+			expected: true,
+		},
+		{
+			name:     "Comment with nit: after newline",
+			comment:  "Here's a review comment.\nnit: Fix spacing",
+			expected: true,
+		},
+		{
+			name:     "Comment with pattern in middle (not at start or after newline)",
+			comment:  "This is a nit: but not at start",
+			expected: false,
+		},
+		{
+			name:     "Comment without any patterns",
+			comment:  "This is a critical security issue that needs fixing",
+			expected: false,
+		},
+		{
+			name:     "Comment with style: pattern",
+			comment:  "style: Use consistent naming convention",
+			expected: true,
+		},
+		{
+			name:     "Empty comment",
+			comment:  "",
+			expected: false,
+		},
+		{
+			name:     "Comment with mixed case SUGGESTION:",
+			comment:  "SuGgEsTiOn: Consider refactoring this method",
+			expected: true,
+		},
+		{
+			name:     "Multi-line comment with pattern on second line",
+			comment:  "Good implementation overall.\noptional: You could add more tests",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := analyzer.isLowPriorityComment(tt.comment)
+			if result != tt.expected {
+				t.Errorf("isLowPriorityComment(%q) = %v, expected %v", tt.comment, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsLowPriorityCommentNoPatterns(t *testing.T) {
+	// Create analyzer with empty patterns
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			LowPriorityPatterns: []string{},
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Should always return false when no patterns configured
+	comments := []string{
+		"nit: This should not be detected",
+		"minor: No patterns configured",
+		"Any comment at all",
+	}
+
+	for _, comment := range comments {
+		result := analyzer.isLowPriorityComment(comment)
+		if result {
+			t.Errorf("Expected false for comment %q when no patterns configured, got true", comment)
+		}
+	}
+}
+
+func TestConvertToStorageTasksWithLowPriorityStatus(t *testing.T) {
+	// Create analyzer with low-priority configuration
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus:       "todo",
+			LowPriorityPatterns: []string{"nit:", "minor:"},
+			LowPriorityStatus:   "pending",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Create test tasks with various comment patterns
+	testTasks := []TaskRequest{
+		{
+			Description:     "Fix indentation",
+			OriginText:      "nit: Please fix the indentation here",
+			Priority:        "low",
+			SourceReviewID:  12345,
+			SourceCommentID: 67890,
+			File:            "test.go",
+			Line:            42,
+			TaskIndex:       0,
+		},
+		{
+			Description:     "Add error handling",
+			OriginText:      "This function needs proper error handling",
+			Priority:        "high",
+			SourceReviewID:  12345,
+			SourceCommentID: 67891,
+			File:            "test.go",
+			Line:            50,
+			TaskIndex:       0,
+		},
+		{
+			Description:     "Improve naming",
+			OriginText:      "MINOR: Variable names could be more descriptive",
+			Priority:        "low",
+			SourceReviewID:  12345,
+			SourceCommentID: 67892,
+			File:            "test.go",
+			Line:            60,
+			TaskIndex:       0,
+		},
+	}
+
+	// Convert to storage tasks
+	storageTasks := analyzer.convertToStorageTasks(testTasks)
+
+	// Verify task count
+	if len(storageTasks) != len(testTasks) {
+		t.Fatalf("Expected %d tasks, got %d", len(testTasks), len(storageTasks))
+	}
+
+	// Test expectations
+	expectedStatuses := []string{"pending", "todo", "pending"}
+
+	for i, task := range storageTasks {
+		// Verify status based on pattern detection
+		if task.Status != expectedStatuses[i] {
+			t.Errorf("Task %d: Expected status %q, got %q (origin: %q)",
+				i, expectedStatuses[i], task.Status, task.OriginText)
+		}
+
+		// Verify other fields are preserved
+		if task.Description != testTasks[i].Description {
+			t.Errorf("Task %d: Description mismatch", i)
+		}
+		if task.Priority != testTasks[i].Priority {
+			t.Errorf("Task %d: Priority mismatch", i)
+		}
+	}
 }

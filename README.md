@@ -20,6 +20,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
+- **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
 
 ## Installation
 
@@ -285,6 +286,12 @@ Edit `.pr-review/config.json` to customize priority rules:
     "medium": "Functional bugs, logic improvements, error handling",
     "low": "Code style, naming conventions, comment improvements"
   },
+  "task_settings": {
+    "default_status": "todo",
+    "auto_prioritize": true,
+    "low_priority_patterns": ["nit:", "nits:", "minor:", "suggestion:", "consider:", "optional:", "style:"],
+    "low_priority_status": "pending"
+  },
   "ai_settings": {
     "user_language": "English",
     "validation_enabled": false,
@@ -292,6 +299,19 @@ Edit `.pr-review/config.json` to customize priority rules:
   }
 }
 ```
+
+### Low-Priority Comment Detection
+
+The tool can automatically detect and handle low-priority comments (such as "nits" from code review tools):
+
+- **`low_priority_patterns`**: List of patterns to identify low-priority comments (case-insensitive)
+  - Default patterns: `["nit:", "nits:", "minor:", "suggestion:", "consider:", "optional:", "style:"]`
+  - Matches comments starting with these patterns or containing them after a newline
+- **`low_priority_status`**: Status to assign to tasks from matching comments (default: `"pending"`)
+  - This allows developers to focus on critical issues first
+  - Low-priority tasks can be addressed later or promoted to active status
+
+Example: A comment like "nit: Consider using const instead of let" will create a task with `"pending"` status instead of `"todo"`.
 
 ### Processing Modes
 

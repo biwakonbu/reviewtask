@@ -129,6 +129,7 @@ jobs:
       shell: bash
       run: |
         # Set up test command based on OS
+        # All tests now use mocks for external dependencies
         if [[ "$RUNNER_OS" == "Windows" ]]; then
           TEST_CMD="go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         elif [[ "$RUNNER_OS" == "Linux" ]]; then
