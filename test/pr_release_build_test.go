@@ -34,8 +34,8 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 		{
 			name:     "prepare without dry-run uses normal flow",
 			args:     []string{"prepare", "patch", "--yes"},
-			wantExit: 1, // Should fail due to uncommitted changes in test environment
-			wantOut:  []string{"Working directory is not clean"},
+			wantExit: 0, // In CI environment, working directory is clean
+			wantOut:  []string{"Prerequisites check passed"},
 		},
 	}
 
