@@ -597,3 +597,53 @@ func TestConvertToStorageTasksWithLowPriorityStatus(t *testing.T) {
 		}
 	}
 }
+
+// TestSourceCommentIDPropagationFocused specifically verifies that comment IDs
+// are correctly propagated from TaskRequest to storage.Task. This addresses
+// the code review concern about ID mapping assumptions.
+func TestSourceCommentIDPropagationFocused(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// Test with various comment IDs to ensure propagation works correctly
+	testCases := []struct {
+		name            string
+		commentID       int64
+		expectedComment int64
+	}{
+		{"Standard ID", 12345, 12345},
+		{"Large ID", 9999999999, 9999999999},
+		{"Small ID", 1, 1},
+		{"Zero ID", 0, 0},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			taskRequest := []TaskRequest{
+				{
+					Description:     "Test task",
+					OriginText:      "Test comment",
+					Priority:        "medium",
+					SourceCommentID: tc.commentID,
+					File:            "test.go",
+					Line:            1,
+				},
+			}
+
+			tasks := analyzer.convertToStorageTasks(taskRequest)
+
+			if len(tasks) != 1 {
+				t.Fatalf("Expected 1 task, got %d", len(tasks))
+			}
+
+			if tasks[0].SourceCommentID != tc.expectedComment {
+				t.Errorf("SourceCommentID not propagated correctly: expected %d, got %d",
+					tc.expectedComment, tasks[0].SourceCommentID)
+			}
+		})
+	}
+}
