@@ -10,26 +10,8 @@ import (
 )
 
 // TestLowPriorityDetectionE2E tests the complete end-to-end workflow
-// for detecting and handling low-priority comments.
-//
-// ARCHITECTURE NOTE: This is an integration test that requires the Claude Code CLI.
-// The current Analyzer implementation directly calls exec.Command without abstraction,
-// making it difficult to inject mocks. Proper mocking would require:
-// 1. Extracting an AI interface (e.g., type AIClient interface { GenerateTasks(...) })
-// 2. Modifying Analyzer to accept this interface via dependency injection
-// 3. Creating mock implementations for testing
-//
-// As this would require significant production code changes, this test remains
-// an integration test. The core low-priority detection logic is unit tested in:
-// - internal/ai/analyzer_test.go: TestIsLowPriorityComment (pattern matching)
-// - internal/ai/analyzer_test.go: TestConvertToStorageTasksWithLowPriorityStatus (status assignment)
-//
-// To run this test, ensure Claude Code CLI is available in your PATH.
-// Skip with: go test -short
+// for detecting and handling low-priority comments using a mock Claude client.
 func TestLowPriorityDetectionE2E(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
 
 	// Create configuration with low-priority patterns
 	cfg := &config.Config{
@@ -49,13 +31,67 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 			UserLanguage:         "English",
 			OutputFormat:         "json",
 			MaxTasksPerComment:   2,
-			DeduplicationEnabled: true,
+			DeduplicationEnabled: false, // Disable for testing
 			SimilarityThreshold:  0.8,
 		},
 	}
 
-	// Create analyzer with the configuration
-	analyzer := ai.NewAnalyzer(cfg)
+	// Create mock Claude client
+	mockClient := &ai.MockClaudeClient{
+		Responses: make(map[string]string),
+	}
+	
+	// Set up mock responses for each comment (use 0 as placeholder for dynamic values)
+	mockClient.Responses["nit: Variable naming is inconsistent"] = `[{
+		"description": "Fix inconsistent variable naming",
+		"origin_text": "nit: Variable naming is inconsistent",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}]`
+	
+	mockClient.Responses["This error handling is missing"] = `[{
+		"description": "Add missing error handling to prevent crashes in production",
+		"origin_text": "This error handling is missing - could cause crashes in production",
+		"priority": "high",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "todo"
+	}]`
+	
+	mockClient.Responses["MINOR: Variable names could be more descriptive"] = `[{
+		"description": "Improve variable names for better readability",
+		"origin_text": "MINOR: Variable names could be more descriptive",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}]`
+	
+	mockClient.Responses["suggestion: You could add unit tests"] = `[{
+		"description": "Add unit tests for this function",
+		"origin_text": "Good implementation!\nsuggestion: You could add unit tests for this function",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}]`
+	
+	// Create analyzer with mock client
+	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
 	// Test case 1: Comments with various low-priority patterns
 	reviews := []github.Review{
@@ -112,6 +148,9 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 
 	// Verify tasks
 	for _, task := range tasks {
+		t.Logf("Task: ID=%s, CommentID=%d, Status=%s, Origin=%q",
+			task.ID, task.SourceCommentID, task.Status, task.OriginText)
+		
 		expectedStatus, exists := expectedStatuses[task.SourceCommentID]
 		if !exists {
 			t.Errorf("Unexpected task from comment ID %d", task.SourceCommentID)
@@ -179,10 +218,6 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 // NOTE: This test also uses real Analyzer with Claude Code CLI dependency.
 // See TestLowPriorityDetectionE2E comments for architectural notes.
 func TestComplexCommentPatterns(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
 			DefaultStatus:       "todo",
@@ -195,7 +230,71 @@ func TestComplexCommentPatterns(t *testing.T) {
 		},
 	}
 
-	analyzer := ai.NewAnalyzer(cfg)
+	// Create mock Claude client with dynamic response handling
+	mockClient := &ai.MockClaudeClient{
+		Responses: make(map[string]string),
+	}
+	
+	// Set up responses for each test case (use 0 as placeholder for dynamic values)
+	mockClient.Responses["nit:   Extra spaces should still match"] = `[{
+		"description": "Fix extra spaces issue",
+		"origin_text": "nit:   Extra spaces should still match",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}]`
+	
+	mockClient.Responses["error handling in this function needs improvement"] = `[{
+		"description": "Improve error handling in function",
+		"origin_text": "The error handling in this function needs improvement. It should return proper error messages instead of generic ones. Here's an example of what NOT to do:\n` + "```" + `\n// nit: this is in a code block\nreturn fmt.Errorf(\"error\")\n` + "```" + `\nPlease update the error handling to include context about what operation failed.",
+		"priority": "medium",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "todo"
+	}]`
+	
+	mockClient.Responses["style: Fix formatting"] = `[{
+		"description": "Fix formatting issues",
+		"origin_text": "style: Fix formatting\nnit: Also fix indentation",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}, {
+		"description": "Fix indentation",
+		"origin_text": "style: Fix formatting\nnit: Also fix indentation",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 1,
+		"status": "pending"
+	}]`
+	
+	mockClient.Responses["nit: Fix this 修正してください"] = `[{
+		"description": "Fix the issue mentioned (修正してください)",
+		"origin_text": "nit: Fix this 修正してください",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "pending"
+	}]`
+	
+	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
 	testCases := []struct {
 		name           string

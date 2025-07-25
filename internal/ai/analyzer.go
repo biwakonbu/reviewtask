@@ -1,11 +1,11 @@
 package ai
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"sort"
 	"strings"
 	"sync"
@@ -20,11 +20,30 @@ import (
 type Analyzer struct {
 	config             *config.Config
 	validationFeedback []ValidationIssue
+	claudeClient       ClaudeClient
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
+	// Default to real Claude client
+	client, err := NewRealClaudeClient()
+	if err != nil {
+		// If Claude is not available, return analyzer without client
+		// This allows tests to inject their own mock
+		return &Analyzer{
+			config: cfg,
+		}
+	}
 	return &Analyzer{
-		config: cfg,
+		config:       cfg,
+		claudeClient: client,
+	}
+}
+
+// NewAnalyzerWithClient creates an analyzer with a specific Claude client (for testing)
+func NewAnalyzerWithClient(cfg *config.Config, client ClaudeClient) *Analyzer {
+	return &Analyzer{
+		config:       cfg,
+		claudeClient: client,
 	}
 }
 
@@ -406,25 +425,23 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", len(prompt), maxPromptSize)
 	}
 
-	claudePath, err := a.findClaudeCommand()
-	if err != nil {
-		return nil, fmt.Errorf("claude command not found: %w", err)
+	// Use injected client if available, otherwise create a real one
+	client := a.claudeClient
+	if client == nil {
+		var err error
+		client, err = NewRealClaudeClient()
+		if err != nil {
+			return nil, fmt.Errorf("claude client initialization failed: %w", err)
+		}
 	}
-
-	// Use Claude Code CLI with stdin to avoid command line length limits
-	cmd := exec.Command(claudePath, "--output-format", "json")
-	cmd.Stdin = strings.NewReader(prompt)
-	// Ensure the command inherits the current environment including PATH
-	cmd.Env = os.Environ()
 
 	// Debug information if enabled
 	if a.config.AISettings.DebugMode {
-		fmt.Printf("  🐛 Using Claude at: %s\n", claudePath)
-		fmt.Printf("  🐛 PATH: %s\n", os.Getenv("PATH"))
 		fmt.Printf("  🐛 Prompt size: %d characters\n", len(prompt))
 	}
 
-	output, err := cmd.Output()
+	ctx := context.Background()
+	output, err := client.Execute(ctx, prompt, "json")
 	if err != nil {
 		return nil, fmt.Errorf("claude code execution failed: %w", err)
 	}
@@ -437,7 +454,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		Result  string `json:"result"`
 	}
 
-	if err := json.Unmarshal(output, &claudeResponse); err != nil {
+	if err := json.Unmarshal([]byte(output), &claudeResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse claude wrapper response: %w", err)
 	}
 
