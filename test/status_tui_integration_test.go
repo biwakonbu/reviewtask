@@ -198,8 +198,8 @@ func TestStatusCommandIntegration(t *testing.T) {
 		assert.Contains(t, outputStr, "ReviewTask Status - 0% Complete")
 		assert.Contains(t, outputStr, strings.Repeat("░", 80))
 		assert.Contains(t, outputStr, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
-		assert.Contains(t, outputStr, "アクティブなタスクはありません - すべて完了しています！")
-		assert.Contains(t, outputStr, "待機中のタスクはありません")
+		assert.Contains(t, outputStr, "No active tasks - all completed!")
+		assert.Contains(t, outputStr, "No pending tasks")
 	})
 
 	t.Run("Watch Flag Recognition", func(t *testing.T) {
