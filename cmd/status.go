@@ -131,10 +131,10 @@ func displayAIModeEmpty() error {
 	fmt.Println("  todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
 	fmt.Println()
 	fmt.Println("Current Task:")
-	fmt.Println("  アクティブなタスクはありません - すべて完了しています！")
+	fmt.Println("  No active tasks - all completed!")
 	fmt.Println()
 	fmt.Println("Next Tasks:")
-	fmt.Println("  待機中のタスクはありません")
+	fmt.Println("  No pending tasks")
 	fmt.Println()
 	fmt.Printf("Last updated: %s\n", time.Now().Format("15:04:05"))
 	return nil
@@ -169,7 +169,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	fmt.Println("Current Task:")
 	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
 	if len(doingTasks) == 0 {
-		fmt.Println("  アクティブなタスクはありません")
+		fmt.Println("  No active tasks")
 	} else {
 		// Show first doing task with work order format: 着手順, ID, Priority, Title
 		task := doingTasks[0]
@@ -183,7 +183,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	tasks.SortTasksByPriority(todoTasks)
 
 	if len(todoTasks) == 0 {
-		fmt.Println("  待機中のタスクはありません")
+		fmt.Println("  No pending tasks")
 	} else {
 		// Show top 5 tasks with work order format: 着手順, ID, Priority, Title
 		maxDisplay := 5

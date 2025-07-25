@@ -476,8 +476,8 @@ func TestDisplayAIModeEmpty(t *testing.T) {
 	assert.Contains(t, output, "ReviewTask Status - 0% Complete")
 	assert.Contains(t, output, strings.Repeat("░", 80))
 	assert.Contains(t, output, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
-	assert.Contains(t, output, "アクティブなタスクはありません - すべて完了しています！")
-	assert.Contains(t, output, "待機中のタスクはありません")
+	assert.Contains(t, output, "No active tasks - all completed!")
+	assert.Contains(t, output, "No pending tasks")
 	assert.Contains(t, output, "Last updated:")
 }
 
