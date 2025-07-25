@@ -567,18 +567,18 @@ Some nitpick content here
 			expected: true,
 		},
 		{
-			name: "Simple nitpick pattern",
-			comment: `🧹 Nitpick: Fix this minor issue`,
+			name:     "Simple nitpick pattern",
+			comment:  `🧹 Nitpick: Fix this minor issue`,
 			expected: true,
 		},
 		{
-			name: "Direct summary tag with emoji",
-			comment: `<summary>🧹 nitpick comments (1)</summary>`,
+			name:     "Direct summary tag with emoji",
+			comment:  `<summary>🧹 nitpick comments (1)</summary>`,
 			expected: true,
 		},
 		{
-			name: "Mixed case nitpick",
-			comment: `<summary>NITPICK Comments (5)</summary>`,
+			name:     "Mixed case nitpick",
+			comment:  `<summary>NITPICK Comments (5)</summary>`,
 			expected: true,
 		},
 		{
