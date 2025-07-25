@@ -476,8 +476,8 @@ func TestDisplayAIModeEmpty(t *testing.T) {
 	assert.Contains(t, output, "ReviewTask Status - 0% Complete")
 	assert.Contains(t, output, strings.Repeat("░", 80))
 	assert.Contains(t, output, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
-	assert.Contains(t, output, "アクティブなタスクはありません - すべて完了しています！")
-	assert.Contains(t, output, "待機中のタスクはありません")
+	assert.Contains(t, output, "No active tasks - all completed!")
+	assert.Contains(t, output, "No pending tasks")
 	assert.Contains(t, output, "Last updated:")
 }
 
@@ -567,6 +567,71 @@ func TestDisplayAIModeContent(t *testing.T) {
 	assert.Contains(t, output, "Next Tasks (up to 5):")
 	assert.Contains(t, output, "1. TSK-123  HIGH    Add unit tests")
 	assert.Contains(t, output, "2. TSK-123  MEDIUM    Update documentation")
+}
+
+// TestEnglishMessagesInAIModeNoActiveTasks verifies English messages when no active tasks
+func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
+	testCases := []struct {
+		name         string
+		tasks        []storage.Task
+		expectedMsg1 string
+		expectedMsg2 string
+	}{
+		{
+			name: "No doing tasks but has todo tasks",
+			tasks: []storage.Task{
+				{ID: "1", Status: "todo", Priority: "high", PRNumber: 1},
+				{ID: "2", Status: "done", Priority: "low", PRNumber: 1},
+			},
+			expectedMsg1: "No active tasks",
+			expectedMsg2: "HIGH",
+		},
+		{
+			name: "No todo tasks but has doing tasks",
+			tasks: []storage.Task{
+				{ID: "1", Status: "doing", Priority: "high", PRNumber: 1},
+				{ID: "2", Status: "done", Priority: "low", PRNumber: 1},
+			},
+			expectedMsg1: "HIGH",
+			expectedMsg2: "No pending tasks",
+		},
+		{
+			name: "Only completed tasks",
+			tasks: []storage.Task{
+				{ID: "1", Status: "done", Priority: "high", PRNumber: 1},
+				{ID: "2", Status: "cancel", Priority: "low", PRNumber: 1},
+			},
+			expectedMsg1: "No active tasks",
+			expectedMsg2: "No pending tasks",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Capture stdout
+			old := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			err := displayAIModeContent(tc.tasks, "test")
+			require.NoError(t, err)
+
+			w.Close()
+			os.Stdout = old
+
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := buf.String()
+
+			// Verify expected messages appear
+			assert.Contains(t, output, tc.expectedMsg1)
+			assert.Contains(t, output, tc.expectedMsg2)
+
+			// Ensure no Japanese messages appear
+			assert.NotContains(t, output, "アクティブなタスクはありません")
+			assert.NotContains(t, output, "待機中のタスクはありません")
+		})
+	}
 }
 
 // TestGenerateTaskID tests task ID generation
