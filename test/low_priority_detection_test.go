@@ -40,7 +40,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 	mockClient := &ai.MockClaudeClient{
 		Responses: make(map[string]string),
 	}
-	
+
 	// Set up mock responses for each comment (use 0 as placeholder for dynamic values)
 	mockClient.Responses["nit: Variable naming is inconsistent"] = `[{
 		"description": "Fix inconsistent variable naming",
@@ -53,7 +53,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 		"task_index": 0,
 		"status": "pending"
 	}]`
-	
+
 	mockClient.Responses["This error handling is missing"] = `[{
 		"description": "Add missing error handling to prevent crashes in production",
 		"origin_text": "This error handling is missing - could cause crashes in production",
@@ -65,7 +65,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 		"task_index": 0,
 		"status": "todo"
 	}]`
-	
+
 	mockClient.Responses["MINOR: Variable names could be more descriptive"] = `[{
 		"description": "Improve variable names for better readability",
 		"origin_text": "MINOR: Variable names could be more descriptive",
@@ -77,7 +77,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 		"task_index": 0,
 		"status": "pending"
 	}]`
-	
+
 	mockClient.Responses["suggestion: You could add unit tests"] = `[{
 		"description": "Add unit tests for this function",
 		"origin_text": "Good implementation!\nsuggestion: You could add unit tests for this function",
@@ -89,7 +89,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 		"task_index": 0,
 		"status": "pending"
 	}]`
-	
+
 	// Create analyzer with mock client
 	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
@@ -150,7 +150,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 	for _, task := range tasks {
 		t.Logf("Task: ID=%s, CommentID=%d, Status=%s, Origin=%q",
 			task.ID, task.SourceCommentID, task.Status, task.OriginText)
-		
+
 		expectedStatus, exists := expectedStatuses[task.SourceCommentID]
 		if !exists {
 			t.Errorf("Unexpected task from comment ID %d", task.SourceCommentID)
@@ -234,7 +234,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 	mockClient := &ai.MockClaudeClient{
 		Responses: make(map[string]string),
 	}
-	
+
 	// Set up responses for each test case (use 0 as placeholder for dynamic values)
 	mockClient.Responses["nit:   Extra spaces should still match"] = `[{
 		"description": "Fix extra spaces issue",
@@ -247,7 +247,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 		"task_index": 0,
 		"status": "pending"
 	}]`
-	
+
 	mockClient.Responses["error handling in this function needs improvement"] = `[{
 		"description": "Improve error handling in function",
 		"origin_text": "The error handling in this function needs improvement. It should return proper error messages instead of generic ones. Here's an example of what NOT to do:\n` + "```" + `\n// nit: this is in a code block\nreturn fmt.Errorf(\"error\")\n` + "```" + `\nPlease update the error handling to include context about what operation failed.",
@@ -259,7 +259,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 		"task_index": 0,
 		"status": "todo"
 	}]`
-	
+
 	mockClient.Responses["style: Fix formatting"] = `[{
 		"description": "Fix formatting issues",
 		"origin_text": "style: Fix formatting\nnit: Also fix indentation",
@@ -281,7 +281,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 		"task_index": 1,
 		"status": "pending"
 	}]`
-	
+
 	mockClient.Responses["nit: Fix this 修正してください"] = `[{
 		"description": "Fix the issue mentioned (修正してください)",
 		"origin_text": "nit: Fix this 修正してください",
@@ -293,7 +293,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 		"task_index": 0,
 		"status": "pending"
 	}]`
-	
+
 	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
 	testCases := []struct {

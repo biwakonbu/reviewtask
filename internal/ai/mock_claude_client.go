@@ -31,11 +31,11 @@ func NewMockClaudeClient() *MockClaudeClient {
 func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	m.CallCount++
 	m.LastInput = input
-	
+
 	if m.Error != nil {
 		return "", m.Error
 	}
-	
+
 	// Extract comment ID, file, and line from the prompt
 	var commentID int64
 	var reviewID int64
@@ -55,7 +55,7 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 			}
 		}
 	}
-	
+
 	// Look for a matching response pattern
 	for pattern, response := range m.Responses {
 		if strings.Contains(input, pattern) {
@@ -72,7 +72,7 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 			if lineNum > 0 {
 				response = strings.ReplaceAll(response, `"line": 0`, fmt.Sprintf(`"line": %d`, lineNum))
 			}
-			
+
 			// Wrap response in Claude CLI format
 			if outputFormat == "json" {
 				wrapped := map[string]interface{}{
@@ -87,7 +87,7 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 			return response, nil
 		}
 	}
-	
+
 	// Default response based on input content
 	var task TaskRequest
 	if strings.Contains(input, "nit:") || strings.Contains(input, "minor:") {
@@ -117,7 +117,7 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 			TaskIndex:       0,
 		}
 	}
-	
+
 	if outputFormat == "json" {
 		data, _ := json.Marshal([]TaskRequest{task})
 		wrapped := map[string]interface{}{
@@ -129,7 +129,7 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 		wrapData, _ := json.Marshal(wrapped)
 		return string(wrapData), nil
 	}
-	
+
 	return "Generated 1 task", nil
 }
 
@@ -138,7 +138,7 @@ func extractCommentText(input string) string {
 	lines := strings.Split(input, "\n")
 	inComment := false
 	var commentText []string
-	
+
 	for _, line := range lines {
 		if strings.HasPrefix(line, "- Comment Text: ") {
 			text := strings.TrimPrefix(line, "- Comment Text: ")
@@ -152,11 +152,11 @@ func extractCommentText(input string) string {
 			commentText = append(commentText, line)
 		}
 	}
-	
+
 	if len(commentText) > 0 {
 		return strings.Join(commentText, "\n")
 	}
-	
+
 	return ""
 }
 
@@ -186,17 +186,17 @@ func (m *MockCommandExecutor) Execute(ctx context.Context, name string, args []s
 	m.CallCount++
 	m.LastCommand = name
 	m.LastArgs = args
-	
+
 	if m.Error != nil {
 		return nil, m.Error
 	}
-	
+
 	// Look for a matching response
 	key := name + " " + strings.Join(args, " ")
 	if response, ok := m.Responses[key]; ok {
 		return response, nil
 	}
-	
+
 	// Default response
 	return []byte("mock output"), nil
 }

@@ -29,18 +29,18 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 	if outputFormat != "" {
 		args = append(args, "--output-format", outputFormat)
 	}
-	
+
 	cmd := exec.CommandContext(ctx, c.claudePath, args...)
 	cmd.Stdin = strings.NewReader(input)
-	
+
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	
+
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("claude execution failed: %w, stderr: %s", err, stderr.String())
 	}
-	
+
 	return stdout.String(), nil
 }
 
@@ -58,6 +58,6 @@ func (e *RealCommandExecutor) Execute(ctx context.Context, name string, args []s
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
-	
+
 	return cmd.CombinedOutput()
 }
