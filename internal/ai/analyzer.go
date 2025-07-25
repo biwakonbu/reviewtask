@@ -94,12 +94,6 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 		return []storage.Task{}, nil
 	}
 
-	// Check if validation is enabled in config
-	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		fmt.Printf("  🐛 Using validation-enabled path\n")
-		return a.GenerateTasksWithValidation(reviews)
-	}
-
 	// Extract all comments from all reviews, filtering out resolved comments
 	var allComments []CommentContext
 	resolvedCommentCount := 0
@@ -126,6 +120,13 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 
 	if len(allComments) == 0 {
 		return []storage.Task{}, nil
+	}
+
+	// Check if validation is enabled in config
+	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+		fmt.Printf("  🐛 Using validation-enabled path with parallel processing\n")
+		// Use parallel processing for validation mode to handle large PRs
+		return a.generateTasksParallelWithValidation(allComments)
 	}
 
 	return a.generateTasksParallel(allComments)
@@ -268,6 +269,11 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 		tasks, err := a.callClaudeCodeWithRetry(reviews, attempt)
 		if err != nil {
 			fmt.Printf("  ❌ Generation failed: %v\n", err)
+			// If it's a prompt size error, no point in retrying
+			if strings.Contains(err.Error(), "prompt size") && strings.Contains(err.Error(), "exceeds maximum limit") {
+				fmt.Printf("  ⚠️  Prompt size limit exceeded - stopping retries (use parallel processing instead)\n")
+				break
+			}
 			continue
 		}
 
@@ -718,6 +724,13 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		if err != nil {
 			if a.config.AISettings.DebugMode {
 				fmt.Printf("    ❌ Comment %d generation failed: %v\n", ctx.Comment.ID, err)
+			}
+			// If it's a prompt size error, no point in retrying individual comments
+			if strings.Contains(err.Error(), "prompt size") && strings.Contains(err.Error(), "exceeds maximum limit") {
+				if a.config.AISettings.DebugMode {
+					fmt.Printf("    ⚠️  Comment %d prompt size limit exceeded - stopping retries\n", ctx.Comment.ID)
+				}
+				break
 			}
 			continue
 		}

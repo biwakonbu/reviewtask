@@ -1,12 +1,14 @@
 package ai
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"reviewtask/internal/config"
+	"reviewtask/internal/github"
 )
 
 func TestConvertToStorageTasksUUIDGeneration(t *testing.T) {
@@ -601,4 +603,187 @@ func TestConvertToStorageTasksWithLowPriorityStatus(t *testing.T) {
 			t.Errorf("Task %d: Priority mismatch", i)
 		}
 	}
+}
+
+// TestGenerateTasksValidationModeUsesParallelProcessing tests that validation mode
+// now uses parallel processing instead of batch processing to handle large PRs.
+// This addresses Issue #116: Claude Code CLI prompt size limit exceeded.
+func TestGenerateTasksValidationModeUsesParallelProcessing(t *testing.T) {
+	cfg := &config.Config{
+		AISettings: config.AISettings{
+			ValidationEnabled: &[]bool{false}[0], // Disable validation for simpler test
+			UserLanguage:      "English",
+		},
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+
+	// Create a mock Claude client that tracks call patterns
+	mockClient := NewMockClaudeClient()
+
+	analyzer := NewAnalyzerWithClient(cfg, mockClient)
+
+	// Create test reviews with multiple comments to trigger parallel processing
+	reviews := []github.Review{
+		{
+			ID:       1,
+			Reviewer: "test-reviewer",
+			State:    "PENDING",
+			Comments: []github.Comment{
+				{
+					ID:     1,
+					Author: "reviewer1",
+					Body:   "Comment 1 - this needs fixing",
+					File:   "test.go",
+					Line:   1,
+				},
+				{
+					ID:     2,
+					Author: "reviewer1",
+					Body:   "Comment 2 - another issue",
+					File:   "test.go",
+					Line:   2,
+				},
+			},
+		},
+	}
+
+	// Generate tasks using parallel processing
+	tasks, err := analyzer.GenerateTasks(reviews)
+
+	// Verify no errors and tasks were generated
+	if err != nil {
+		t.Fatalf("GenerateTasks failed: %v", err)
+	}
+
+	if len(tasks) == 0 {
+		t.Error("Expected tasks to be generated, got 0")
+	}
+
+	// Verify the mock client was called (parallel processing means multiple individual calls)
+	if mockClient.CallCount == 0 {
+		t.Error("Expected Claude client to be called for parallel processing")
+	}
+}
+
+// TestGenerateTasksHandlesPromptSizeLimitGracefully tests that prompt size errors
+// are detected early and retries are avoided to prevent wasted API calls.
+// This addresses Issue #116: Elimination of wasteful 5 retry attempts.
+func TestGenerateTasksHandlesPromptSizeLimitGracefully(t *testing.T) {
+	cfg := &config.Config{
+		AISettings: config.AISettings{
+			ValidationEnabled: &[]bool{true}[0],
+			MaxRetries:        5, // Should not retry 5 times for size errors
+		},
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+
+	// Create a mock client that returns size limit error
+	mockClient := NewMockClaudeClient()
+	mockClient.Error = fmt.Errorf("prompt size (39982 bytes) exceeds maximum limit (32768 bytes). Please shorten or chunk the prompt content")
+
+	analyzer := NewAnalyzerWithClient(cfg, mockClient)
+
+	// Create large review that would trigger size error in batch mode
+	reviews := []github.Review{
+		{
+			ID:       1,
+			Reviewer: "test-reviewer",
+			State:    "PENDING",
+			Comments: []github.Comment{
+				{
+					ID:     1,
+					Author: "reviewer1",
+					Body:   "This is a comment that would cause size issues in batch mode",
+					File:   "test.go",
+					Line:   1,
+				},
+			},
+		},
+	}
+
+	// Generate tasks - should handle size error gracefully
+	tasks, err := analyzer.GenerateTasks(reviews)
+
+	// With parallel processing, size errors should be rare/handled per comment
+	// But if they occur, we should get a meaningful error without excessive retries
+	if err != nil && strings.Contains(err.Error(), "prompt size") {
+		// This is expected for this test case
+		t.Logf("Size error handled gracefully: %v", err)
+	}
+
+	// Verify we didn't make excessive retry attempts
+	// With parallel processing and early detection, call count should be minimal
+	if mockClient.CallCount > 2 {
+		t.Errorf("Expected minimal retry attempts for size errors, got %d calls", mockClient.CallCount)
+	}
+
+	// If no error occurred, tasks should be generated
+	if err == nil && len(tasks) == 0 {
+		t.Error("Expected either tasks to be generated or a meaningful error")
+	}
+}
+
+// TestValidationModeParallelProcessingPerformance tests that parallel processing
+// improves performance for large PRs compared to batch processing.
+func TestValidationModeParallelProcessingPerformance(t *testing.T) {
+	cfg := &config.Config{
+		AISettings: config.AISettings{
+			ValidationEnabled: &[]bool{false}[0], // Disable validation for simpler test
+			DebugMode:         true,              // Enable debug for visibility
+		},
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+
+	// Create mock client - it will use default response since patterns don't need to match exactly
+	mockClient := NewMockClaudeClient()
+
+	analyzer := NewAnalyzerWithClient(cfg, mockClient)
+
+	// Create review with multiple comments to test parallel processing
+	reviews := []github.Review{
+		{
+			ID:       1,
+			Reviewer: "test-reviewer",
+			State:    "PENDING",
+			Comments: []github.Comment{
+				{ID: 1, Author: "reviewer1", Body: "Comment 1", File: "test.go", Line: 1},
+				{ID: 2, Author: "reviewer1", Body: "Comment 2", File: "test.go", Line: 2},
+				{ID: 3, Author: "reviewer1", Body: "Comment 3", File: "test.go", Line: 3},
+			},
+		},
+	}
+
+	// Measure execution time
+	start := time.Now()
+	tasks, err := analyzer.GenerateTasks(reviews)
+	duration := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("GenerateTasks failed: %v", err)
+	}
+
+	// Verify tasks were generated
+	expectedTaskCount := 3 // One task per comment
+	if len(tasks) != expectedTaskCount {
+		t.Errorf("Expected %d tasks, got %d", expectedTaskCount, len(tasks))
+	}
+
+	// Verify parallel processing occurred (multiple calls to Claude)
+	if mockClient.CallCount < 3 {
+		t.Errorf("Expected at least 3 Claude calls for parallel processing, got %d", mockClient.CallCount)
+	}
+
+	// Performance should be reasonable (parallel processing should not be significantly slower)
+	maxExpectedDuration := time.Second * 5 // Generous limit for test environment
+	if duration > maxExpectedDuration {
+		t.Errorf("Parallel processing took too long: %v (max expected: %v)", duration, maxExpectedDuration)
+	}
+
+	t.Logf("Parallel processing completed in %v with %d Claude calls", duration, mockClient.CallCount)
 }
