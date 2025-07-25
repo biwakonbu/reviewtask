@@ -624,7 +624,7 @@ func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
 		if summaryStart == -1 {
 			return false
 		}
-		
+
 		summaryEnd := strings.Index(lowerBody[summaryStart:], "</summary>")
 		if summaryEnd == -1 {
 			// Look for closing pattern without explicit tag
@@ -633,9 +633,9 @@ func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
 				return false
 			}
 		}
-		
+
 		summaryContent := lowerBody[summaryStart : summaryStart+summaryEnd+20] // +20 for buffer
-		
+
 		// Check if summary contains nitpick indicators
 		nitpickIndicators := []string{
 			"nitpick",
@@ -645,7 +645,7 @@ func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
 			"style",
 			"suggestion",
 		}
-		
+
 		for _, indicator := range nitpickIndicators {
 			if strings.Contains(summaryContent, indicator) {
 				return true
