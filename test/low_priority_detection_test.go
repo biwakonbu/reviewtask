@@ -184,7 +184,7 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 	mockClient := &ai.MockClaudeClient{
 		Responses: make(map[string]string),
 	}
-	
+
 	// Set up mock response for the test
 	mockClient.Responses["nit: Fix indentation"] = `[{
 		"description": "Fix indentation issues",
@@ -197,7 +197,7 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 		"task_index": 0,
 		"status": "todo"
 	}]`
-	
+
 	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
 	// Create review with "nit:" comment
