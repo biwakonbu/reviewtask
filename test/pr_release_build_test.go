@@ -18,7 +18,7 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 	}
 
 	scriptPath := filepath.Join(projectRoot, "scripts", "release.sh")
-	
+
 	// Check if we're in CI environment
 	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != ""
 
