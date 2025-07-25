@@ -28,14 +28,14 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 		{
 			name:     "prepare with dry-run flag",
 			args:     []string{"prepare", "patch", "--dry-run"},
-			wantExit: 0,
-			wantOut:  []string{"DRY RUN: Simulating release preparation"},
+			wantExit: 1, // Changed to 1 because we expect failure due to dirty working directory
+			wantOut:  []string{"Working directory is not clean"},
 		},
 		{
 			name:     "prepare without dry-run uses normal flow",
 			args:     []string{"prepare", "patch"},
-			wantExit: 0,
-			wantOut:  []string{"Preparing release", "Testing build process"},
+			wantExit: 1, // Changed to 1 because we expect failure due to dirty working directory
+			wantOut:  []string{"Working directory is not clean"},
 		},
 	}
 

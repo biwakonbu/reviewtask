@@ -128,6 +128,10 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 // TestConfigurationBackwardCompatibility ensures the feature works
 // when configuration fields are missing (backward compatibility)
 func TestConfigurationBackwardCompatibility(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
 	// Create minimal configuration without low-priority fields
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
@@ -212,7 +216,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 			name: "Pattern in code block should not match",
 			comment: github.Comment{
 				ID:   302,
-				Body: "Here's an example:\n```\n// nit: this is in a code block\n```",
+				Body: "This code needs review. Here's an example:\n```\n// nit: this is in a code block\n```\nPlease check if the implementation is correct.",
 				File: "file.go",
 				Line: 2,
 			},

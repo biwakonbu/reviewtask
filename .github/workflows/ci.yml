@@ -129,13 +129,14 @@ jobs:
       shell: bash
       run: |
         # Set up test command based on OS
+        # Use -short flag to skip integration tests that require external dependencies
         if [[ "$RUNNER_OS" == "Windows" ]]; then
-          TEST_CMD="go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
+          TEST_CMD="go test -v -short -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         elif [[ "$RUNNER_OS" == "Linux" ]]; then
-          TEST_CMD="go test -v -race -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
+          TEST_CMD="go test -v -short -race -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         else
           # macOS: Run tests sequentially with coverage to avoid race condition issues
-          TEST_CMD="go test -v -p 1 -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out ./..."
+          TEST_CMD="go test -v -short -p 1 -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out ./..."
         fi
         
         echo "Running: $TEST_CMD"
@@ -162,8 +163,8 @@ jobs:
           echo "::group::Test Failure Details"
           if [ -f coverage-${{ matrix.os }}.out ]; then
             echo "Coverage file exists, but tests failed"
-            # Try to find FAIL lines in recent output
-            go test -v ./... 2>&1 | grep -E "^(FAIL|--- FAIL:|Error:|panic:)" || true
+            # Try to find FAIL lines in recent output (with -short flag)
+            go test -v -short ./... 2>&1 | grep -E "^(FAIL|--- FAIL:|Error:|panic:)" || true
           else
             echo "No coverage file generated"
           fi
@@ -184,7 +185,7 @@ jobs:
         # Run tests again with JSON output for structured analysis
         echo "Re-running failed tests with JSON output..."
         set +e
-        go test -json ./... 2>&1 | tee test-output.json | jq -r 'select(.Action == "fail" or .Test != null and .Output != null) | "\(.Time // "") \(.Action // "") \(.Package // "") \(.Test // "") \(.Output // "")"' || true
+        go test -short -json ./... 2>&1 | tee test-output.json | jq -r 'select(.Action == "fail" or .Test != null and .Output != null) | "\(.Time // "") \(.Action // "") \(.Package // "") \(.Test // "") \(.Output // "")"' || true
         set -e
         
         # Look for specific error patterns
