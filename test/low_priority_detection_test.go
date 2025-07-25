@@ -167,10 +167,6 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 // TestConfigurationBackwardCompatibility ensures the feature works
 // when configuration fields are missing (backward compatibility)
 func TestConfigurationBackwardCompatibility(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
 	// Create minimal configuration without low-priority fields
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
@@ -184,7 +180,25 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 		},
 	}
 
-	analyzer := ai.NewAnalyzer(cfg)
+	// Create mock Claude client
+	mockClient := &ai.MockClaudeClient{
+		Responses: make(map[string]string),
+	}
+	
+	// Set up mock response for the test
+	mockClient.Responses["nit: Fix indentation"] = `[{
+		"description": "Fix indentation issues",
+		"origin_text": "nit: Fix indentation",
+		"priority": "low",
+		"source_review_id": 0,
+		"source_comment_id": 0,
+		"file": "",
+		"line": 0,
+		"task_index": 0,
+		"status": "todo"
+	}]`
+	
+	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
 
 	// Create review with "nit:" comment
 	reviews := []github.Review{
