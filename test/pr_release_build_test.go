@@ -18,6 +18,9 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 	}
 
 	scriptPath := filepath.Join(projectRoot, "scripts", "release.sh")
+	
+	// Check if we're in CI environment
+	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != ""
 
 	tests := []struct {
 		name     string
@@ -29,7 +32,12 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 			name:     "prepare with dry-run flag",
 			args:     []string{"prepare", "patch", "--dry-run", "--yes"},
 			wantExit: 0, // Dry-run mode should complete successfully
-			wantOut:  []string{"DRY RUN: Simulating release preparation...", "Prerequisites check passed"},
+			wantOut: func() []string {
+				if isCI {
+					return []string{"DRY RUN: Simulating release preparation...", "DRY RUN: Skipping prerequisites check (CI environment detected)"}
+				}
+				return []string{"DRY RUN: Simulating release preparation...", "Prerequisites check passed"}
+			}(),
 		},
 		{
 			name:     "prepare without dry-run uses normal flow",
