@@ -572,10 +572,10 @@ func TestDisplayAIModeContent(t *testing.T) {
 // TestEnglishMessagesInAIModeNoActiveTasks verifies English messages when no active tasks
 func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 	testCases := []struct {
-		name          string
-		tasks         []storage.Task
-		expectedMsg1  string
-		expectedMsg2  string
+		name         string
+		tasks        []storage.Task
+		expectedMsg1 string
+		expectedMsg2 string
 	}{
 		{
 			name: "No doing tasks but has todo tasks",
@@ -626,7 +626,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 			// Verify expected messages appear
 			assert.Contains(t, output, tc.expectedMsg1)
 			assert.Contains(t, output, tc.expectedMsg2)
-			
+
 			// Ensure no Japanese messages appear
 			assert.NotContains(t, output, "アクティブなタスクはありません")
 			assert.NotContains(t, output, "待機中のタスクはありません")
