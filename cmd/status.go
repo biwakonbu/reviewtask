@@ -173,7 +173,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	} else {
 		// Show first doing task with work order format: 着手順, ID, Priority, Title
 		task := doingTasks[0]
-		fmt.Printf("  1. %s  %s    %s\n", tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+		fmt.Printf("  1. %s  %s    %s\n", task.ID, strings.ToUpper(task.Priority), task.Description)
 	}
 	fmt.Println()
 
@@ -193,7 +193,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 
 		for i := 0; i < maxDisplay; i++ {
 			task := todoTasks[i]
-			fmt.Printf("  %d. %s  %s    %s\n", i+1, tasks.GenerateTaskID(task), strings.ToUpper(task.Priority), task.Description)
+			fmt.Printf("  %d. %s  %s    %s\n", i+1, task.ID, strings.ToUpper(task.Priority), task.Description)
 		}
 	}
 	fmt.Println()
