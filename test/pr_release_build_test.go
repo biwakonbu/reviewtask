@@ -29,7 +29,7 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 			name:     "prepare with dry-run flag",
 			args:     []string{"prepare", "patch", "--dry-run", "--yes"},
 			wantExit: 0, // Dry-run mode should complete successfully
-			wantOut:  []string{"DRY RUN: Simulating release preparation", "Prerequisites check passed"},
+			wantOut:  []string{"DRY RUN: Simulating release preparation...", "Prerequisites check passed"},
 		},
 		{
 			name:     "prepare without dry-run uses normal flow",
