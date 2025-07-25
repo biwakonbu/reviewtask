@@ -19,9 +19,9 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 	cfg := &config.Config{
 		AISettings: config.AISettings{
 			ValidationEnabled: &[]bool{true}[0],
-			MaxRetries:       3,
-			UserLanguage:     "English",
-			DebugMode:       true,
+			MaxRetries:        3,
+			UserLanguage:      "English",
+			DebugMode:         true,
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",
@@ -30,7 +30,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 
 	// Create mock Claude client that simulates size limit scenarios
 	mockClient := &MockClaudeClientForIntegration{
-		callCount: 0,
+		callCount:          0,
 		sizeLimitThreshold: 1000, // Simulate size limit at 1KB for testing
 	}
 
@@ -67,7 +67,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 			t.Errorf("Expected minimal size errors with parallel processing, got %d", mockClient.sizeErrorCount)
 		}
 
-		t.Logf("Successfully processed large PR with %d Claude calls and %d size errors", 
+		t.Logf("Successfully processed large PR with %d Claude calls and %d size errors",
 			mockClient.callCount, mockClient.sizeErrorCount)
 	})
 
@@ -108,7 +108,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 	cfgNoValidation := &config.Config{
 		AISettings: config.AISettings{
 			ValidationEnabled: &[]bool{false}[0],
-			UserLanguage:     "English",
+			UserLanguage:      "English",
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",
@@ -119,7 +119,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 	cfgWithValidation := &config.Config{
 		AISettings: config.AISettings{
 			ValidationEnabled: &[]bool{true}[0],
-			UserLanguage:     "English",
+			UserLanguage:      "English",
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",
@@ -130,7 +130,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 
 	t.Run("ValidationDisabledUsesParallelProcessing", func(t *testing.T) {
 		mockClient := &MockClaudeClientForIntegration{
-			callCount: 0,
+			callCount:          0,
 			sizeLimitThreshold: 10000, // High threshold to avoid size errors
 		}
 
@@ -151,7 +151,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 
 	t.Run("ValidationEnabledUsesParallelProcessing", func(t *testing.T) {
 		mockClient := &MockClaudeClientForIntegration{
-			callCount: 0,
+			callCount:          0,
 			sizeLimitThreshold: 10000, // High threshold to avoid size errors
 		}
 
@@ -172,7 +172,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 		// Both should use parallel processing (individual calls per comment)
 		expectedCallCount := len(testReview.Comments)
 		if validationCallCount < expectedCallCount {
-			t.Errorf("Expected at least %d calls for parallel processing, got %d", 
+			t.Errorf("Expected at least %d calls for parallel processing, got %d",
 				expectedCallCount, validationCallCount)
 		}
 	})
@@ -191,7 +191,7 @@ func (m *MockClaudeClientForIntegration) Execute(ctx context.Context, prompt str
 	// Simulate size limit check
 	if len(prompt) > m.sizeLimitThreshold {
 		m.sizeErrorCount++
-		return "", fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", 
+		return "", fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content",
 			len(prompt), m.sizeLimitThreshold)
 	}
 
@@ -203,15 +203,15 @@ func (m *MockClaudeClientForIntegration) Execute(ctx context.Context, prompt str
 // createLargeReviewForTesting creates a review with many comments for testing large PR scenarios
 func createLargeReviewForTesting(commentCount int) github.Review {
 	comments := make([]github.Comment, commentCount)
-	
+
 	for i := 0; i < commentCount; i++ {
 		comments[i] = github.Comment{
 			ID:     int64(i + 1),
 			Author: "test-reviewer",
-			Body:   fmt.Sprintf("This is test comment #%d that contains detailed feedback about the code implementation. %s", 
+			Body: fmt.Sprintf("This is test comment #%d that contains detailed feedback about the code implementation. %s",
 				i+1, strings.Repeat("This is additional content to make the comment longer. ", 10)),
-			File:   fmt.Sprintf("test_%d.go", i%10), // Spread across multiple files
-			Line:   (i % 100) + 1,                   // Various line numbers
+			File: fmt.Sprintf("test_%d.go", i%10), // Spread across multiple files
+			Line: (i % 100) + 1,                   // Various line numbers
 		}
 	}
 
