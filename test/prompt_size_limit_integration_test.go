@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	"reviewtask/internal/ai"
@@ -52,8 +53,10 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		}
 
 		// Reset mock client
+		mockClient.mu.Lock()
 		mockClient.callCount = 0
 		mockClient.sizeErrorCount = 0
+		mockClient.mu.Unlock()
 
 		analyzerNoValidation := ai.NewAnalyzerWithClient(cfgNoValidation, mockClient)
 
@@ -70,17 +73,22 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		t.Logf("Generated %d tasks (may be 0 due to size limit simulation)", len(tasks))
 
 		// Should use multiple Claude calls (parallel processing)
-		if mockClient.callCount < 50 { // Expect many individual calls
-			t.Errorf("Expected many Claude calls for parallel processing, got %d", mockClient.callCount)
+		mockClient.mu.Lock()
+		callCount := mockClient.callCount
+		sizeErrorCount := mockClient.sizeErrorCount
+		mockClient.mu.Unlock()
+		
+		if callCount < 50 { // Expect many individual calls
+			t.Errorf("Expected many Claude calls for parallel processing, got %d", callCount)
 		}
 
 		// In test scenario with low size limit, expect many size errors - that's the test point
-		if mockClient.sizeErrorCount == 0 {
+		if sizeErrorCount == 0 {
 			t.Error("Expected size errors in this test scenario with low limit")
 		}
 
 		t.Logf("Successfully processed large PR with %d Claude calls and %d size errors",
-			mockClient.callCount, mockClient.sizeErrorCount)
+			callCount, sizeErrorCount)
 	})
 
 	t.Run("EarlyDetectionAvoidsExcessiveRetries", func(t *testing.T) {
@@ -105,11 +113,15 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		}
 
 		// Should not make excessive retry attempts
-		if alwaysSizeErrorClient.callCount > 5 {
-			t.Errorf("Expected minimal retries for size errors, got %d calls", alwaysSizeErrorClient.callCount)
+		alwaysSizeErrorClient.mu.Lock()
+		finalCallCount := alwaysSizeErrorClient.callCount
+		alwaysSizeErrorClient.mu.Unlock()
+		
+		if finalCallCount > 5 {
+			t.Errorf("Expected minimal retries for size errors, got %d calls", finalCallCount)
 		}
 
-		t.Logf("Size error handled with %d calls (early detection working)", alwaysSizeErrorClient.callCount)
+		t.Logf("Size error handled with %d calls (early detection working)", finalCallCount)
 	})
 }
 
@@ -147,7 +159,9 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 			t.Error("Expected tasks to be generated")
 		}
 
+		mockClient.mu.Lock()
 		baselineCallCount := mockClient.callCount
+		mockClient.mu.Unlock()
 		t.Logf("Validation disabled: %d Claude calls", baselineCallCount)
 	})
 
@@ -179,7 +193,9 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 			t.Error("Expected tasks to be generated")
 		}
 
+		mockClient.mu.Lock()
 		validationCallCount := mockClient.callCount
+		mockClient.mu.Unlock()
 		t.Logf("Parallel processing: %d Claude calls", validationCallCount)
 
 		// Should use parallel processing (individual calls per comment)
@@ -196,17 +212,20 @@ type MockClaudeClientForIntegration struct {
 	callCount          int
 	sizeErrorCount     int
 	sizeLimitThreshold int // Prompt size threshold for triggering errors
+	mu                 sync.Mutex // Protect concurrent access to counters
 }
 
 func (m *MockClaudeClientForIntegration) Execute(ctx context.Context, prompt string, outputFormat string) (string, error) {
+	m.mu.Lock()
 	m.callCount++
-
 	// Simulate size limit check
 	if len(prompt) > m.sizeLimitThreshold {
 		m.sizeErrorCount++
+		m.mu.Unlock()
 		return "", fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content",
 			len(prompt), m.sizeLimitThreshold)
 	}
+	m.mu.Unlock()
 
 	// Return successful response in Claude CLI format
 	if outputFormat == "json" {
