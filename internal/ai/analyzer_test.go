@@ -602,47 +602,66 @@ func TestConvertToStorageTasksWithLowPriorityStatus(t *testing.T) {
 // are correctly propagated from TaskRequest to storage.Task. This addresses
 // the code review concern about ID mapping assumptions.
 func TestSourceCommentIDPropagationFocused(t *testing.T) {
-	cfg := &config.Config{
-		TaskSettings: config.TaskSettings{
-			DefaultStatus: "todo",
-		},
-	}
-	analyzer := NewAnalyzer(cfg)
-
-	// Test with various comment IDs to ensure propagation works correctly
+	// Note: This test validates the assumption that SourceCommentID is preserved
+	// during task conversion. The actual testing is done through the existing
+	// TestConvertToStorageTasksPreservesAllFields test, which comprehensively
+	// verifies all field propagation including SourceCommentID.
+	//
+	// Additional focused verification of ID propagation across various scenarios:
 	testCases := []struct {
-		name            string
-		commentID       int64
-		expectedComment int64
+		name      string
+		commentID int64
 	}{
-		{"Standard ID", 12345, 12345},
-		{"Large ID", 9999999999, 9999999999},
-		{"Small ID", 1, 1},
-		{"Zero ID", 0, 0},
+		{"Standard ID", 12345},
+		{"Large ID", 9999999999},
+		{"Small ID", 1},
+		{"Zero ID", 0},
+		{"Negative ID", -1},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			taskRequest := []TaskRequest{
+			// Create configuration
+			cfg := &config.Config{
+				TaskSettings: config.TaskSettings{
+					DefaultStatus: "todo",
+				},
+			}
+			analyzer := NewAnalyzer(cfg)
+
+			// Create task request with specific comment ID
+			taskRequests := []TaskRequest{
 				{
-					Description:     "Test task",
-					OriginText:      "Test comment",
+					Description:     "Test task for ID propagation",
+					OriginText:      "Original comment text",
 					Priority:        "medium",
 					SourceCommentID: tc.commentID,
+					SourceReviewID:  999,
+					TaskIndex:       0,
 					File:            "test.go",
-					Line:            1,
+					Line:            42,
+					Status:          "todo",
 				},
 			}
 
-			tasks := analyzer.convertToStorageTasks(taskRequest)
+			// Convert to storage tasks
+			tasks := analyzer.convertToStorageTasks(taskRequests)
 
+			// Verify conversion
 			if len(tasks) != 1 {
 				t.Fatalf("Expected 1 task, got %d", len(tasks))
 			}
 
-			if tasks[0].SourceCommentID != tc.expectedComment {
-				t.Errorf("SourceCommentID not propagated correctly: expected %d, got %d",
-					tc.expectedComment, tasks[0].SourceCommentID)
+			// Verify SourceCommentID is preserved
+			if tasks[0].SourceCommentID != tc.commentID {
+				t.Errorf("SourceCommentID not preserved: expected %d, got %d",
+					tc.commentID, tasks[0].SourceCommentID)
+			}
+
+			// Additional verification that other fields are also preserved
+			if tasks[0].SourceReviewID != 999 {
+				t.Errorf("SourceReviewID not preserved: expected 999, got %d",
+					tasks[0].SourceReviewID)
 			}
 		})
 	}
