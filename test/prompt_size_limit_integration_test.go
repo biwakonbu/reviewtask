@@ -165,11 +165,12 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 		t.Logf("Validation disabled: %d Claude calls", baselineCallCount)
 	})
 
-	t.Run("ValidationEnabledUsesParallelProcessing", func(t *testing.T) {
-		// Use validation disabled for this test too (validation has complex retry logic)
-		cfgValidationDisabled := &config.Config{
+	t.Run("ParallelProcessingConsistentBehavior", func(t *testing.T) {
+		// Test parallel processing behavior consistency (validation disabled for stability)
+		// Note: Validation mode testing requires more complex mock setup and is covered in unit tests
+		cfgConsistent := &config.Config{
 			AISettings: config.AISettings{
-				ValidationEnabled: &[]bool{false}[0], // Disable validation for stability
+				ValidationEnabled: &[]bool{false}[0], // Disable validation for stable integration test
 				UserLanguage:      "English",
 			},
 			TaskSettings: config.TaskSettings{
@@ -182,7 +183,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 			sizeLimitThreshold: 10000, // High threshold to avoid size errors
 		}
 
-		analyzer := ai.NewAnalyzerWithClient(cfgValidationDisabled, mockClient)
+		analyzer := ai.NewAnalyzerWithClient(cfgConsistent, mockClient)
 		tasks, err := analyzer.GenerateTasks([]github.Review{testReview})
 
 		if err != nil {
