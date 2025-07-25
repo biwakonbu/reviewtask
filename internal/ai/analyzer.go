@@ -568,6 +568,7 @@ func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 	// Convert to lowercase for case-insensitive matching
 	lowerBody := strings.ToLower(commentBody)
 
+	// Check traditional patterns first
 	for _, pattern := range a.config.TaskSettings.LowPriorityPatterns {
 		// Check if the comment starts with the pattern (case-insensitive)
 		if strings.HasPrefix(lowerBody, strings.ToLower(pattern)) {
@@ -576,6 +577,79 @@ func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 		// Also check if the pattern appears after newline (for multi-line comments)
 		if strings.Contains(lowerBody, "\n"+strings.ToLower(pattern)) {
 			return true
+		}
+	}
+
+	// Check for CodeRabbit structured patterns
+	if a.isCodeRabbitNitpickComment(lowerBody) {
+		return true
+	}
+
+	return false
+}
+
+// isCodeRabbitNitpickComment detects CodeRabbit nitpick comments in structured format
+func (a *Analyzer) isCodeRabbitNitpickComment(lowerBody string) bool {
+	// CodeRabbit patterns to detect
+	coderabbitPatterns := []string{
+		"🧹 nitpick",
+		"nitpick comments",
+		"nitpick comment",
+		"<summary>🧹 nitpick",
+		"<summary>nitpick",
+		"nitpick comments (",
+		"nitpick comment (",
+	}
+
+	for _, pattern := range coderabbitPatterns {
+		if strings.Contains(lowerBody, pattern) {
+			return true
+		}
+	}
+
+	// Check for structured HTML content that might contain nitpicks
+	if a.hasStructuredNitpickContent(lowerBody) {
+		return true
+	}
+
+	return false
+}
+
+// hasStructuredNitpickContent checks for structured HTML content with nitpick indicators
+func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
+	// Look for <details> blocks with summary containing nitpick-related content
+	if strings.Contains(lowerBody, "<details>") && strings.Contains(lowerBody, "<summary>") {
+		// Extract content between <summary> tags
+		summaryStart := strings.Index(lowerBody, "<summary>")
+		if summaryStart == -1 {
+			return false
+		}
+		
+		summaryEnd := strings.Index(lowerBody[summaryStart:], "</summary>")
+		if summaryEnd == -1 {
+			// Look for closing pattern without explicit tag
+			summaryEnd = strings.Index(lowerBody[summaryStart:], ">")
+			if summaryEnd == -1 {
+				return false
+			}
+		}
+		
+		summaryContent := lowerBody[summaryStart : summaryStart+summaryEnd+20] // +20 for buffer
+		
+		// Check if summary contains nitpick indicators
+		nitpickIndicators := []string{
+			"nitpick",
+			"nit",
+			"🧹",
+			"minor",
+			"style",
+			"suggestion",
+		}
+		
+		for _, indicator := range nitpickIndicators {
+			if strings.Contains(summaryContent, indicator) {
+				return true
+			}
 		}
 	}
 
