@@ -559,14 +559,14 @@ func TestDisplayAIModeContent(t *testing.T) {
 
 	// Check current task shows the doing task
 	assert.Contains(t, output, "Current Task:")
-	assert.Contains(t, output, "TSK-123")
+	assert.Contains(t, output, "task1") // Use actual task ID instead of TSK-123
 	assert.Contains(t, output, "HIGH")
 	assert.Contains(t, output, "Fix authentication bug")
 
 	// Check next tasks are sorted by priority
 	assert.Contains(t, output, "Next Tasks (up to 5):")
-	assert.Contains(t, output, "1. TSK-123  HIGH    Add unit tests")
-	assert.Contains(t, output, "2. TSK-123  MEDIUM    Update documentation")
+	assert.Contains(t, output, "1. task3  HIGH    Add unit tests")         // Use actual task ID
+	assert.Contains(t, output, "2. task2  MEDIUM    Update documentation") // Use actual task ID
 }
 
 // TestEnglishMessagesInAIModeNoActiveTasks verifies English messages when no active tasks

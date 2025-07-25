@@ -144,14 +144,14 @@ func TestStatusCommandIntegration(t *testing.T) {
 
 		// Check current task
 		assert.Contains(t, outputStr, "Current Task:")
-		assert.Contains(t, outputStr, "TSK-123")
+		assert.Contains(t, outputStr, "task1") // Use actual task ID instead of TSK-123
 		assert.Contains(t, outputStr, "HIGH")
 		assert.Contains(t, outputStr, "認証トークンの検証処理を修正")
 
 		// Check next tasks
 		assert.Contains(t, outputStr, "Next Tasks (up to 5):")
-		assert.Contains(t, outputStr, "1. TSK-123  HIGH    ユニットテストを追加")
-		assert.Contains(t, outputStr, "2. TSK-123  MEDIUM    APIドキュメントの更新")
+		assert.Contains(t, outputStr, "1. task3  HIGH    ユニットテストを追加")     // Use actual task ID
+		assert.Contains(t, outputStr, "2. task2  MEDIUM    APIドキュメントの更新") // Use actual task ID
 
 		// Check timestamp
 		assert.Contains(t, outputStr, "Last updated:")
@@ -275,8 +275,12 @@ func TestStatusCommandIntegration(t *testing.T) {
 				inNextTasks = true
 				continue
 			}
-			if inNextTasks && strings.TrimSpace(line) != "" && strings.Contains(line, "TSK-") {
-				taskLines = append(taskLines, line)
+			if inNextTasks && strings.TrimSpace(line) != "" && (strings.Contains(line, "task") || strings.Contains(line, ".")) {
+				// Look for lines that contain task information (task IDs or numbered list items)
+				if strings.Contains(line, "CRITICAL") || strings.Contains(line, "HIGH") ||
+					strings.Contains(line, "MEDIUM") || strings.Contains(line, "LOW") {
+					taskLines = append(taskLines, line)
+				}
 			}
 			if inNextTasks && strings.TrimSpace(line) == "" {
 				break
