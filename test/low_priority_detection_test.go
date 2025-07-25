@@ -216,7 +216,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 			name: "Pattern in code block should not match",
 			comment: github.Comment{
 				ID:   302,
-				Body: "This code needs review. Here's an example:\n```\n// nit: this is in a code block\n```\nPlease check if the implementation is correct.",
+				Body: "The error handling in this function needs improvement. It should return proper error messages instead of generic ones. Here's an example of what NOT to do:\n```\n// nit: this is in a code block\nreturn fmt.Errorf(\"error\")\n```\nPlease update the error handling to include context about what operation failed.",
 				File: "file.go",
 				Line: 2,
 			},
