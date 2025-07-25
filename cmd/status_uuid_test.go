@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"strings"
@@ -11,6 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"reviewtask/internal/storage"
 )
+
+// generateTestUUID creates RFC 4122 compliant UUIDs for testing
+func generateTestUUID(suffix string) string {
+	return fmt.Sprintf("550e8400-e29b-41d4-a716-44665544%04s", suffix)
+}
 
 // TestStatusDisplaysActualUUIDs tests that the status command displays actual task UUIDs
 // instead of custom TSK-XXX format IDs. This addresses Issue #112.
@@ -24,68 +30,68 @@ func TestStatusDisplaysActualUUIDs(t *testing.T) {
 			name: "Single doing task displays actual UUID",
 			tasks: []storage.Task{
 				{
-					ID:          "uuid-12345-abcde-67890",
+					ID:          generateTestUUID("0001"),
 					Description: "Fix critical bug",
 					Priority:    "critical",
 					Status:      "doing",
 					PRNumber:    123,
 				},
 			},
-			expected: []string{"uuid-12345-abcde-67890"},
+			expected: []string{generateTestUUID("0001")},
 		},
 		{
 			name: "Multiple todo tasks display actual UUIDs in priority order",
 			tasks: []storage.Task{
 				{
-					ID:          "uuid-task-1",
+					ID:          generateTestUUID("0002"),
 					Description: "Low priority task",
 					Priority:    "low",
 					Status:      "todo",
 					PRNumber:    123,
 				},
 				{
-					ID:          "uuid-task-2",
+					ID:          generateTestUUID("0003"),
 					Description: "Critical task",
 					Priority:    "critical",
 					Status:      "todo",
 					PRNumber:    123,
 				},
 				{
-					ID:          "uuid-task-3",
+					ID:          generateTestUUID("0004"),
 					Description: "High priority task",
 					Priority:    "high",
 					Status:      "todo",
 					PRNumber:    123,
 				},
 			},
-			expected: []string{"uuid-task-2", "uuid-task-3", "uuid-task-1"}, // Priority order: critical, high, low
+			expected: []string{generateTestUUID("0003"), generateTestUUID("0004"), generateTestUUID("0002")}, // Priority order: critical, high, low
 		},
 		{
 			name: "Mixed statuses show UUIDs for doing and todo only",
 			tasks: []storage.Task{
 				{
-					ID:          "uuid-doing-task",
+					ID:          generateTestUUID("0005"),
 					Description: "Current work",
 					Priority:    "high",
 					Status:      "doing",
 					PRNumber:    123,
 				},
 				{
-					ID:          "uuid-todo-task",
+					ID:          generateTestUUID("0006"),
 					Description: "Next work",
 					Priority:    "medium",
 					Status:      "todo",
 					PRNumber:    123,
 				},
 				{
-					ID:          "uuid-done-task",
+					ID:          generateTestUUID("0007"),
 					Description: "Completed work",
 					Priority:    "high",
 					Status:      "done",
 					PRNumber:    123,
 				},
 			},
-			expected: []string{"uuid-doing-task", "uuid-todo-task"}, // Only doing and todo tasks are displayed
+			expected: []string{generateTestUUID("0005"), generateTestUUID("0006")}, // Only doing and todo tasks are displayed
 		},
 	}
 
@@ -125,7 +131,7 @@ func TestStatusDisplaysActualUUIDs(t *testing.T) {
 func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 	testTasks := []storage.Task{
 		{
-			ID:          "compatible-uuid-123",
+			ID:          generateTestUUID("0123"),
 			Description: "Test task for UUID compatibility",
 			Priority:    "high",
 			Status:      "doing",
@@ -134,7 +140,7 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 			Line:        42,
 		},
 		{
-			ID:          "compatible-uuid-456",
+			ID:          generateTestUUID("0456"),
 			Description: "Another test task",
 			Priority:    "medium",
 			Status:      "todo",
@@ -160,8 +166,8 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 	statusOutput := buf.String()
 
 	// Verify status output contains the exact UUIDs
-	assert.Contains(t, statusOutput, "compatible-uuid-123")
-	assert.Contains(t, statusOutput, "compatible-uuid-456")
+	assert.Contains(t, statusOutput, generateTestUUID("0123"))
+	assert.Contains(t, statusOutput, generateTestUUID("0456"))
 
 	// Test 2: Verify these UUIDs work with displayTaskDetails (show command logic)
 	for _, task := range testTasks {
@@ -189,7 +195,7 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 func TestStatusUUIDFormat(t *testing.T) {
 	testTasks := []storage.Task{
 		{
-			ID:          "real-uuid-format-12345-abcde",
+			ID:          generateTestUUID("9999"),
 			Description: "Test with real UUID format",
 			Priority:    "high",
 			Status:      "doing",
@@ -213,7 +219,7 @@ func TestStatusUUIDFormat(t *testing.T) {
 	output := buf.String()
 
 	// Verify the actual UUID format appears
-	assert.Contains(t, output, "real-uuid-format-12345-abcde")
+	assert.Contains(t, output, generateTestUUID("9999"))
 
 	// Verify NO custom TSK format appears (this was the bug)
 	assert.NotContains(t, output, "TSK-123")
@@ -221,8 +227,9 @@ func TestStatusUUIDFormat(t *testing.T) {
 
 	// Verify no other custom ID patterns appear
 	lines := strings.Split(output, "\n")
+	expectedUUID := generateTestUUID("9999")
 	for _, line := range lines {
-		if strings.Contains(line, "real-uuid-format-12345-abcde") {
+		if strings.Contains(line, expectedUUID) {
 			// This line should contain the UUID, not any custom format
 			assert.NotRegexp(t, `TSK-\d+`, line,
 				"Line containing UUID should not have TSK-XXX format: %s", line)
