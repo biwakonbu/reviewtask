@@ -125,11 +125,11 @@ func TestIsCodeRabbitNitpickResponse(t *testing.T) {
 // TestBuildAnalysisPromptWithNitpickInstructions tests prompt generation with nitpick handling
 func TestBuildAnalysisPromptWithNitpickInstructions(t *testing.T) {
 	tests := []struct {
-		name                   string
-		processNitpicks        bool
-		nitpickPriority        string
+		name                      string
+		processNitpicks           bool
+		nitpickPriority           string
 		expectNitpickInstructions bool
-		expectPriorityMention  bool
+		expectPriorityMention     bool
 	}{
 		{
 			name:                      "nitpick processing enabled",
@@ -231,9 +231,9 @@ func TestBuildCommentPromptWithNitpickInstructions(t *testing.T) {
 	assert.Contains(t, prompt, "low") // Priority setting
 
 	// Verify comment details are included
-	assert.Contains(t, prompt, "123")    // Comment ID
+	assert.Contains(t, prompt, "123")     // Comment ID
 	assert.Contains(t, prompt, "test.go") // File
-	assert.Contains(t, prompt, "42")     // Line number
+	assert.Contains(t, prompt, "42")      // Line number
 }
 
 // TestConvertToStorageTasksWithNitpickPriority tests priority override for nitpick comments
@@ -335,6 +335,6 @@ func TestNitpickProcessingDisabled(t *testing.T) {
 	result := analyzer.convertToStorageTasks(tasks)
 
 	// When nitpick processing is disabled, priority should NOT be overridden
-	assert.Equal(t, "low", result[0].Priority) // Original priority preserved
+	assert.Equal(t, "low", result[0].Priority)   // Original priority preserved
 	assert.Equal(t, "pending", result[0].Status) // Still gets low priority status
 }

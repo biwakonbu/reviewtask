@@ -403,7 +403,7 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 	}
 
 	priorityPrompt := a.config.GetPriorityPrompt()
-	
+
 	// Add nitpick handling instructions
 	var nitpickInstruction string
 	if a.config.AISettings.ProcessNitpickComments {
@@ -948,7 +948,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 	}
 
 	priorityPrompt := a.config.GetPriorityPrompt()
-	
+
 	// Add nitpick handling instructions
 	var nitpickInstruction string
 	if a.config.AISettings.ProcessNitpickComments {
@@ -1172,7 +1172,7 @@ func (a *Analyzer) extractJSON(response string) string {
 // isCodeRabbitNitpickResponse checks if the response is about CodeRabbit nitpicks with no actionable tasks
 func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
 	lowerResponse := strings.ToLower(response)
-	
+
 	// Check for CodeRabbit-style responses about nitpicks
 	codeRabbitPatterns := []string{
 		"actionable comments posted: 0",

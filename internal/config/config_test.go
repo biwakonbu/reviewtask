@@ -24,9 +24,9 @@ func TestDefaultConfig(t *testing.T) {
 
 func TestConfigMergeWithDefaults(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         Config
-		expectedNitpick bool
+		name             string
+		config           Config
+		expectedNitpick  bool
 		expectedPriority string
 	}{
 		{
@@ -34,7 +34,7 @@ func TestConfigMergeWithDefaults(t *testing.T) {
 			config: Config{
 				AISettings: AISettings{},
 			},
-			expectedNitpick: true,
+			expectedNitpick:  true,
 			expectedPriority: "low",
 		},
 		{
@@ -46,7 +46,7 @@ func TestConfigMergeWithDefaults(t *testing.T) {
 					NitpickPriority:        "medium",
 				},
 			},
-			expectedNitpick: false,
+			expectedNitpick:  false,
 			expectedPriority: "medium",
 		},
 		{
@@ -58,7 +58,7 @@ func TestConfigMergeWithDefaults(t *testing.T) {
 					MaxRetries:   3,
 				},
 			},
-			expectedNitpick: true,
+			expectedNitpick:  true,
 			expectedPriority: "low",
 		},
 	}
@@ -66,10 +66,10 @@ func TestConfigMergeWithDefaults(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mergeWithDefaults(&tt.config)
-			
+
 			assert.Equal(t, tt.expectedNitpick, tt.config.AISettings.ProcessNitpickComments)
 			assert.Equal(t, tt.expectedPriority, tt.config.AISettings.NitpickPriority)
-			
+
 			// Ensure other defaults are also set
 			assert.NotEmpty(t, tt.config.AISettings.UserLanguage)
 			assert.NotEmpty(t, tt.config.AISettings.OutputFormat)
@@ -155,7 +155,7 @@ func TestConfigValidation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := defaultConfig()
 			config.AISettings.NitpickPriority = tt.priority
-			
+
 			// Config doesn't enforce validation - just test the value is preserved
 			assert.Equal(t, tt.priority, config.AISettings.NitpickPriority)
 		})

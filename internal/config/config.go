@@ -42,18 +42,18 @@ type TaskSettings struct {
 }
 
 type AISettings struct {
-	UserLanguage            string  `json:"user_language"`             // e.g., "Japanese", "English"
-	OutputFormat            string  `json:"output_format"`             // "json"
-	MaxRetries              int     `json:"max_retries"`               // Validation retry attempts (default: 5)
-	ValidationEnabled       *bool   `json:"validation_enabled"`        // Enable two-stage validation
-	QualityThreshold        float64 `json:"quality_threshold"`         // Minimum score to accept (0.0-1.0)
-	DebugMode               bool    `json:"debug_mode"`                // Enable debug information (PATH, command locations)
-	ClaudePath              string  `json:"claude_path"`               // Custom path to Claude CLI (overrides default search)
-	MaxTasksPerComment      int     `json:"max_tasks_per_comment"`     // Maximum tasks to generate per comment (default: 2)
-	DeduplicationEnabled    bool    `json:"deduplication_enabled"`     // Enable task deduplication (default: true)
-	SimilarityThreshold     float64 `json:"similarity_threshold"`      // Task similarity threshold for deduplication (0.0-1.0)
-	ProcessNitpickComments  bool    `json:"process_nitpick_comments"`  // Process nitpick comments from review bots (default: true)
-	NitpickPriority         string  `json:"nitpick_priority"`          // Priority level for nitpick-generated tasks (default: "low")
+	UserLanguage           string  `json:"user_language"`            // e.g., "Japanese", "English"
+	OutputFormat           string  `json:"output_format"`            // "json"
+	MaxRetries             int     `json:"max_retries"`              // Validation retry attempts (default: 5)
+	ValidationEnabled      *bool   `json:"validation_enabled"`       // Enable two-stage validation
+	QualityThreshold       float64 `json:"quality_threshold"`        // Minimum score to accept (0.0-1.0)
+	DebugMode              bool    `json:"debug_mode"`               // Enable debug information (PATH, command locations)
+	ClaudePath             string  `json:"claude_path"`              // Custom path to Claude CLI (overrides default search)
+	MaxTasksPerComment     int     `json:"max_tasks_per_comment"`    // Maximum tasks to generate per comment (default: 2)
+	DeduplicationEnabled   bool    `json:"deduplication_enabled"`    // Enable task deduplication (default: true)
+	SimilarityThreshold    float64 `json:"similarity_threshold"`     // Task similarity threshold for deduplication (0.0-1.0)
+	ProcessNitpickComments bool    `json:"process_nitpick_comments"` // Process nitpick comments from review bots (default: true)
+	NitpickPriority        string  `json:"nitpick_priority"`         // Priority level for nitpick-generated tasks (default: "low")
 }
 
 type UpdateCheck struct {
@@ -179,6 +179,10 @@ func mergeWithDefaults(config *Config) {
 		config.TaskSettings.LowPriorityStatus = defaults.TaskSettings.LowPriorityStatus
 	}
 
+	// Check if this appears to be missing new boolean fields (old config or completely empty)
+	// If NitpickPriority is empty, it's likely missing the new fields
+	isMissingNewFields := config.AISettings.NitpickPriority == ""
+
 	// Merge AI settings
 	if config.AISettings.UserLanguage == "" {
 		config.AISettings.UserLanguage = defaults.AISettings.UserLanguage
@@ -201,15 +205,13 @@ func mergeWithDefaults(config *Config) {
 	if config.AISettings.NitpickPriority == "" {
 		config.AISettings.NitpickPriority = defaults.AISettings.NitpickPriority
 	}
+
 	// Note: Boolean fields (DeduplicationEnabled, ProcessNitpickComments) default to true
-	// We only set them if the loaded config has zero value (false) and the field is missing
-	// This is handled by checking if other fields indicate a partial config
-	if !config.AISettings.DeduplicationEnabled && config.AISettings.UserLanguage == "" {
-		// If UserLanguage is empty, it likely means this is a partial config or old version
+	// Set defaults if the config appears to be missing the new fields (old or empty config)
+	if !config.AISettings.DeduplicationEnabled && isMissingNewFields {
 		config.AISettings.DeduplicationEnabled = defaults.AISettings.DeduplicationEnabled
 	}
-	if !config.AISettings.ProcessNitpickComments && config.AISettings.UserLanguage == "" {
-		// If UserLanguage is empty, it likely means this is a partial config or old version
+	if !config.AISettings.ProcessNitpickComments && isMissingNewFields {
 		config.AISettings.ProcessNitpickComments = defaults.AISettings.ProcessNitpickComments
 	}
 

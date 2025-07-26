@@ -13,13 +13,13 @@ import (
 // TestCodeRabbitNitpickProcessingIntegration tests end-to-end CodeRabbit nitpick processing
 func TestCodeRabbitNitpickProcessingIntegration(t *testing.T) {
 	tests := []struct {
-		name                   string
-		processNitpicks        bool
-		nitpickPriority        string
-		reviewBody             string
-		expectedTaskCount      int
-		expectedPriority       string
-		mockResponse           string
+		name              string
+		processNitpicks   bool
+		nitpickPriority   string
+		reviewBody        string
+		expectedTaskCount int
+		expectedPriority  string
+		mockResponse      string
 	}{
 		{
 			name:            "CodeRabbit nitpicks processed when enabled",
@@ -174,11 +174,11 @@ Consider using a constant instead of magic number.
 
 				if tt.processNitpicks && nitpickTask != nil {
 					// Verify nitpick task has correct priority
-					assert.Equal(t, tt.expectedPriority, nitpickTask.Priority, 
+					assert.Equal(t, tt.expectedPriority, nitpickTask.Priority,
 						"Nitpick task should have priority %s", tt.expectedPriority)
-					
+
 					// Verify status is set for low priority
-					assert.Equal(t, "pending", nitpickTask.Status, 
+					assert.Equal(t, "pending", nitpickTask.Status,
 						"Nitpick task should have low priority status")
 				}
 			}
@@ -237,7 +237,7 @@ func TestCodeRabbitPromptGeneration(t *testing.T) {
 		},
 	}
 
-	// Mock client that captures the prompt  
+	// Mock client that captures the prompt
 	mockClient := NewMockClaudeClient()
 	mockClient.Responses["nitpick"] = "[]"
 
@@ -247,7 +247,7 @@ func TestCodeRabbitPromptGeneration(t *testing.T) {
 	review := github.Review{
 		ID:       123,
 		Reviewer: "coderabbit[bot]",
-		State:    "COMMENTED", 
+		State:    "COMMENTED",
 		Body: `**Actionable comments posted: 0**
 
 <details>
@@ -263,7 +263,7 @@ Consider improving variable naming.
 
 	// Check the last input received by the mock client
 	capturedPrompt := mockClient.LastInput
-	
+
 	// Verify prompt contains nitpick processing instructions
 	assert.Contains(t, capturedPrompt, "Nitpick Comment Processing Instructions")
 	assert.Contains(t, capturedPrompt, "Process nitpick comments from review bots")
