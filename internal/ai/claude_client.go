@@ -194,6 +194,11 @@ func parseAliasOutput(output string) string {
 		return output
 	}
 
+	// If it's a Windows path (contains backslash), return as-is
+	if strings.Contains(output, "\\") {
+		return output
+	}
+
 	// If the alias contains arguments or complex commands, extract just the executable
 	// Handle cases like: node /path/to/claude.js, npx @anthropic-ai/claude-code, etc.
 	parts := strings.Fields(output)
@@ -205,11 +210,14 @@ func parseAliasOutput(output string) string {
 	command := parts[0]
 
 	// If command is a interpreter (node, python, etc.) and has a script path, return full command
-	if len(parts) > 1 && (command == "node" || command == "python" || command == "python3") {
-		// Check if the second part is a file path
-		scriptPath := parts[1]
-		if filepath.IsAbs(scriptPath) || strings.Contains(scriptPath, "/") {
-			return output // Return the full command with interpreter
+	interpreters := []string{"node", "node.exe", "python", "python.exe", "python3", "python3.exe"}
+	for _, interp := range interpreters {
+		if command == interp && len(parts) > 1 {
+			// Check if the second part is a file path
+			scriptPath := parts[1]
+			if filepath.IsAbs(scriptPath) || strings.Contains(scriptPath, "/") || strings.Contains(scriptPath, "\\") {
+				return output // Return the full command with interpreter
+			}
 		}
 	}
 
