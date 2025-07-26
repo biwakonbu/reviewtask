@@ -188,3 +188,75 @@ type testError struct {
 func (e *testError) Error() string {
 	return e.msg
 }
+
+// TestGenerateColoredProgressBarTUI tests the TUI version of colored progress bar generation  
+func TestGenerateColoredProgressBarTUI(t *testing.T) {
+	testCases := []struct {
+		name      string
+		stats     tasks.TaskStats
+		width     int
+		shouldContain []string
+		shouldNotContain []string
+	}{
+		{
+			name: "Empty stats",
+			stats: tasks.TaskStats{
+				StatusCounts: map[string]int{},
+			},
+			width: 10,
+			shouldContain: []string{"░"},
+			shouldNotContain: []string{"█"},
+		},
+		{
+			name: "All done tasks",
+			stats: tasks.TaskStats{
+				StatusCounts: map[string]int{
+					"done": 5,
+				},
+			},
+			width: 10,
+			shouldContain: []string{"█"},
+			shouldNotContain: []string{"░"},
+		},
+		{
+			name: "Mixed states with colors",
+			stats: tasks.TaskStats{
+				StatusCounts: map[string]int{
+					"done": 1,
+					"doing": 1,
+					"todo": 1,
+					"pending": 1,
+					"cancel": 1,
+				},
+			},
+			width: 10,
+			shouldContain: []string{"█", "░"},
+			shouldNotContain: []string{},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := generateColoredProgressBar(tc.stats, tc.width)
+			
+			// Check that result is not empty
+			if result == "" {
+				t.Error("Expected non-empty progress bar")
+			}
+			
+			// Check for expected characters
+			for _, expected := range tc.shouldContain {
+				if !strings.Contains(result, expected) {
+					t.Errorf("Expected progress bar to contain '%s', got: %s", expected, result)
+				}
+			}
+			
+			// Check for unexpected characters
+			for _, unexpected := range tc.shouldNotContain {
+				if strings.Contains(result, unexpected) {
+					t.Errorf("Expected progress bar NOT to contain '%s', got: %s", unexpected, result)
+				}
+			}
+		})
+	}
+}
