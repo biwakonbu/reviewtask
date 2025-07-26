@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/google/go-github/v58/github"
 )
@@ -93,6 +94,7 @@ func TestClient_GetPRInfo(t *testing.T) {
 		client: client,
 		owner:  "test",
 		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
 	}
 
 	// Test getting PR info
@@ -140,6 +142,7 @@ func TestClient_GetPRReviews(t *testing.T) {
 		client: client,
 		owner:  "test",
 		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
 	}
 
 	// Test getting PR reviews
