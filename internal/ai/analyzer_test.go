@@ -532,6 +532,174 @@ func TestIsLowPriorityCommentNoPatterns(t *testing.T) {
 	}
 }
 
+func TestIsCodeRabbitNitpickComment(t *testing.T) {
+	// Create analyzer with default config
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			LowPriorityPatterns: []string{"nit:", "nits:"},
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	tests := []struct {
+		name     string
+		comment  string
+		expected bool
+	}{
+		{
+			name: "CodeRabbit nitpick comment with emoji",
+			comment: `<details>
+<summary>🧹 Nitpick comments (3)</summary>
+<blockquote>
+Some nitpick content here
+</blockquote>
+</details>`,
+			expected: true,
+		},
+		{
+			name: "CodeRabbit nitpick comment without emoji",
+			comment: `<details>
+<summary>Nitpick comments (2)</summary>
+<blockquote>
+Some nitpick content here
+</blockquote>
+</details>`,
+			expected: true,
+		},
+		{
+			name:     "Simple nitpick pattern",
+			comment:  `🧹 Nitpick: Fix this minor issue`,
+			expected: true,
+		},
+		{
+			name:     "Direct summary tag with emoji",
+			comment:  `<summary>🧹 nitpick comments (1)</summary>`,
+			expected: true,
+		},
+		{
+			name:     "Mixed case nitpick",
+			comment:  `<summary>NITPICK Comments (5)</summary>`,
+			expected: true,
+		},
+		{
+			name:     "Regular comment without nitpick",
+			comment:  `This is a regular review comment about functionality`,
+			expected: false,
+		},
+		{
+			name: "Details without nitpick summary",
+			comment: `<details>
+<summary>Review comments (3)</summary>
+<blockquote>
+Some review content here
+</blockquote>
+</details>`,
+			expected: false,
+		},
+		{
+			name: "Summary with style indicator",
+			comment: `<details>
+<summary>Style suggestions (2)</summary>
+<blockquote>
+Style related comments
+</blockquote>
+</details>`,
+			expected: true,
+		},
+		{
+			name: "Summary with minor indicator",
+			comment: `<details>
+<summary>Minor improvements</summary>
+<blockquote>
+Minor improvement suggestions
+</blockquote>
+</details>`,
+			expected: true,
+		},
+		{
+			name:     "Actual PR #120 CodeRabbit review format",
+			comment:  `**Actionable comments posted: 0**\n\n<details>\n<summary>🧹 Nitpick comments (3)</summary><blockquote>\n\nSome actual nitpick content here\n\n</blockquote></details>`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := analyzer.isLowPriorityComment(tt.comment)
+			if result != tt.expected {
+				t.Errorf("isLowPriorityComment(%q) = %v, expected %v", tt.comment, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHasStructuredNitpickContent(t *testing.T) {
+	// Create analyzer with default config
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			LowPriorityPatterns: []string{},
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	tests := []struct {
+		name     string
+		comment  string
+		expected bool
+	}{
+		{
+			name: "Complete details block with nitpick",
+			comment: `<details>
+<summary>🧹 Nitpick comments (3)</summary>
+<blockquote>
+Content here
+</blockquote>
+</details>`,
+			expected: true,
+		},
+		{
+			name:     "Details block without summary",
+			comment:  `<details><blockquote>Content</blockquote></details>`,
+			expected: false,
+		},
+		{
+			name:     "Summary without details",
+			comment:  `<summary>Some summary</summary>`,
+			expected: false,
+		},
+		{
+			name: "Summary with nit indicator",
+			comment: `<details>
+<summary>Just nit comments</summary>
+</details>`,
+			expected: true,
+		},
+		{
+			name: "Summary with suggestion indicator",
+			comment: `<details>
+<summary>Suggestion for improvement</summary>
+</details>`,
+			expected: true,
+		},
+		{
+			name: "Multiple indicators in summary",
+			comment: `<details>
+<summary>Style and minor suggestions (5)</summary>
+</details>`,
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := analyzer.hasStructuredNitpickContent(strings.ToLower(tt.comment))
+			if result != tt.expected {
+				t.Errorf("hasStructuredNitpickContent(%q) = %v, expected %v", tt.comment, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestConvertToStorageTasksWithLowPriorityStatus(t *testing.T) {
 	// Create analyzer with low-priority configuration
 	cfg := &config.Config{

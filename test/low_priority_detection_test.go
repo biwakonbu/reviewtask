@@ -140,6 +140,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 	// in the unit tests at internal/ai/analyzer_test.go
 	// Expected outcomes
 	expectedStatuses := map[int64]string{
+		1:   "todo",    // Review body: "Overall review comment" (no low-priority pattern)
 		101: "pending", // nit: pattern
 		102: "todo",    // no pattern
 		103: "pending", // MINOR: pattern

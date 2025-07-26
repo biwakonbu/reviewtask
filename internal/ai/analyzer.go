@@ -99,6 +99,31 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	resolvedCommentCount := 0
 
 	for _, review := range reviews {
+		// Process review body as a comment if it exists and contains content
+		if review.Body != "" {
+			// Create a pseudo-comment from the review body
+			reviewBodyComment := github.Comment{
+				ID:        review.ID, // Use review ID
+				File:      "",        // Review body is not file-specific
+				Line:      0,         // Review body is not line-specific
+				Body:      review.Body,
+				Author:    review.Reviewer,
+				CreatedAt: review.SubmittedAt,
+			}
+
+			// Skip if this review body comment has been marked as resolved
+			if !a.isCommentResolved(reviewBodyComment) {
+				allComments = append(allComments, CommentContext{
+					Comment:      reviewBodyComment,
+					SourceReview: review,
+				})
+			} else {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+			}
+		}
+
+		// Process individual inline comments
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
@@ -148,6 +173,34 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	resolvedCommentCount := 0
 
 	for _, review := range reviews {
+		// Process review body as a comment if it exists and contains content
+		if review.Body != "" {
+			// Create a pseudo-comment from the review body
+			reviewBodyComment := github.Comment{
+				ID:        review.ID, // Use review ID
+				File:      "",        // Review body is not file-specific
+				Line:      0,         // Review body is not line-specific
+				Body:      review.Body,
+				Author:    review.Reviewer,
+				CreatedAt: review.SubmittedAt,
+			}
+
+			// Skip if this review body comment has been marked as resolved
+			if !a.isCommentResolved(reviewBodyComment) {
+				allComments = append(allComments, reviewBodyComment)
+				allCommentsCtx = append(allCommentsCtx, CommentContext{
+					Comment:      reviewBodyComment,
+					SourceReview: review,
+				})
+				// Calculate MD5 hash of review body
+				commentHashMap[review.ID] = a.calculateCommentHash(reviewBodyComment)
+			} else {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+			}
+		}
+
+		// Process individual inline comments
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
@@ -559,6 +612,11 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	return result
 }
 
+// IsLowPriorityComment checks if a comment body contains any low-priority patterns (public for testing)
+func (a *Analyzer) IsLowPriorityComment(commentBody string) bool {
+	return a.isLowPriorityComment(commentBody)
+}
+
 // isLowPriorityComment checks if a comment body contains any low-priority patterns
 func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 	if len(a.config.TaskSettings.LowPriorityPatterns) == 0 {
@@ -568,6 +626,7 @@ func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 	// Convert to lowercase for case-insensitive matching
 	lowerBody := strings.ToLower(commentBody)
 
+	// Check traditional patterns first
 	for _, pattern := range a.config.TaskSettings.LowPriorityPatterns {
 		// Check if the comment starts with the pattern (case-insensitive)
 		if strings.HasPrefix(lowerBody, strings.ToLower(pattern)) {
@@ -576,6 +635,90 @@ func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 		// Also check if the pattern appears after newline (for multi-line comments)
 		if strings.Contains(lowerBody, "\n"+strings.ToLower(pattern)) {
 			return true
+		}
+	}
+
+	// Check for CodeRabbit structured patterns
+	if a.isCodeRabbitNitpickComment(lowerBody) {
+		return true
+	}
+
+	return false
+}
+
+// isCodeRabbitNitpickComment detects CodeRabbit nitpick comments in structured format
+func (a *Analyzer) isCodeRabbitNitpickComment(lowerBody string) bool {
+	// CodeRabbit patterns to detect
+	coderabbitPatterns := []string{
+		"🧹 nitpick",
+		"nitpick comments",
+		"nitpick comment",
+		"<summary>🧹 nitpick",
+		"<summary>nitpick",
+		"nitpick comments (",
+		"nitpick comment (",
+	}
+
+	for _, pattern := range coderabbitPatterns {
+		if strings.Contains(lowerBody, pattern) {
+			return true
+		}
+	}
+
+	// Check for structured HTML content that might contain nitpicks
+	if a.hasStructuredNitpickContent(lowerBody) {
+		return true
+	}
+
+	return false
+}
+
+// hasStructuredNitpickContent checks for structured HTML content with nitpick indicators
+func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
+	// Look for <details> blocks with summary containing nitpick-related content
+	if strings.Contains(lowerBody, "<details>") && strings.Contains(lowerBody, "<summary>") {
+		// Extract content between <summary> tags
+		summaryStart := strings.Index(lowerBody, "<summary>")
+		if summaryStart == -1 {
+			return false
+		}
+
+		summaryEnd := strings.Index(lowerBody[summaryStart:], "</summary>")
+		if summaryEnd == -1 {
+			// Look for closing pattern without explicit tag
+			summaryEnd = strings.Index(lowerBody[summaryStart:], ">")
+			if summaryEnd == -1 {
+				return false
+			}
+		}
+
+		// Validate that summaryStart+summaryEnd doesn't exceed bounds before applying buffer
+		baseEndPos := summaryStart + summaryEnd
+		if baseEndPos > len(lowerBody) {
+			baseEndPos = len(lowerBody)
+		}
+
+		// Apply buffer with bounds checking
+		endPos := baseEndPos + 20
+		if endPos > len(lowerBody) {
+			endPos = len(lowerBody)
+		}
+		summaryContent := lowerBody[summaryStart:endPos]
+
+		// Check if summary contains nitpick indicators
+		nitpickIndicators := []string{
+			"nitpick",
+			"nit",
+			"🧹",
+			"minor",
+			"style",
+			"suggestion",
+		}
+
+		for _, indicator := range nitpickIndicators {
+			if strings.Contains(summaryContent, indicator) {
+				return true
+			}
 		}
 	}
 
