@@ -10,10 +10,10 @@ import (
 var (
 	// ErrClaudeAPI indicates a Claude API related error
 	ErrClaudeAPI = errors.New("claude API error")
-	
+
 	// ErrAuthentication indicates an authentication failure
 	ErrAuthentication = errors.New("authentication error")
-	
+
 	// ErrCritical is a generic critical error
 	ErrCritical = errors.New("critical error")
 )
@@ -75,23 +75,23 @@ func isCriticalError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check for specific error types
 	var claudeErr *ClaudeAPIError
 	var authErr *AuthenticationError
-	
+
 	if errors.As(err, &claudeErr) {
 		return true
 	}
 	if errors.As(err, &authErr) {
 		return true
 	}
-	
+
 	// Check for wrapped sentinel errors
 	if errors.Is(err, ErrClaudeAPI) || errors.Is(err, ErrAuthentication) || errors.Is(err, ErrCritical) {
 		return true
 	}
-	
+
 	// Fallback to string matching for legacy errors
 	// This can be removed once all errors are properly typed
 	errStr := err.Error()

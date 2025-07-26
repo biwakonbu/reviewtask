@@ -940,7 +940,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 		"line":              ctx.Comment.Line,
 		"task_index":        0,
 	}
-	
+
 	exampleJSON, err := json.MarshalIndent([]interface{}{exampleTask}, "", "  ")
 	if err != nil {
 		// Fallback to simple format if marshaling fails

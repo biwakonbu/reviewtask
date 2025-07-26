@@ -381,7 +381,7 @@ func (a *Analyzer) buildFastModePrompt(ctx CommentContext) string {
 		"line":              ctx.Comment.Line,
 		"task_index":        0,
 	}
-	
+
 	exampleJSON, err := json.MarshalIndent([]interface{}{exampleTask}, "", "  ")
 	if err != nil {
 		// Fallback to simple format if marshaling fails
@@ -405,4 +405,3 @@ Only create tasks for actionable items. Return empty array [] if no action neede
 		ctx.Comment.Line,
 		string(exampleJSON))
 }
-
