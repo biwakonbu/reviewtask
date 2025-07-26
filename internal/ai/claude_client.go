@@ -54,14 +54,24 @@ func findClaudeCLI() (string, error) {
 		}
 	}
 
+	// Get home directory in a cross-platform way
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to HOME env var if UserHomeDir fails
+		homeDir = os.Getenv("HOME")
+		if homeDir == "" {
+			homeDir = os.Getenv("USERPROFILE") // Windows fallback
+		}
+	}
+
 	// Try common installation locations
 	commonPaths := []string{
-		filepath.Join(os.Getenv("HOME"), ".claude/local/claude"),
-		filepath.Join(os.Getenv("HOME"), ".npm-global/bin/claude"),
-		filepath.Join(os.Getenv("HOME"), ".volta/bin/claude"),
+		filepath.Join(homeDir, ".claude/local/claude"),
+		filepath.Join(homeDir, ".npm-global/bin/claude"),
+		filepath.Join(homeDir, ".volta/bin/claude"),
 		"/usr/local/bin/claude",
 		"/opt/homebrew/bin/claude",
-		filepath.Join(os.Getenv("HOME"), ".local/bin/claude"),
+		filepath.Join(homeDir, ".local/bin/claude"),
 	}
 
 	// Add npm global prefix bin directory (for nvm and other npm managers)
@@ -178,9 +188,16 @@ func parseAliasOutput(output string) string {
 
 // checkShellConfigFiles directly reads shell configuration files for alias definitions
 func checkShellConfigFiles() (string, error) {
-	home := os.Getenv("HOME")
-	if home == "" {
-		return "", fmt.Errorf("HOME not set")
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to HOME env var
+		home = os.Getenv("HOME")
+		if home == "" {
+			home = os.Getenv("USERPROFILE") // Windows fallback
+		}
+		if home == "" {
+			return "", fmt.Errorf("unable to determine home directory")
+		}
 	}
 
 	// Common shell config files to check
@@ -261,7 +278,11 @@ func ensureClaudeAvailable(claudePath string) error {
 	}
 
 	// Create symlink in ~/.local/bin (which is commonly in PATH)
-	localBin := filepath.Join(os.Getenv("HOME"), ".local/bin")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	localBin := filepath.Join(homeDir, ".local/bin")
 	if err := os.MkdirAll(localBin, 0755); err != nil {
 		return fmt.Errorf("failed to create ~/.local/bin directory: %w", err)
 	}
@@ -285,7 +306,11 @@ func ensureClaudeAvailable(claudePath string) error {
 
 // CleanupClaudeSymlink removes symlinks created by reviewtask
 func CleanupClaudeSymlink() error {
-	symlinkPath := filepath.Join(os.Getenv("HOME"), ".local/bin", "claude")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
 
 	// Check if it's our symlink (not a real installation)
 	if info, err := os.Lstat(symlinkPath); err == nil && info.Mode()&os.ModeSymlink != 0 {
