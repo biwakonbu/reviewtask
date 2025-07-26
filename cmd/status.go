@@ -247,36 +247,54 @@ func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
 		return emptyProgressStyle.Render(emptyBar)
 	}
 
-	// Calculate widths for each status
-	doneWidth := int(float64(stats.StatusCounts["done"]) / float64(total) * float64(width))
-	doingWidth := int(float64(stats.StatusCounts["doing"]) / float64(total) * float64(width))
-	pendingWidth := int(float64(stats.StatusCounts["pending"]) / float64(total) * float64(width))
-	todoWidth := int(float64(stats.StatusCounts["todo"]) / float64(total) * float64(width))
-	cancelWidth := int(float64(stats.StatusCounts["cancel"]) / float64(total) * float64(width))
+	// Calculate completion rate
+	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
+	completionRate := float64(completed) / float64(total)
 
-	// Adjust for rounding errors
-	usedWidth := doneWidth + doingWidth + pendingWidth + todoWidth + cancelWidth
-	if usedWidth < width {
-		doneWidth += width - usedWidth
-	}
+	// Calculate widths based on completion vs remaining
+	filledWidth := int(completionRate * float64(width))
+	emptyWidth := width - filledWidth
 
-	// Build colored segments
+	// For filled portion, show proportional colors for done/cancel
 	var segments []string
 
-	if doneWidth > 0 {
-		segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneWidth)))
+	if filledWidth > 0 {
+		// Within filled portion, show proportions of done vs cancel
+		if completed > 0 {
+			doneInFilled := int(float64(stats.StatusCounts["done"]) / float64(completed) * float64(filledWidth))
+			cancelInFilled := filledWidth - doneInFilled
+
+			if doneInFilled > 0 {
+				segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneInFilled)))
+			}
+			if cancelInFilled > 0 {
+				segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelInFilled)))
+			}
+		}
 	}
-	if doingWidth > 0 {
-		segments = append(segments, doingProgressStyle.Render(strings.Repeat("█", doingWidth)))
-	}
-	if pendingWidth > 0 {
-		segments = append(segments, pendingProgressStyle.Render(strings.Repeat("█", pendingWidth)))
-	}
-	if todoWidth > 0 {
-		segments = append(segments, todoProgressStyle.Render(strings.Repeat("█", todoWidth)))
-	}
-	if cancelWidth > 0 {
-		segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelWidth)))
+
+	// For empty portion, show remaining work with status colors
+	if emptyWidth > 0 {
+		remaining := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] + stats.StatusCounts["pending"]
+		if remaining > 0 {
+			// Proportional representation of remaining work
+			doingInEmpty := int(float64(stats.StatusCounts["doing"]) / float64(remaining) * float64(emptyWidth))
+			pendingInEmpty := int(float64(stats.StatusCounts["pending"]) / float64(remaining) * float64(emptyWidth))
+			todoInEmpty := emptyWidth - doingInEmpty - pendingInEmpty
+
+			if doingInEmpty > 0 {
+				segments = append(segments, doingProgressStyle.Render(strings.Repeat("░", doingInEmpty)))
+			}
+			if pendingInEmpty > 0 {
+				segments = append(segments, pendingProgressStyle.Render(strings.Repeat("░", pendingInEmpty)))
+			}
+			if todoInEmpty > 0 {
+				segments = append(segments, todoProgressStyle.Render(strings.Repeat("░", todoInEmpty)))
+			}
+		} else {
+			// Just empty gray
+			segments = append(segments, emptyProgressStyle.Render(strings.Repeat("░", emptyWidth)))
+		}
 	}
 
 	return strings.Join(segments, "")
