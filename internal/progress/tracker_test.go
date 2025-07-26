@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -72,12 +71,8 @@ func TestTrackerNonTTY(t *testing.T) {
 	w.Close()
 	os.Stdout = oldStdout
 
-	// Read captured output
-	go func() {
-		buf.ReadFrom(r)
-	}()
-	time.Sleep(100 * time.Millisecond)
-
+	// Read captured output synchronously
+	buf.ReadFrom(r)
 	output := buf.String()
 
 	// Verify output
@@ -110,7 +105,6 @@ func TestTrackerStartStop(t *testing.T) {
 
 func TestOnProgress(t *testing.T) {
 	// Capture stdout for non-TTY test
-	var buf bytes.Buffer
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -127,12 +121,9 @@ func TestOnProgress(t *testing.T) {
 	w.Close()
 	os.Stdout = oldStdout
 
-	// Read captured output
-	go func() {
-		buf.ReadFrom(r)
-	}()
-	time.Sleep(100 * time.Millisecond)
-
+	// Read captured output synchronously
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
 	output := buf.String()
 
 	// Verify both SetAnalysisProgress and UpdateStatistics were called
@@ -212,23 +203,17 @@ func TestProgressPercentageCalculation(t *testing.T) {
 }
 
 func captureOutput(f func()) string {
-	var buf bytes.Buffer
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-
-	done := make(chan bool)
-	go func() {
-		buf.ReadFrom(r)
-		done <- true
-	}()
 
 	f()
 
 	w.Close()
 	os.Stdout = oldStdout
-	<-done
 
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
 	return buf.String()
 }
 
