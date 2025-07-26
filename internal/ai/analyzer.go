@@ -405,27 +405,7 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 	priorityPrompt := a.config.GetPriorityPrompt()
 
 	// Add nitpick handling instructions
-	var nitpickInstruction string
-	if a.config.AISettings.ProcessNitpickComments {
-		nitpickInstruction = fmt.Sprintf(`
-IMPORTANT: Nitpick Comment Processing Instructions:
-- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
-- Ignore "Actionable comments posted: 0" headers when nitpick content is present
-- Extract actionable tasks from nitpick sections and collapsible details
-- Set priority to "%s" for tasks generated from nitpick comments
-- Look for nitpick content in <details> blocks, summaries, and structured formats
-- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
-
-`, a.config.AISettings.NitpickPriority)
-	} else {
-		nitpickInstruction = `
-IMPORTANT: Nitpick Comment Processing:
-- Skip nitpick comments and suggestions
-- Ignore CodeRabbit nitpick sections
-- Focus only on actionable review feedback requiring implementation
-
-`
-	}
+	nitpickInstruction := a.buildNitpickInstruction()
 
 	// Build review data
 	var reviewsData strings.Builder
@@ -950,27 +930,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 	priorityPrompt := a.config.GetPriorityPrompt()
 
 	// Add nitpick handling instructions
-	var nitpickInstruction string
-	if a.config.AISettings.ProcessNitpickComments {
-		nitpickInstruction = fmt.Sprintf(`
-IMPORTANT: Nitpick Comment Processing Instructions:
-- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
-- Ignore "Actionable comments posted: 0" headers when nitpick content is present
-- Extract actionable tasks from nitpick sections and collapsible details
-- Set priority to "%s" for tasks generated from nitpick comments
-- Look for nitpick content in <details> blocks, summaries, and structured formats
-- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
-
-`, a.config.AISettings.NitpickPriority)
-	} else {
-		nitpickInstruction = `
-IMPORTANT: Nitpick Comment Processing:
-- Skip nitpick comments and suggestions
-- Ignore CodeRabbit nitpick sections
-- Focus only on actionable review feedback requiring implementation
-
-`
-	}
+	nitpickInstruction := a.buildNitpickInstruction()
 
 	// Build example task using proper JSON marshaling
 	exampleTask := map[string]interface{}{
@@ -1191,6 +1151,30 @@ func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
 
 	// If we find multiple indicators of CodeRabbit nitpick responses, it's likely a nitpick-only comment
 	return nitpickCount >= 1
+}
+
+// buildNitpickInstruction generates nitpick processing instructions based on configuration
+func (a *Analyzer) buildNitpickInstruction() string {
+	if a.config.AISettings.ProcessNitpickComments {
+		return fmt.Sprintf(`
+IMPORTANT: Nitpick Comment Processing Instructions:
+- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
+- Ignore "Actionable comments posted: 0" headers when nitpick content is present
+- Extract actionable tasks from nitpick sections and collapsible details
+- Set priority to "%s" for tasks generated from nitpick comments
+- Look for nitpick content in <details> blocks, summaries, and structured formats
+- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
+
+`, a.config.AISettings.NitpickPriority)
+	} else {
+		return `
+IMPORTANT: Nitpick Comment Processing:
+- Skip nitpick comments and suggestions
+- Ignore CodeRabbit nitpick sections
+- Focus only on actionable review feedback requiring implementation
+
+`
+	}
 }
 
 // deduplicateTasks removes duplicate tasks based on comment ID and similarity

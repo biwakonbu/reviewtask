@@ -179,9 +179,10 @@ func mergeWithDefaults(config *Config) {
 		config.TaskSettings.LowPriorityStatus = defaults.TaskSettings.LowPriorityStatus
 	}
 
-	// Check if this appears to be missing new boolean fields (old config or completely empty)
-	// If NitpickPriority is empty, it's likely missing the new fields
-	isMissingNewFields := config.AISettings.NitpickPriority == ""
+	// Check if this is likely an old config by looking for any non-zero new fields
+	isOldConfig := config.AISettings.MaxTasksPerComment == 0 &&
+		config.AISettings.SimilarityThreshold == 0 &&
+		config.AISettings.NitpickPriority == ""
 
 	// Merge AI settings
 	if config.AISettings.UserLanguage == "" {
@@ -208,10 +209,10 @@ func mergeWithDefaults(config *Config) {
 
 	// Note: Boolean fields (DeduplicationEnabled, ProcessNitpickComments) default to true
 	// Set defaults if the config appears to be missing the new fields (old or empty config)
-	if !config.AISettings.DeduplicationEnabled && isMissingNewFields {
+	if isOldConfig && !config.AISettings.DeduplicationEnabled {
 		config.AISettings.DeduplicationEnabled = defaults.AISettings.DeduplicationEnabled
 	}
-	if !config.AISettings.ProcessNitpickComments && isMissingNewFields {
+	if isOldConfig && !config.AISettings.ProcessNitpickComments {
 		config.AISettings.ProcessNitpickComments = defaults.AISettings.ProcessNitpickComments
 	}
 
