@@ -55,16 +55,16 @@ func TestTrackerNonTTY(t *testing.T) {
 
 	// Test GitHub progress
 	tracker.SetGitHubProgress(1, 2)
-	
+
 	// Test Analysis progress
 	tracker.SetAnalysisProgress(5, 10)
-	
+
 	// Test Saving progress
 	tracker.SetSavingProgress(2, 2)
-	
+
 	// Test stage status
 	tracker.SetStageStatus("github", "completed")
-	
+
 	// Test statistics
 	tracker.UpdateStatistics(5, 10, 3, "Processing review")
 
@@ -96,14 +96,14 @@ func TestTrackerStartStop(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		// Start should return immediately for non-TTY
 		err := tracker.Start(ctx)
 		assert.NoError(t, err)
 
 		// Stop should also complete immediately
 		tracker.Stop()
-		
+
 		cancel()
 	})
 }
@@ -167,7 +167,7 @@ func TestConcurrentAccess(t *testing.T) {
 
 	// Test concurrent access doesn't cause issues
 	done := make(chan bool)
-	
+
 	// Multiple goroutines updating progress
 	for i := 0; i < 5; i++ {
 		go func(id int) {
@@ -241,7 +241,7 @@ func TestTrackerOutput(t *testing.T) {
 			}
 			tracker.SetGitHubProgress(1, 2)
 		})
-		
+
 		assert.True(t, strings.Contains(output, "GitHub API: 1/2"))
 	})
 
@@ -253,7 +253,7 @@ func TestTrackerOutput(t *testing.T) {
 			}
 			tracker.SetGitHubProgress(0, 0)
 		})
-		
+
 		// Should not output anything for 0/0 progress
 		assert.Empty(t, strings.TrimSpace(output))
 	})

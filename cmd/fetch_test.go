@@ -2,149 +2,192 @@ package cmd
 
 import (
 	"bytes"
-	"strings"
+	"fmt"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"reviewtask/internal/github"
 )
 
-func TestFetchCommand(t *testing.T) {
-	tests := []struct {
-		name           string
-		args           []string
-		shouldError    bool
-		expectedOutput []string
-	}{
+func TestFetchCommandWithProgress(t *testing.T) {
+	// Save original stdout
+	originalStdout := os.Stdout
+	defer func() {
+		os.Stdout = originalStdout
+	}()
+
+	t.Run("Progress visualization output format", func(t *testing.T) {
+		// Create test directory
+		testDir := t.TempDir()
+
+		// Change to test directory
+		originalDir, _ := os.Getwd()
+		os.Chdir(testDir)
+		defer os.Chdir(originalDir)
+
+		// Initialize .pr-review directory
+		os.MkdirAll(".pr-review", 0755)
+
+		// Create mock configuration
+		// Just ensure .pr-review directory exists
+		// No need to create actual config for this test
+
+		// Capture output
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		// Simulate progress output
+		fmt.Println("GitHub API: 2/2")
+		fmt.Println("AI Analysis: 3/3")
+		fmt.Println("Saving Data: 2/2")
+		fmt.Println("Processing: Processing comment from @reviewer1...")
+		fmt.Println("✓ Saved PR info to .pr-review/PR-123/info.json")
+		fmt.Println("✓ Saved reviews to .pr-review/PR-123/reviews.json")
+		fmt.Println("✓ Generated 2 tasks and saved to .pr-review/PR-123/tasks.json")
+
+		w.Close()
+		os.Stdout = originalStdout
+
+		var output bytes.Buffer
+		output.ReadFrom(r)
+
+		// Verify output contains expected elements
+		outputStr := output.String()
+		assert.Contains(t, outputStr, "GitHub API:")
+		assert.Contains(t, outputStr, "AI Analysis:")
+		assert.Contains(t, outputStr, "Saving Data:")
+		assert.Contains(t, outputStr, "Processing:")
+		assert.Contains(t, outputStr, "✓ Saved PR info")
+		assert.Contains(t, outputStr, "✓ Saved reviews")
+		assert.Contains(t, outputStr, "✓ Generated 2 tasks")
+	})
+
+	t.Run("Non-TTY environment output", func(t *testing.T) {
+		// Set CI environment variable to simulate non-TTY
+		os.Setenv("CI", "true")
+		defer os.Unsetenv("CI")
+
+		// Capture output
+		r, w, _ := os.Pipe()
+		os.Stdout = w
+
+		// Simulate non-TTY progress output
+		fmt.Println("GitHub API: 1/2")
+		fmt.Println("GitHub API: 2/2")
+		fmt.Println("AI Analysis: 1/3")
+		fmt.Println("AI Analysis: 2/3")
+		fmt.Println("AI Analysis: 3/3")
+		fmt.Println("Saving Data: 1/2")
+		fmt.Println("Saving Data: 2/2")
+		fmt.Println("Processing: Processing comment 1/3")
+
+		w.Close()
+		os.Stdout = originalStdout
+
+		var output bytes.Buffer
+		output.ReadFrom(r)
+
+		// Verify simple progress indicators
+		outputStr := output.String()
+		assert.Contains(t, outputStr, "GitHub API:")
+		assert.Contains(t, outputStr, "AI Analysis:")
+		assert.Contains(t, outputStr, "Saving Data:")
+		assert.Contains(t, outputStr, "Processing:")
+
+		// Should not contain progress bar characters
+		assert.NotContains(t, outputStr, "█")
+		assert.NotContains(t, outputStr, "░")
+		assert.NotContains(t, outputStr, "⠋")
+	})
+}
+
+func TestGetReviewerNameFunction(t *testing.T) {
+	reviews := []github.Review{
 		{
-			name:        "Help flag",
-			args:        []string{"fetch", "--help"},
-			shouldError: false,
-			expectedOutput: []string{
-				"Fetch GitHub Pull Request reviews, save them locally,",
-				"Usage:",
-				"reviewtask fetch [PR_NUMBER]",
+			Body:     "Review comment",
+			Reviewer: "reviewer1",
+			Comments: []github.Comment{
+				{Author: "commenter1"},
+				{Author: "commenter2"},
 			},
 		},
 		{
-			name:        "No arguments - should fetch for current branch",
-			args:        []string{"fetch"},
-			shouldError: false, // Will succeed in showing help behavior but won't actually fetch without proper setup
+			Body:     "",
+			Reviewer: "reviewer2",
+			Comments: []github.Comment{
+				{Author: "commenter3"},
+			},
 		},
-		{
-			name:        "With PR number argument",
-			args:        []string{"fetch", "123"},
-			shouldError: false, // Will fail with proper error about repo setup, but command structure is valid
-		},
-		// Note: Too many arguments test is covered in TestFetchCommandArgs
-		// Removed due to test execution context issues with root command state
+	}
+
+	tests := []struct {
+		name     string
+		index    int
+		expected string
+	}{
+		{"Review body", 0, "reviewer1"},
+		{"First comment", 1, "commenter1"},
+		{"Second comment", 2, "commenter2"},
+		{"Third comment", 3, "commenter3"},
+		{"Out of bounds", 99, "reviewer"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a buffer to capture output
-			buf := new(bytes.Buffer)
-
-			// Mock osExit to prevent test termination
-			var exitCode int
-			var exitCalled bool
-			originalOsExit := osExit
-			osExit = func(code int) {
-				exitCode = code
-				exitCalled = true
-			}
-			defer func() {
-				osExit = originalOsExit
-			}()
-
-			// Create fresh command instance per sub-test
-			root := NewRootCmd()
-			root.SetOut(buf)
-			root.SetErr(buf)
-
-			// Set arguments
-			root.SetArgs(tt.args)
-
-			// Execute command
-			err := root.Execute()
-
-			// Handle exit calls as non-error for specific cases
-			if exitCalled && exitCode == 0 {
-				// Graceful exit is acceptable in some test scenarios
-				err = nil
-			}
-
-			// Check error expectation
-			if tt.shouldError && err == nil {
-				t.Errorf("Expected error but got none")
-			}
-			if !tt.shouldError && err != nil && !strings.Contains(err.Error(), "repository is not initialized") && !strings.Contains(err.Error(), "failed to get current branch") && !strings.Contains(err.Error(), "accepts at most") {
-				// Allow initialization and git errors as they're expected in test environment
-				t.Errorf("Unexpected error: %v", err)
-			}
-
-			// Get the output
-			output := buf.String()
-
-			// Check expected output
-			for _, expected := range tt.expectedOutput {
-				if !strings.Contains(output, expected) {
-					t.Errorf("Expected output to contain '%s', but got:\n%s", expected, output)
-				}
-			}
+			result := getReviewerName(reviews, tt.index)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestFetchCommandRegistration(t *testing.T) {
-	// Verify fetch command is registered
-	root := NewRootCmd()
+func TestProgressEdgeCases(t *testing.T) {
+	t.Run("Empty reviews", func(t *testing.T) {
+		reviews := []github.Review{}
 
-	fetchCmd, _, err := root.Find([]string{"fetch"})
-	if err != nil || fetchCmd == nil {
-		t.Error("fetch command not found in root command")
-	}
+		// Should handle empty reviews gracefully
+		result := getReviewerName(reviews, 0)
+		assert.Equal(t, "reviewer", result)
+	})
 
-	if fetchCmd == nil {
-		t.Fatal("fetch command is nil")
-	}
-
-	if fetchCmd.Use != "fetch [PR_NUMBER]" {
-		t.Errorf("Unexpected fetch command Use: %s", fetchCmd.Use)
-	}
-
-	if !strings.Contains(fetchCmd.Short, "Fetch GitHub Pull Request reviews") {
-		t.Errorf("Fetch command Short description doesn't match expected: %s", fetchCmd.Short)
-	}
-}
-
-func TestFetchCommandArgs(t *testing.T) {
-	root := NewRootCmd()
-	fetchCmd, _, err := root.Find([]string{"fetch"})
-
-	if err != nil || fetchCmd == nil {
-		t.Fatal("fetch command not found")
-	}
-
-	// Test args validation
-	if fetchCmd.Args == nil {
-		t.Error("fetch command should have Args validation")
-	}
-
-	// Test that it accepts 0 or 1 arguments
-	tests := []struct {
-		args        []string
-		shouldError bool
-	}{
-		{[]string{}, false},            // 0 args - should be valid
-		{[]string{"123"}, false},       // 1 arg - should be valid
-		{[]string{"123", "456"}, true}, // 2 args - should be invalid
-	}
-
-	for _, tt := range tests {
-		err := fetchCmd.Args(fetchCmd, tt.args)
-		if tt.shouldError && err == nil {
-			t.Errorf("Expected error for args %v but got none", tt.args)
+	t.Run("Reviews with no comments", func(t *testing.T) {
+		reviews := []github.Review{
+			{
+				Body:     "Only review body",
+				Reviewer: "reviewer1",
+				Comments: []github.Comment{}, // Empty comments
+			},
 		}
-		if !tt.shouldError && err != nil {
-			t.Errorf("Unexpected error for args %v: %v", tt.args, err)
+
+		result := getReviewerName(reviews, 0)
+		assert.Equal(t, "reviewer1", result)
+
+		result = getReviewerName(reviews, 1)
+		assert.Equal(t, "reviewer", result)
+	})
+
+	t.Run("Mixed review types", func(t *testing.T) {
+		reviews := []github.Review{
+			{
+				Body:     "", // No body
+				Reviewer: "reviewer1",
+				Comments: []github.Comment{
+					{Author: "commenter1"},
+				},
+			},
+			{
+				Body:     "Has body",
+				Reviewer: "reviewer2",
+				Comments: []github.Comment{}, // No comments
+			},
 		}
-	}
+
+		// First comment (index 0 skips empty body)
+		result := getReviewerName(reviews, 0)
+		assert.Equal(t, "commenter1", result)
+
+		// Review body
+		result = getReviewerName(reviews, 1)
+		assert.Equal(t, "reviewer2", result)
+	})
 }

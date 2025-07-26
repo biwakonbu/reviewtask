@@ -294,7 +294,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		OnProgress: func(processed, total int) {
 			progressTracker.SetAnalysisProgress(processed, total)
 			// Get current task count from storage
-			existingTasks, _ := storageManager.LoadTaskProgress(prNumber)
+			existingTasks, _ := storageManager.GetTasksByPR(prNumber)
 			tasksGenerated = len(existingTasks)
 			progressTracker.UpdateStatistics(processed, totalComments, tasksGenerated,
 				fmt.Sprintf("Processing comment from %s...", getReviewerName(reviews, processed)))
@@ -342,13 +342,13 @@ func getReviewerName(reviews []github.Review, commentIndex int) string {
 	for _, review := range reviews {
 		if review.Body != "" {
 			if currentIndex == commentIndex {
-				return review.User.Login
+				return review.Reviewer
 			}
 			currentIndex++
 		}
 		for _, comment := range review.Comments {
 			if currentIndex == commentIndex {
-				return comment.User.Login
+				return comment.Author
 			}
 			currentIndex++
 		}
