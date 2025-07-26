@@ -28,11 +28,11 @@ func NewRealClaudeClient() (*RealClaudeClient, error) {
 	if _, pathErr := exec.LookPath("claude"); pathErr != nil {
 		// Claude found but not in PATH, create symlink
 		log.Printf("ℹ️  Claude CLI found at %s but not in PATH", claudePath)
-		
+
 		if err := ensureClaudeAvailable(claudePath); err != nil {
 			return nil, fmt.Errorf("failed to ensure claude availability: %w", err)
 		}
-		
+
 		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
