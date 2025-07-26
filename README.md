@@ -21,6 +21,9 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
 - **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
+- **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
+- **💨 API Caching**: Reduces redundant GitHub API calls automatically
+- **📊 Auto-Resume**: Seamlessly continues from where it left off if interrupted
 
 ## Installation
 
@@ -205,7 +208,10 @@ Authentication sources (in order of preference):
 
 # The tool will:
 # - Fetch PR reviews and comments
-# - Process comments in parallel using configured AI provider
+# - Automatically optimize performance based on PR size
+# - Process comments in parallel batches
+# - Cache API responses to reduce redundant calls
+# - Support automatic resume if interrupted
 # - Generate actionable tasks with priorities
 # - Save results to .pr-review/PR-{number}/
 ```
@@ -228,12 +234,14 @@ Authentication sources (in order of preference):
 # Valid statuses: todo, doing, done, pending, cancel
 ```
 
+
 ## Command Reference
 
 | Command | Description |
 |---------|-------------|
 | `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
 | `reviewtask --refresh-cache` | Clear cache and reprocess all comments |
+| `reviewtask fetch [PR_NUMBER]` | Same as reviewtask (alias) |
 | `reviewtask status [options]` | Show task status and statistics |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status |

@@ -10,6 +10,11 @@ var fetchCmd = &cobra.Command{
 	Long: `Fetch GitHub Pull Request reviews, save them locally,
 and use AI to analyze review content for task generation.
 
+The command automatically optimizes performance based on PR size:
+- Uses batch processing for large PRs
+- Caches API responses to reduce redundant calls  
+- Supports automatic resume if interrupted
+
 Examples:
   reviewtask fetch        # Check reviews for current branch's PR
   reviewtask fetch 123    # Check reviews for PR #123`,

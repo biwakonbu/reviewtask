@@ -490,7 +490,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		var err error
 		client, err = NewRealClaudeClient()
 		if err != nil {
-			return nil, fmt.Errorf("claude client initialization failed: %w", err)
+			return nil, NewClaudeAPIError("client initialization failed", err)
 		}
 	}
 
@@ -502,7 +502,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	ctx := context.Background()
 	output, err := client.Execute(ctx, prompt, "json")
 	if err != nil {
-		return nil, fmt.Errorf("claude code execution failed: %w", err)
+		return nil, NewClaudeAPIError("execution failed", err)
 	}
 
 	// Parse Claude Code CLI response wrapper
@@ -929,6 +929,35 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 
 	priorityPrompt := a.config.GetPriorityPrompt()
 
+	// Build example task using proper JSON marshaling
+	exampleTask := map[string]interface{}{
+		"description":       "Actionable task description in specified language",
+		"origin_text":       "Original review comment text (preserve exactly)",
+		"priority":          "critical|high|medium|low",
+		"source_review_id":  ctx.SourceReview.ID,
+		"source_comment_id": ctx.Comment.ID,
+		"file":              ctx.Comment.File,
+		"line":              ctx.Comment.Line,
+		"task_index":        0,
+	}
+
+	exampleJSON, err := json.MarshalIndent([]interface{}{exampleTask}, "", "  ")
+	if err != nil {
+		// Fallback to simple format if marshaling fails
+		exampleJSON = []byte(fmt.Sprintf(`[
+  {
+    "description": "Actionable task description in specified language",
+    "origin_text": "Original review comment text (preserve exactly)",
+    "priority": "critical|high|medium|low",
+    "source_review_id": %d,
+    "source_comment_id": %d,
+    "file": "%s",
+    "line": %d,
+    "task_index": 0
+  }
+]`, ctx.SourceReview.ID, ctx.Comment.ID, ctx.Comment.File, ctx.Comment.Line))
+	}
+
 	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR review comments and generate actionable tasks.
 
 %s
@@ -950,18 +979,7 @@ Comment Details:
 %s
 
 CRITICAL: Return response as JSON array with this EXACT format:
-[
-  {
-    "description": "Actionable task description in specified language",
-    "origin_text": "Original review comment text (preserve exactly)",
-    "priority": "critical|high|medium|low",
-    "source_review_id": %d,
-    "source_comment_id": %d,
-    "file": "%s",
-    "line": %d,
-    "task_index": 0
-  }
-]
+%s
 
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
@@ -990,10 +1008,7 @@ Task Generation Guidelines:
 		ctx.Comment.Line,
 		ctx.Comment.Body,
 		a.buildRepliesContext(ctx.Comment),
-		ctx.SourceReview.ID,
-		ctx.Comment.ID,
-		ctx.Comment.File,
-		ctx.Comment.Line)
+		string(exampleJSON))
 
 	return prompt
 }

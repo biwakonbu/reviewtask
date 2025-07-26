@@ -2,10 +2,12 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v58/github"
 	"golang.org/x/oauth2"
@@ -18,6 +20,7 @@ type Client struct {
 	client *github.Client
 	owner  string
 	repo   string
+	cache  *APICache
 }
 
 type PRInfo struct {
@@ -80,6 +83,7 @@ func NewClient() (*Client, error) {
 		client: client,
 		owner:  owner,
 		repo:   repo,
+		cache:  NewAPICache(5 * time.Minute),
 	}, nil
 }
 
@@ -118,12 +122,19 @@ func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 }
 
 func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
+	// Check cache first
+	if cached, ok := c.cache.Get("GetPRInfo", c.owner, c.repo, prNumber); ok {
+		if prInfo, ok := cached.(*PRInfo); ok {
+			return prInfo, nil
+		}
+	}
+
 	pr, _, err := c.client.PullRequests.Get(ctx, c.owner, c.repo, prNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get PR #%d: %w", prNumber, err)
 	}
 
-	return &PRInfo{
+	prInfo := &PRInfo{
 		Number:     pr.GetNumber(),
 		Title:      pr.GetTitle(),
 		Author:     pr.GetUser().GetLogin(),
@@ -132,10 +143,27 @@ func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 		State:      pr.GetState(),
 		Repository: fmt.Sprintf("%s/%s", c.owner, c.repo),
 		Branch:     pr.GetHead().GetRef(),
-	}, nil
+	}
+
+	// Cache the result
+	c.cache.Set("GetPRInfo", c.owner, c.repo, prInfo, prNumber)
+
+	return prInfo, nil
 }
 
 func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, error) {
+	// Check cache first
+	if cached, ok := c.cache.Get("GetPRReviews", c.owner, c.repo, prNumber); ok {
+		// JSON-marshal the generic interface{} and unmarshal into []Review
+		raw, err := json.Marshal(cached)
+		if err == nil {
+			var reviews []Review
+			if err := json.Unmarshal(raw, &reviews); err == nil {
+				return reviews, nil
+			}
+		}
+	}
+
 	// Get reviews
 	reviews, _, err := c.client.PullRequests.ListReviews(ctx, c.owner, c.repo, prNumber, nil)
 	if err != nil {
@@ -162,14 +190,30 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		result = append(result, r)
 	}
 
+	// Cache the result
+	c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
+
 	return result, nil
 }
 
 func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID int64) ([]Comment, error) {
-	// Get all PR review comments
-	allComments, _, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PR comments: %w", err)
+	// Check cache for PR comments
+	cacheKey := fmt.Sprintf("prcomments-%d", prNumber)
+	var allComments []*github.PullRequestComment
+
+	if cached, ok := c.cache.Get("ListComments", c.owner, c.repo, cacheKey); ok {
+		if comments, ok := cached.([]*github.PullRequestComment); ok {
+			allComments = comments
+		}
+	} else {
+		// Get all PR review comments
+		var err error
+		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get PR comments: %w", err)
+		}
+		// Cache the raw comments
+		c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
 
 	// Filter comments for this review and build nested structure
@@ -268,6 +312,7 @@ func NewClientWithToken(token string) (*Client, error) {
 		client: client,
 		owner:  owner,
 		repo:   repo,
+		cache:  NewAPICache(5 * time.Minute),
 	}, nil
 }
 

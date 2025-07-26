@@ -219,13 +219,49 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
 
-	// Generate tasks using AI with smart caching
+	// Generate tasks using AI - always use optimized processing
 	analyzer := ai.NewAnalyzer(cfg)
-	// Generate tasks using AI with simple change detection
-	tasks, err := analyzer.GenerateTasks(reviews)
+
+	// Calculate optimal batch size based on number of comments
+	totalComments := 0
+	for _, review := range reviews {
+		if review.Body != "" {
+			totalComments++
+		}
+		totalComments += len(review.Comments)
+	}
+
+	// Auto-detect batch size: smaller batches for large PRs
+	batchSize := 10 // Default for normal PRs
+	if totalComments > 50 {
+		batchSize = 20 // Larger batches for big PRs
+	} else if totalComments < 10 {
+		batchSize = totalComments // Process all at once for small PRs
+	}
+
+	// Always use incremental processing for better performance
+	incrementalOpts := ai.IncrementalOptions{
+		BatchSize:    batchSize,
+		Resume:       true, // Always support resume in case of failure
+		FastMode:     false,
+		MaxTimeout:   10 * time.Minute, // Generous timeout
+		ShowProgress: true,
+		OnProgress: func(processed, total int) {
+			percentage := float64(processed) / float64(total) * 100
+			fmt.Printf("\r⏳ Processing: %d/%d (%.1f%%)", processed, total, percentage)
+		},
+	}
+
+	tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 	if err != nil {
+		// Check if it's a timeout error and suggest retry
+		if strings.Contains(err.Error(), "timed out") {
+			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")
+		}
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
+
+	fmt.Println() // New line after progress
 
 	// Merge tasks with existing ones (preserves task statuses)
 	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
