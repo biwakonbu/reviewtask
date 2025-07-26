@@ -164,7 +164,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update progress bar
 		if bar, ok := m.progressBars[msg.stage]; ok {
 			cmd := bar.SetPercent(msg.percentage)
-			m.progressBars[msg.stage], _ = bar.Update(msg)
+			newModel, _ := bar.Update(msg)
+			if progressBar, ok := newModel.(progress.Model); ok {
+				m.progressBars[msg.stage] = progressBar
+			}
 			return m, cmd
 		}
 		return m, nil
@@ -187,8 +190,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case progress.FrameMsg:
 		var cmds []tea.Cmd
 		for key, bar := range m.progressBars {
-			newBar, cmd := bar.Update(msg)
-			m.progressBars[key] = newBar
+			newModel, cmd := bar.Update(msg)
+			if progressBar, ok := newModel.(progress.Model); ok {
+				m.progressBars[key] = progressBar
+			}
 			if cmd != nil {
 				cmds = append(cmds, cmd)
 			}

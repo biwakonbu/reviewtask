@@ -70,8 +70,10 @@ func (t *Tracker) Stop() {
 		return
 	}
 
-	t.program.Quit()
-	<-t.done
+	if t.program != nil {
+		t.program.Quit()
+		<-t.done
+	}
 }
 
 // SetGitHubProgress updates GitHub API progress
@@ -83,7 +85,9 @@ func (t *Tracker) SetGitHubProgress(current, total int) {
 		return
 	}
 
-	t.program.Send(UpdateProgress("github", current, total))
+	if t.program != nil {
+		t.program.Send(UpdateProgress("github", current, total))
+	}
 }
 
 // SetAnalysisProgress updates AI analysis progress
@@ -95,7 +99,9 @@ func (t *Tracker) SetAnalysisProgress(current, total int) {
 		return
 	}
 
-	t.program.Send(UpdateProgress("analysis", current, total))
+	if t.program != nil {
+		t.program.Send(UpdateProgress("analysis", current, total))
+	}
 }
 
 // SetSavingProgress updates data saving progress
@@ -107,7 +113,9 @@ func (t *Tracker) SetSavingProgress(current, total int) {
 		return
 	}
 
-	t.program.Send(UpdateProgress("saving", current, total))
+	if t.program != nil {
+		t.program.Send(UpdateProgress("saving", current, total))
+	}
 }
 
 // SetStageStatus updates the status of a stage
@@ -117,7 +125,9 @@ func (t *Tracker) SetStageStatus(stage, status string) {
 		return
 	}
 
-	t.program.Send(UpdateStatus(stage, status))
+	if t.program != nil {
+		t.program.Send(UpdateStatus(stage, status))
+	}
 }
 
 // UpdateStatistics updates real-time statistics
@@ -129,13 +139,15 @@ func (t *Tracker) UpdateStatistics(commentsProcessed, totalComments, tasksGenera
 		return
 	}
 
-	stats := Statistics{
-		CommentsProcessed: commentsProcessed,
-		TotalComments:     totalComments,
-		TasksGenerated:    tasksGenerated,
-		CurrentOperation:  currentOp,
+	if t.program != nil {
+		stats := Statistics{
+			CommentsProcessed: commentsProcessed,
+			TotalComments:     totalComments,
+			TasksGenerated:    tasksGenerated,
+			CurrentOperation:  currentOp,
+		}
+		t.program.Send(UpdateStats(stats))
 	}
-	t.program.Send(UpdateStats(stats))
 }
 
 // Simple progress callback for existing code
