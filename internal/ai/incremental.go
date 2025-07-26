@@ -47,7 +47,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	remainingComments := a.filterProcessedComments(allComments, checkpoint)
 
 	if opts.ShowProgress && checkpoint.ProcessedCount > 0 {
-		fmt.Printf("✅ Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
+		printf("✅ Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
 	}
 
 	if len(remainingComments) == 0 {
@@ -66,7 +66,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			// Save checkpoint before timeout
 			checkpoint.PartialTasks = allTasks
 			if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
-				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
+				printf("⚠️  Failed to save checkpoint: %v\n", err)
 				return nil, fmt.Errorf("processing timed out after %v and failed to save checkpoint: %w", opts.MaxTimeout, err)
 			}
 			return nil, fmt.Errorf("processing timed out after %v. Use --resume to continue", opts.MaxTimeout)
@@ -89,7 +89,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			// Save checkpoint before continuing
 			checkpoint.PartialTasks = allTasks
 			if saveErr := storageManager.SaveCheckpoint(prNumber, checkpoint); saveErr != nil {
-				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", saveErr)
+				printf("⚠️  Failed to save checkpoint: %v\n", saveErr)
 				// For critical errors with checkpoint save failure, return both
 				if isCriticalError(err) {
 					return nil, fmt.Errorf("critical error: %w, and failed to save checkpoint: %w", err, saveErr)
@@ -102,7 +102,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			}
 
 			// For other errors, log and continue
-			fmt.Printf("⚠️  Some comments could not be processed: %v\n", err)
+			printf("⚠️  Some comments could not be processed: %v\n", err)
 			continue
 		}
 
@@ -117,7 +117,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		// Save checkpoint after each batch
 		if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
-			fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
+			printf("⚠️  Failed to save checkpoint: %v\n", err)
 		}
 
 		// Call progress callbacks
@@ -136,14 +136,14 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 	// Delete checkpoint on successful completion
 	if err := storageManager.DeleteCheckpoint(prNumber); err != nil {
-		fmt.Printf("⚠️  Failed to delete checkpoint: %v\n", err)
+		printf("⚠️  Failed to delete checkpoint: %v\n", err)
 	}
 
 	// Apply deduplication
 	if a.config.AISettings.DeduplicationEnabled {
 		deduped := a.deduplicateTasks(allTasks)
 		if opts.ShowProgress && len(deduped) < len(allTasks) {
-			fmt.Printf("\n🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
+			printf("\n🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
 				len(allTasks), len(deduped), len(allTasks)-len(deduped))
 		}
 		return deduped, nil
@@ -194,7 +194,7 @@ func (a *Analyzer) extractComments(reviews []github.Review) []CommentContext {
 	}
 
 	if resolvedCommentCount > 0 {
-		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
+		printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
 
 	return allComments
@@ -211,11 +211,11 @@ func (a *Analyzer) loadOrCreateCheckpoint(prNumber int, storageManager *storage.
 		if checkpoint != nil {
 			// Check if checkpoint is still valid (not too old)
 			if !storage.IsCheckpointStale(checkpoint, 24*time.Hour) {
-				fmt.Printf("✅ Resuming from checkpoint (processed %d/%d comments)\n",
+				printf("✅ Resuming from checkpoint (processed %d/%d comments)\n",
 					checkpoint.ProcessedCount, checkpoint.TotalComments)
 				return checkpoint, nil
 			}
-			fmt.Println("⚠️  Checkpoint is too old, starting fresh")
+			println("⚠️  Checkpoint is too old, starting fresh")
 		}
 	}
 
@@ -321,7 +321,7 @@ func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task,
 	// Report errors but continue if we have some successful results
 	if len(errors) > 0 {
 		for _, err := range errors {
-			fmt.Printf("  ⚠️  %v\n", err)
+			printf("  ⚠️  %v\n", err)
 		}
 		if len(allTasks) == 0 {
 			return nil, fmt.Errorf("all comment processing failed")
@@ -353,7 +353,7 @@ func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task,
 		prompt := a.buildFastModePrompt(commentCtx)
 		tasks, err := a.callClaudeCode(prompt)
 		if err != nil {
-			fmt.Printf("  ⚠️  Fast mode processing error: %v\n", err)
+			printf("  ⚠️  Fast mode processing error: %v\n", err)
 			continue
 		}
 

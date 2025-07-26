@@ -119,7 +119,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 				})
 			} else {
 				resolvedCommentCount++
-				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+				printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
 			}
 		}
 
@@ -128,7 +128,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
 				resolvedCommentCount++
-				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
+				printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
 				continue
 			}
 
@@ -140,7 +140,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	}
 
 	if resolvedCommentCount > 0 {
-		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
+		printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
 
 	if len(allComments) == 0 {
@@ -149,7 +149,7 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 
 	// Check if validation is enabled in config
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		fmt.Printf("  🐛 Using validation-enabled path with parallel processing\n")
+		printf("  🐛 Using validation-enabled path with parallel processing\n")
 		// Use parallel processing for validation mode to handle large PRs
 		return a.generateTasksParallelWithValidation(allComments)
 	}
@@ -196,7 +196,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 				commentHashMap[review.ID] = a.calculateCommentHash(reviewBodyComment)
 			} else {
 				resolvedCommentCount++
-				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+				printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
 			}
 		}
 
@@ -205,7 +205,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
 				resolvedCommentCount++
-				fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
+				printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
 				continue
 			}
 
@@ -220,7 +220,7 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	}
 
 	if resolvedCommentCount > 0 {
-		fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
+		printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 	}
 
 	if len(allComments) == 0 {
@@ -261,12 +261,12 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 		}
 	}
 
-	fmt.Printf("📊 Change analysis: %d unchanged, %d changed/new comments\n",
+	printf("📊 Change analysis: %d unchanged, %d changed/new comments\n",
 		len(allCommentsCtx)-len(changedCommentsCtx), len(changedCommentsCtx))
 
 	var newTasks []storage.Task
 	if len(changedCommentsCtx) > 0 {
-		fmt.Printf("🤖 Generating tasks for %d changed/new comments...\n", len(changedCommentsCtx))
+		printf("🤖 Generating tasks for %d changed/new comments...\n", len(changedCommentsCtx))
 
 		// Generate tasks only for changed comments
 		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
@@ -283,13 +283,13 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 			newTasks[i].CommentHash = commentHashMap[newTasks[i].SourceCommentID]
 		}
 	} else {
-		fmt.Printf("✅ All comments are unchanged - no AI processing needed\n")
+		printf("✅ All comments are unchanged - no AI processing needed\n")
 	}
 
 	// Combine unchanged tasks with newly generated tasks
 	allTasks := append(unchangedTasks, newTasks...)
 
-	fmt.Printf("📋 Task summary: %d unchanged + %d newly generated = %d total\n",
+	printf("📋 Task summary: %d unchanged + %d newly generated = %d total\n",
 		len(unchangedTasks), len(newTasks), len(allTasks))
 
 	return allTasks, nil
@@ -316,15 +316,15 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 	maxScore := 0.0
 
 	for attempt := 1; attempt <= validator.maxRetries; attempt++ {
-		fmt.Printf("🔄 Task generation attempt %d/%d...\n", attempt, validator.maxRetries)
+		printf("🔄 Task generation attempt %d/%d...\n", attempt, validator.maxRetries)
 
 		// Generate tasks
 		tasks, err := a.callClaudeCodeWithRetry(reviews, attempt)
 		if err != nil {
-			fmt.Printf("  ❌ Generation failed: %v\n", err)
+			printf("  ❌ Generation failed: %v\n", err)
 			// If it's a prompt size error, no point in retrying
 			if strings.Contains(err.Error(), "prompt size") && strings.Contains(err.Error(), "exceeds maximum limit") {
-				fmt.Printf("  ⚠️  Prompt size limit exceeded - stopping retries (use parallel processing instead)\n")
+				printf("  ⚠️  Prompt size limit exceeded - stopping retries (use parallel processing instead)\n")
 				break
 			}
 			continue
@@ -333,12 +333,12 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 		// Stage 1: Format validation
 		formatResult, err := validator.validateFormat(tasks)
 		if err != nil {
-			fmt.Printf("  ❌ Format validation failed: %v\n", err)
+			printf("  ❌ Format validation failed: %v\n", err)
 			continue
 		}
 
 		if !formatResult.IsValid {
-			fmt.Printf("  ⚠️  Format issues found (score: %.2f)\n", formatResult.Score)
+			printf("  ⚠️  Format issues found (score: %.2f)\n", formatResult.Score)
 			if formatResult.Score > maxScore {
 				bestResult = formatResult
 				bestTasks = formatResult.Tasks
@@ -350,11 +350,11 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 		// Stage 2: Content validation
 		contentResult, err := validator.validateContent(formatResult.Tasks, reviews)
 		if err != nil {
-			fmt.Printf("  ❌ Content validation failed: %v\n", err)
+			printf("  ❌ Content validation failed: %v\n", err)
 			continue
 		}
 
-		fmt.Printf("  📊 Validation score: %.2f\n", contentResult.Score)
+		printf("  📊 Validation score: %.2f\n", contentResult.Score)
 
 		// Track best result
 		if contentResult.Score > maxScore {
@@ -365,20 +365,20 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 
 		// Check if validation passed
 		if contentResult.IsValid && contentResult.Score >= a.config.AISettings.QualityThreshold {
-			fmt.Printf("  ✅ Validation passed!\n")
+			printf("  ✅ Validation passed!\n")
 			return a.convertToStorageTasks(formatResult.Tasks), nil
 		}
 
 		// If not valid, add validation feedback for next iteration
 		if attempt < validator.maxRetries {
-			fmt.Printf("  🔧 Preparing improved prompt for next attempt...\n")
+			printf("  🔧 Preparing improved prompt for next attempt...\n")
 			a.addValidationFeedback(contentResult.Issues)
 		}
 	}
 
 	// Use best result if no perfect validation achieved
 	if bestResult != nil && len(bestTasks) > 0 {
-		fmt.Printf("⚠️  Using best result (score: %.2f) after %d attempts\n", maxScore, validator.maxRetries)
+		printf("⚠️  Using best result (score: %.2f) after %d attempts\n", maxScore, validator.maxRetries)
 		return a.convertToStorageTasks(bestTasks), nil
 	}
 
@@ -500,7 +500,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 
 	// Debug information if enabled
 	if a.config.AISettings.DebugMode {
-		fmt.Printf("  🐛 Prompt size: %d characters\n", len(prompt))
+		printf("  🐛 Prompt size: %d characters\n", len(prompt))
 	}
 
 	ctx := context.Background()
@@ -535,19 +535,19 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		if len(preview) > 500 {
 			preview = preview[:500] + "..."
 		}
-		fmt.Printf("  🐛 Claude response preview: %s\n", preview)
+		printf("  🐛 Claude response preview: %s\n", preview)
 	}
 
 	// Enhanced JSON extraction for better CodeRabbit compatibility
 	result = a.extractJSON(result)
 	if result == "" {
 		if a.config.AISettings.DebugMode {
-			fmt.Printf("  🐛 Full Claude response: %s\n", claudeResponse.Result)
+			printf("  🐛 Full Claude response: %s\n", claudeResponse.Result)
 		}
 		// For CodeRabbit nitpick comments, return empty array instead of error
 		if a.config.AISettings.ProcessNitpickComments && a.isCodeRabbitNitpickResponse(claudeResponse.Result) {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🔄 CodeRabbit nitpick detected with no actionable tasks - returning empty array\n")
+				printf("  🔄 CodeRabbit nitpick detected with no actionable tasks - returning empty array\n")
 			}
 			return []TaskRequest{}, nil
 		}
@@ -812,7 +812,7 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 	// Report errors but continue if we have some successful results
 	if len(errors) > 0 {
 		for _, err := range errors {
-			fmt.Printf("  ⚠️  %v\n", err)
+			printf("  ⚠️  %v\n", err)
 		}
 		if len(allTasks) == 0 {
 			return nil, fmt.Errorf("all comment processing failed")
@@ -826,7 +826,7 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 	dedupedTasks := a.deduplicateTasks(storageTasks)
 
 	if a.config.AISettings.DeduplicationEnabled && len(dedupedTasks) < len(storageTasks) {
-		fmt.Printf("  🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
+		printf("  🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
 			len(storageTasks), len(dedupedTasks), len(storageTasks)-len(dedupedTasks))
 	}
 
@@ -835,10 +835,10 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 
 // generateTasksParallel processes comments in parallel using goroutines
 func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.Task, error) {
-	fmt.Printf("Processing %d comments in parallel...\n", len(comments))
+	printf("Processing %d comments in parallel...\n", len(comments))
 	tasks, err := a.processCommentsParallel(comments, a.processComment)
 	if err == nil {
-		fmt.Printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
+		printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
 	}
 	return tasks, err
 }
@@ -859,19 +859,19 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 
 	for attempt := 1; attempt <= validator.maxRetries; attempt++ {
 		if a.config.AISettings.DebugMode {
-			fmt.Printf("    🔄 Comment %d validation attempt %d/%d\n", ctx.Comment.ID, attempt, validator.maxRetries)
+			printf("    🔄 Comment %d validation attempt %d/%d\n", ctx.Comment.ID, attempt, validator.maxRetries)
 		}
 
 		prompt := a.buildCommentPrompt(ctx)
 		tasks, err := a.callClaudeCode(prompt)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("    ❌ Comment %d generation failed: %v\n", ctx.Comment.ID, err)
+				printf("    ❌ Comment %d generation failed: %v\n", ctx.Comment.ID, err)
 			}
 			// If it's a prompt size error, no point in retrying individual comments
 			if strings.Contains(err.Error(), "prompt size") && strings.Contains(err.Error(), "exceeds maximum limit") {
 				if a.config.AISettings.DebugMode {
-					fmt.Printf("    ⚠️  Comment %d prompt size limit exceeded - stopping retries\n", ctx.Comment.ID)
+					printf("    ⚠️  Comment %d prompt size limit exceeded - stopping retries\n", ctx.Comment.ID)
 				}
 				break
 			}
@@ -882,14 +882,14 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		formatResult, err := validator.validateFormat(tasks)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("    ❌ Comment %d format validation failed: %v\n", ctx.Comment.ID, err)
+				printf("    ❌ Comment %d format validation failed: %v\n", ctx.Comment.ID, err)
 			}
 			continue
 		}
 
 		if !formatResult.IsValid {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("    ⚠️  Comment %d format issues (score: %.2f)\n", ctx.Comment.ID, formatResult.Score)
+				printf("    ⚠️  Comment %d format issues (score: %.2f)\n", ctx.Comment.ID, formatResult.Score)
 			}
 			if attempt == validator.maxRetries {
 				// Use best attempt on final try
@@ -904,13 +904,13 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		contentResult, err := validator.validateContent(formatResult.Tasks, miniReviews)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("    ❌ Comment %d content validation failed: %v\n", ctx.Comment.ID, err)
+				printf("    ❌ Comment %d content validation failed: %v\n", ctx.Comment.ID, err)
 			}
 			continue
 		}
 
 		if a.config.AISettings.DebugMode {
-			fmt.Printf("    ✅ Comment %d validation passed (score: %.2f)\n", ctx.Comment.ID, contentResult.Score)
+			printf("    ✅ Comment %d validation passed (score: %.2f)\n", ctx.Comment.ID, contentResult.Score)
 		}
 
 		// Return validated tasks
@@ -1043,7 +1043,7 @@ func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext
 	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
 	if err == nil {
 		// Tasks are already deduplicated in processCommentsParallel
-		fmt.Printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))
+		printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))
 	}
 	return tasks, err
 }
@@ -1102,7 +1102,7 @@ func (a *Analyzer) extractJSON(response string) string {
 	if objStart != -1 && objEnd != -1 && objStart < objEnd {
 		objContent := response[objStart : objEnd+1]
 		if a.config.AISettings.DebugMode {
-			fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
+			printf("  🐛 Found JSON object instead of array: %s\n", objContent)
 		}
 		// Wrap single object in array
 		return "[" + objContent + "]"
@@ -1189,7 +1189,7 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 	// First, perform AI-based deduplication across all tasks
 	deduplicatedTasks, err := deduplicator.DeduplicateTasks(tasks)
 	if err != nil {
-		fmt.Printf("⚠️  AI deduplication failed, falling back to rule-based: %v\n", err)
+		printf("⚠️  AI deduplication failed, falling back to rule-based: %v\n", err)
 		// Fall back to the original similarity-based deduplication
 		return a.deduplicateTasksRuleBased(tasks)
 	}
@@ -1205,7 +1205,7 @@ func (a *Analyzer) deduplicateTasks(tasks []storage.Task) []storage.Task {
 		// Skip max_tasks_per_comment limit when using AI deduplication
 		// The AI will handle determining the appropriate number of tasks
 		if a.config.AISettings.DebugMode {
-			fmt.Printf("  ✨ Comment %d: %d unique tasks identified by AI\n", commentID, len(commentTasks))
+			printf("  ✨ Comment %d: %d unique tasks identified by AI\n", commentID, len(commentTasks))
 		}
 
 		result = append(result, commentTasks...)
@@ -1228,7 +1228,7 @@ func (a *Analyzer) deduplicateTasksRuleBased(tasks []storage.Task) []storage.Tas
 		// Apply max tasks per comment limit (only in rule-based mode)
 		if len(commentTasks) > a.config.AISettings.MaxTasksPerComment {
 			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🔄 Comment %d: Limiting from %d to %d tasks (rule-based)\n",
+				printf("  🔄 Comment %d: Limiting from %d to %d tasks (rule-based)\n",
 					commentID, len(commentTasks), a.config.AISettings.MaxTasksPerComment)
 			}
 			// Sort by priority to keep the most important tasks
@@ -1300,7 +1300,7 @@ func (a *Analyzer) deduplicateSimilarTasks(tasks []storage.Task) []storage.Task 
 				// Always mark the later task (lower or equal priority) as duplicate
 				seen[j] = true
 				if a.config.AISettings.DebugMode {
-					fmt.Printf("  🔄 Deduplicating task: '%s' (similar to '%s', similarity: %.2f)\n",
+					printf("  🔄 Deduplicating task: '%s' (similar to '%s', similarity: %.2f)\n",
 						sortedTasks[j].Description, task1.Description, similarity)
 				}
 			}
