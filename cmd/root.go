@@ -14,6 +14,7 @@ import (
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
+	"reviewtask/internal/progress"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/version"
@@ -196,30 +197,68 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	fmt.Printf("Fetching reviews for PR #%d...\n", prNumber)
+	// Create progress tracker
+	progressTracker := progress.NewTracker()
+	progressCtx, progressCancel := context.WithCancel(ctx)
+	defer progressCancel()
+
+	// Start progress display
+	if err := progressTracker.Start(progressCtx); err != nil {
+		// If progress tracker fails, continue without it
+		fmt.Printf("Fetching reviews for PR #%d...\n", prNumber)
+	}
 
 	// Fetch PR information
+	progressTracker.SetStageStatus("github", "in_progress")
+	progressTracker.UpdateStatistics(0, 0, 0, "Fetching PR information...")
+	progressTracker.SetGitHubProgress(0, 2)
+
 	prInfo, err := ghClient.GetPRInfo(ctx, prNumber)
 	if err != nil {
+		progressTracker.SetStageStatus("github", "error")
+		progressCancel()
+		progressTracker.Stop()
 		return fmt.Errorf("failed to fetch PR info: %w", err)
 	}
+	progressTracker.SetGitHubProgress(1, 2)
 
 	// Fetch PR reviews
+	progressTracker.UpdateStatistics(0, 0, 0, "Fetching PR reviews and comments...")
 	reviews, err := ghClient.GetPRReviews(ctx, prNumber)
 	if err != nil {
+		progressTracker.SetStageStatus("github", "error")
+		progressCancel()
+		progressTracker.Stop()
 		return fmt.Errorf("failed to fetch PR reviews: %w", err)
 	}
+	progressTracker.SetGitHubProgress(2, 2)
+	progressTracker.SetStageStatus("github", "completed")
 
 	// Save PR info and reviews
+	progressTracker.SetStageStatus("saving", "in_progress")
+	progressTracker.SetSavingProgress(0, 2)
+	progressTracker.UpdateStatistics(0, 0, 0, "Saving PR information...")
+
 	if err := storageManager.SavePRInfo(prNumber, prInfo); err != nil {
+		progressTracker.SetStageStatus("saving", "error")
+		progressCancel()
+		progressTracker.Stop()
 		return fmt.Errorf("failed to save PR info: %w", err)
 	}
+	progressTracker.SetSavingProgress(1, 2)
 
+	progressTracker.UpdateStatistics(0, 0, 0, "Saving reviews data...")
 	if err := storageManager.SaveReviews(prNumber, reviews); err != nil {
+		progressTracker.SetStageStatus("saving", "error")
+		progressCancel()
+		progressTracker.Stop()
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
+	progressTracker.SetSavingProgress(2, 2)
+	progressTracker.SetStageStatus("saving", "completed")
 
 	// Generate tasks using AI - always use optimized processing
+	progressTracker.SetStageStatus("analysis", "in_progress")
 	analyzer := ai.NewAnalyzer(cfg)
 
 	// Calculate optimal batch size based on number of comments
@@ -231,6 +270,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		totalComments += len(review.Comments)
 	}
 
+	// Update statistics with total comments
+	progressTracker.UpdateStatistics(0, totalComments, 0, "Preparing AI analysis...")
+
 	// Auto-detect batch size: smaller batches for large PRs
 	batchSize := 10 // Default for normal PRs
 	if totalComments > 50 {
@@ -238,6 +280,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	} else if totalComments < 10 {
 		batchSize = totalComments // Process all at once for small PRs
 	}
+
+	// Track tasks generated
+	tasksGenerated := 0
 
 	// Always use incremental processing for better performance
 	incrementalOpts := ai.IncrementalOptions{
@@ -247,13 +292,20 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		MaxTimeout:   10 * time.Minute, // Generous timeout
 		ShowProgress: true,
 		OnProgress: func(processed, total int) {
-			percentage := float64(processed) / float64(total) * 100
-			fmt.Printf("\r⏳ Processing: %d/%d (%.1f%%)", processed, total, percentage)
+			progressTracker.SetAnalysisProgress(processed, total)
+			// Get current task count from storage
+			existingTasks, _ := storageManager.GetTasksByPR(prNumber)
+			tasksGenerated = len(existingTasks)
+			progressTracker.UpdateStatistics(processed, totalComments, tasksGenerated,
+				fmt.Sprintf("Processing comment from %s...", getReviewerName(reviews, processed)))
 		},
 	}
 
 	tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 	if err != nil {
+		progressTracker.SetStageStatus("analysis", "error")
+		progressCancel()
+		progressTracker.Stop()
 		// Check if it's a timeout error and suggest retry
 		if strings.Contains(err.Error(), "timed out") {
 			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")
@@ -261,18 +313,47 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
-	fmt.Println() // New line after progress
+	progressTracker.SetAnalysisProgress(totalComments, totalComments)
+	progressTracker.SetStageStatus("analysis", "completed")
 
 	// Merge tasks with existing ones (preserves task statuses)
+	progressTracker.UpdateStatistics(totalComments, totalComments, len(tasks), "Merging tasks...")
 	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
+		progressCancel()
+		progressTracker.Stop()
 		return fmt.Errorf("failed to merge tasks: %w", err)
 	}
 
-	fmt.Printf("✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)
+	// Stop progress display
+	progressCancel()
+	progressTracker.Stop()
+
+	// Show final results
+	fmt.Printf("\n✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)
 	fmt.Printf("✓ Saved reviews to .pr-review/PR-%d/reviews.json\n", prNumber)
 	fmt.Printf("✓ Generated %d tasks and saved to .pr-review/PR-%d/tasks.json\n", len(tasks), prNumber)
 
 	return nil
+}
+
+// getReviewerName extracts the reviewer name for a given comment index
+func getReviewerName(reviews []github.Review, commentIndex int) string {
+	currentIndex := 0
+	for _, review := range reviews {
+		if review.Body != "" {
+			if currentIndex == commentIndex {
+				return review.Reviewer
+			}
+			currentIndex++
+		}
+		for _, comment := range review.Comments {
+			if currentIndex == commentIndex {
+				return comment.Author
+			}
+			currentIndex++
+		}
+	}
+	return "reviewer"
 }
 
 // checkForUpdatesAsync performs update check in background if needed
