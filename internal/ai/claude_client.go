@@ -115,7 +115,9 @@ func resolveClaudeAlias() (string, error) {
 
 	aliasOutput := strings.TrimSpace(string(output))
 	if aliasOutput == "" {
-		return "", fmt.Errorf("no alias found")
+		// Shell command succeeded but returned empty output
+		// Try alternative method: check common shell config files directly
+		return checkShellConfigFiles()
 	}
 
 	// Parse the alias output
@@ -231,7 +233,7 @@ func isValidClaudeCLI(path string) bool {
 	// Handle interpreter-based commands (e.g., "node /path/to/claude.js")
 	parts := strings.Fields(path)
 	var cmd *exec.Cmd
-	
+
 	if len(parts) > 1 {
 		// Command with interpreter
 		interpreter := parts[0]
@@ -241,7 +243,7 @@ func isValidClaudeCLI(path string) bool {
 		// Direct command
 		cmd = exec.Command(path, "--version")
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return false

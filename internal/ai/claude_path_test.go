@@ -498,7 +498,7 @@ alias claude='/usr/local/bin/claude'`,
 			name: "Alias with node command",
 			content: `# Shell config
 alias claude='node /home/user/.npm-global/lib/node_modules/@anthropic-ai/claude-code/dist/cli.js'`,
-			expectedPath:  "node",
+			expectedPath:  "node /home/user/.npm-global/lib/node_modules/@anthropic-ai/claude-code/dist/cli.js",
 			expectedFound: true,
 		},
 		{
@@ -660,7 +660,7 @@ alias claude='node %s'
 				if !tc.expectError && tc.expectAliasUse && path == "" {
 					t.Errorf("Expected to find claude path via alias, but got empty")
 				}
-				
+
 				// Log the detected path for debugging
 				if path != "" {
 					t.Logf("Detected claude path via alias: %s", path)
@@ -674,20 +674,20 @@ alias claude='node %s'
 func TestAliasDetectionEndToEnd(t *testing.T) {
 	// This test verifies that the alias detection logic itself works correctly
 	// by testing the individual components that make up the detection flow
-	
+
 	t.Run("searchAliasInFile correctly parses aliases", func(t *testing.T) {
 		tmpDir, err := os.MkdirTemp("", "alias-parse-test")
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer os.RemoveAll(tmpDir)
-		
+
 		// Create mock executable
 		mockPath := filepath.Join(tmpDir, "my-claude")
 		if err := os.WriteFile(mockPath, []byte("#!/bin/sh\necho claude\n"), 0755); err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// Create bashrc with various alias formats
 		bashrc := filepath.Join(tmpDir, ".bashrc")
 		content := fmt.Sprintf(`
@@ -696,11 +696,11 @@ alias claude='%s'
 alias claude2="%s"
 alias claude3=%s
 `, mockPath, mockPath, mockPath)
-		
+
 		if err := os.WriteFile(bashrc, []byte(content), 0644); err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// Test detection
 		path, found := searchAliasInFile(bashrc)
 		if !found {
@@ -710,7 +710,7 @@ alias claude3=%s
 			t.Errorf("Expected %s, got %s", mockPath, path)
 		}
 	})
-	
+
 	t.Run("Complex alias formats are parsed correctly", func(t *testing.T) {
 		testCases := []struct {
 			name     string
@@ -723,7 +723,7 @@ alias claude3=%s
 			{"NPX command", "npx @anthropic-ai/claude-code", "npx"},
 			{"Path with spaces", "\"/Program Files/claude\"", "/Program Files/claude"},
 		}
-		
+
 		for _, tc := range testCases {
 			t.Run(tc.name, func(t *testing.T) {
 				result := parseAliasOutput(tc.alias)
@@ -733,7 +733,7 @@ alias claude3=%s
 			})
 		}
 	})
-	
+
 	t.Run("Real world scenario simulation", func(t *testing.T) {
 		// This demonstrates how a user would set up an alias and reviewtask would detect it
 		t.Log("Scenario: User has installed claude via npm in a custom location")
@@ -745,7 +745,7 @@ alias claude3=%s
 		t.Log("3. Falls back to checkShellConfigFiles() which reads ~/.bashrc")
 		t.Log("4. Finds the alias and parses it correctly")
 		t.Log("5. Returns the full command for execution")
-		
+
 		// The actual implementation is tested above
 		// This just documents the expected flow
 	})
@@ -756,14 +756,14 @@ func TestFindClaudeCLIWithAlias(t *testing.T) {
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
-	
+
 	// Create temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "claude-find-alias-test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tmpDir)
-	
+
 	// Create a mock claude executable that reports version correctly
 	mockClaudePath := filepath.Join(tmpDir, "claude-mock")
 	// Write a simple shell script that works on Linux/macOS
@@ -771,21 +771,21 @@ func TestFindClaudeCLIWithAlias(t *testing.T) {
 	if err := os.WriteFile(mockClaudePath, mockClaudeScript, 0755); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	// Ensure the script is executable
 	if err := os.Chmod(mockClaudePath, 0755); err != nil {
 		t.Fatal(err)
 	}
-	
+
 	t.Run("Find claude via PATH", func(t *testing.T) {
 		// Add mock claude to PATH
 		os.Setenv("PATH", tmpDir+":"+originalPath)
-		
+
 		// Rename mock to "claude"
 		claudeInPath := filepath.Join(tmpDir, "claude")
 		os.Rename(mockClaudePath, claudeInPath)
 		defer os.Rename(claudeInPath, mockClaudePath) // restore for next test
-		
+
 		path, err := findClaudeCLI()
 		if err != nil {
 			t.Errorf("Expected to find claude in PATH, got error: %v", err)
@@ -794,15 +794,15 @@ func TestFindClaudeCLIWithAlias(t *testing.T) {
 			t.Errorf("Expected path %s, got %s", claudeInPath, path)
 		}
 	})
-	
+
 	t.Run("Find claude via shell config when not in PATH", func(t *testing.T) {
 		// Remove claude from PATH
 		os.Setenv("PATH", "/nonexistent")
-		
+
 		// Create temporary HOME with bashrc
 		tempHome := filepath.Join(tmpDir, "home")
 		os.MkdirAll(tempHome, 0755)
-		
+
 		// Create bashrc with alias
 		bashrcPath := filepath.Join(tempHome, ".bashrc")
 		bashrcContent := fmt.Sprintf(`# Test bashrc
@@ -811,12 +811,12 @@ alias claude='%s'
 		if err := os.WriteFile(bashrcPath, []byte(bashrcContent), 0644); err != nil {
 			t.Fatal(err)
 		}
-		
+
 		// Temporarily change HOME
 		originalHome := os.Getenv("HOME")
 		os.Setenv("HOME", tempHome)
 		defer os.Setenv("HOME", originalHome)
-		
+
 		// First test that our mock claude works
 		if !isValidClaudeCLI(mockClaudePath) {
 			// Try to run the command manually to see output
@@ -824,7 +824,7 @@ alias claude='%s'
 			output, err := cmd.CombinedOutput()
 			t.Errorf("Mock claude at %s is not recognized as valid. Output: %s, Error: %v", mockClaudePath, string(output), err)
 		}
-		
+
 		// Test that searchAliasInFile works
 		aliasPath, found := searchAliasInFile(bashrcPath)
 		if !found {
@@ -832,14 +832,14 @@ alias claude='%s'
 		} else {
 			t.Logf("searchAliasInFile found: %s", aliasPath)
 		}
-		
+
 		// Test checkShellConfigFiles
 		configPath, err := checkShellConfigFiles()
 		if err != nil {
 			t.Logf("checkShellConfigFiles error: %v", err)
 		} else {
 			t.Logf("checkShellConfigFiles found: %s", configPath)
-			
+
 			// Test if the found path is valid
 			if isValidClaudeCLI(configPath) {
 				t.Logf("checkShellConfigFiles path is valid Claude CLI")
@@ -847,10 +847,24 @@ alias claude='%s'
 				t.Errorf("checkShellConfigFiles path %s is NOT valid Claude CLI", configPath)
 			}
 		}
-		
+
 		// Now test the full findClaudeCLI
-		// The problem might be that findClaudeCLI calls resolveClaudeAlias() 
+		// The problem might be that findClaudeCLI calls resolveClaudeAlias()
 		// which tries to use the shell, not checkShellConfigFiles
+
+		// Debug: test resolveClaudeAlias directly
+		resolvedPath, resolveErr := resolveClaudeAlias()
+		if resolveErr != nil {
+			t.Logf("resolveClaudeAlias error: %v", resolveErr)
+		} else {
+			t.Logf("resolveClaudeAlias found: %s", resolvedPath)
+			if isValidClaudeCLI(resolvedPath) {
+				t.Logf("resolveClaudeAlias path is valid")
+			} else {
+				t.Logf("resolveClaudeAlias path is NOT valid")
+			}
+		}
+
 		path, err := findClaudeCLI()
 		if err != nil {
 			t.Errorf("Expected to find claude via alias, got error: %v", err)

@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -217,22 +218,37 @@ func TestSymlinkLifecycleIntegration(t *testing.T) {
 	}
 
 	// Test symlink creation
+	// First check if claude is already in PATH
+	claudeInPath := false
+	if _, err := exec.LookPath("claude"); err == nil {
+		claudeInPath = true
+	}
+
 	if err := ensureClaudeAvailable(claudePath); err != nil {
 		t.Errorf("Failed to ensure Claude available: %v", err)
 	}
 
-	// Verify symlink exists
-	if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
-		t.Errorf("Expected symlink to exist at %s", symlinkPath)
-	}
+	// If claude was already in PATH, ensureClaudeAvailable should return early
+	// without creating a symlink. This is expected behavior.
+	if claudeInPath {
+		// Verify symlink was NOT created (correct behavior)
+		if _, err := os.Lstat(symlinkPath); err == nil {
+			t.Errorf("Symlink should not be created when claude is already in PATH")
+		}
+	} else {
+		// Verify symlink exists
+		if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
+			t.Errorf("Expected symlink to exist at %s", symlinkPath)
+		}
 
-	// Verify symlink points to correct target
-	target, err := os.Readlink(symlinkPath)
-	if err != nil {
-		t.Errorf("Failed to read symlink: %v", err)
-	}
-	if target != claudePath {
-		t.Errorf("Symlink points to %s, expected %s", target, claudePath)
+		// Verify symlink points to correct target
+		target, err := os.Readlink(symlinkPath)
+		if err != nil {
+			t.Errorf("Failed to read symlink: %v", err)
+		}
+		if target != claudePath {
+			t.Errorf("Symlink points to %s, expected %s", target, claudePath)
+		}
 	}
 
 	// Test symlink cleanup
