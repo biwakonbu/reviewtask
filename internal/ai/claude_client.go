@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 )
 
@@ -65,19 +66,43 @@ func findClaudeCLI() (string, error) {
 	}
 
 	// Try common installation locations
-	commonPaths := []string{
-		filepath.Join(homeDir, ".claude/local/claude"),
-		filepath.Join(homeDir, ".npm-global/bin/claude"),
-		filepath.Join(homeDir, ".volta/bin/claude"),
-		"/usr/local/bin/claude",
-		"/opt/homebrew/bin/claude",
-		filepath.Join(homeDir, ".local/bin/claude"),
+	var commonPaths []string
+
+	if runtime.GOOS == "windows" {
+		// Windows-specific paths
+		commonPaths = []string{
+			filepath.Join(homeDir, ".claude", "local", "claude.exe"),
+			filepath.Join(homeDir, ".npm-global", "claude.cmd"),
+			filepath.Join(homeDir, ".npm-global", "claude.exe"),
+			filepath.Join(homeDir, ".volta", "bin", "claude.exe"),
+			filepath.Join(homeDir, ".volta", "bin", "claude.cmd"),
+			filepath.Join(homeDir, "AppData", "Local", "Programs", "claude", "claude.exe"),
+			filepath.Join(homeDir, "AppData", "Roaming", "npm", "claude.cmd"),
+			filepath.Join(homeDir, "AppData", "Roaming", "npm", "claude.exe"),
+		}
+	} else {
+		// Unix-like paths
+		commonPaths = []string{
+			filepath.Join(homeDir, ".claude/local/claude"),
+			filepath.Join(homeDir, ".npm-global/bin/claude"),
+			filepath.Join(homeDir, ".volta/bin/claude"),
+			"/usr/local/bin/claude",
+			"/opt/homebrew/bin/claude",
+			filepath.Join(homeDir, ".local/bin/claude"),
+		}
 	}
 
 	// Add npm global prefix bin directory (for nvm and other npm managers)
 	if npmPrefix := getNpmPrefix(); npmPrefix != "" {
-		npmClaudePath := filepath.Join(npmPrefix, "bin", "claude")
-		commonPaths = append(commonPaths, npmClaudePath)
+		if runtime.GOOS == "windows" {
+			// On Windows, npm installs .cmd files
+			commonPaths = append(commonPaths,
+				filepath.Join(npmPrefix, "claude.cmd"),
+				filepath.Join(npmPrefix, "claude.exe"))
+		} else {
+			npmClaudePath := filepath.Join(npmPrefix, "bin", "claude")
+			commonPaths = append(commonPaths, npmClaudePath)
+		}
 	}
 
 	for _, path := range commonPaths {
@@ -94,6 +119,11 @@ func findClaudeCLI() (string, error) {
 
 // resolveClaudeAlias attempts to resolve claude alias from shell configuration
 func resolveClaudeAlias() (string, error) {
+	// Skip on Windows as Unix shell commands won't work
+	if runtime.GOOS == "windows" {
+		return "", fmt.Errorf("shell alias resolution not supported on Windows")
+	}
+
 	// Detect the user's shell
 	shell := os.Getenv("SHELL")
 	if shell == "" {
@@ -188,6 +218,11 @@ func parseAliasOutput(output string) string {
 
 // checkShellConfigFiles directly reads shell configuration files for alias definitions
 func checkShellConfigFiles() (string, error) {
+	// Skip on Windows as Unix shell config files don't exist
+	if runtime.GOOS == "windows" {
+		return "", fmt.Errorf("shell config file checking not supported on Windows")
+	}
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fallback to HOME env var
@@ -277,6 +312,12 @@ func ensureClaudeAvailable(claudePath string) error {
 		return nil // Already available in PATH
 	}
 
+	// Skip symlink creation on Windows as it requires admin privileges
+	if runtime.GOOS == "windows" {
+		// On Windows, we rely on claude being in PATH or using full path
+		return nil
+	}
+
 	// Create symlink in ~/.local/bin (which is commonly in PATH)
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -306,6 +347,11 @@ func ensureClaudeAvailable(claudePath string) error {
 
 // CleanupClaudeSymlink removes symlinks created by reviewtask
 func CleanupClaudeSymlink() error {
+	// Skip on Windows as we don't create symlinks there
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
