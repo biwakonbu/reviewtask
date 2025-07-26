@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
+	"reviewtask/internal/ui"
 )
 
 // Model represents the TUI dashboard state
@@ -107,11 +108,8 @@ func (m Model) View() string {
 		sections = append(sections, "")
 	}
 
-	// Progress bar
-	progressWidth := 80
-	filledWidth := int(float64(progressWidth) * completionRate / 100)
-	emptyWidth := progressWidth - filledWidth
-	progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	// Progress bar with colors based on task status
+	progressBar := ui.GenerateColoredProgressBar(m.stats, 80)
 	sections = append(sections, fmt.Sprintf("Progress: %s", progressBar))
 	sections = append(sections, "")
 

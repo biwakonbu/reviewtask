@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -314,6 +315,154 @@ func TestCharacterWidthCalculation(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			actualWidth := runewidth.StringWidth(tc.text)
 			assert.Equal(t, tc.expectedWidth, actualWidth, "Width calculation mismatch for: %s", tc.text)
+		})
+	}
+}
+
+// TestProgressBarColorTerminalCompatibility tests progress bar colors in different terminal environments
+func TestProgressBarColorTerminalCompatibility(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping color terminal integration test in short mode")
+	}
+
+	if os.Getenv("SKIP_INTEGRATION_TESTS") == "1" {
+		t.Skip("Skipping integration tests")
+	}
+
+	// Set up test environment (reuse the same setup as other integration tests)
+	testDir, err := os.MkdirTemp("", "reviewtask-test-*")
+	require.NoError(t, err)
+	defer os.RemoveAll(testDir)
+
+	// Initialize git repository
+	cmd := exec.Command("git", "init")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Set up git config
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = testDir
+	err = cmd.Run()
+	require.NoError(t, err)
+
+	// Create test PR data
+	prDir := filepath.Join(testDir, ".pr-review", "PR-123")
+	err = os.MkdirAll(prDir, 0755)
+	require.NoError(t, err)
+
+	// Create tasks.json with sample data
+	tasksContent := `{
+		"tasks": [
+			{
+				"id": "task1",
+				"description": "Fix authentication bug",
+				"priority": "high",
+				"status": "done",
+				"pr_number": 123,
+				"file": "auth.go",
+				"line": 45
+			},
+			{
+				"id": "task2",
+				"description": "Update documentation",
+				"priority": "medium",
+				"status": "todo",
+				"pr_number": 123,
+				"file": "README.md",
+				"line": 1
+			}
+		]
+	}`
+
+	tasksFile := filepath.Join(prDir, "tasks.json")
+	err = os.WriteFile(tasksFile, []byte(tasksContent), 0644)
+	require.NoError(t, err)
+
+	// Build binary
+	binaryName := "reviewtask"
+	if runtime.GOOS == "windows" {
+		binaryName += ".exe"
+	}
+	moduleRoot, err := filepath.Abs("..")
+	require.NoError(t, err)
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(testDir, binaryName))
+	buildCmd.Dir = moduleRoot
+	err = buildCmd.Run()
+	require.NoError(t, err)
+
+	reviewtaskPath := filepath.Join(testDir, binaryName)
+
+	testCases := []struct {
+		name    string
+		env     map[string]string
+		cmdArgs []string
+	}{
+		{
+			name: "Standard terminal with color support",
+			env: map[string]string{
+				"TERM":        "xterm-256color",
+				"FORCE_COLOR": "1",
+			},
+			cmdArgs: []string{"status", "--pr", "123"},
+		},
+		{
+			name: "No color terminal",
+			env: map[string]string{
+				"TERM":     "dumb",
+				"NO_COLOR": "1",
+			},
+			cmdArgs: []string{"status", "--pr", "123"},
+		},
+		{
+			name: "Basic terminal",
+			env: map[string]string{
+				"TERM": "xterm",
+			},
+			cmdArgs: []string{"status", "--pr", "123"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := exec.Command(reviewtaskPath, tc.cmdArgs...)
+			cmd.Dir = testDir
+
+			// Set environment variables
+			cmd.Env = os.Environ()
+			for key, value := range tc.env {
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+			}
+
+			output, err := cmd.CombinedOutput()
+			require.NoError(t, err, "Command should succeed in terminal environment: %s", tc.name)
+
+			outputStr := string(output)
+
+			// All environments should show progress bar with proper characters
+			assert.Contains(t, outputStr, "Progress:", "Progress bar should be present")
+
+			// Should contain either filled blocks or empty blocks (or both)
+			hasFilledBlocks := strings.Contains(outputStr, "█")
+			hasEmptyBlocks := strings.Contains(outputStr, "░")
+			assert.True(t, hasFilledBlocks || hasEmptyBlocks, "Progress bar should contain progress characters")
+
+			// Basic functionality should work regardless of color support
+			assert.Contains(t, outputStr, "Task Summary:")
+			assert.Contains(t, outputStr, "ReviewTask Status")
+
+			// Should not crash or produce empty output
+			assert.NotEmpty(t, outputStr, "Output should not be empty")
+
+			// Should contain meaningful content regardless of color support
+			assert.Contains(t, outputStr, "todo:")
+			assert.Contains(t, outputStr, "doing:")
+			assert.Contains(t, outputStr, "done:")
 		})
 	}
 }

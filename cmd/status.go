@@ -10,6 +10,7 @@ import (
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 	"reviewtask/internal/tui"
+	"reviewtask/internal/ui"
 )
 
 var (
@@ -125,7 +126,8 @@ func runAIMode(storageManager *storage.Manager) error {
 func displayAIModeEmpty() error {
 	fmt.Println("ReviewTask Status - 0% Complete")
 	fmt.Println()
-	fmt.Printf("Progress: %s\n", strings.Repeat("░", 80))
+	emptyBar := strings.Repeat("░", 80)
+	fmt.Printf("Progress: %s\n", ui.EmptyProgressStyle.Render(emptyBar))
 	fmt.Println()
 	fmt.Println("Task Summary:")
 	fmt.Println("  todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
@@ -150,11 +152,8 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
 	fmt.Println()
 
-	// Progress bar
-	progressWidth := 80
-	filledWidth := int(float64(progressWidth) * completionRate / 100)
-	emptyWidth := progressWidth - filledWidth
-	progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	// Progress bar with colors based on task status
+	progressBar := ui.GenerateColoredProgressBar(stats, 80)
 	fmt.Printf("Progress: %s\n", progressBar)
 	fmt.Println()
 
