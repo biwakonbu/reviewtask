@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,13 +46,12 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	// Filter out already processed comments if resuming
 	remainingComments := a.filterProcessedComments(allComments, checkpoint)
 
-	if opts.ShowProgress {
-		fmt.Printf("📊 Progress: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
-		if len(remainingComments) == 0 {
-			fmt.Println("✅ All comments already processed!")
-			return checkpoint.PartialTasks, nil
-		}
-		fmt.Printf("🔄 Processing %d remaining comments in batches of %d\n", len(remainingComments), opts.BatchSize)
+	if opts.ShowProgress && checkpoint.ProcessedCount > 0 {
+		fmt.Printf("✅ Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
+	}
+
+	if len(remainingComments) == 0 {
+		return checkpoint.PartialTasks, nil
 	}
 
 	// Process in batches with timeout and checkpointing
@@ -80,15 +80,24 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		batch := remainingComments[i:end]
 
-		if opts.ShowProgress {
-			fmt.Printf("\n🔄 Processing batch %d-%d of %d comments...\n", i+1, end, len(remainingComments))
-		}
+		// No need for batch-level progress messages since we have real-time progress
 
 		// Process batch
 		batchTasks, err := a.processBatch(batch, opts)
 		if err != nil {
-			fmt.Printf("⚠️  Batch processing error: %v\n", err)
-			// Continue with next batch on error
+			// Save checkpoint before continuing
+			checkpoint.PartialTasks = allTasks
+			if saveErr := storageManager.SaveCheckpoint(prNumber, checkpoint); saveErr != nil {
+				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", saveErr)
+			}
+
+			// For critical errors, return immediately
+			if strings.Contains(err.Error(), "claude") || strings.Contains(err.Error(), "authentication") {
+				return nil, fmt.Errorf("critical error: %w. Run 'reviewtask' again to resume from checkpoint", err)
+			}
+
+			// For other errors, log and continue
+			fmt.Printf("⚠️  Some comments could not be processed: %v\n", err)
 			continue
 		}
 
