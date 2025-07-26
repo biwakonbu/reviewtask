@@ -11,7 +11,6 @@ import (
 	"reviewtask/internal/ui"
 )
 
-
 // Model represents the TUI dashboard state
 type Model struct {
 	storageManager *storage.Manager
@@ -230,4 +229,3 @@ func tickCmd() tea.Cmd {
 		return tickMsg(t)
 	})
 }
-

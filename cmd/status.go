@@ -20,7 +20,6 @@ var (
 	statusWatch      bool
 )
 
-
 var statusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show current task status and statistics",
@@ -218,7 +217,6 @@ func runHumanMode(storageManager *storage.Manager) error {
 
 	return nil
 }
-
 
 func init() {
 	// Add flags
