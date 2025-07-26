@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os/exec"
@@ -153,8 +154,13 @@ func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, error) {
 	// Check cache first
 	if cached, ok := c.cache.Get("GetPRReviews", c.owner, c.repo, prNumber); ok {
-		if reviews, ok := cached.([]Review); ok {
-			return reviews, nil
+		// JSON-marshal the generic interface{} and unmarshal into []Review
+		raw, err := json.Marshal(cached)
+		if err == nil {
+			var reviews []Review
+			if err := json.Unmarshal(raw, &reviews); err == nil {
+				return reviews, nil
+			}
 		}
 	}
 

@@ -24,7 +24,11 @@ type APICache struct {
 
 // NewAPICache creates a new API cache
 func NewAPICache(ttl time.Duration) *APICache {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		// Fallback to a temporary directory
+		homeDir = os.TempDir()
+	}
 	cacheDir := filepath.Join(homeDir, ".cache", "reviewtask", "github-api")
 
 	// Ensure cache directory exists

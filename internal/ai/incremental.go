@@ -67,6 +67,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			checkpoint.PartialTasks = allTasks
 			if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
 				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
+				return nil, fmt.Errorf("processing timed out after %v and failed to save checkpoint: %w", opts.MaxTimeout, err)
 			}
 			return nil, fmt.Errorf("processing timed out after %v. Use --resume to continue", opts.MaxTimeout)
 		default:
@@ -89,10 +90,14 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			checkpoint.PartialTasks = allTasks
 			if saveErr := storageManager.SaveCheckpoint(prNumber, checkpoint); saveErr != nil {
 				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", saveErr)
+				// For critical errors with checkpoint save failure, return both
+				if isCriticalError(err) {
+					return nil, fmt.Errorf("critical error: %w, and failed to save checkpoint: %w", err, saveErr)
+				}
 			}
 
 			// For critical errors, return immediately
-			if strings.Contains(err.Error(), "claude") || strings.Contains(err.Error(), "authentication") {
+			if isCriticalError(err) {
 				return nil, fmt.Errorf("critical error: %w. Run 'reviewtask' again to resume from checkpoint", err)
 			}
 
@@ -394,4 +399,15 @@ Only create tasks for actionable items. Return empty array [] if no action neede
 		ctx.Comment.ID,
 		ctx.Comment.File,
 		ctx.Comment.Line)
+}
+
+// isCriticalError determines if an error is critical and should stop processing
+func isCriticalError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for critical error patterns
+	// TODO: In the future, use proper error types instead of string matching
+	errStr := err.Error()
+	return strings.Contains(errStr, "claude") || strings.Contains(errStr, "authentication")
 }
