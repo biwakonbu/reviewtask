@@ -558,30 +558,20 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		fmt.Printf("  🐛 Claude response preview: %s\n", preview)
 	}
 
-	// Find JSON array in the response
-	jsonStart := strings.Index(result, "[")
-	jsonEnd := strings.LastIndex(result, "]")
-
-	if jsonStart == -1 || jsonEnd == -1 || jsonStart >= jsonEnd {
-		// Try to find JSON object instead of array
-		objStart := strings.Index(result, "{")
-		objEnd := strings.LastIndex(result, "}")
-		if objStart != -1 && objEnd != -1 && objStart < objEnd {
-			// Check if it's a single task wrapped in object
-			objContent := result[objStart : objEnd+1]
-			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
-			}
-			// Wrap single object in array
-			result = "[" + objContent + "]"
-		} else {
-			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🐛 Full Claude response: %s\n", result)
-			}
-			return nil, fmt.Errorf("no valid JSON array found in Claude response")
+	// Enhanced JSON extraction for better CodeRabbit compatibility
+	result = a.extractJSON(result)
+	if result == "" {
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("  🐛 Full Claude response: %s\n", claudeResponse.Result)
 		}
-	} else {
-		result = result[jsonStart : jsonEnd+1]
+		// For CodeRabbit nitpick comments, return empty array instead of error
+		if a.config.AISettings.ProcessNitpickComments && a.isCodeRabbitNitpickResponse(claudeResponse.Result) {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("  🔄 CodeRabbit nitpick detected with no actionable tasks - returning empty array\n")
+			}
+			return []TaskRequest{}, nil
+		}
+		return nil, fmt.Errorf("no valid JSON found in Claude response")
 	}
 
 	// Parse the actual task array
@@ -1129,6 +1119,78 @@ func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
 	}
 
 	return false
+}
+
+// extractJSON extracts JSON content from Claude response with improved robustness
+func (a *Analyzer) extractJSON(response string) string {
+	// Remove markdown code blocks
+	response = strings.ReplaceAll(response, "```json", "")
+	response = strings.ReplaceAll(response, "```", "")
+	response = strings.TrimSpace(response)
+
+	// Look for JSON array first
+	jsonStart := strings.Index(response, "[")
+	jsonEnd := strings.LastIndex(response, "]")
+
+	if jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd {
+		return response[jsonStart : jsonEnd+1]
+	}
+
+	// Try to find JSON object and wrap it in array
+	objStart := strings.Index(response, "{")
+	objEnd := strings.LastIndex(response, "}")
+	if objStart != -1 && objEnd != -1 && objStart < objEnd {
+		objContent := response[objStart : objEnd+1]
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
+		}
+		// Wrap single object in array
+		return "[" + objContent + "]"
+	}
+
+	// Check for common non-JSON responses that should return empty array
+	lowerResponse := strings.ToLower(response)
+	emptyResponsePatterns := []string{
+		"no actionable tasks",
+		"no tasks needed",
+		"[]",
+		"empty array",
+		"no action required",
+		"already resolved",
+		"no implementation needed",
+	}
+
+	for _, pattern := range emptyResponsePatterns {
+		if strings.Contains(lowerResponse, pattern) {
+			return "[]"
+		}
+	}
+
+	return ""
+}
+
+// isCodeRabbitNitpickResponse checks if the response is about CodeRabbit nitpicks with no actionable tasks
+func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
+	lowerResponse := strings.ToLower(response)
+	
+	// Check for CodeRabbit-style responses about nitpicks
+	codeRabbitPatterns := []string{
+		"actionable comments posted: 0",
+		"nitpick comments",
+		"need to analyze if it contains any actionable tasks",
+		"no actionable tasks in the nitpick",
+		"nitpick suggestions don't require",
+	}
+
+	nitpickCount := 0
+	for _, pattern := range codeRabbitPatterns {
+		if strings.Contains(lowerResponse, pattern) {
+			nitpickCount++
+		}
+	}
+
+	// If we find multiple indicators of CodeRabbit nitpick responses, it's likely a nitpick-only comment
+	return nitpickCount >= 1
 }
 
 // deduplicateTasks removes duplicate tasks based on comment ID and similarity
