@@ -373,3 +373,14 @@ func (c *Client) GetTokenScopes() ([]string, error) {
 
 	return scopes, nil
 }
+
+// IsPROpen checks if a PR is open (not closed or merged)
+func (c *Client) IsPROpen(ctx context.Context, prNumber int) (bool, error) {
+	pr, _, err := c.client.PullRequests.Get(ctx, c.owner, c.repo, prNumber)
+	if err != nil {
+		return false, fmt.Errorf("failed to get PR #%d: %w", prNumber, err)
+	}
+
+	// PR is open if state is "open"
+	return pr.GetState() == "open", nil
+}

@@ -164,6 +164,15 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Initialize storage manager
 	storageManager := storage.NewManager()
 
+	// Auto-cleanup closed PRs
+	fmt.Println("Checking for closed PRs to clean up...")
+	if err := storageManager.CleanupClosedPRs(func(prNumber int) (bool, error) {
+		return ghClient.IsPROpen(ctx, prNumber)
+	}); err != nil {
+		// Don't fail the command if cleanup fails, just warn
+		fmt.Printf("Warning: Failed to cleanup closed PRs: %v\n", err)
+	}
+
 	// Determine PR number
 	var prNumber int
 	if len(args) > 0 {
