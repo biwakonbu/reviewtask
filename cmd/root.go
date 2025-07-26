@@ -219,12 +219,40 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
 
-	// Generate tasks using AI with smart caching
+	// Generate tasks using AI with incremental processing if enabled
 	analyzer := ai.NewAnalyzer(cfg)
-	// Generate tasks using AI with simple change detection
-	tasks, err := analyzer.GenerateTasks(reviews)
-	if err != nil {
-		return fmt.Errorf("failed to generate tasks: %w", err)
+	
+	var tasks []storage.Task
+	if fetchOptions.BatchSize > 0 || fetchOptions.Resume {
+		// Use incremental processing
+		incrementalOpts := ai.IncrementalOptions{
+			BatchSize:    fetchOptions.BatchSize,
+			Resume:       fetchOptions.Resume,
+			FastMode:     fetchOptions.FastMode,
+			MaxTimeout:   time.Duration(fetchOptions.MaxTimeout) * time.Second,
+			ShowProgress: fetchOptions.ShowProgress,
+			OnProgress: func(processed, total int) {
+				if fetchOptions.ShowProgress {
+					percentage := float64(processed) / float64(total) * 100
+					fmt.Printf("\r⏳ Progress: %d/%d (%.1f%%)", processed, total, percentage)
+				}
+			},
+		}
+		
+		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
+		if err != nil {
+			return fmt.Errorf("failed to generate tasks incrementally: %w", err)
+		}
+		
+		if fetchOptions.ShowProgress {
+			fmt.Println() // New line after progress
+		}
+	} else {
+		// Use standard processing
+		tasks, err = analyzer.GenerateTasks(reviews)
+		if err != nil {
+			return fmt.Errorf("failed to generate tasks: %w", err)
+		}
 	}
 
 	// Merge tasks with existing ones (preserves task statuses)
