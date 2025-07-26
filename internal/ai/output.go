@@ -57,3 +57,4 @@ func isErrorMessage(msg string) bool {
 		   strings.Contains(msg, "failed") ||
 		   strings.Contains(msg, "Failed") ||
 		   strings.Contains(msg, "Error")
+}
