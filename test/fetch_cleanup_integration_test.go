@@ -43,10 +43,6 @@ func TestFetchCommandWithCleanup(t *testing.T) {
 
 	// Create storage manager with test directory
 	storageDir := filepath.Join(tempDir, storage.StorageDir)
-	// Change to temp directory to ensure storage manager uses correct path
-	oldWd, _ := os.Getwd()
-	os.Chdir(tempDir)
-	defer os.Chdir(oldWd)
 	manager := storage.NewManager()
 
 	// Create test PR directories (simulating existing PR data)
@@ -214,8 +210,8 @@ func TestFetchCommandCleanupWithErrors(t *testing.T) {
 	}
 }
 
-// TestFetchCommandCleanupRealIntegration tests cleanup with real fetch command
-func TestFetchCommandCleanupRealIntegration(t *testing.T) {
+// TestFetchCommandCleanupEnvironmentSetup validates setup for real integration testing
+func TestFetchCommandCleanupEnvironmentSetup(t *testing.T) {
 	// Skip if running in CI without auth
 	if os.Getenv("CI") == "true" && os.Getenv("GITHUB_TOKEN") == "" {
 		t.Skip("Skipping test in CI without GitHub token")
