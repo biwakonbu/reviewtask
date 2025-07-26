@@ -749,10 +749,10 @@ func TestWatchFlag(t *testing.T) {
 // TestGenerateColoredProgressBar tests the colored progress bar generation
 func TestGenerateColoredProgressBar(t *testing.T) {
 	testCases := []struct {
-		name      string
-		stats     tasks.TaskStats
-		width     int
-		shouldContain []string
+		name             string
+		stats            tasks.TaskStats
+		width            int
+		shouldContain    []string
 		shouldNotContain []string
 	}{
 		{
@@ -760,68 +760,68 @@ func TestGenerateColoredProgressBar(t *testing.T) {
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{},
 			},
-			width: 10,
-			shouldContain: []string{"░"},
+			width:            10,
+			shouldContain:    []string{"░"},
 			shouldNotContain: []string{"█"},
 		},
 		{
 			name: "All done tasks",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"done": 5,
-					"todo": 0,
-					"doing": 0,
+					"done":    5,
+					"todo":    0,
+					"doing":   0,
 					"pending": 0,
-					"cancel": 0,
+					"cancel":  0,
 				},
 			},
-			width: 10,
-			shouldContain: []string{"█"},
+			width:            10,
+			shouldContain:    []string{"█"},
 			shouldNotContain: []string{"░"},
 		},
 		{
 			name: "Mixed task states",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"done": 2,
-					"doing": 1,
-					"todo": 1,
+					"done":    2,
+					"doing":   1,
+					"todo":    1,
 					"pending": 1,
-					"cancel": 0,
+					"cancel":  0,
 				},
 			},
-			width: 10,
-			shouldContain: []string{"█", "░"},
+			width:            10,
+			shouldContain:    []string{"█", "░"},
 			shouldNotContain: []string{},
 		},
 		{
 			name: "Only incomplete tasks",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"done": 0,
-					"doing": 2,
-					"todo": 2,
+					"done":    0,
+					"doing":   2,
+					"todo":    2,
 					"pending": 1,
-					"cancel": 0,
+					"cancel":  0,
 				},
 			},
-			width: 10,
-			shouldContain: []string{"░"},
+			width:            10,
+			shouldContain:    []string{"░"},
 			shouldNotContain: []string{"█"},
 		},
 		{
 			name: "With cancelled tasks",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"done": 1,
-					"doing": 1,
-					"todo": 1,
+					"done":    1,
+					"doing":   1,
+					"todo":    1,
 					"pending": 1,
-					"cancel": 1,
+					"cancel":  1,
 				},
 			},
-			width: 10,
-			shouldContain: []string{"█", "░"},
+			width:            10,
+			shouldContain:    []string{"█", "░"},
 			shouldNotContain: []string{},
 		},
 	}
@@ -829,15 +829,15 @@ func TestGenerateColoredProgressBar(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result := generateColoredProgressBar(tc.stats, tc.width)
-			
+
 			// Check that result is not empty
 			assert.NotEmpty(t, result)
-			
+
 			// Check for expected characters
 			for _, expected := range tc.shouldContain {
 				assert.Contains(t, result, expected, "Expected to contain '%s'", expected)
 			}
-			
+
 			// Check for unexpected characters
 			for _, unexpected := range tc.shouldNotContain {
 				assert.NotContains(t, result, unexpected, "Expected NOT to contain '%s'", unexpected)
@@ -850,23 +850,23 @@ func TestGenerateColoredProgressBar(t *testing.T) {
 func TestGenerateColoredProgressBarWidth(t *testing.T) {
 	stats := tasks.TaskStats{
 		StatusCounts: map[string]int{
-			"done": 3,
-			"doing": 2,
-			"todo": 3,
+			"done":    3,
+			"doing":   2,
+			"todo":    3,
 			"pending": 1,
-			"cancel": 1,
+			"cancel":  1,
 		},
 	}
-	
+
 	widths := []int{10, 20, 50, 80}
-	
+
 	for _, width := range widths {
 		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
 			result := generateColoredProgressBar(stats, width)
-			
+
 			// Count visible characters (█ and ░)
 			visibleChars := strings.Count(result, "█") + strings.Count(result, "░")
-			
+
 			// Should match the requested width (allowing for ANSI color codes)
 			assert.Equal(t, width, visibleChars, "Progress bar should have exactly %d visible characters", width)
 		})
@@ -907,7 +907,7 @@ func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Should not panic
 			result := generateColoredProgressBar(tc.stats, tc.width)
-			
+
 			if tc.width > 0 {
 				assert.NotEmpty(t, result)
 				visibleChars := strings.Count(result, "█") + strings.Count(result, "░")

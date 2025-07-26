@@ -351,7 +351,7 @@ func TestProgressBarColorTerminalCompatibility(t *testing.T) {
 	err = cmd.Run()
 	require.NoError(t, err)
 
-	// Create test PR data  
+	// Create test PR data
 	prDir := filepath.Join(testDir, ".pr-review", "PR-123")
 	err = os.MkdirAll(prDir, 0755)
 	require.NoError(t, err)
