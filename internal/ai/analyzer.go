@@ -99,6 +99,31 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	resolvedCommentCount := 0
 
 	for _, review := range reviews {
+		// Process review body as a comment if it exists and contains content
+		if review.Body != "" {
+			// Create a pseudo-comment from the review body
+			reviewBodyComment := github.Comment{
+				ID:        review.ID, // Use review ID
+				File:      "",        // Review body is not file-specific
+				Line:      0,         // Review body is not line-specific
+				Body:      review.Body,
+				Author:    review.Reviewer,
+				CreatedAt: review.SubmittedAt,
+			}
+
+			// Skip if this review body comment has been marked as resolved
+			if !a.isCommentResolved(reviewBodyComment) {
+				allComments = append(allComments, CommentContext{
+					Comment:      reviewBodyComment,
+					SourceReview: review,
+				})
+			} else {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+			}
+		}
+
+		// Process individual inline comments
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
@@ -148,6 +173,34 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 	resolvedCommentCount := 0
 
 	for _, review := range reviews {
+		// Process review body as a comment if it exists and contains content
+		if review.Body != "" {
+			// Create a pseudo-comment from the review body
+			reviewBodyComment := github.Comment{
+				ID:        review.ID, // Use review ID
+				File:      "",        // Review body is not file-specific
+				Line:      0,         // Review body is not line-specific
+				Body:      review.Body,
+				Author:    review.Reviewer,
+				CreatedAt: review.SubmittedAt,
+			}
+
+			// Skip if this review body comment has been marked as resolved
+			if !a.isCommentResolved(reviewBodyComment) {
+				allComments = append(allComments, reviewBodyComment)
+				allCommentsCtx = append(allCommentsCtx, CommentContext{
+					Comment:      reviewBodyComment,
+					SourceReview: review,
+				})
+				// Calculate MD5 hash of review body
+				commentHashMap[review.ID] = a.calculateCommentHash(reviewBodyComment)
+			} else {
+				resolvedCommentCount++
+				fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+			}
+		}
+
+		// Process individual inline comments
 		for _, comment := range review.Comments {
 			// Skip comments that have been marked as addressed/resolved
 			if a.isCommentResolved(comment) {
@@ -557,6 +610,11 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	}
 
 	return result
+}
+
+// IsLowPriorityComment checks if a comment body contains any low-priority patterns (public for testing)
+func (a *Analyzer) IsLowPriorityComment(commentBody string) bool {
+	return a.isLowPriorityComment(commentBody)
 }
 
 // isLowPriorityComment checks if a comment body contains any low-priority patterns
