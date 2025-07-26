@@ -28,18 +28,18 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 			setup: func() (cleanup func()) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
-				
+
 				// Create mock claude in npm location
 				claudeDir := filepath.Join(homeDir, ".npm-global", "bin")
 				if err := os.MkdirAll(claudeDir, 0755); err != nil {
 					t.Fatalf("Failed to create npm dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(claudeDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'Claude Code CLI version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return func() {
 					os.RemoveAll(filepath.Join(homeDir, ".npm-global"))
 					// Cleanup potential symlinks
@@ -54,18 +54,18 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 			setup: func() (cleanup func()) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
-				
+
 				// Create mock claude in volta location
 				claudeDir := filepath.Join(homeDir, ".volta", "bin")
 				if err := os.MkdirAll(claudeDir, 0755); err != nil {
 					t.Fatalf("Failed to create volta dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(claudeDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'anthropic-ai/claude-code version 1.2.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return func() {
 					os.RemoveAll(filepath.Join(homeDir, ".volta"))
 					// Cleanup potential symlinks
@@ -80,7 +80,7 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 			setup: func() (cleanup func()) {
 				// Remove claude from PATH and don't create anywhere
 				os.Setenv("PATH", "/nonexistent")
-				
+
 				return func() {}
 			},
 			expectSuccess: false,
@@ -94,7 +94,7 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 
 			// Test the complete flow
 			client, err := NewRealClaudeClient()
-			
+
 			if tt.expectSuccess {
 				if err != nil {
 					t.Errorf("Expected success but got error: %v", err)
@@ -102,7 +102,7 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 				if client == nil {
 					t.Errorf("Expected client to be created, got nil")
 				}
-				
+
 				// Verify symlink was created if needed
 				symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
 				if _, err := os.Lstat(symlinkPath); tt.name != "End-to-end: Claude CLI detection and client creation" && os.IsNotExist(err) {

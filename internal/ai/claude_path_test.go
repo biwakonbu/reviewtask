@@ -25,15 +25,15 @@ func TestFindClaudeCLI(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				// Add to PATH
 				os.Setenv("PATH", tempDir+":"+originalPath)
-				
+
 				return func() { os.RemoveAll(tempDir) }
 			},
 			expectedError:  false,
@@ -44,19 +44,19 @@ func TestFindClaudeCLI(t *testing.T) {
 			pathSetup: func() (cleanup func()) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
-				
+
 				// Create mock claude in common location
 				homeDir, _ := os.UserHomeDir()
 				claudeDir := filepath.Join(homeDir, ".claude", "local")
 				if err := os.MkdirAll(claudeDir, 0755); err != nil {
 					t.Fatalf("Failed to create claude dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(claudeDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return func() { os.RemoveAll(filepath.Join(homeDir, ".claude")) }
 			},
 			expectedError:  false,
@@ -80,7 +80,7 @@ func TestFindClaudeCLI(t *testing.T) {
 			defer cleanup()
 
 			path, err := findClaudeCLI()
-			
+
 			if tt.expectedError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
@@ -99,7 +99,7 @@ func TestFindClaudeCLI(t *testing.T) {
 
 func TestIsValidClaudeCLI(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		setupExecutable func() (path string, cleanup func())
 		expectedValid   bool
 	}{
@@ -110,12 +110,12 @@ func TestIsValidClaudeCLI(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'Claude Code CLI version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return claudePath, func() { os.RemoveAll(tempDir) }
 			},
 			expectedValid: true,
@@ -127,12 +127,12 @@ func TestIsValidClaudeCLI(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'anthropic-ai/claude-code version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return claudePath, func() { os.RemoveAll(tempDir) }
 			},
 			expectedValid: true,
@@ -144,12 +144,12 @@ func TestIsValidClaudeCLI(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'some other tool version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return claudePath, func() { os.RemoveAll(tempDir) }
 			},
 			expectedValid: false,
@@ -161,12 +161,12 @@ func TestIsValidClaudeCLI(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("not executable"), 0644); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				return claudePath, func() { os.RemoveAll(tempDir) }
 			},
 			expectedValid: false,
@@ -179,7 +179,7 @@ func TestIsValidClaudeCLI(t *testing.T) {
 			defer cleanup()
 
 			isValid := isValidClaudeCLI(path)
-			
+
 			if isValid != tt.expectedValid {
 				t.Errorf("Expected isValid=%v, got %v", tt.expectedValid, isValid)
 			}
@@ -210,15 +210,15 @@ func TestEnsureClaudeAvailable(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
+
 				// Add to PATH
 				os.Setenv("PATH", tempDir+":"+originalPath)
-				
+
 				return claudePath, func() { os.RemoveAll(tempDir) }
 			},
 			expectedError: false,
@@ -228,19 +228,19 @@ func TestEnsureClaudeAvailable(t *testing.T) {
 			setup: func() (string, func()) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
-				
+
 				// Create mock claude in specific location
 				tempDir, err := os.MkdirTemp("", "claude_symlink_test")
 				if err != nil {
 					t.Fatalf("Failed to create temp dir: %v", err)
 				}
-				
+
 				claudePath := filepath.Join(tempDir, "claude")
 				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
-				
-				return claudePath, func() { 
+
+				return claudePath, func() {
 					os.RemoveAll(tempDir)
 					// Also cleanup potential symlinks
 					symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
@@ -257,7 +257,7 @@ func TestEnsureClaudeAvailable(t *testing.T) {
 			defer cleanup()
 
 			err := ensureClaudeAvailable(claudePath)
-			
+
 			if tt.expectedError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
@@ -325,7 +325,7 @@ func TestCleanupClaudeSymlink(t *testing.T) {
 			tt.setup()
 
 			err := CleanupClaudeSymlink()
-			
+
 			if tt.expectedError {
 				if err == nil {
 					t.Errorf("Expected error but got none")
