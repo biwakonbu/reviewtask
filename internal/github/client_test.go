@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -202,17 +203,22 @@ func TestClient_GetPRReviews(t *testing.T) {
 
 // MockClient creates a mock GitHub client for testing
 type MockClient struct {
-	prInfo   *PRInfo
-	reviews  []Review
-	prNumber int
-	err      error
+	prInfo    *PRInfo
+	prInfoMap map[int]*PRInfo // Support multiple PRs
+	reviews   []Review
+	prNumber  int
+	err       error
 }
 
 func NewMockClient() *MockClient {
-	return &MockClient{}
+	return &MockClient{
+		prInfoMap: make(map[int]*PRInfo),
+	}
 }
 
-func (m *MockClient) SetPRInfo(prInfo *PRInfo) {
+func (m *MockClient) SetPRInfo(prNumber int, prInfo *PRInfo) {
+	m.prInfoMap[prNumber] = prInfo
+	// Keep backward compatibility
 	m.prInfo = prInfo
 }
 
@@ -232,6 +238,11 @@ func (m *MockClient) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, erro
 	if m.err != nil {
 		return nil, m.err
 	}
+	// Check map first
+	if pr, ok := m.prInfoMap[prNumber]; ok {
+		return pr, nil
+	}
+	// Fallback to single PR for backward compatibility
 	return m.prInfo, nil
 }
 
@@ -249,6 +260,18 @@ func (m *MockClient) GetCurrentBranchPR(ctx context.Context) (int, error) {
 	return m.prNumber, nil
 }
 
+func (m *MockClient) IsPROpen(ctx context.Context, prNumber int) (bool, error) {
+	if m.err != nil {
+		return false, m.err
+	}
+	// Check map first
+	if pr, ok := m.prInfoMap[prNumber]; ok {
+		return pr.State == "open", nil
+	}
+	// If not found, return error
+	return false, fmt.Errorf("PR #%d not found", prNumber)
+}
+
 // TestMockClient tests the mock client functionality
 func TestMockClient(t *testing.T) {
 	mockClient := NewMockClient()
@@ -261,7 +284,7 @@ func TestMockClient(t *testing.T) {
 		Branch: "feature/test",
 	}
 
-	mockClient.SetPRInfo(expectedPRInfo)
+	mockClient.SetPRInfo(123, expectedPRInfo)
 
 	prInfo, err := mockClient.GetPRInfo(context.Background(), 123)
 	if err != nil {
@@ -345,7 +368,7 @@ func TestIntegrationWithMockClient(t *testing.T) {
 		},
 	}
 
-	mockClient.SetPRInfo(prInfo)
+	mockClient.SetPRInfo(123, prInfo)
 	mockClient.SetReviews(reviews)
 	mockClient.SetCurrentBranchPR(123)
 
@@ -403,5 +426,65 @@ func TestMockClient_NoPRFound(t *testing.T) {
 	// Check if it's the correct error type
 	if !errors.Is(err, ErrNoPRFound) {
 		t.Errorf("Expected ErrNoPRFound, got: %v", err)
+	}
+}
+
+// TestMockClient_IsPROpen tests the IsPROpen method
+func TestMockClient_IsPROpen(t *testing.T) {
+	mockClient := NewMockClient()
+	ctx := context.Background()
+
+	// Set up test data
+	openPR := &PRInfo{
+		Number: 1,
+		Title:  "Open PR",
+		State:  "open",
+	}
+	closedPR := &PRInfo{
+		Number: 2,
+		Title:  "Closed PR",
+		State:  "closed",
+	}
+	mergedPR := &PRInfo{
+		Number: 3,
+		Title:  "Merged PR",
+		State:  "closed", // GitHub uses "closed" for merged PRs too
+	}
+
+	mockClient.SetPRInfo(1, openPR)
+	mockClient.SetPRInfo(2, closedPR)
+	mockClient.SetPRInfo(3, mergedPR)
+
+	// Test open PR
+	isOpen, err := mockClient.IsPROpen(ctx, 1)
+	if err != nil {
+		t.Fatalf("Failed to check if PR is open: %v", err)
+	}
+	if !isOpen {
+		t.Error("Expected PR 1 to be open")
+	}
+
+	// Test closed PR
+	isOpen, err = mockClient.IsPROpen(ctx, 2)
+	if err != nil {
+		t.Fatalf("Failed to check if PR is open: %v", err)
+	}
+	if isOpen {
+		t.Error("Expected PR 2 to be closed")
+	}
+
+	// Test merged PR
+	isOpen, err = mockClient.IsPROpen(ctx, 3)
+	if err != nil {
+		t.Fatalf("Failed to check if PR is open: %v", err)
+	}
+	if isOpen {
+		t.Error("Expected PR 3 to be closed")
+	}
+
+	// Test non-existent PR
+	_, err = mockClient.IsPROpen(ctx, 999)
+	if err == nil {
+		t.Error("Expected error for non-existent PR")
 	}
 }

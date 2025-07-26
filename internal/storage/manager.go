@@ -526,3 +526,53 @@ func (m *Manager) GetAllPRNumbers() ([]int, error) {
 
 	return prNumbers, nil
 }
+
+// CleanupClosedPRs removes directories for closed PRs
+func (m *Manager) CleanupClosedPRs(checkPRStatus func(prNumber int) (bool, error)) error {
+	prNumbers, err := m.GetAllPRNumbers()
+	if err != nil {
+		return fmt.Errorf("failed to get PR numbers: %w", err)
+	}
+
+	var removedPRs []int
+	for _, prNumber := range prNumbers {
+		// Check if PR is closed
+		isOpen, err := checkPRStatus(prNumber)
+		if err != nil {
+			// Skip PRs we can't check (might be from different repos or deleted)
+			fmt.Printf("Warning: Could not check status of PR #%d: %v\n", prNumber, err)
+			continue
+		}
+
+		if !isOpen {
+			// Remove directory for closed PR
+			prDir := m.getPRDir(prNumber)
+			if err := os.RemoveAll(prDir); err != nil {
+				return fmt.Errorf("failed to remove directory for PR #%d: %w", prNumber, err)
+			}
+			removedPRs = append(removedPRs, prNumber)
+		}
+	}
+
+	if len(removedPRs) > 0 {
+		fmt.Printf("Cleaned up %d closed PR(s): %v\n", len(removedPRs), removedPRs)
+	}
+
+	return nil
+}
+
+// GetPRInfo loads PR info from storage
+func (m *Manager) GetPRInfo(prNumber int) (*github.PRInfo, error) {
+	infoPath := filepath.Join(m.getPRDir(prNumber), "info.json")
+	data, err := os.ReadFile(infoPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var prInfo github.PRInfo
+	if err := json.Unmarshal(data, &prInfo); err != nil {
+		return nil, err
+	}
+
+	return &prInfo, nil
+}

@@ -431,3 +431,142 @@ func TestMergeTasksForCommentCancelStatus(t *testing.T) {
 		}
 	})
 }
+
+// TestManager_CleanupClosedPRs tests the cleanup functionality
+func TestManager_CleanupClosedPRs(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := &Manager{baseDir: tempDir}
+
+	// Create test PR directories
+	testPRs := []struct {
+		prNumber int
+		isOpen   bool
+	}{
+		{1, true},  // Open PR - should be kept
+		{2, false}, // Closed PR - should be removed
+		{3, true},  // Open PR - should be kept
+		{4, false}, // Closed PR - should be removed
+		{5, false}, // Closed PR - should be removed
+	}
+
+	// Create PR directories
+	for _, pr := range testPRs {
+		prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", pr.prNumber))
+		if err := os.MkdirAll(prDir, 0755); err != nil {
+			t.Fatalf("Failed to create PR directory: %v", err)
+		}
+
+		// Create a dummy info.json file
+		prInfo := github.PRInfo{
+			Number: pr.prNumber,
+			Title:  fmt.Sprintf("Test PR %d", pr.prNumber),
+			State:  "open",
+		}
+		if !pr.isOpen {
+			prInfo.State = "closed"
+		}
+
+		data, _ := json.MarshalIndent(prInfo, "", "  ")
+		infoPath := filepath.Join(prDir, "info.json")
+		if err := os.WriteFile(infoPath, data, 0644); err != nil {
+			t.Fatalf("Failed to write info.json: %v", err)
+		}
+	}
+
+	// Mock PR status checker
+	checkPRStatus := func(prNumber int) (bool, error) {
+		for _, pr := range testPRs {
+			if pr.prNumber == prNumber {
+				return pr.isOpen, nil
+			}
+		}
+		return false, fmt.Errorf("PR not found")
+	}
+
+	// Run cleanup
+	if err := manager.CleanupClosedPRs(checkPRStatus); err != nil {
+		t.Fatalf("CleanupClosedPRs failed: %v", err)
+	}
+
+	// Verify results
+	entries, err := os.ReadDir(tempDir)
+	if err != nil {
+		t.Fatalf("Failed to read directory: %v", err)
+	}
+
+	// Count remaining PR directories
+	remainingPRs := 0
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), "PR-") {
+			remainingPRs++
+		}
+	}
+
+	// Should have only 2 open PRs remaining
+	if remainingPRs != 2 {
+		t.Errorf("Expected 2 PR directories remaining, got %d", remainingPRs)
+	}
+
+	// Verify specific PRs
+	for _, pr := range testPRs {
+		prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", pr.prNumber))
+		_, err := os.Stat(prDir)
+		exists := err == nil
+
+		if pr.isOpen && !exists {
+			t.Errorf("Open PR %d directory should exist but doesn't", pr.prNumber)
+		}
+		if !pr.isOpen && exists {
+			t.Errorf("Closed PR %d directory should be removed but still exists", pr.prNumber)
+		}
+	}
+}
+
+// TestManager_CleanupClosedPRs_WithErrors tests cleanup with API errors
+func TestManager_CleanupClosedPRs_WithErrors(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := &Manager{baseDir: tempDir}
+
+	// Create test PR directories
+	prNumbers := []int{1, 2, 3}
+	for _, prNumber := range prNumbers {
+		prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", prNumber))
+		if err := os.MkdirAll(prDir, 0755); err != nil {
+			t.Fatalf("Failed to create PR directory: %v", err)
+		}
+	}
+
+	// Mock PR status checker that returns errors for some PRs
+	checkPRStatus := func(prNumber int) (bool, error) {
+		switch prNumber {
+		case 1:
+			return true, nil // Open PR
+		case 2:
+			return false, fmt.Errorf("PR not found") // Error - should skip
+		case 3:
+			return false, nil // Closed PR
+		}
+		return false, fmt.Errorf("unknown PR")
+	}
+
+	// Run cleanup - should not fail even with errors
+	if err := manager.CleanupClosedPRs(checkPRStatus); err != nil {
+		t.Fatalf("CleanupClosedPRs should not fail with individual PR errors: %v", err)
+	}
+
+	// Verify results
+	// PR 1 should exist (open)
+	if _, err := os.Stat(filepath.Join(tempDir, "PR-1")); err != nil {
+		t.Error("PR-1 directory should exist")
+	}
+
+	// PR 2 should exist (error - skipped)
+	if _, err := os.Stat(filepath.Join(tempDir, "PR-2")); err != nil {
+		t.Error("PR-2 directory should exist (skipped due to error)")
+	}
+
+	// PR 3 should be removed (closed)
+	if _, err := os.Stat(filepath.Join(tempDir, "PR-3")); err == nil {
+		t.Error("PR-3 directory should be removed")
+	}
+}
