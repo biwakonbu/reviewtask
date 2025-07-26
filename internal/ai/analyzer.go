@@ -692,7 +692,18 @@ func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
 			}
 		}
 
-		summaryContent := lowerBody[summaryStart : summaryStart+summaryEnd+20] // +20 for buffer
+		// Validate that summaryStart+summaryEnd doesn't exceed bounds before applying buffer
+		baseEndPos := summaryStart + summaryEnd
+		if baseEndPos > len(lowerBody) {
+			baseEndPos = len(lowerBody)
+		}
+
+		// Apply buffer with bounds checking
+		endPos := baseEndPos + 20
+		if endPos > len(lowerBody) {
+			endPos = len(lowerBody)
+		}
+		summaryContent := lowerBody[summaryStart:endPos]
 
 		// Check if summary contains nitpick indicators
 		nitpickIndicators := []string{
