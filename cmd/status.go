@@ -24,16 +24,16 @@ var (
 var (
 	todoProgressStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("8")) // Gray for TODO
-	
+
 	doingProgressStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("11")) // Yellow for DOING
-	
+
 	doneProgressStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("10")) // Green for DONE
-	
+
 	pendingProgressStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("9")) // Red for PENDING
-	
+
 	emptyProgressStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("240")) // Dark gray for empty
 )
@@ -238,31 +238,31 @@ func runHumanMode(storageManager *storage.Manager) error {
 
 // generateColoredProgressBar creates a progress bar with colors representing different task states
 func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
-	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] + 
+	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] +
 		stats.StatusCounts["done"] + stats.StatusCounts["pending"] + stats.StatusCounts["cancel"]
-	
+
 	if total == 0 {
 		// Empty progress bar
 		emptyBar := strings.Repeat("░", width)
 		return emptyProgressStyle.Render(emptyBar)
 	}
-	
+
 	// Calculate widths for each status
 	doneWidth := int(float64(stats.StatusCounts["done"]) / float64(total) * float64(width))
 	doingWidth := int(float64(stats.StatusCounts["doing"]) / float64(total) * float64(width))
 	pendingWidth := int(float64(stats.StatusCounts["pending"]) / float64(total) * float64(width))
 	todoWidth := int(float64(stats.StatusCounts["todo"]) / float64(total) * float64(width))
 	cancelWidth := int(float64(stats.StatusCounts["cancel"]) / float64(total) * float64(width))
-	
+
 	// Adjust for rounding errors
 	usedWidth := doneWidth + doingWidth + pendingWidth + todoWidth + cancelWidth
 	if usedWidth < width {
 		doneWidth += width - usedWidth
 	}
-	
+
 	// Build colored segments
 	var segments []string
-	
+
 	if doneWidth > 0 {
 		segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneWidth)))
 	}
@@ -278,7 +278,7 @@ func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
 	if cancelWidth > 0 {
 		segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelWidth)))
 	}
-	
+
 	return strings.Join(segments, "")
 }
 
