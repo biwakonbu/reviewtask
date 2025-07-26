@@ -2,8 +2,8 @@ package ai
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -370,6 +370,24 @@ func (a *Analyzer) buildFastModePrompt(ctx CommentContext) string {
 		languageInstruction = fmt.Sprintf("Generate task descriptions in %s.\n", a.config.AISettings.UserLanguage)
 	}
 
+	// Build example task using proper JSON marshaling
+	exampleTask := map[string]interface{}{
+		"description":       "Task description",
+		"origin_text":       ctx.Comment.Body,
+		"priority":          "medium", // Use neutral priority to avoid bias
+		"source_review_id":  ctx.SourceReview.ID,
+		"source_comment_id": ctx.Comment.ID,
+		"file":              ctx.Comment.File,
+		"line":              ctx.Comment.Line,
+		"task_index":        0,
+	}
+	
+	exampleJSON, err := json.MarshalIndent([]interface{}{exampleTask}, "", "  ")
+	if err != nil {
+		// Fallback to simple format if marshaling fails
+		exampleJSON = []byte(`[{"description": "Task description", "origin_text": "...", "priority": "medium", "task_index": 0}]`)
+	}
+
 	return fmt.Sprintf(`Analyze this GitHub PR comment and generate actionable tasks.
 
 %s
@@ -378,36 +396,13 @@ Comment: %s
 File: %s:%d
 
 Return JSON array:
-[{
-  "description": "Task description",
-  "origin_text": "%s",
-  "priority": "high",
-  "source_review_id": %d,
-  "source_comment_id": %d,
-  "file": "%s",
-  "line": %d,
-  "task_index": 0
-}]
+%s
 
 Only create tasks for actionable items. Return empty array [] if no action needed.`,
 		languageInstruction,
 		ctx.Comment.Body,
 		ctx.Comment.File,
 		ctx.Comment.Line,
-		ctx.Comment.Body,
-		ctx.SourceReview.ID,
-		ctx.Comment.ID,
-		ctx.Comment.File,
-		ctx.Comment.Line)
+		string(exampleJSON))
 }
 
-// isCriticalError determines if an error is critical and should stop processing
-func isCriticalError(err error) bool {
-	if err == nil {
-		return false
-	}
-	// Check for critical error patterns
-	// TODO: In the future, use proper error types instead of string matching
-	errStr := err.Error()
-	return strings.Contains(errStr, "claude") || strings.Contains(errStr, "authentication")
-}
