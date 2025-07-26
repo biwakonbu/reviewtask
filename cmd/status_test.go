@@ -889,6 +889,13 @@ func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
 			width: 0,
 		},
 		{
+			name: "Negative width",
+			stats: tasks.TaskStats{
+				StatusCounts: map[string]int{"done": 1},
+			},
+			width: -5,
+		},
+		{
 			name: "Single character width",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{"done": 1, "todo": 1},
@@ -909,7 +916,10 @@ func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
 			// Should not panic
 			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
 
-			if tc.width > 0 {
+			if tc.width <= 0 {
+				// For zero or negative width, should return empty string
+				assert.Empty(t, result)
+			} else {
 				assert.NotEmpty(t, result)
 				visibleChars := strings.Count(result, "█") + strings.Count(result, "░")
 				assert.Equal(t, tc.width, visibleChars)

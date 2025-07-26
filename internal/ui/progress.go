@@ -8,25 +8,33 @@ import (
 )
 
 // Progress bar color styles for different task states
+// Colors use ANSI 256-color palette for broad terminal compatibility:
+// - Basic colors (8-15) work across most terminal themes
+// - Color 240 provides subtle contrast for empty states
 var (
 	TodoProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8")) // Gray for TODO
+				Foreground(lipgloss.Color("8")) // Gray for TODO - neutral waiting state
 
 	DoingProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("11")) // Yellow for DOING
+				Foreground(lipgloss.Color("11")) // Yellow for DOING - active work in progress
 
 	DoneProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("10")) // Green for DONE
+				Foreground(lipgloss.Color("10")) // Green for DONE - completed successfully
 
 	PendingProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("9")) // Red for PENDING
+				Foreground(lipgloss.Color("9")) // Red for PENDING - blocked/needs attention
 
 	EmptyProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240")) // Dark gray for empty
+				Foreground(lipgloss.Color("240")) // Dark gray for empty/cancelled - de-emphasized
 )
 
 // GenerateColoredProgressBar creates a progress bar with colors representing different task states
 func GenerateColoredProgressBar(stats tasks.TaskStats, width int) string {
+	// Validate width parameter
+	if width <= 0 {
+		return ""
+	}
+
 	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] +
 		stats.StatusCounts["done"] + stats.StatusCounts["pending"] + stats.StatusCounts["cancel"]
 
