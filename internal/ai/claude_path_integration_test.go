@@ -288,9 +288,15 @@ func TestCrossplatformPathHandling(t *testing.T) {
 		filepath.Join(homeDir, ".claude/local/claude"),
 		filepath.Join(homeDir, ".npm-global/bin/claude"),
 		filepath.Join(homeDir, ".volta/bin/claude"),
-		"/usr/local/bin/claude",
-		"/opt/homebrew/bin/claude",
 		filepath.Join(homeDir, ".local/bin/claude"),
+	}
+
+	// Add Unix-specific paths only on Unix systems
+	if runtime.GOOS != "windows" {
+		expectedPaths = append(expectedPaths,
+			"/usr/local/bin/claude",
+			"/opt/homebrew/bin/claude",
+		)
 	}
 
 	// Verify all paths use correct separators for current platform
