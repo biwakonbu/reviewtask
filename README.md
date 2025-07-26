@@ -21,6 +21,9 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
 - **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
+- **⏱️ Incremental Processing**: Process large PRs in batches with checkpoint/resume support
+- **💨 Performance Optimization**: API response caching and parallel batch processing
+- **📊 Progress Tracking**: Real-time progress display during task generation
 
 ## Installation
 
@@ -228,12 +231,26 @@ Authentication sources (in order of preference):
 # Valid statuses: todo, doing, done, pending, cancel
 ```
 
+### 5. Performance Optimization (Large PRs)
+
+```bash
+# Process large PR with batching and resume
+./reviewtask fetch 456 --batch-size=20 --resume
+
+# Fast mode for quick initial scan
+./reviewtask fetch --fast-mode --batch-size=50
+
+# CI/CD friendly with timeout
+./reviewtask fetch --batch-size=10 --timeout=300 --no-progress
+```
+
 ## Command Reference
 
 | Command | Description |
 |---------|-------------|
 | `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
 | `reviewtask --refresh-cache` | Clear cache and reprocess all comments |
+| `reviewtask fetch [options]` | Fetch with performance options (batch, resume, fast mode) |
 | `reviewtask status [options]` | Show task status and statistics |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status |
@@ -249,6 +266,13 @@ Authentication sources (in order of preference):
 
 #### Global Options
 - `--refresh-cache` - Clear cache and reprocess all comments (available with main command)
+
+#### Fetch Options (Performance)
+- `--batch-size <n>` - Process comments in batches (default: 5)
+- `--resume` - Resume from last checkpoint if interrupted
+- `--fast-mode` - Skip validation for faster processing
+- `--timeout <seconds>` - Set operation timeout (default: 300)
+- `--no-progress` - Disable progress display
 
 #### Status and Stats Options  
 - `--all` - Show information for all PRs
