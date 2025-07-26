@@ -5,10 +5,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
 func TestFindClaudeCLI(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -100,6 +105,10 @@ func TestFindClaudeCLI(t *testing.T) {
 }
 
 func TestIsValidClaudeCLI(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	tests := []struct {
 		name            string
 		setupExecutable func() (path string, cleanup func())
@@ -190,6 +199,10 @@ func TestIsValidClaudeCLI(t *testing.T) {
 }
 
 func TestEnsureClaudeAvailable(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -390,6 +403,10 @@ func TestIsReviewtaskManagedSymlink(t *testing.T) {
 }
 
 func TestResolveClaudeAlias(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// This test will only verify the function doesn't panic
 	// Actual alias resolution depends on user's shell configuration
 	t.Run("Basic alias resolution", func(t *testing.T) {
@@ -540,6 +557,10 @@ alias ll='ls -la'`,
 
 // TestClaudeAliasDetectionIntegration tests the full alias detection flow
 func TestClaudeAliasDetectionIntegration(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Skip if running in CI environment where shell configs might not be available
 	if os.Getenv("CI") == "true" {
 		t.Skip("Skipping alias integration test in CI environment")
@@ -753,6 +774,11 @@ alias claude3=%s
 
 // TestFindClaudeCLIWithAlias tests the complete findClaudeCLI function with alias support
 func TestFindClaudeCLIWithAlias(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
+
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -875,8 +901,43 @@ alias claude='%s'
 	})
 }
 
+// TestClaudePathDetectionWindows tests basic path detection functionality on Windows
+func TestClaudePathDetectionWindows(t *testing.T) {
+	// Only run on Windows
+	if runtime.GOOS != "windows" {
+		t.Skip("Windows-specific test")
+	}
+
+	t.Run("parseAliasOutput handles Windows paths", func(t *testing.T) {
+		tests := []struct {
+			input    string
+			expected string
+		}{
+			{`C:\Program Files\claude\claude.exe`, `C:\Program Files\claude\claude.exe`},
+			{`"C:\Program Files\claude\claude.exe"`, `C:\Program Files\claude\claude.exe`},
+			{`node.exe C:\Users\test\claude.js`, `node.exe C:\Users\test\claude.js`},
+		}
+
+		for _, tc := range tests {
+			result := parseAliasOutput(tc.input)
+			if result != tc.expected {
+				t.Errorf("parseAliasOutput(%q) = %q, want %q", tc.input, result, tc.expected)
+			}
+		}
+	})
+
+	t.Run("findClaudeCLI handles Windows environment", func(t *testing.T) {
+		// This test just verifies the function doesn't panic on Windows
+		_, _ = findClaudeCLI()
+	})
+}
+
 // Integration test that verifies the complete flow
 func TestNewRealClaudeClientWithPathDetection(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)

@@ -5,11 +5,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 )
 
 func TestClaudePathDetectionIntegration(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -123,6 +128,10 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 }
 
 func TestClaudeExecutionWithPathDetection(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// This test verifies that the detected Claude CLI actually works
 	// Skip if no real Claude CLI is available
 	if _, err := NewRealClaudeClient(); err != nil {
@@ -192,6 +201,10 @@ fi
 }
 
 func TestSymlinkLifecycleIntegration(t *testing.T) {
+	// Skip on Windows as symlinks require admin privileges
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping symlink test on Windows")
+	}
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatalf("Failed to get home directory: %v", err)
@@ -292,6 +305,10 @@ func isHomeRelativePath(path, homeDir string) bool {
 }
 
 func TestErrorHandlingIntegration(t *testing.T) {
+	// Skip on Windows as shell scripts won't work
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping shell script based test on Windows")
+	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
