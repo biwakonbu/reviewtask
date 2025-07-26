@@ -10,11 +10,11 @@ import (
 // Console provides synchronized console output to prevent display corruption
 // This ensures that progress displays and status messages don't interfere with each other
 type Console struct {
-	mu     sync.Mutex
-	writer io.Writer
+	mu               sync.Mutex
+	writer           io.Writer
 	isProgressActive bool
 	bufferEnabled    bool
-	buffer          []string
+	buffer           []string
 }
 
 // NewConsole creates a new console with synchronized output
@@ -36,9 +36,9 @@ func NewConsoleWithWriter(w io.Writer) *Console {
 func (c *Console) SetProgressActive(active bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.isProgressActive = active
-	
+
 	// If progress just stopped, flush any buffered messages
 	if !active && c.bufferEnabled && len(c.buffer) > 0 {
 		for _, msg := range c.buffer {
@@ -59,18 +59,18 @@ func (c *Console) SetBufferEnabled(enabled bool) {
 func (c *Console) Print(msg string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// If progress is active and buffering is enabled, buffer the message
 	if c.isProgressActive && c.bufferEnabled {
 		c.buffer = append(c.buffer, msg)
 		return
 	}
-	
+
 	// Otherwise, write immediately
 	fmt.Fprint(c.writer, msg)
 }
 
-// Printf writes a formatted message to the console with synchronization  
+// Printf writes a formatted message to the console with synchronization
 func (c *Console) Printf(format string, args ...interface{}) {
 	c.Print(fmt.Sprintf(format, args...))
 }

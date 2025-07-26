@@ -2,8 +2,8 @@ package ai
 
 import (
 	"fmt"
-	"strings"
 	"reviewtask/internal/ui"
+	"strings"
 )
 
 var globalProgressTracker interface {
@@ -19,7 +19,7 @@ func SetProgressTracker(tracker interface{ AddError(message string) }) {
 // This replaces direct fmt.Printf calls in AI processing to prevent display corruption
 func printf(format string, args ...interface{}) {
 	msg := fmt.Sprintf(format, args...)
-	
+
 	// If this looks like an error message and we have a progress tracker,
 	// send it through the progress system for proper queuing
 	if isErrorMessage(msg) && globalProgressTracker != nil {
@@ -40,7 +40,7 @@ func println(msg string) {
 	}
 }
 
-// print is a wrapper around the synchronized console output  
+// print is a wrapper around the synchronized console output
 func print(msg string) {
 	if isErrorMessage(msg) && globalProgressTracker != nil {
 		globalProgressTracker.AddError(msg)
@@ -51,10 +51,10 @@ func print(msg string) {
 
 // isErrorMessage detects if a message is an error/warning that should be queued
 func isErrorMessage(msg string) bool {
-	return strings.Contains(msg, "⚠️") || 
-		   strings.Contains(msg, "❌") || 
-		   strings.Contains(msg, "error") ||
-		   strings.Contains(msg, "failed") ||
-		   strings.Contains(msg, "Failed") ||
-		   strings.Contains(msg, "Error")
+	return strings.Contains(msg, "⚠️") ||
+		strings.Contains(msg, "❌") ||
+		strings.Contains(msg, "error") ||
+		strings.Contains(msg, "failed") ||
+		strings.Contains(msg, "Failed") ||
+		strings.Contains(msg, "Error")
 }

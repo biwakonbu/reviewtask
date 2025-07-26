@@ -104,7 +104,7 @@ func TestConsoleOutputSynchronization(t *testing.T) {
 func TestErrorOutputSeparation(t *testing.T) {
 	// Create progress model and ensure TTY mode for full view
 	model := progress.New()
-	
+
 	// Add some error messages
 	errorMsg1 := progress.AddError("First error message")
 	errorMsg2 := progress.AddError("Second error message")

@@ -269,7 +269,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Generate tasks using AI - always use optimized processing
 	progressTracker.SetStageStatus("analysis", "in_progress")
 	analyzer := ai.NewAnalyzer(cfg)
-	
+
 	// Set up AI package to use progress tracker for error reporting
 	ai.SetProgressTracker(progressTracker)
 

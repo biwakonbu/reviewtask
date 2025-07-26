@@ -51,7 +51,7 @@ func TestModel_ErrorQueueLimit(t *testing.T) {
 func TestModel_ErrorsInView(t *testing.T) {
 	model := New()
 	model.isTTY = true // Ensure TTY mode for full view
-	
+
 	// Add an error
 	msg := errorMsg{message: "Display corruption detected"}
 	updatedModel, _ := model.Update(msg)
@@ -73,7 +73,7 @@ func TestModel_ErrorsInView(t *testing.T) {
 
 func TestModel_NoErrorsInView(t *testing.T) {
 	model := New()
-	
+
 	// Get the view output without errors
 	view := model.View()
 
@@ -86,7 +86,7 @@ func TestModel_NoErrorsInView(t *testing.T) {
 func TestAddErrorCommand(t *testing.T) {
 	cmd := AddError("Test error")
 	msg := cmd()
-	
+
 	errorMessage, ok := msg.(errorMsg)
 	if !ok {
 		t.Error("AddError should return an errorMsg")
