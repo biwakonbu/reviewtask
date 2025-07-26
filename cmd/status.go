@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
@@ -17,6 +18,24 @@ var (
 	statusSpecificPR int
 	statusBranch     string
 	statusWatch      bool
+)
+
+// Progress bar color styles for different task states
+var (
+	todoProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("8")) // Gray for TODO
+	
+	doingProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("11")) // Yellow for DOING
+	
+	doneProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")) // Green for DONE
+	
+	pendingProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("9")) // Red for PENDING
+	
+	emptyProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")) // Dark gray for empty
 )
 
 var statusCmd = &cobra.Command{
@@ -125,7 +144,8 @@ func runAIMode(storageManager *storage.Manager) error {
 func displayAIModeEmpty() error {
 	fmt.Println("ReviewTask Status - 0% Complete")
 	fmt.Println()
-	fmt.Printf("Progress: %s\n", strings.Repeat("░", 80))
+	emptyBar := strings.Repeat("░", 80)
+	fmt.Printf("Progress: %s\n", emptyProgressStyle.Render(emptyBar))
 	fmt.Println()
 	fmt.Println("Task Summary:")
 	fmt.Println("  todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
@@ -150,11 +170,8 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
 	fmt.Println()
 
-	// Progress bar
-	progressWidth := 80
-	filledWidth := int(float64(progressWidth) * completionRate / 100)
-	emptyWidth := progressWidth - filledWidth
-	progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	// Progress bar with colors based on task status
+	progressBar := generateColoredProgressBar(stats, 80)
 	fmt.Printf("Progress: %s\n", progressBar)
 	fmt.Println()
 
@@ -217,6 +234,52 @@ func runHumanMode(storageManager *storage.Manager) error {
 	}
 
 	return nil
+}
+
+// generateColoredProgressBar creates a progress bar with colors representing different task states
+func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
+	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] + 
+		stats.StatusCounts["done"] + stats.StatusCounts["pending"] + stats.StatusCounts["cancel"]
+	
+	if total == 0 {
+		// Empty progress bar
+		emptyBar := strings.Repeat("░", width)
+		return emptyProgressStyle.Render(emptyBar)
+	}
+	
+	// Calculate widths for each status
+	doneWidth := int(float64(stats.StatusCounts["done"]) / float64(total) * float64(width))
+	doingWidth := int(float64(stats.StatusCounts["doing"]) / float64(total) * float64(width))
+	pendingWidth := int(float64(stats.StatusCounts["pending"]) / float64(total) * float64(width))
+	todoWidth := int(float64(stats.StatusCounts["todo"]) / float64(total) * float64(width))
+	cancelWidth := int(float64(stats.StatusCounts["cancel"]) / float64(total) * float64(width))
+	
+	// Adjust for rounding errors
+	usedWidth := doneWidth + doingWidth + pendingWidth + todoWidth + cancelWidth
+	if usedWidth < width {
+		doneWidth += width - usedWidth
+	}
+	
+	// Build colored segments
+	var segments []string
+	
+	if doneWidth > 0 {
+		segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneWidth)))
+	}
+	if doingWidth > 0 {
+		segments = append(segments, doingProgressStyle.Render(strings.Repeat("█", doingWidth)))
+	}
+	if pendingWidth > 0 {
+		segments = append(segments, pendingProgressStyle.Render(strings.Repeat("█", pendingWidth)))
+	}
+	if todoWidth > 0 {
+		segments = append(segments, todoProgressStyle.Render(strings.Repeat("█", todoWidth)))
+	}
+	if cancelWidth > 0 {
+		segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelWidth)))
+	}
+	
+	return strings.Join(segments, "")
 }
 
 func init() {

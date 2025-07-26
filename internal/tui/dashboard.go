@@ -6,8 +6,27 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
+)
+
+// Progress bar color styles for different task states
+var (
+	todoProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("8")) // Gray for TODO
+	
+	doingProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("11")) // Yellow for DOING
+	
+	doneProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("10")) // Green for DONE
+	
+	pendingProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("9")) // Red for PENDING
+	
+	emptyProgressStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("240")) // Dark gray for empty
 )
 
 // Model represents the TUI dashboard state
@@ -107,11 +126,8 @@ func (m Model) View() string {
 		sections = append(sections, "")
 	}
 
-	// Progress bar
-	progressWidth := 80
-	filledWidth := int(float64(progressWidth) * completionRate / 100)
-	emptyWidth := progressWidth - filledWidth
-	progressBar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	// Progress bar with colors based on task status
+	progressBar := generateColoredProgressBar(m.stats, 80)
 	sections = append(sections, fmt.Sprintf("Progress: %s", progressBar))
 	sections = append(sections, "")
 
@@ -230,4 +246,50 @@ func tickCmd() tea.Cmd {
 	return tea.Tick(2*time.Second, func(t time.Time) tea.Msg {
 		return tickMsg(t)
 	})
+}
+
+// generateColoredProgressBar creates a progress bar with colors representing different task states
+func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
+	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] + 
+		stats.StatusCounts["done"] + stats.StatusCounts["pending"] + stats.StatusCounts["cancel"]
+	
+	if total == 0 {
+		// Empty progress bar
+		emptyBar := strings.Repeat("░", width)
+		return emptyProgressStyle.Render(emptyBar)
+	}
+	
+	// Calculate widths for each status
+	doneWidth := int(float64(stats.StatusCounts["done"]) / float64(total) * float64(width))
+	doingWidth := int(float64(stats.StatusCounts["doing"]) / float64(total) * float64(width))
+	pendingWidth := int(float64(stats.StatusCounts["pending"]) / float64(total) * float64(width))
+	todoWidth := int(float64(stats.StatusCounts["todo"]) / float64(total) * float64(width))
+	cancelWidth := int(float64(stats.StatusCounts["cancel"]) / float64(total) * float64(width))
+	
+	// Adjust for rounding errors
+	usedWidth := doneWidth + doingWidth + pendingWidth + todoWidth + cancelWidth
+	if usedWidth < width {
+		doneWidth += width - usedWidth
+	}
+	
+	// Build colored segments
+	var segments []string
+	
+	if doneWidth > 0 {
+		segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneWidth)))
+	}
+	if doingWidth > 0 {
+		segments = append(segments, doingProgressStyle.Render(strings.Repeat("█", doingWidth)))
+	}
+	if pendingWidth > 0 {
+		segments = append(segments, pendingProgressStyle.Render(strings.Repeat("█", pendingWidth)))
+	}
+	if todoWidth > 0 {
+		segments = append(segments, todoProgressStyle.Render(strings.Repeat("█", todoWidth)))
+	}
+	if cancelWidth > 0 {
+		segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelWidth)))
+	}
+	
+	return strings.Join(segments, "")
 }
