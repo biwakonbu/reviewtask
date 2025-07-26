@@ -3,11 +3,13 @@ package progress
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
+	"reviewtask/internal/ui"
 )
 
 // Tracker provides a simple interface for updating progress from the fetch command
@@ -17,17 +19,20 @@ type Tracker struct {
 	mu      sync.Mutex
 	done    chan struct{}
 	isTTY   bool
+	console *ui.Console
 }
 
 // NewTracker creates a new progress tracker
 func NewTracker() *Tracker {
 	isTTY := isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
+	console := ui.NewConsole()
 
 	if !isTTY {
 		// Return a no-op tracker for non-TTY environments
 		return &Tracker{
-			isTTY: false,
-			done:  make(chan struct{}),
+			isTTY:   false,
+			done:    make(chan struct{}),
+			console: console,
 		}
 	}
 
@@ -39,6 +44,7 @@ func NewTracker() *Tracker {
 		model:   model,
 		isTTY:   true,
 		done:    make(chan struct{}),
+		console: console,
 	}
 }
 
@@ -48,9 +54,15 @@ func (t *Tracker) Start(ctx context.Context) error {
 		return nil
 	}
 
+	// Enable progress mode and buffering for synchronized output
+	t.console.SetProgressActive(true)
+	t.console.SetBufferEnabled(true)
+
 	go func() {
 		if _, err := t.program.Run(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error running progress tracker: %v\n", err)
+			t.console.WriteWithSync(func(w io.Writer) {
+				fmt.Fprintf(w, "Error running progress tracker: %v\n", err)
+			})
 		}
 		close(t.done)
 	}()
@@ -74,13 +86,16 @@ func (t *Tracker) Stop() {
 		t.program.Quit()
 		<-t.done
 	}
+
+	// Disable progress mode and flush any buffered messages
+	t.console.SetProgressActive(false)
 }
 
 // SetGitHubProgress updates GitHub API progress
 func (t *Tracker) SetGitHubProgress(current, total int) {
 	if !t.isTTY {
 		if total > 0 {
-			fmt.Printf("GitHub API: %d/%d\n", current, total)
+			t.console.Printf("GitHub API: %d/%d\n", current, total)
 		}
 		return
 	}
@@ -94,7 +109,7 @@ func (t *Tracker) SetGitHubProgress(current, total int) {
 func (t *Tracker) SetAnalysisProgress(current, total int) {
 	if !t.isTTY {
 		if total > 0 {
-			fmt.Printf("AI Analysis: %d/%d\n", current, total)
+			t.console.Printf("AI Analysis: %d/%d\n", current, total)
 		}
 		return
 	}
@@ -108,7 +123,7 @@ func (t *Tracker) SetAnalysisProgress(current, total int) {
 func (t *Tracker) SetSavingProgress(current, total int) {
 	if !t.isTTY {
 		if total > 0 {
-			fmt.Printf("Saving Data: %d/%d\n", current, total)
+			t.console.Printf("Saving Data: %d/%d\n", current, total)
 		}
 		return
 	}
@@ -121,7 +136,7 @@ func (t *Tracker) SetSavingProgress(current, total int) {
 // SetStageStatus updates the status of a stage
 func (t *Tracker) SetStageStatus(stage, status string) {
 	if !t.isTTY {
-		fmt.Printf("%s: %s\n", stage, status)
+		t.console.Printf("%s: %s\n", stage, status)
 		return
 	}
 
@@ -134,7 +149,7 @@ func (t *Tracker) SetStageStatus(stage, status string) {
 func (t *Tracker) UpdateStatistics(commentsProcessed, totalComments, tasksGenerated int, currentOp string) {
 	if !t.isTTY {
 		if currentOp != "" {
-			fmt.Printf("Processing: %s\n", currentOp)
+			t.console.Printf("Processing: %s\n", currentOp)
 		}
 		return
 	}

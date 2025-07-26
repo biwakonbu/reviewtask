@@ -76,7 +76,7 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 	// Call AI to identify duplicates
 	response, err := d.identifyDuplicates(taskSummaries)
 	if err != nil {
-		fmt.Printf("⚠️  AI deduplication failed, keeping all tasks: %v\n", err)
+		printf("⚠️  AI deduplication failed, keeping all tasks: %v\n", err)
 		return tasks, nil
 	}
 
@@ -102,14 +102,14 @@ func (d *TaskDeduplicator) DeduplicateTasks(tasks []storage.Task) ([]storage.Tas
 		// Log duplicate removals
 		for _, dupID := range group.DuplicateTaskIDs {
 			if _, exists := taskMap[dupID]; exists {
-				fmt.Printf("🔄 Removed duplicate task %s: %s\n", dupID, group.Reason)
+				printf("🔄 Removed duplicate task %s: %s\n", dupID, group.Reason)
 			}
 		}
 	}
 
-	fmt.Printf("✨ AI deduplication: %d tasks → %d unique tasks\n", len(tasks), len(deduplicatedTasks))
+	printf("✨ AI deduplication: %d tasks → %d unique tasks\n", len(tasks), len(deduplicatedTasks))
 	if response.Reasoning != "" {
-		fmt.Printf("   Reasoning: %s\n", response.Reasoning)
+		printf("   Reasoning: %s\n", response.Reasoning)
 	}
 
 	return deduplicatedTasks, nil
