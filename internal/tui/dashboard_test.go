@@ -7,6 +7,7 @@ import (
 
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
+	"reviewtask/internal/ui"
 )
 
 // TestDashboardView tests that the dashboard is rendered in simple format
@@ -237,7 +238,7 @@ func TestGenerateColoredProgressBarTUI(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := generateColoredProgressBar(tc.stats, tc.width)
+			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
 
 			// Check that result is not empty
 			if result == "" {

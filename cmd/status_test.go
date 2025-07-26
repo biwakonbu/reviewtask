@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
+	"reviewtask/internal/ui"
 )
 
 // TestStatusCommand tests the status command functionality
@@ -828,7 +829,7 @@ func TestGenerateColoredProgressBar(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := generateColoredProgressBar(tc.stats, tc.width)
+			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
 
 			// Check that result is not empty
 			assert.NotEmpty(t, result)
@@ -862,7 +863,7 @@ func TestGenerateColoredProgressBarWidth(t *testing.T) {
 
 	for _, width := range widths {
 		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
-			result := generateColoredProgressBar(stats, width)
+			result := ui.GenerateColoredProgressBar(stats, width)
 
 			// Count visible characters (█ and ░)
 			visibleChars := strings.Count(result, "█") + strings.Count(result, "░")
@@ -906,7 +907,7 @@ func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Should not panic
-			result := generateColoredProgressBar(tc.stats, tc.width)
+			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
 
 			if tc.width > 0 {
 				assert.NotEmpty(t, result)

@@ -6,28 +6,11 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
+	"reviewtask/internal/ui"
 )
 
-// Progress bar color styles for different task states
-var (
-	todoProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("8")) // Gray for TODO
-
-	doingProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("11")) // Yellow for DOING
-
-	doneProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("10")) // Green for DONE
-
-	pendingProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("9")) // Red for PENDING
-
-	emptyProgressStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("240")) // Dark gray for empty
-)
 
 // Model represents the TUI dashboard state
 type Model struct {
@@ -127,7 +110,7 @@ func (m Model) View() string {
 	}
 
 	// Progress bar with colors based on task status
-	progressBar := generateColoredProgressBar(m.stats, 80)
+	progressBar := ui.GenerateColoredProgressBar(m.stats, 80)
 	sections = append(sections, fmt.Sprintf("Progress: %s", progressBar))
 	sections = append(sections, "")
 
@@ -248,66 +231,3 @@ func tickCmd() tea.Cmd {
 	})
 }
 
-// generateColoredProgressBar creates a progress bar with colors representing different task states
-func generateColoredProgressBar(stats tasks.TaskStats, width int) string {
-	total := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] +
-		stats.StatusCounts["done"] + stats.StatusCounts["pending"] + stats.StatusCounts["cancel"]
-
-	if total == 0 {
-		// Empty progress bar
-		emptyBar := strings.Repeat("░", width)
-		return emptyProgressStyle.Render(emptyBar)
-	}
-
-	// Calculate completion rate
-	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
-	completionRate := float64(completed) / float64(total)
-
-	// Calculate widths based on completion vs remaining
-	filledWidth := int(completionRate * float64(width))
-	emptyWidth := width - filledWidth
-
-	// For filled portion, show proportional colors for done/cancel
-	var segments []string
-
-	if filledWidth > 0 {
-		// Within filled portion, show proportions of done vs cancel
-		if completed > 0 {
-			doneInFilled := int(float64(stats.StatusCounts["done"]) / float64(completed) * float64(filledWidth))
-			cancelInFilled := filledWidth - doneInFilled
-
-			if doneInFilled > 0 {
-				segments = append(segments, doneProgressStyle.Render(strings.Repeat("█", doneInFilled)))
-			}
-			if cancelInFilled > 0 {
-				segments = append(segments, emptyProgressStyle.Render(strings.Repeat("█", cancelInFilled)))
-			}
-		}
-	}
-
-	// For empty portion, show remaining work with status colors
-	if emptyWidth > 0 {
-		remaining := stats.StatusCounts["todo"] + stats.StatusCounts["doing"] + stats.StatusCounts["pending"]
-		if remaining > 0 {
-			// Proportional representation of remaining work
-			doingInEmpty := int(float64(stats.StatusCounts["doing"]) / float64(remaining) * float64(emptyWidth))
-			pendingInEmpty := int(float64(stats.StatusCounts["pending"]) / float64(remaining) * float64(emptyWidth))
-			todoInEmpty := emptyWidth - doingInEmpty - pendingInEmpty
-
-			if doingInEmpty > 0 {
-				segments = append(segments, doingProgressStyle.Render(strings.Repeat("░", doingInEmpty)))
-			}
-			if pendingInEmpty > 0 {
-				segments = append(segments, pendingProgressStyle.Render(strings.Repeat("░", pendingInEmpty)))
-			}
-			if todoInEmpty > 0 {
-				segments = append(segments, todoProgressStyle.Render(strings.Repeat("░", todoInEmpty)))
-			}
-		} else {
-			// Just empty gray
-			segments = append(segments, emptyProgressStyle.Render(strings.Repeat("░", emptyWidth)))
-		}
-	}
-
-	return strings.Join(segments, "")
-}
