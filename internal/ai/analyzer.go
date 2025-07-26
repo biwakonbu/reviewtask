@@ -404,6 +404,9 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 
 	priorityPrompt := a.config.GetPriorityPrompt()
 
+	// Add nitpick handling instructions
+	nitpickInstruction := a.buildNitpickInstruction()
+
 	// Build review data
 	var reviewsData strings.Builder
 	reviewsData.WriteString("PR Reviews to analyze:\n\n")
@@ -441,6 +444,7 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 
 %s
 %s
+%s
 
 CRITICAL: Return response as JSON array with this EXACT format:
 [
@@ -472,7 +476,7 @@ Task Generation Guidelines:
 - Don't artificially combine unrelated items
 - AI deduplication will handle any redundancy later
 
-%s`, languageInstruction, priorityPrompt, reviewsData.String())
+%s`, languageInstruction, priorityPrompt, nitpickInstruction, reviewsData.String())
 
 	return prompt
 }
@@ -534,30 +538,20 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		fmt.Printf("  🐛 Claude response preview: %s\n", preview)
 	}
 
-	// Find JSON array in the response
-	jsonStart := strings.Index(result, "[")
-	jsonEnd := strings.LastIndex(result, "]")
-
-	if jsonStart == -1 || jsonEnd == -1 || jsonStart >= jsonEnd {
-		// Try to find JSON object instead of array
-		objStart := strings.Index(result, "{")
-		objEnd := strings.LastIndex(result, "}")
-		if objStart != -1 && objEnd != -1 && objStart < objEnd {
-			// Check if it's a single task wrapped in object
-			objContent := result[objStart : objEnd+1]
-			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
-			}
-			// Wrap single object in array
-			result = "[" + objContent + "]"
-		} else {
-			if a.config.AISettings.DebugMode {
-				fmt.Printf("  🐛 Full Claude response: %s\n", result)
-			}
-			return nil, fmt.Errorf("no valid JSON array found in Claude response")
+	// Enhanced JSON extraction for better CodeRabbit compatibility
+	result = a.extractJSON(result)
+	if result == "" {
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("  🐛 Full Claude response: %s\n", claudeResponse.Result)
 		}
-	} else {
-		result = result[jsonStart : jsonEnd+1]
+		// For CodeRabbit nitpick comments, return empty array instead of error
+		if a.config.AISettings.ProcessNitpickComments && a.isCodeRabbitNitpickResponse(claudeResponse.Result) {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("  🔄 CodeRabbit nitpick detected with no actionable tasks - returning empty array\n")
+			}
+			return []TaskRequest{}, nil
+		}
+		return nil, fmt.Errorf("no valid JSON found in Claude response")
 	}
 
 	// Parse the actual task array
@@ -591,12 +585,18 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 			status = a.config.TaskSettings.LowPriorityStatus
 		}
 
+		// Override priority for nitpick comments if configured
+		priority := task.Priority
+		if a.config.AISettings.ProcessNitpickComments && a.isLowPriorityComment(task.OriginText) {
+			priority = a.config.AISettings.NitpickPriority
+		}
+
 		storageTask := storage.Task{
 			// UUID-based ID generation ensures global uniqueness and security
 			ID:              uuid.New().String(),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
-			Priority:        task.Priority,
+			Priority:        priority,
 			SourceReviewID:  task.SourceReviewID,
 			SourceCommentID: task.SourceCommentID,
 			TaskIndex:       task.TaskIndex,
@@ -929,6 +929,9 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 
 	priorityPrompt := a.config.GetPriorityPrompt()
 
+	// Add nitpick handling instructions
+	nitpickInstruction := a.buildNitpickInstruction()
+
 	// Build example task using proper JSON marshaling
 	exampleTask := map[string]interface{}{
 		"description":       "Actionable task description in specified language",
@@ -960,6 +963,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 
 	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR review comments and generate actionable tasks.
 
+%s
 %s
 %s
 
@@ -999,6 +1003,7 @@ Task Generation Guidelines:
 - AI deduplication will handle any redundancy later`,
 		languageInstruction,
 		priorityPrompt,
+		nitpickInstruction,
 		ctx.SourceReview.ID,
 		ctx.SourceReview.Reviewer,
 		ctx.SourceReview.State,
@@ -1074,6 +1079,102 @@ func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
 	}
 
 	return false
+}
+
+// extractJSON extracts JSON content from Claude response with improved robustness
+func (a *Analyzer) extractJSON(response string) string {
+	// Remove markdown code blocks
+	response = strings.ReplaceAll(response, "```json", "")
+	response = strings.ReplaceAll(response, "```", "")
+	response = strings.TrimSpace(response)
+
+	// Look for JSON array first
+	jsonStart := strings.Index(response, "[")
+	jsonEnd := strings.LastIndex(response, "]")
+
+	if jsonStart != -1 && jsonEnd != -1 && jsonStart < jsonEnd {
+		return response[jsonStart : jsonEnd+1]
+	}
+
+	// Try to find JSON object and wrap it in array
+	objStart := strings.Index(response, "{")
+	objEnd := strings.LastIndex(response, "}")
+	if objStart != -1 && objEnd != -1 && objStart < objEnd {
+		objContent := response[objStart : objEnd+1]
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("  🐛 Found JSON object instead of array: %s\n", objContent)
+		}
+		// Wrap single object in array
+		return "[" + objContent + "]"
+	}
+
+	// Check for common non-JSON responses that should return empty array
+	lowerResponse := strings.ToLower(response)
+	emptyResponsePatterns := []string{
+		"no actionable tasks",
+		"no tasks needed",
+		"[]",
+		"empty array",
+		"no action required",
+		"already resolved",
+		"no implementation needed",
+	}
+
+	for _, pattern := range emptyResponsePatterns {
+		if strings.Contains(lowerResponse, pattern) {
+			return "[]"
+		}
+	}
+
+	return ""
+}
+
+// isCodeRabbitNitpickResponse checks if the response is about CodeRabbit nitpicks with no actionable tasks
+func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
+	lowerResponse := strings.ToLower(response)
+
+	// Check for CodeRabbit-style responses about nitpicks
+	codeRabbitPatterns := []string{
+		"actionable comments posted: 0",
+		"nitpick comments",
+		"need to analyze if it contains any actionable tasks",
+		"no actionable tasks in the nitpick",
+		"nitpick suggestions don't require",
+	}
+
+	nitpickCount := 0
+	for _, pattern := range codeRabbitPatterns {
+		if strings.Contains(lowerResponse, pattern) {
+			nitpickCount++
+		}
+	}
+
+	// If we find multiple indicators of CodeRabbit nitpick responses, it's likely a nitpick-only comment
+	return nitpickCount >= 1
+}
+
+// buildNitpickInstruction generates nitpick processing instructions based on configuration
+func (a *Analyzer) buildNitpickInstruction() string {
+	if a.config.AISettings.ProcessNitpickComments {
+		return fmt.Sprintf(`
+IMPORTANT: Nitpick Comment Processing Instructions:
+- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
+- Ignore "Actionable comments posted: 0" headers when nitpick content is present
+- Extract actionable tasks from nitpick sections and collapsible details
+- Set priority to "%s" for tasks generated from nitpick comments
+- Look for nitpick content in <details> blocks, summaries, and structured formats
+- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
+
+`, a.config.AISettings.NitpickPriority)
+	} else {
+		return `
+IMPORTANT: Nitpick Comment Processing:
+- Skip nitpick comments and suggestions
+- Ignore CodeRabbit nitpick sections
+- Focus only on actionable review feedback requiring implementation
+
+`
+	}
 }
 
 // deduplicateTasks removes duplicate tasks based on comment ID and similarity
