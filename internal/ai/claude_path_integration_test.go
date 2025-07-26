@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -111,9 +112,9 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 
 				// Verify symlink was created if needed
 				symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
-				if _, err := os.Lstat(symlinkPath); tt.name != "End-to-end: Claude CLI detection and client creation" && os.IsNotExist(err) {
-					// For the first test, claude might already be in PATH, so symlink might not be needed
-					t.Logf("Symlink not created (might be already in PATH): %s", symlinkPath)
+				// Symlink should exist for all successful cases since we set PATH to /nonexistent
+				if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
+					t.Errorf("Expected symlink to exist at %s", symlinkPath)
 				}
 			} else {
 				if err == nil {
@@ -301,7 +302,7 @@ func TestCrossplatformPathHandling(t *testing.T) {
 }
 
 func isHomeRelativePath(path, homeDir string) bool {
-	return filepath.HasPrefix(path, homeDir)
+	return strings.HasPrefix(filepath.Clean(path), filepath.Clean(homeDir))
 }
 
 func TestErrorHandlingIntegration(t *testing.T) {
