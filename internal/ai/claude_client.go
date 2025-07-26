@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,12 +21,19 @@ type RealClaudeClient struct {
 func NewRealClaudeClient() (*RealClaudeClient, error) {
 	claudePath, err := findClaudeCLI()
 	if err != nil {
-		return nil, fmt.Errorf("claude command not found: %w", err)
+		return nil, fmt.Errorf("claude command not found: %w\n\nTo resolve this issue:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Or ensure Claude CLI is in your PATH\n3. Or place it in one of these locations:\n   - ~/.claude/local/claude\n   - ~/.npm-global/bin/claude\n   - ~/.volta/bin/claude", err)
 	}
 
-	// Ensure Claude is available in PATH via symlink if needed
-	if err := ensureClaudeAvailable(claudePath); err != nil {
-		return nil, fmt.Errorf("failed to ensure claude availability: %w", err)
+	// Check if Claude is already in PATH
+	if _, pathErr := exec.LookPath("claude"); pathErr != nil {
+		// Claude found but not in PATH, create symlink
+		log.Printf("ℹ️  Claude CLI found at %s but not in PATH", claudePath)
+		
+		if err := ensureClaudeAvailable(claudePath); err != nil {
+			return nil, fmt.Errorf("failed to ensure claude availability: %w", err)
+		}
+		
+		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
 	return &RealClaudeClient{claudePath: claudePath}, nil
