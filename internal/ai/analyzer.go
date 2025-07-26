@@ -403,6 +403,29 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 	}
 
 	priorityPrompt := a.config.GetPriorityPrompt()
+	
+	// Add nitpick handling instructions
+	var nitpickInstruction string
+	if a.config.AISettings.ProcessNitpickComments {
+		nitpickInstruction = fmt.Sprintf(`
+IMPORTANT: Nitpick Comment Processing Instructions:
+- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
+- Ignore "Actionable comments posted: 0" headers when nitpick content is present
+- Extract actionable tasks from nitpick sections and collapsible details
+- Set priority to "%s" for tasks generated from nitpick comments
+- Look for nitpick content in <details> blocks, summaries, and structured formats
+- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
+
+`, a.config.AISettings.NitpickPriority)
+	} else {
+		nitpickInstruction = `
+IMPORTANT: Nitpick Comment Processing:
+- Skip nitpick comments and suggestions
+- Ignore CodeRabbit nitpick sections
+- Focus only on actionable review feedback requiring implementation
+
+`
+	}
 
 	// Build review data
 	var reviewsData strings.Builder
@@ -441,6 +464,7 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 
 %s
 %s
+%s
 
 CRITICAL: Return response as JSON array with this EXACT format:
 [
@@ -472,7 +496,7 @@ Task Generation Guidelines:
 - Don't artificially combine unrelated items
 - AI deduplication will handle any redundancy later
 
-%s`, languageInstruction, priorityPrompt, reviewsData.String())
+%s`, languageInstruction, priorityPrompt, nitpickInstruction, reviewsData.String())
 
 	return prompt
 }
@@ -591,12 +615,18 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 			status = a.config.TaskSettings.LowPriorityStatus
 		}
 
+		// Override priority for nitpick comments if configured
+		priority := task.Priority
+		if a.config.AISettings.ProcessNitpickComments && a.isLowPriorityComment(task.OriginText) {
+			priority = a.config.AISettings.NitpickPriority
+		}
+
 		storageTask := storage.Task{
 			// UUID-based ID generation ensures global uniqueness and security
 			ID:              uuid.New().String(),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
-			Priority:        task.Priority,
+			Priority:        priority,
 			SourceReviewID:  task.SourceReviewID,
 			SourceCommentID: task.SourceCommentID,
 			TaskIndex:       task.TaskIndex,
@@ -928,6 +958,29 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 	}
 
 	priorityPrompt := a.config.GetPriorityPrompt()
+	
+	// Add nitpick handling instructions
+	var nitpickInstruction string
+	if a.config.AISettings.ProcessNitpickComments {
+		nitpickInstruction = fmt.Sprintf(`
+IMPORTANT: Nitpick Comment Processing Instructions:
+- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
+- Ignore "Actionable comments posted: 0" headers when nitpick content is present
+- Extract actionable tasks from nitpick sections and collapsible details
+- Set priority to "%s" for tasks generated from nitpick comments
+- Look for nitpick content in <details> blocks, summaries, and structured formats
+- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
+
+`, a.config.AISettings.NitpickPriority)
+	} else {
+		nitpickInstruction = `
+IMPORTANT: Nitpick Comment Processing:
+- Skip nitpick comments and suggestions
+- Ignore CodeRabbit nitpick sections
+- Focus only on actionable review feedback requiring implementation
+
+`
+	}
 
 	// Build example task using proper JSON marshaling
 	exampleTask := map[string]interface{}{
@@ -960,6 +1013,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 
 	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR review comments and generate actionable tasks.
 
+%s
 %s
 %s
 
@@ -999,6 +1053,7 @@ Task Generation Guidelines:
 - AI deduplication will handle any redundancy later`,
 		languageInstruction,
 		priorityPrompt,
+		nitpickInstruction,
 		ctx.SourceReview.ID,
 		ctx.SourceReview.Reviewer,
 		ctx.SourceReview.State,
