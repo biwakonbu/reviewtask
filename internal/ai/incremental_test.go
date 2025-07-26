@@ -55,7 +55,7 @@ func TestGenerateTasksIncremental(t *testing.T) {
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
-	
+
 	storageManager := storage.NewManager()
 
 	// Test data
@@ -144,7 +144,7 @@ func TestGenerateTasksIncremental(t *testing.T) {
 		tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, opts)
 		assert.NoError(t, err)
 		// Should have 4 tasks: 1 from checkpoint + 3 new (review body was not processed before)
-		assert.Len(t, tasks, 4) 
+		assert.Len(t, tasks, 4)
 
 		// Verify first task is from checkpoint
 		assert.Equal(t, "task-1", tasks[0].ID)
@@ -234,11 +234,11 @@ func TestGenerateTasksIncremental(t *testing.T) {
 
 	t.Run("TimeoutHandling", func(t *testing.T) {
 		prNumber := 987
-		
+
 		// Create a slow mock client
 		slowClient := NewMockClaudeClient()
 		slowClient.Error = context.DeadlineExceeded
-		
+
 		slowAnalyzer := NewAnalyzerWithClient(cfg, slowClient)
 
 		opts := IncrementalOptions{
@@ -278,7 +278,7 @@ func TestGenerateTasksIncremental(t *testing.T) {
 
 	t.Run("ResolvedCommentsFiltering", func(t *testing.T) {
 		prNumber := 222
-		
+
 		// Reviews with resolved comments
 		resolvedReviews := []github.Review{
 			{

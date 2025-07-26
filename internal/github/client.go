@@ -194,7 +194,7 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	// Check cache for PR comments
 	cacheKey := fmt.Sprintf("prcomments-%d", prNumber)
 	var allComments []*github.PullRequestComment
-	
+
 	if cached, ok := c.cache.Get("ListComments", c.owner, c.repo, cacheKey); ok {
 		if comments, ok := cached.([]*github.PullRequestComment); ok {
 			allComments = comments

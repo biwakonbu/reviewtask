@@ -12,12 +12,12 @@ import (
 
 // IncrementalOptions contains options for incremental processing
 type IncrementalOptions struct {
-	BatchSize      int
-	Resume         bool
-	FastMode       bool
-	MaxTimeout     time.Duration
-	ShowProgress   bool
-	OnProgress     func(processed, total int)
+	BatchSize       int
+	Resume          bool
+	FastMode        bool
+	MaxTimeout      time.Duration
+	ShowProgress    bool
+	OnProgress      func(processed, total int)
 	OnBatchComplete func(batchTasks []storage.Task)
 }
 
@@ -44,7 +44,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 	// Filter out already processed comments if resuming
 	remainingComments := a.filterProcessedComments(allComments, checkpoint)
-	
+
 	if opts.ShowProgress {
 		fmt.Printf("📊 Progress: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
 		if len(remainingComments) == 0 {
@@ -59,7 +59,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	defer cancel()
 
 	allTasks := append([]storage.Task{}, checkpoint.PartialTasks...)
-	
+
 	for i := 0; i < len(remainingComments); i += opts.BatchSize {
 		select {
 		case <-ctx.Done():
@@ -77,9 +77,9 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 		if end > len(remainingComments) {
 			end = len(remainingComments)
 		}
-		
+
 		batch := remainingComments[i:end]
-		
+
 		if opts.ShowProgress {
 			fmt.Printf("\n🔄 Processing batch %d-%d of %d comments...\n", i+1, end, len(remainingComments))
 		}
@@ -97,10 +97,10 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			checkpoint.ProcessedComments[commentCtx.Comment.ID] = a.calculateCommentHash(commentCtx.Comment)
 			checkpoint.ProcessedCount++
 		}
-		
+
 		allTasks = append(allTasks, batchTasks...)
 		checkpoint.PartialTasks = allTasks
-		
+
 		// Save checkpoint after each batch
 		if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
 			fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
@@ -193,11 +193,11 @@ func (a *Analyzer) loadOrCreateCheckpoint(prNumber int, storageManager *storage.
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if checkpoint != nil {
 			// Check if checkpoint is still valid (not too old)
 			if !storage.IsCheckpointStale(checkpoint, 24*time.Hour) {
-				fmt.Printf("✅ Resuming from checkpoint (processed %d/%d comments)\n", 
+				fmt.Printf("✅ Resuming from checkpoint (processed %d/%d comments)\n",
 					checkpoint.ProcessedCount, checkpoint.TotalComments)
 				return checkpoint, nil
 			}
@@ -229,7 +229,7 @@ func (a *Analyzer) filterProcessedComments(comments []CommentContext, checkpoint
 	for _, commentCtx := range comments {
 		hash, exists := checkpoint.ProcessedComments[commentCtx.Comment.ID]
 		currentHash := a.calculateCommentHash(commentCtx.Comment)
-		
+
 		// Include if not processed or if content changed
 		if !exists || hash != currentHash {
 			remaining = append(remaining, commentCtx)
@@ -327,14 +327,14 @@ func (a *Analyzer) processBatchWithValidation(batch []CommentContext) ([]storage
 func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task, error) {
 	// In fast mode, we skip validation and use simpler prompts
 	var allTasks []TaskRequest
-	
+
 	// Process comments with minimal overhead
 	for _, commentCtx := range batch {
 		// Skip very short comments in fast mode
 		if len(commentCtx.Comment.Body) < 20 {
 			continue
 		}
-		
+
 		// Use simplified prompt for speed
 		prompt := a.buildFastModePrompt(commentCtx)
 		tasks, err := a.callClaudeCode(prompt)
@@ -342,10 +342,10 @@ func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task,
 			fmt.Printf("  ⚠️  Fast mode processing error: %v\n", err)
 			continue
 		}
-		
+
 		allTasks = append(allTasks, tasks...)
 	}
-	
+
 	return a.convertToStorageTasks(allTasks), nil
 }
 

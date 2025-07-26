@@ -139,10 +139,10 @@ func TestCheckpointOperations(t *testing.T) {
 
 func TestIsCheckpointStale(t *testing.T) {
 	tests := []struct {
-		name     string
+		name       string
 		checkpoint *CheckpointState
-		maxAge   time.Duration
-		expected bool
+		maxAge     time.Duration
+		expected   bool
 	}{
 		{
 			name:       "NilCheckpoint",

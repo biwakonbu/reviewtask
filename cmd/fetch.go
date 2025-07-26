@@ -33,7 +33,7 @@ Examples:
 
 func init() {
 	rootCmd.AddCommand(fetchCmd)
-	
+
 	// Add flags for incremental processing and performance
 	fetchCmd.Flags().IntVar(&fetchOptions.BatchSize, "batch-size", 5, "Number of comments to process in each batch")
 	fetchCmd.Flags().BoolVar(&fetchOptions.Resume, "resume", false, "Resume from last checkpoint")

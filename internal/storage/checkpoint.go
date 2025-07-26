@@ -10,16 +10,16 @@ import (
 
 // CheckpointState represents the state of incremental processing
 type CheckpointState struct {
-	PRNumber            int               `json:"pr_number"`
-	ProcessedComments   map[int64]string `json:"processed_comments"`   // comment_id -> hash
-	LastProcessedAt     time.Time         `json:"last_processed_at"`
-	TotalComments       int               `json:"total_comments"`
-	ProcessedCount      int               `json:"processed_count"`
-	BatchSize           int               `json:"batch_size"`
-	StartedAt           time.Time         `json:"started_at"`
-	PartialTasks        []Task            `json:"partial_tasks,omitempty"`
-	LastProcessedReview int64             `json:"last_processed_review_id,omitempty"`
-	LastProcessedIndex  int               `json:"last_processed_index,omitempty"`
+	PRNumber            int              `json:"pr_number"`
+	ProcessedComments   map[int64]string `json:"processed_comments"` // comment_id -> hash
+	LastProcessedAt     time.Time        `json:"last_processed_at"`
+	TotalComments       int              `json:"total_comments"`
+	ProcessedCount      int              `json:"processed_count"`
+	BatchSize           int              `json:"batch_size"`
+	StartedAt           time.Time        `json:"started_at"`
+	PartialTasks        []Task           `json:"partial_tasks,omitempty"`
+	LastProcessedReview int64            `json:"last_processed_review_id,omitempty"`
+	LastProcessedIndex  int              `json:"last_processed_index,omitempty"`
 }
 
 // SaveCheckpoint saves the current processing checkpoint
@@ -67,11 +67,11 @@ func (m *Manager) LoadCheckpoint(prNumber int) (*CheckpointState, error) {
 // DeleteCheckpoint removes the checkpoint file after successful completion
 func (m *Manager) DeleteCheckpoint(prNumber int) error {
 	checkpointPath := filepath.Join(m.getPRDir(prNumber), "checkpoint.json")
-	
+
 	if err := os.Remove(checkpointPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to delete checkpoint: %w", err)
 	}
-	
+
 	return nil
 }
 

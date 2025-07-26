@@ -221,7 +221,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 	// Generate tasks using AI with incremental processing if enabled
 	analyzer := ai.NewAnalyzer(cfg)
-	
+
 	var tasks []storage.Task
 	if fetchOptions.BatchSize > 0 || fetchOptions.Resume {
 		// Use incremental processing
@@ -238,12 +238,12 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 				}
 			},
 		}
-		
+
 		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 		if err != nil {
 			return fmt.Errorf("failed to generate tasks incrementally: %w", err)
 		}
-		
+
 		if fetchOptions.ShowProgress {
 			fmt.Println() // New line after progress
 		}
