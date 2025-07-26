@@ -47,10 +47,9 @@ func TestTrackerNonTTY(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	tracker := &Tracker{
-		isTTY: false,
-		done:  make(chan struct{}),
-	}
+	tracker := NewTracker()
+	// Force non-TTY mode for testing
+	tracker.isTTY = false
 
 	// Test GitHub progress
 	tracker.SetGitHubProgress(1, 2)
@@ -109,10 +108,9 @@ func TestOnProgress(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	tracker := &Tracker{
-		isTTY: false,
-		done:  make(chan struct{}),
-	}
+	tracker := NewTracker()
+	// Force non-TTY mode for testing
+	tracker.isTTY = false
 
 	// Call OnProgress
 	tracker.OnProgress(3, 10)
@@ -151,10 +149,9 @@ func TestTrackerMethodsWithNilProgram(t *testing.T) {
 }
 
 func TestConcurrentAccess(t *testing.T) {
-	tracker := &Tracker{
-		isTTY: false,
-		done:  make(chan struct{}),
-	}
+	tracker := NewTracker()
+	// Force non-TTY mode for testing
+	tracker.isTTY = false
 
 	// Test concurrent access doesn't cause issues
 	done := make(chan bool)
@@ -220,10 +217,8 @@ func captureOutput(f func()) string {
 func TestTrackerOutput(t *testing.T) {
 	t.Run("GitHub Progress Output", func(t *testing.T) {
 		output := captureOutput(func() {
-			tracker := &Tracker{
-				isTTY: false,
-				done:  make(chan struct{}),
-			}
+			tracker := NewTracker()
+			tracker.isTTY = false
 			tracker.SetGitHubProgress(1, 2)
 		})
 
@@ -232,10 +227,8 @@ func TestTrackerOutput(t *testing.T) {
 
 	t.Run("Empty Progress Output", func(t *testing.T) {
 		output := captureOutput(func() {
-			tracker := &Tracker{
-				isTTY: false,
-				done:  make(chan struct{}),
-			}
+			tracker := NewTracker()
+			tracker.isTTY = false
 			tracker.SetGitHubProgress(0, 0)
 		})
 

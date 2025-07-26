@@ -170,3 +170,15 @@ func (t *Tracker) OnProgress(processed, total int) {
 	t.SetAnalysisProgress(processed, total)
 	t.UpdateStatistics(processed, total, 0, fmt.Sprintf("Processing comment %d/%d", processed, total))
 }
+
+// AddError adds an error message to the progress display queue
+func (t *Tracker) AddError(message string) {
+	if !t.isTTY {
+		t.console.Printf("⚠️  %s\n", message)
+		return
+	}
+
+	if t.program != nil {
+		t.program.Send(AddError(message))
+	}
+}

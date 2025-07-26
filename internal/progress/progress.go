@@ -33,6 +33,8 @@ type Model struct {
 	height       int
 	isTTY        bool
 	stats        Statistics
+	errorQueue   []string
+	maxErrors    int
 }
 
 // Statistics represents real-time statistics
@@ -59,6 +61,10 @@ type statusMsg struct {
 
 type statsMsg struct {
 	stats Statistics
+}
+
+type errorMsg struct {
+	message string
 }
 
 type tickMsg time.Time
@@ -96,6 +102,8 @@ func New() Model {
 		isTTY:        isTTY,
 		width:        80,
 		height:       10,
+		errorQueue:   make([]string, 0),
+		maxErrors:    5, // Limit displayed errors to prevent overflow
 	}
 
 	// Initialize stages
@@ -183,6 +191,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stats.ElapsedTime = time.Since(m.startTime)
 		return m, nil
 
+	case errorMsg:
+		// Add error to queue, keeping only the most recent ones
+		m.errorQueue = append(m.errorQueue, msg.message)
+		if len(m.errorQueue) > m.maxErrors {
+			m.errorQueue = m.errorQueue[1:]
+		}
+		return m, nil
+
 	case tickMsg:
 		m.stats.ElapsedTime = time.Since(m.startTime)
 		return m, tickCmd()
@@ -248,6 +264,14 @@ func (m Model) View() string {
 
 	// Statistics
 	b.WriteString("\n" + m.renderStats())
+
+	// Queued errors (displayed at the end to avoid interference)
+	if len(m.errorQueue) > 0 {
+		b.WriteString("\n\n")
+		for _, errMsg := range m.errorQueue {
+			b.WriteString(statusStyle.Render("⚠️  "+errMsg) + "\n")
+		}
+	}
 
 	return b.String()
 }
@@ -359,5 +383,12 @@ func UpdateStatus(stage, status string) tea.Cmd {
 func UpdateStats(stats Statistics) tea.Cmd {
 	return func() tea.Msg {
 		return statsMsg{stats: stats}
+	}
+}
+
+// AddError adds an error message to the progress display queue
+func AddError(message string) tea.Cmd {
+	return func() tea.Msg {
+		return errorMsg{message: message}
 	}
 }
