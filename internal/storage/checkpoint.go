@@ -80,5 +80,5 @@ func IsCheckpointStale(checkpoint *CheckpointState, maxAge time.Duration) bool {
 	if checkpoint == nil {
 		return true
 	}
-	return time.Since(checkpoint.LastProcessedAt) > maxAge
+	return time.Since(checkpoint.LastProcessedAt) >= maxAge
 }
