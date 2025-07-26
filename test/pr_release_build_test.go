@@ -22,6 +22,15 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 	// Check if we're in CI environment
 	isCI := os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != ""
 
+	// Check if working directory is clean
+	checkCmd := exec.Command("git", "diff", "--quiet")
+	checkCmd.Dir = projectRoot
+	isClean := checkCmd.Run() == nil
+
+	checkCmd2 := exec.Command("git", "diff", "--cached", "--quiet")
+	checkCmd2.Dir = projectRoot
+	isClean = isClean && checkCmd2.Run() == nil
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -32,27 +41,32 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 			name: "prepare with dry-run flag",
 			args: []string{"prepare", "patch", "--dry-run", "--yes"},
 			wantExit: func() int {
-				// In CI, dry-run should succeed; on dev machines with uncommitted changes, it will fail
 				if isCI {
-					return 0
+					return 0 // CI always skips prerequisites check
 				}
-				// On developer machines, the test might fail due to uncommitted changes
-				// We'll check for the error message instead
-				return 1
+				if isClean {
+					return 0 // Clean working directory should succeed
+				}
+				return 1 // Dirty working directory will fail
 			}(),
 			wantOut: func() []string {
 				if isCI {
 					return []string{"DRY RUN: Simulating release preparation...", "DRY RUN: Skipping prerequisites check (CI environment detected)"}
 				}
-				// On developer machines, we expect the error about uncommitted changes
+				// On developer machines, just check for the dry-run message
 				return []string{"DRY RUN: Simulating release preparation...", "DRY RUN: Running prerequisites check on developer workstation"}
 			}(),
 		},
 		{
-			name:     "prepare without dry-run uses normal flow",
-			args:     []string{"prepare", "patch", "--yes"},
-			wantExit: 1, // Will fail due to uncommitted changes
-			wantOut:  []string{"Checking prerequisites..."},
+			name: "prepare without dry-run uses normal flow",
+			args: []string{"prepare", "patch", "--yes"},
+			wantExit: func() int {
+				if isClean {
+					return 0 // Clean working directory should succeed
+				}
+				return 1 // Dirty working directory will fail
+			}(),
+			wantOut: []string{"Checking prerequisites..."},
 		},
 	}
 
