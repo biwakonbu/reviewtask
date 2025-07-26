@@ -387,6 +387,155 @@ func TestIsReviewtaskManagedSymlink(t *testing.T) {
 	}
 }
 
+func TestResolveClaudeAlias(t *testing.T) {
+	// This test will only verify the function doesn't panic
+	// Actual alias resolution depends on user's shell configuration
+	t.Run("Basic alias resolution", func(t *testing.T) {
+		// The function should not panic even if no alias exists
+		path, err := resolveClaudeAlias()
+
+		// It's OK if it returns an error (no alias configured)
+		// We just want to ensure it doesn't crash
+		if err == nil && path != "" {
+			t.Logf("Found alias path: %s", path)
+		} else {
+			t.Logf("No alias found (expected in test environment): %v", err)
+		}
+	})
+}
+
+func TestParseAliasOutput(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Simple command",
+			input:    "claude",
+			expected: "claude",
+		},
+		{
+			name:     "Single quoted alias",
+			input:    "'claude'",
+			expected: "claude",
+		},
+		{
+			name:     "Double quoted alias",
+			input:    "\"claude\"",
+			expected: "claude",
+		},
+		{
+			name:     "Alias with prefix",
+			input:    "alias claude='claude'",
+			expected: "claude",
+		},
+		{
+			name:     "Node script alias",
+			input:    "node /usr/local/bin/claude.js",
+			expected: "node /usr/local/bin/claude.js",
+		},
+		{
+			name:     "Python script alias",
+			input:    "python3 /home/user/claude/cli.py",
+			expected: "python3 /home/user/claude/cli.py",
+		},
+		{
+			name:     "Complex command with args",
+			input:    "npx @anthropic-ai/claude-code",
+			expected: "npx",
+		},
+		{
+			name:     "Path with spaces",
+			input:    "\"/path with spaces/claude\"",
+			expected: "/path with spaces/claude",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseAliasOutput(tt.input)
+			if result != tt.expected {
+				t.Errorf("parseAliasOutput(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSearchAliasInFile(t *testing.T) {
+	// Create a temporary file with test content
+	tmpDir, err := os.MkdirTemp("", "claude-alias-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	testCases := []struct {
+		name          string
+		content       string
+		expectedPath  string
+		expectedFound bool
+	}{
+		{
+			name: "Simple alias",
+			content: `# Shell config
+alias ll='ls -la'
+alias claude='claude'
+alias gs='git status'`,
+			expectedPath:  "claude",
+			expectedFound: true,
+		},
+		{
+			name: "Alias with full path",
+			content: `# Shell config
+alias claude='/usr/local/bin/claude'`,
+			expectedPath:  "/usr/local/bin/claude",
+			expectedFound: true,
+		},
+		{
+			name: "Alias with node command",
+			content: `# Shell config
+alias claude='node /home/user/.npm-global/lib/node_modules/@anthropic-ai/claude-code/dist/cli.js'`,
+			expectedPath:  "node",
+			expectedFound: true,
+		},
+		{
+			name: "No claude alias",
+			content: `# Shell config
+alias ll='ls -la'
+alias gs='git status'`,
+			expectedPath:  "",
+			expectedFound: false,
+		},
+		{
+			name: "Commented out alias",
+			content: `# Shell config
+# alias claude='claude'
+alias ll='ls -la'`,
+			expectedPath:  "",
+			expectedFound: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create test file
+			testFile := filepath.Join(tmpDir, "test_config")
+			if err := os.WriteFile(testFile, []byte(tc.content), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			path, found := searchAliasInFile(testFile)
+			if found != tc.expectedFound {
+				t.Errorf("searchAliasInFile() found = %v, want %v", found, tc.expectedFound)
+			}
+			if path != tc.expectedPath {
+				t.Errorf("searchAliasInFile() path = %q, want %q", path, tc.expectedPath)
+			}
+		})
+	}
+}
+
 // Integration test that verifies the complete flow
 func TestNewRealClaudeClientWithPathDetection(t *testing.T) {
 	// Save original PATH and restore after test

@@ -21,7 +21,7 @@ type RealClaudeClient struct {
 func NewRealClaudeClient() (*RealClaudeClient, error) {
 	claudePath, err := findClaudeCLI()
 	if err != nil {
-		return nil, fmt.Errorf("claude command not found: %w\n\nTo resolve this issue:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Or ensure Claude CLI is in your PATH\n3. Or place it in one of these locations:\n   - ~/.claude/local/claude\n   - ~/.npm-global/bin/claude\n   - ~/.volta/bin/claude", err)
+		return nil, fmt.Errorf("claude command not found: %w\n\nTo resolve this issue:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Or ensure Claude CLI is in your PATH\n3. Or create an alias 'claude' pointing to your Claude CLI installation\n4. Or place it in one of these locations:\n   - ~/.claude/local/claude\n   - ~/.npm-global/bin/claude\n   - ~/.volta/bin/claude", err)
 	}
 
 	// Check if Claude is already in PATH
@@ -46,6 +46,14 @@ func findClaudeCLI() (string, error) {
 		return path, nil
 	}
 
+	// Try to resolve alias
+	if aliasPath, err := resolveClaudeAlias(); err == nil && aliasPath != "" {
+		// Verify the resolved alias path is valid
+		if isValidClaudeCLI(aliasPath) {
+			return aliasPath, nil
+		}
+	}
+
 	// Try common installation locations
 	commonPaths := []string{
 		filepath.Join(os.Getenv("HOME"), ".claude/local/claude"),
@@ -54,6 +62,12 @@ func findClaudeCLI() (string, error) {
 		"/usr/local/bin/claude",
 		"/opt/homebrew/bin/claude",
 		filepath.Join(os.Getenv("HOME"), ".local/bin/claude"),
+	}
+
+	// Add npm global prefix bin directory (for nvm and other npm managers)
+	if npmPrefix := getNpmPrefix(); npmPrefix != "" {
+		npmClaudePath := filepath.Join(npmPrefix, "bin", "claude")
+		commonPaths = append(commonPaths, npmClaudePath)
 	}
 
 	for _, path := range commonPaths {
@@ -66,6 +80,150 @@ func findClaudeCLI() (string, error) {
 	}
 
 	return "", fmt.Errorf("claude CLI not found in PATH or common installation locations")
+}
+
+// resolveClaudeAlias attempts to resolve claude alias from shell configuration
+func resolveClaudeAlias() (string, error) {
+	// Detect the user's shell
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "/bin/bash"
+	}
+
+	// Extract shell name from path
+	shellName := filepath.Base(shell)
+
+	// Try to get alias definition using shell built-in alias command
+	var cmd *exec.Cmd
+	switch shellName {
+	case "bash", "zsh":
+		// Use type command which is more reliable for alias resolution
+		cmd = exec.Command(shell, "-i", "-c", "type -p claude 2>/dev/null || alias claude 2>/dev/null | grep -oE \"='[^']*'|=\\\"[^\\\"]*\\\"|=[^[:space:]]+\" | sed 's/^=//' | sed 's/^[\"'\"'\"']//;s/[\"'\"'\"']$//'")
+	case "fish":
+		// Fish shell has different syntax
+		cmd = exec.Command(shell, "-c", "functions -D claude 2>/dev/null && which claude 2>/dev/null")
+	default:
+		// For other shells, try generic approach
+		cmd = exec.Command(shell, "-i", "-c", "type -p claude 2>/dev/null")
+	}
+
+	output, err := cmd.Output()
+	if err != nil {
+		// Try alternative method: check common shell config files directly
+		return checkShellConfigFiles()
+	}
+
+	aliasOutput := strings.TrimSpace(string(output))
+	if aliasOutput == "" {
+		return "", fmt.Errorf("no alias found")
+	}
+
+	// Parse the alias output
+	aliasPath := parseAliasOutput(aliasOutput)
+	if aliasPath == "" {
+		return "", fmt.Errorf("could not parse alias output")
+	}
+
+	// Resolve the full path of the aliased command
+	if !filepath.IsAbs(aliasPath) {
+		resolvedPath, err := exec.LookPath(aliasPath)
+		if err == nil {
+			aliasPath = resolvedPath
+		}
+	}
+
+	return aliasPath, nil
+}
+
+// parseAliasOutput extracts the actual command from various alias formats
+func parseAliasOutput(output string) string {
+	// Remove any alias prefix
+	output = strings.TrimPrefix(output, "alias claude=")
+
+	// First preserve the original output for complex commands
+	originalOutput := output
+
+	// Handle various quote formats
+	output = strings.Trim(output, "'\"")
+
+	// Special handling for paths with spaces
+	if strings.Contains(originalOutput, "\"") && strings.Contains(output, " ") {
+		// This was a quoted path with spaces
+		return output
+	}
+
+	// If the alias contains arguments or complex commands, extract just the executable
+	// Handle cases like: node /path/to/claude.js, npx @anthropic-ai/claude-code, etc.
+	parts := strings.Fields(output)
+	if len(parts) == 0 {
+		return ""
+	}
+
+	// First part is the command
+	command := parts[0]
+
+	// If command is a interpreter (node, python, etc.) and has a script path, return full command
+	if len(parts) > 1 && (command == "node" || command == "python" || command == "python3") {
+		// Check if the second part is a file path
+		scriptPath := parts[1]
+		if filepath.IsAbs(scriptPath) || strings.Contains(scriptPath, "/") {
+			return output // Return the full command with interpreter
+		}
+	}
+
+	return command
+}
+
+// checkShellConfigFiles directly reads shell configuration files for alias definitions
+func checkShellConfigFiles() (string, error) {
+	home := os.Getenv("HOME")
+	if home == "" {
+		return "", fmt.Errorf("HOME not set")
+	}
+
+	// Common shell config files to check
+	configFiles := []string{
+		filepath.Join(home, ".bashrc"),
+		filepath.Join(home, ".bash_profile"),
+		filepath.Join(home, ".zshrc"),
+		filepath.Join(home, ".config/fish/config.fish"),
+	}
+
+	for _, configFile := range configFiles {
+		if aliasPath, found := searchAliasInFile(configFile); found {
+			return aliasPath, nil
+		}
+	}
+
+	return "", fmt.Errorf("no alias found in shell config files")
+}
+
+// searchAliasInFile searches for claude alias in a specific config file
+func searchAliasInFile(filepath string) (string, bool) {
+	content, err := os.ReadFile(filepath)
+	if err != nil {
+		return "", false
+	}
+
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		// Skip comments
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Check for alias definition
+		if strings.HasPrefix(line, "alias claude=") {
+			aliasValue := strings.TrimPrefix(line, "alias claude=")
+			aliasPath := parseAliasOutput(aliasValue)
+			if aliasPath != "" {
+				return aliasPath, true
+			}
+		}
+	}
+
+	return "", false
 }
 
 // isValidClaudeCLI verifies that the found executable is actually Claude CLI
@@ -143,6 +301,22 @@ func isReviewtaskManagedSymlink(target string) bool {
 	return false
 }
 
+// getNpmPrefix gets the npm global installation prefix
+func getNpmPrefix() string {
+	cmd := exec.Command("npm", "config", "get", "prefix")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+
+	prefix := strings.TrimSpace(string(output))
+	if prefix == "" || prefix == "undefined" {
+		return ""
+	}
+
+	return prefix
+}
+
 // Execute runs Claude with the given input
 func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	args := []string{}
@@ -150,7 +324,26 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 		args = append(args, "--output-format", outputFormat)
 	}
 
-	cmd := exec.CommandContext(ctx, c.claudePath, args...)
+	var cmd *exec.Cmd
+
+	// Check if claudePath contains interpreter command (e.g., "node /path/to/claude.js")
+	if strings.Contains(c.claudePath, " ") {
+		// Parse command with interpreter
+		parts := strings.Fields(c.claudePath)
+		if len(parts) >= 2 {
+			// First part is interpreter, rest are script and its args
+			interpreter := parts[0]
+			scriptAndArgs := append(parts[1:], args...)
+			cmd = exec.CommandContext(ctx, interpreter, scriptAndArgs...)
+		} else {
+			// Fallback to direct execution
+			cmd = exec.CommandContext(ctx, c.claudePath, args...)
+		}
+	} else {
+		// Direct command execution
+		cmd = exec.CommandContext(ctx, c.claudePath, args...)
+	}
+
 	cmd.Stdin = strings.NewReader(input)
 
 	var stdout, stderr bytes.Buffer
