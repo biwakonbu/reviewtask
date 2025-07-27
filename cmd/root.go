@@ -248,6 +248,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Show total comments count
 	if totalComments > 0 {
 		fmt.Printf("  Found %d comments to analyze\n", totalComments)
+		if totalComments <= 5 {
+			fmt.Println("  Processing each comment with AI...")
+		}
 	}
 
 	// Auto-detect batch size: smaller batches for large PRs
@@ -266,9 +269,22 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		MaxTimeout:   10 * time.Minute, // Generous timeout
 		ShowProgress: true,
 		OnProgress: func(processed, total int) {
-			// Simple progress indicator
-			if processed%10 == 0 || processed == total {
-				fmt.Printf("  Processed %d/%d comments\r", processed, total)
+			// Show progress for every comment when there are few comments
+			// or every 5 comments for larger PRs
+			showProgress := false
+			if total <= 10 {
+				showProgress = true // Show every comment for small PRs
+			} else if processed%5 == 0 || processed == total {
+				showProgress = true // Show every 5 comments for large PRs
+			}
+			
+			if showProgress {
+				percentage := (processed * 100) / total
+				// Clear line and show progress
+				fmt.Printf("\r  Processing comments... %d/%d (%d%%)    ", processed, total, percentage)
+				if processed == total {
+					fmt.Println() // Final newline
+				}
 			}
 		},
 	}
@@ -281,7 +297,6 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
-	fmt.Println() // New line after progress
 
 	// Merge tasks with existing ones (preserves task statuses)
 	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {

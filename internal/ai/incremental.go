@@ -46,8 +46,8 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	// Filter out already processed comments if resuming
 	remainingComments := a.filterProcessedComments(allComments, checkpoint)
 
-	if opts.ShowProgress && checkpoint.ProcessedCount > 0 && a.config.AISettings.DebugMode {
-		fmt.Printf("✅ Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
+	if opts.ShowProgress && checkpoint.ProcessedCount > 0 {
+		fmt.Printf("  Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
 	}
 
 	if len(remainingComments) == 0 {
@@ -83,7 +83,15 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		batch := remainingComments[i:end]
 
-		// No need for batch-level progress messages since we have real-time progress
+		// Show progress before processing batch
+		if opts.OnProgress != nil && opts.ShowProgress {
+			// Show progress for the batch we're about to process
+			startProgress := checkpoint.ProcessedCount
+			// Display progress for each comment in the batch
+			if len(batch) > 0 {
+				opts.OnProgress(startProgress, checkpoint.TotalComments)
+			}
+		}
 
 		// Process batch
 		batchTasks, err := a.processBatch(batch, opts)
@@ -106,9 +114,8 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			}
 
 			// For other errors, log and continue
-			if a.config.AISettings.DebugMode {
-				fmt.Printf("⚠️  Some comments could not be processed: %v\n", err)
-			}
+			// Show this warning even without debug mode as it's important
+			fmt.Printf("  ⚠️  Some comments could not be processed: %v\n", err)
 			continue
 		}
 
@@ -152,9 +159,9 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	// Apply deduplication
 	if a.config.AISettings.DeduplicationEnabled {
 		deduped := a.deduplicateTasks(allTasks)
-		if opts.ShowProgress && len(deduped) < len(allTasks) && a.config.AISettings.DebugMode {
-			fmt.Printf("\n🔄 Deduplication: %d tasks → %d tasks (removed %d duplicates)\n",
-				len(allTasks), len(deduped), len(allTasks)-len(deduped))
+		if opts.ShowProgress && len(deduped) < len(allTasks) {
+			fmt.Printf("  AI deduplication: %d tasks → %d unique tasks\n",
+				len(allTasks), len(deduped))
 		}
 		return deduped, nil
 	}
