@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
-	"reviewtask/internal/ui"
 )
 
 // TestProgressModelCtrlCHandling tests the Ctrl-C key handling in the progress model
@@ -161,11 +160,7 @@ func TestProgressTrackerCtrlCExit(t *testing.T) {
 // TestProgressTrackerNonTTY tests progress tracker behavior in non-TTY environments
 func TestProgressTrackerNonTTY(t *testing.T) {
 	// Create a tracker that thinks it's not in a TTY
-	tracker := &Tracker{
-		isTTY:   false,
-		done:    make(chan struct{}),
-		console: ui.NewConsole(),
-	}
+	tracker := NewTrackerForTesting(false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()

@@ -9,10 +9,7 @@ import (
 // TestTrackerTimeoutLogic tests the timeout logic without full integration
 func TestTrackerTimeoutLogic(t *testing.T) {
 	// Create a tracker and test its actual timeout behavior
-	tracker := NewTracker()
-	
-	// Force non-TTY mode for consistent testing
-	tracker.isTTY = false
+	tracker := NewTrackerForTesting(false)
 	
 	timeout := 500 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -47,10 +44,7 @@ func TestTrackerTimeoutLogic(t *testing.T) {
 // TestTrackerNonTTYBehavior tests non-TTY behavior
 func TestTrackerNonTTYBehavior(t *testing.T) {
 	// Test that non-TTY tracker behaves correctly
-	tracker := NewTracker()
-
-	// Force it to think it's not a TTY
-	tracker.isTTY = false
+	tracker := NewTrackerForTesting(false)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -234,9 +228,7 @@ func BenchmarkStopPerformance(b *testing.B) {
 	durations := make([]time.Duration, 0, b.N)
 	
 	for i := 0; i < b.N; i++ {
-		tracker := NewTracker()
-		// Force non-TTY for consistent benchmarking
-		tracker.isTTY = false
+		tracker := NewTrackerForTesting(false)
 
 		ctx, cancel := context.WithCancel(context.Background())
 

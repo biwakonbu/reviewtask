@@ -49,6 +49,30 @@ func NewTracker() *Tracker {
 	}
 }
 
+// NewTrackerForTesting creates a new progress tracker configured for testing
+func NewTrackerForTesting(isTTY bool) *Tracker {
+	console := ui.NewConsole()
+	
+	if !isTTY {
+		return &Tracker{
+			isTTY:   false,
+			done:    make(chan struct{}),
+			console: console,
+		}
+	}
+	
+	model := New()
+	program := tea.NewProgram(model)
+	
+	return &Tracker{
+		program: program,
+		model:   model,
+		isTTY:   true,
+		done:    make(chan struct{}),
+		console: console,
+	}
+}
+
 // Start begins the progress display
 func (t *Tracker) Start(ctx context.Context) error {
 	if !t.isTTY {
