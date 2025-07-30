@@ -127,12 +127,12 @@ func TestDoubleSignalHandling(t *testing.T) {
 
 	// Send two signals rapidly
 	signalCh <- os.Interrupt
-	
+
 	// Wait for first signal to be processed
 	<-firstSignalReceived
-	
+
 	signalCh <- os.Interrupt
-	
+
 	// Wait for second signal to be processed
 	<-secondSignalReceived
 

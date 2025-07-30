@@ -55,16 +55,16 @@ func isErrorMessage(msg string) bool {
 	if strings.Contains(msg, "⚠️") || strings.Contains(msg, "❌") {
 		return true
 	}
-	
+
 	// Check for error keywords (case-insensitive)
 	msgLower := strings.ToLower(msg)
 	errorKeywords := []string{"error", "failed", "warning", "exception"}
-	
+
 	for _, keyword := range errorKeywords {
 		if strings.Contains(msgLower, keyword) {
 			return true
 		}
 	}
-	
+
 	return false
 }

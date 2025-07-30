@@ -253,7 +253,7 @@ func TestCtrlCDuringDifferentPhases(t *testing.T) {
 // getBinaryPath finds the reviewtask binary for testing
 func getBinaryPath(t testing.TB) string {
 	t.Helper()
-	
+
 	// Try current directory first
 	if _, err := os.Stat("./reviewtask"); err == nil {
 		absPath, _ := filepath.Abs("./reviewtask")
@@ -272,7 +272,7 @@ func getBinaryPath(t testing.TB) string {
 	t.Log("Binary not found, attempting to build...")
 	cmd := exec.Command("go", "build", "-o", "reviewtask", ".")
 	cmd.Dir = filepath.Dir(".")
-	
+
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Logf("Failed to build reviewtask: %v", err)
 		if len(output) > 0 {
@@ -280,7 +280,7 @@ func getBinaryPath(t testing.TB) string {
 		}
 		return ""
 	}
-	
+
 	t.Log("Successfully built reviewtask binary")
 	return "./reviewtask"
 }
@@ -288,7 +288,7 @@ func getBinaryPath(t testing.TB) string {
 // getTestRepoDir returns a directory suitable for testing
 func getTestRepoDir(t testing.TB) string {
 	t.Helper()
-	
+
 	// Use current working directory or a test directory
 	wd, err := os.Getwd()
 	if err != nil {

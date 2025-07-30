@@ -52,7 +52,7 @@ func NewTracker() *Tracker {
 // NewTrackerForTesting creates a new progress tracker configured for testing
 func NewTrackerForTesting(isTTY bool) *Tracker {
 	console := ui.NewConsole()
-	
+
 	if !isTTY {
 		return &Tracker{
 			isTTY:   false,
@@ -60,10 +60,10 @@ func NewTrackerForTesting(isTTY bool) *Tracker {
 			console: console,
 		}
 	}
-	
+
 	model := New()
 	program := tea.NewProgram(model)
-	
+
 	return &Tracker{
 		program: program,
 		model:   model,

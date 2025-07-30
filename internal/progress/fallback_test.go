@@ -10,31 +10,31 @@ import (
 func TestTrackerTimeoutLogic(t *testing.T) {
 	// Create a tracker and test its actual timeout behavior
 	tracker := NewTrackerForTesting(false)
-	
+
 	timeout := 500 * time.Millisecond
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	
+
 	// Start the tracker
 	start := time.Now()
 	err := tracker.Start(ctx)
 	if err != nil {
 		t.Fatalf("Failed to start tracker: %v", err)
 	}
-	
+
 	// Wait for context to timeout
 	<-ctx.Done()
-	
+
 	// Stop the tracker
 	tracker.Stop()
-	
+
 	duration := time.Since(start)
-	
+
 	// Verify the timeout occurred within expected bounds
 	if duration < timeout || duration > timeout+100*time.Millisecond {
 		t.Errorf("Timeout duration unexpected: got %v, expected around %v", duration, timeout)
 	}
-	
+
 	// Verify context was cancelled due to timeout
 	if ctx.Err() != context.DeadlineExceeded {
 		t.Errorf("Expected context.DeadlineExceeded, got: %v", ctx.Err())
@@ -226,7 +226,7 @@ func TestSignalHandlerRobustness(t *testing.T) {
 // BenchmarkStopPerformance benchmarks the Stop method performance
 func BenchmarkStopPerformance(b *testing.B) {
 	durations := make([]time.Duration, 0, b.N)
-	
+
 	for i := 0; i < b.N; i++ {
 		tracker := NewTrackerForTesting(false)
 
@@ -242,12 +242,12 @@ func BenchmarkStopPerformance(b *testing.B) {
 
 		durations = append(durations, duration)
 	}
-	
+
 	// Calculate and report statistics after the benchmark
 	if len(durations) > 0 {
 		var total time.Duration
 		var min, max time.Duration = durations[0], durations[0]
-		
+
 		for _, d := range durations {
 			total += d
 			if d < min {
@@ -257,7 +257,7 @@ func BenchmarkStopPerformance(b *testing.B) {
 				max = d
 			}
 		}
-		
+
 		avg := total / time.Duration(len(durations))
 		b.Logf("Stop performance - Avg: %v, Min: %v, Max: %v", avg, min, max)
 	}
