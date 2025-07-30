@@ -124,6 +124,14 @@ jobs:
         exit 1
       shell: powershell
     
+    - name: Build binary for tests
+      shell: bash
+      run: |
+        echo "Building binary for integration tests..."
+        go build -o reviewtask .
+        # Also copy to test directory for tests that look there
+        cp reviewtask test/reviewtask
+    
     - name: Run tests
       id: test
       shell: bash
