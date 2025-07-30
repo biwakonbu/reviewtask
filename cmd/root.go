@@ -123,6 +123,8 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
+		timeoutTimer := time.NewTimer(3 * time.Second)
+		defer timeoutTimer.Stop()
 		sigCount := 0
 		for range signalCh {
 			sigCount++
@@ -132,7 +134,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 				// Wait for graceful shutdown with timeout
 				go func() {
-					time.Sleep(3 * time.Second)
+					<-timeoutTimer.C
 					if sigCount == 1 {
 						// If still only one signal after 3 seconds, force exit
 						fmt.Println("\nForcing exit...")
@@ -140,6 +142,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 					}
 				}()
 			} else {
+				timeoutTimer.Stop()
 				// Second signal: force immediate exit
 				fmt.Println("\nForce terminating...")
 				os.Exit(1)
