@@ -11,7 +11,7 @@ func TestTrackerTimeoutLogic(t *testing.T) {
 	// Test the timeout mechanism logic
 	timeout := 500 * time.Millisecond
 	start := time.Now()
-	
+
 	// Simulate waiting with timeout
 	select {
 	case <-time.After(timeout):
@@ -19,9 +19,9 @@ func TestTrackerTimeoutLogic(t *testing.T) {
 	case <-time.After(1 * time.Second):
 		t.Error("Test timeout exceeded expected timeout")
 	}
-	
+
 	duration := time.Since(start)
-	
+
 	// Should complete close to the timeout duration
 	if duration < timeout || duration > timeout+100*time.Millisecond {
 		t.Errorf("Timeout duration unexpected: got %v, expected around %v", duration, timeout)
@@ -32,24 +32,24 @@ func TestTrackerTimeoutLogic(t *testing.T) {
 func TestTrackerNonTTYBehavior(t *testing.T) {
 	// Test that non-TTY tracker behaves correctly
 	tracker := NewTracker()
-	
+
 	// Force it to think it's not a TTY
 	tracker.isTTY = false
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	
+
 	// Start should return immediately for non-TTY
 	err := tracker.Start(ctx)
 	if err != nil {
 		t.Errorf("Start failed in non-TTY mode: %v", err)
 	}
-	
+
 	// Stop should also return immediately
 	start := time.Now()
 	tracker.Stop()
 	duration := time.Since(start)
-	
+
 	// Should be very fast for non-TTY
 	if duration > 10*time.Millisecond {
 		t.Errorf("Non-TTY stop took too long: %v", duration)
@@ -60,7 +60,7 @@ func TestTrackerNonTTYBehavior(t *testing.T) {
 func TestContextCancellationWithTimeout(t *testing.T) {
 	// Simulate the timeout goroutine from cmd/root.go
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	timeoutTriggered := false
 	sigCount := 1
 
@@ -116,10 +116,10 @@ func TestInterruptedFlag(t *testing.T) {
 // TestForceExitBehavior tests the force exit logic
 func TestForceExitBehavior(t *testing.T) {
 	// This test verifies the logic without actually calling os.Exit()
-	
+
 	tests := []struct {
-		name          string
-		interrupted   bool
+		name            string
+		interrupted     bool
 		shouldForceExit bool
 	}{
 		{
@@ -219,17 +219,17 @@ func BenchmarkStopPerformance(b *testing.B) {
 		tracker := NewTracker()
 		// Force non-TTY for consistent benchmarking
 		tracker.isTTY = false
-		
+
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		tracker.Start(ctx)
-		
+
 		start := time.Now()
 		tracker.Stop()
 		duration := time.Since(start)
-		
+
 		cancel()
-		
+
 		b.Logf("Stop took %v", duration)
 	}
 }

@@ -121,7 +121,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Set up signal handling for graceful shutdown
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
-	
+
 	go func() {
 		sigCount := 0
 		for range signalCh {
@@ -129,7 +129,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 			if sigCount == 1 {
 				// First signal: try graceful cancellation
 				cancel()
-				
+
 				// Wait for graceful shutdown with timeout
 				go func() {
 					time.Sleep(3 * time.Second)

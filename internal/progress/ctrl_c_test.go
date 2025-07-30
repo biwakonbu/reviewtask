@@ -126,7 +126,7 @@ func TestProgressTrackerCtrlCExit(t *testing.T) {
 	}
 
 	tracker := NewTracker()
-	
+
 	// Create a context that can be cancelled
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -208,7 +208,7 @@ func TestProgressModelMessageTypes(t *testing.T) {
 	progressModel := updatedModel.(Model)
 
 	if progressModel.width != 100 || progressModel.height != 50 {
-		t.Errorf("Window size not updated correctly: got %dx%d, want 100x50", 
+		t.Errorf("Window size not updated correctly: got %dx%d, want 100x50",
 			progressModel.width, progressModel.height)
 	}
 

@@ -43,7 +43,7 @@ func TestSignalHandling(t *testing.T) {
 			defer signal.Stop(signalCh)
 
 			cancelCalled := false
-			
+
 			// Simulate the signal handling goroutine
 			go func() {
 				sigCount := 0
@@ -53,7 +53,7 @@ func TestSignalHandling(t *testing.T) {
 						// First signal: try graceful cancellation
 						cancel()
 						cancelCalled = true
-						
+
 						// Wait for graceful shutdown with timeout
 						go func() {
 							time.Sleep(3 * time.Second)
@@ -104,7 +104,7 @@ func TestDoubleSignalHandling(t *testing.T) {
 	defer signal.Stop(signalCh)
 
 	forceExitCalled := false
-	
+
 	// Simulate the signal handling goroutine
 	go func() {
 		sigCount := 0
@@ -144,7 +144,7 @@ func TestDoubleSignalHandling(t *testing.T) {
 // TestContextPropagation tests that context cancellation propagates correctly
 func TestContextPropagation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Create a child context
 	childCtx, childCancel := context.WithCancel(ctx)
 	defer childCancel()

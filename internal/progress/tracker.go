@@ -67,7 +67,7 @@ func (t *Tracker) Start(ctx context.Context) error {
 			})
 		}
 		close(t.done)
-		
+
 		// Check if user interrupted with Ctrl-C
 		if model, ok := finalModel.(Model); ok && model.interrupted {
 			// User pressed Ctrl-C, terminate the entire process immediately
@@ -92,7 +92,7 @@ func (t *Tracker) Stop() {
 
 	if t.program != nil {
 		t.program.Quit()
-		
+
 		// Wait for program to finish with timeout to prevent hanging
 		select {
 		case <-t.done:

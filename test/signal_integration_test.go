@@ -51,7 +51,7 @@ func TestFetchCommandCtrlCHandling(t *testing.T) {
 			// Start the reviewtask fetch command
 			cmd := exec.CommandContext(ctx, binaryPath, "fetch")
 			cmd.Dir = getTestRepoDir(t)
-			
+
 			// Capture output for debugging
 			var stdout, stderr strings.Builder
 			cmd.Stdout = &stdout
@@ -104,7 +104,7 @@ func TestFetchCommandCtrlCHandling(t *testing.T) {
 			case <-time.After(tt.maxWaitTime):
 				// Process didn't exit in time - this is a failure
 				t.Error("Process did not exit within the expected time after signal")
-				
+
 				// Force kill the process
 				if cmd.Process != nil {
 					cmd.Process.Kill()
@@ -163,7 +163,7 @@ func TestDoubleCtrlCForceExit(t *testing.T) {
 	case err := <-done:
 		// Process should exit quickly with double Ctrl-C
 		t.Logf("Process exited after double Ctrl-C: %v", err)
-		
+
 		// Log output
 		if stdout.Len() > 0 {
 			t.Logf("Stdout: %s", stdout.String())
@@ -231,7 +231,7 @@ func TestCtrlCDuringDifferentPhases(t *testing.T) {
 			select {
 			case err := <-done:
 				t.Logf("Process exited during %s: %v", phase.name, err)
-				
+
 				// Verify output doesn't indicate hanging
 				output := stdout.String() + stderr.String()
 				if strings.Contains(output, "hang") || strings.Contains(output, "deadlock") {
@@ -357,7 +357,7 @@ func TestProcessCleanupAfterCtrlC(t *testing.T) {
 
 	// Verify the process is actually gone
 	time.Sleep(500 * time.Millisecond)
-	
+
 	// Try to signal the process - it should fail if the process is gone
 	process, err := os.FindProcess(originalPID)
 	if err == nil {
