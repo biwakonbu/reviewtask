@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,7 +72,7 @@ However, the current implementation works correctly for the intended CodeRabbit 
 	}
 
 	// Generate tasks
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 	// Verify results
 	assert.NoError(t, err, "GenerateTasks should not return an error")
@@ -127,7 +128,7 @@ func TestGenerateTasksWithBothReviewBodyAndInlineComments(t *testing.T) {
 	}
 
 	// Generate tasks
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 	// Verify results - should generate 2 tasks (1 from review body + 1 from inline comment)
 	assert.NoError(t, err, "GenerateTasks should not return an error")
@@ -192,7 +193,7 @@ func TestGenerateTasksWithEmptyReviewBody(t *testing.T) {
 	}
 
 	// Generate tasks
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 	// Verify results - should generate only 1 task from inline comment
 	assert.NoError(t, err, "GenerateTasks should not return an error")

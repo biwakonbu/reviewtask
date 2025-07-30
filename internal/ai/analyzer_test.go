@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -818,7 +819,7 @@ func TestGenerateTasksValidationModeUsesParallelProcessing(t *testing.T) {
 	}
 
 	// Generate tasks using parallel processing
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 	// Verify no errors and tasks were generated
 	if err != nil {
@@ -874,7 +875,7 @@ func TestGenerateTasksHandlesPromptSizeLimitGracefully(t *testing.T) {
 	}
 
 	// Generate tasks - should handle size error gracefully
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 	// With parallel processing, size errors should be rare/handled per comment
 	// But if they occur, we should get a meaningful error without excessive retries
@@ -929,7 +930,7 @@ func TestValidationModeParallelProcessingPerformance(t *testing.T) {
 
 	// Measure execution time
 	start := time.Now()
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 	duration := time.Since(start)
 
 	if err != nil {

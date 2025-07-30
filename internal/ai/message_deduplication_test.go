@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"strings"
@@ -71,7 +72,7 @@ func TestMessageDeduplicationBehavior(t *testing.T) {
 		}
 
 		// Test GenerateTasks - should show only one processing message
-		_, err := analyzer.GenerateTasks(reviews)
+		_, err := analyzer.GenerateTasks(context.Background(), reviews)
 
 		// Restore stdout
 		w.Close()

@@ -1,6 +1,7 @@
 package ai
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -156,7 +157,7 @@ Consider using a constant instead of magic number.
 			}
 
 			// Generate tasks
-			tasks, err := analyzer.GenerateTasks([]github.Review{review})
+			tasks, err := analyzer.GenerateTasks(context.Background(), []github.Review{review})
 			require.NoError(t, err)
 
 			// Verify task count
@@ -219,7 +220,7 @@ Consider improving this code.
 </details>`,
 	}
 
-	tasks, err := analyzer.GenerateTasks([]github.Review{review})
+	tasks, err := analyzer.GenerateTasks(context.Background(), []github.Review{review})
 	assert.NoError(t, err)
 	assert.NotEmpty(t, tasks, "Should extract tasks when valid JSON is present")
 }
@@ -258,7 +259,7 @@ Consider improving variable naming.
 </details>`,
 	}
 
-	_, err := analyzer.GenerateTasks([]github.Review{review})
+	_, err := analyzer.GenerateTasks(context.Background(), []github.Review{review})
 	require.NoError(t, err)
 
 	// Check the last input received by the mock client
@@ -300,7 +301,7 @@ func TestNitpickPriorityOverride(t *testing.T) {
 		Body:     "🧹 Consider improving variable naming",
 	}
 
-	tasks, err := analyzer.GenerateTasks([]github.Review{review})
+	tasks, err := analyzer.GenerateTasks(context.Background(), []github.Review{review})
 	require.NoError(t, err)
 	require.Len(t, tasks, 1)
 
