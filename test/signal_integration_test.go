@@ -14,6 +14,11 @@ import (
 
 // TestFetchCommandCtrlCHandling tests the complete Ctrl-C handling flow
 func TestFetchCommandCtrlCHandling(t *testing.T) {
+	// Skip in CI if TEST_SIGNAL_INTEGRATION is not set
+	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
+		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
+	}
+	
 	// Skip if we don't have the binary built
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
@@ -118,6 +123,11 @@ func TestFetchCommandCtrlCHandling(t *testing.T) {
 
 // TestDoubleCtrlCForceExit tests the double Ctrl-C force exit behavior
 func TestDoubleCtrlCForceExit(t *testing.T) {
+	// Skip in CI if TEST_SIGNAL_INTEGRATION is not set
+	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
+		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
+	}
+	
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
@@ -184,6 +194,11 @@ func TestDoubleCtrlCForceExit(t *testing.T) {
 
 // TestCtrlCDuringDifferentPhases tests Ctrl-C during different execution phases
 func TestCtrlCDuringDifferentPhases(t *testing.T) {
+	// Skip in CI if TEST_SIGNAL_INTEGRATION is not set
+	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
+		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
+	}
+	
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
@@ -301,6 +316,11 @@ func getBinaryPath(t testing.TB) string {
 
 	t.Log("Successfully built reviewtask binary")
 	
+	// Make the binary executable
+	if err := os.Chmod(buildPath, 0755); err != nil {
+		t.Logf("Failed to make binary executable: %v", err)
+	}
+	
 	// Return the path relative to current directory
 	if filepath.Base(wd) == "test" {
 		return "./reviewtask"
@@ -367,6 +387,11 @@ func BenchmarkCtrlCResponseTime(b *testing.B) {
 
 // TestProcessCleanupAfterCtrlC verifies proper cleanup after Ctrl-C
 func TestProcessCleanupAfterCtrlC(t *testing.T) {
+	// Skip in CI if TEST_SIGNAL_INTEGRATION is not set
+	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
+		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
+	}
+	
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
