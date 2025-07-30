@@ -43,6 +43,7 @@ func TestSignalHandling(t *testing.T) {
 			defer signal.Stop(signalCh)
 
 			cancelCalled := false
+			signalReceived := make(chan struct{})
 
 			// Simulate the signal handling goroutine
 			go func() {
@@ -53,10 +54,13 @@ func TestSignalHandling(t *testing.T) {
 						// First signal: try graceful cancellation
 						cancel()
 						cancelCalled = true
+						close(signalReceived)
 
 						// Wait for graceful shutdown with timeout
 						go func() {
-							time.Sleep(3 * time.Second)
+							timeout := time.NewTimer(3 * time.Second)
+							defer timeout.Stop()
+							<-timeout.C
 							if sigCount == 1 {
 								// This would be os.Exit(1) in real code
 								t.Log("Would force exit after timeout")
@@ -71,10 +75,7 @@ func TestSignalHandling(t *testing.T) {
 			}()
 
 			// Send the test signal
-			go func() {
-				time.Sleep(100 * time.Millisecond)
-				signalCh <- tt.signal
-			}()
+			signalCh <- tt.signal
 
 			// Wait for cancellation with timeout
 			select {
@@ -104,6 +105,8 @@ func TestDoubleSignalHandling(t *testing.T) {
 	defer signal.Stop(signalCh)
 
 	forceExitCalled := false
+	firstSignalReceived := make(chan struct{})
+	secondSignalReceived := make(chan struct{})
 
 	// Simulate the signal handling goroutine
 	go func() {
@@ -112,24 +115,26 @@ func TestDoubleSignalHandling(t *testing.T) {
 			sigCount++
 			if sigCount == 1 {
 				cancel()
+				close(firstSignalReceived)
 			} else {
 				// Second signal: force immediate exit
 				forceExitCalled = true
+				close(secondSignalReceived)
 				return
 			}
 		}
 	}()
 
 	// Send two signals rapidly
-	go func() {
-		time.Sleep(50 * time.Millisecond)
-		signalCh <- os.Interrupt
-		time.Sleep(10 * time.Millisecond)
-		signalCh <- os.Interrupt
-	}()
-
-	// Wait for processing
-	time.Sleep(200 * time.Millisecond)
+	signalCh <- os.Interrupt
+	
+	// Wait for first signal to be processed
+	<-firstSignalReceived
+	
+	signalCh <- os.Interrupt
+	
+	// Wait for second signal to be processed
+	<-secondSignalReceived
 
 	if !forceExitCalled {
 		t.Error("Expected force exit to be called after second signal")
