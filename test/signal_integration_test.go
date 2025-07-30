@@ -249,7 +249,7 @@ func TestCtrlCDuringDifferentPhases(t *testing.T) {
 }
 
 // getBinaryPath finds the reviewtask binary for testing
-func getBinaryPath(t *testing.T) string {
+func getBinaryPath(t testing.TB) string {
 	// Try current directory first
 	if _, err := os.Stat("./reviewtask"); err == nil {
 		return "./reviewtask"
@@ -271,7 +271,7 @@ func getBinaryPath(t *testing.T) string {
 }
 
 // getTestRepoDir returns a directory suitable for testing
-func getTestRepoDir(t *testing.T) string {
+func getTestRepoDir(t testing.TB) string {
 	// Use current working directory or a test directory
 	wd, err := os.Getwd()
 	if err != nil {
@@ -288,7 +288,7 @@ func getTestRepoDir(t *testing.T) string {
 
 // BenchmarkCtrlCResponseTime benchmarks how quickly Ctrl-C is handled
 func BenchmarkCtrlCResponseTime(b *testing.B) {
-	binaryPath := getBinaryPath(b.(*testing.T))
+	binaryPath := getBinaryPath(b)
 	if binaryPath == "" {
 		b.Skip("reviewtask binary not found")
 	}
@@ -299,7 +299,7 @@ func BenchmarkCtrlCResponseTime(b *testing.B) {
 		start := time.Now()
 
 		cmd := exec.Command(binaryPath, "fetch")
-		cmd.Dir = getTestRepoDir(b.(*testing.T))
+		cmd.Dir = getTestRepoDir(b)
 
 		err := cmd.Start()
 		if err != nil {
