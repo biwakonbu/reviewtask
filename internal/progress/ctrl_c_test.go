@@ -212,7 +212,8 @@ func TestProgressModelMessageTypes(t *testing.T) {
 	}
 
 	// Test progress message
-	progressMsg := UpdateProgress("github", 1, 2)
+	progressCmd := UpdateProgress("github", 1, 2)
+	progressMsg := progressCmd()
 	updatedModel, _ = model.Update(progressMsg)
 	progressModel = updatedModel.(Model)
 
@@ -221,7 +222,8 @@ func TestProgressModelMessageTypes(t *testing.T) {
 	}
 
 	// Test status message
-	statusMsg := UpdateStatus("analysis", "completed")
+	statusCmd := UpdateStatus("analysis", "completed")
+	statusMsg := statusCmd()
 	updatedModel, _ = model.Update(statusMsg)
 	progressModel = updatedModel.(Model)
 
@@ -232,7 +234,8 @@ func TestProgressModelMessageTypes(t *testing.T) {
 	}
 
 	// Test error message
-	errorMsg := AddError("test error")
+	errorCmd := AddError("test error")
+	errorMsg := errorCmd()
 	updatedModel, _ = model.Update(errorMsg)
 	progressModel = updatedModel.(Model)
 
