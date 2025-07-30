@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // RealClaudeClient implements ClaudeClient using actual Claude Code CLI
@@ -134,17 +135,20 @@ func resolveClaudeAlias() (string, error) {
 	shellName := filepath.Base(shell)
 
 	// Try to get alias definition using shell built-in alias command
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	var cmd *exec.Cmd
 	switch shellName {
 	case "bash", "zsh":
 		// Use type command which is more reliable for alias resolution
-		cmd = exec.Command(shell, "-i", "-c", "type -p claude 2>/dev/null || alias claude 2>/dev/null | grep -oE \"='[^']*'|=\\\"[^\\\"]*\\\"|=[^[:space:]]+\" | sed 's/^=//' | sed 's/^[\"'\"'\"']//;s/[\"'\"'\"']$//'")
+		cmd = exec.CommandContext(ctx, shell, "-i", "-c", "type -p claude 2>/dev/null || alias claude 2>/dev/null | grep -oE \"='[^']*'|=\\\"[^\\\"]*\\\"|=[^[:space:]]+\" | sed 's/^=//' | sed 's/^[\"'\"'\"']//;s/[\"'\"'\"']$//'")
 	case "fish":
 		// Fish shell has different syntax
-		cmd = exec.Command(shell, "-c", "functions -D claude 2>/dev/null && which claude 2>/dev/null")
+		cmd = exec.CommandContext(ctx, shell, "-c", "functions -D claude 2>/dev/null && which claude 2>/dev/null")
 	default:
 		// For other shells, try generic approach
-		cmd = exec.Command(shell, "-i", "-c", "type -p claude 2>/dev/null")
+		cmd = exec.CommandContext(ctx, shell, "-i", "-c", "type -p claude 2>/dev/null")
 	}
 
 	output, err := cmd.Output()
@@ -290,6 +294,9 @@ func searchAliasInFile(filepath string) (string, bool) {
 
 // isValidClaudeCLI verifies that the found executable is actually Claude CLI
 func isValidClaudeCLI(path string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
 	// Handle interpreter-based commands (e.g., "node /path/to/claude.js")
 	parts := strings.Fields(path)
 	var cmd *exec.Cmd
@@ -298,10 +305,10 @@ func isValidClaudeCLI(path string) bool {
 		// Command with interpreter
 		interpreter := parts[0]
 		scriptAndArgs := append(parts[1:], "--version")
-		cmd = exec.Command(interpreter, scriptAndArgs...)
+		cmd = exec.CommandContext(ctx, interpreter, scriptAndArgs...)
 	} else {
 		// Direct command
-		cmd = exec.Command(path, "--version")
+		cmd = exec.CommandContext(ctx, path, "--version")
 	}
 
 	output, err := cmd.CombinedOutput()
@@ -397,7 +404,10 @@ func isReviewtaskManagedSymlink(target string) bool {
 
 // getNpmPrefix gets the npm global installation prefix
 func getNpmPrefix() string {
-	cmd := exec.Command("npm", "config", "get", "prefix")
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "npm", "config", "get", "prefix")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""

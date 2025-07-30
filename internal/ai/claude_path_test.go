@@ -74,7 +74,22 @@ func TestFindClaudeCLI(t *testing.T) {
 			pathSetup: func() (cleanup func()) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
-				return func() {}
+
+				// Also temporarily override HOME to avoid finding real installations
+				originalHome := os.Getenv("HOME")
+				originalUserProfile := os.Getenv("USERPROFILE")
+				tempHome, err := os.MkdirTemp("", "claude-test-home")
+				if err != nil {
+					t.Fatalf("Failed to create temp home: %v", err)
+				}
+				os.Setenv("HOME", tempHome)
+				os.Setenv("USERPROFILE", tempHome)
+
+				return func() {
+					os.Setenv("HOME", originalHome)
+					os.Setenv("USERPROFILE", originalUserProfile)
+					os.RemoveAll(tempHome)
+				}
 			},
 			expectedError:  true,
 			expectedToFind: false,

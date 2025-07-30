@@ -62,8 +62,14 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
 
-				// Create mock claude in volta location
-				claudeDir := filepath.Join(homeDir, ".volta", "bin")
+				// Use a temporary directory to simulate volta location
+				tempDir, err := os.MkdirTemp("", "volta-test")
+				if err != nil {
+					t.Fatalf("Failed to create temp dir: %v", err)
+				}
+
+				// Create mock claude in temp volta location
+				claudeDir := filepath.Join(tempDir, ".volta", "bin")
 				if err := os.MkdirAll(claudeDir, 0755); err != nil {
 					t.Fatalf("Failed to create volta dir: %v", err)
 				}
@@ -73,8 +79,16 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 					t.Fatalf("Failed to create mock claude: %v", err)
 				}
 
+				// Temporarily override HOME to point to our temp directory
+				originalHome := os.Getenv("HOME")
+				originalUserProfile := os.Getenv("USERPROFILE")
+				os.Setenv("HOME", tempDir)
+				os.Setenv("USERPROFILE", tempDir)
+
 				return func() {
-					os.RemoveAll(filepath.Join(homeDir, ".volta"))
+					os.Setenv("HOME", originalHome)
+					os.Setenv("USERPROFILE", originalUserProfile)
+					os.RemoveAll(tempDir)
 					// Cleanup potential symlinks
 					symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
 					os.Remove(symlinkPath)
@@ -88,7 +102,21 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 				// Remove claude from PATH and don't create anywhere
 				os.Setenv("PATH", "/nonexistent")
 
-				return func() {}
+				// Override HOME to avoid finding installations
+				originalHome := os.Getenv("HOME")
+				originalUserProfile := os.Getenv("USERPROFILE")
+				tempHome, err := os.MkdirTemp("", "no-claude-test")
+				if err != nil {
+					t.Fatalf("Failed to create temp home: %v", err)
+				}
+				os.Setenv("HOME", tempHome)
+				os.Setenv("USERPROFILE", tempHome)
+
+				return func() {
+					os.Setenv("HOME", originalHome)
+					os.Setenv("USERPROFILE", originalUserProfile)
+					os.RemoveAll(tempHome)
+				}
 			},
 			expectSuccess: false,
 		},
@@ -111,7 +139,12 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 				}
 
 				// Verify symlink was created if needed
-				symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
+				// Get the actual home directory that was used (might be temp)
+				actualHome := os.Getenv("HOME")
+				if actualHome == "" {
+					actualHome = homeDir
+				}
+				symlinkPath := filepath.Join(actualHome, ".local/bin", "claude")
 				// Symlink should exist for all successful cases since we set PATH to /nonexistent
 				if _, err := os.Lstat(symlinkPath); os.IsNotExist(err) {
 					t.Errorf("Expected symlink to exist at %s", symlinkPath)
@@ -320,6 +353,37 @@ func TestErrorHandlingIntegration(t *testing.T) {
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
 
+	// Also temporarily move any existing Claude installations
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	// Temporarily rename common Claude locations to ensure none are found
+	renamedPaths := make(map[string]string)
+	commonPaths := []string{
+		filepath.Join(homeDir, ".claude"),
+		filepath.Join(homeDir, ".npm-global"),
+		filepath.Join(homeDir, ".volta"),
+		filepath.Join(homeDir, ".local/bin/claude"),
+	}
+
+	for _, path := range commonPaths {
+		if _, err := os.Stat(path); err == nil {
+			tempPath := path + ".test-backup"
+			if err := os.Rename(path, tempPath); err == nil {
+				renamedPaths[path] = tempPath
+			}
+		}
+	}
+
+	// Restore renamed paths on cleanup
+	defer func() {
+		for original, backup := range renamedPaths {
+			os.Rename(backup, original)
+		}
+	}()
+
 	// Test error handling when no Claude CLI is found
 	os.Setenv("PATH", "/nonexistent")
 
@@ -333,9 +397,7 @@ func TestErrorHandlingIntegration(t *testing.T) {
 
 	// Verify error message is helpful
 	expectedErrSubstring := "claude command not found"
-	if err != nil && err.Error() != "" {
-		if len(err.Error()) < len(expectedErrSubstring) {
-			t.Logf("Error message: %s", err.Error())
-		}
+	if err != nil && !strings.Contains(err.Error(), expectedErrSubstring) {
+		t.Logf("Error message: %s", err.Error())
 	}
 }
