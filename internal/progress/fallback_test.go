@@ -8,23 +8,39 @@ import (
 
 // TestTrackerTimeoutLogic tests the timeout logic without full integration
 func TestTrackerTimeoutLogic(t *testing.T) {
-	// Test the timeout mechanism logic
+	// Create a tracker and test its actual timeout behavior
+	tracker := NewTracker()
+	
+	// Force non-TTY mode for consistent testing
+	tracker.isTTY = false
+	
 	timeout := 500 * time.Millisecond
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	
+	// Start the tracker
 	start := time.Now()
-
-	// Simulate waiting with timeout
-	select {
-	case <-time.After(timeout):
-		// Timeout occurred as expected
-	case <-time.After(1 * time.Second):
-		t.Error("Test timeout exceeded expected timeout")
+	err := tracker.Start(ctx)
+	if err != nil {
+		t.Fatalf("Failed to start tracker: %v", err)
 	}
-
+	
+	// Wait for context to timeout
+	<-ctx.Done()
+	
+	// Stop the tracker
+	tracker.Stop()
+	
 	duration := time.Since(start)
-
-	// Should complete close to the timeout duration
+	
+	// Verify the timeout occurred within expected bounds
 	if duration < timeout || duration > timeout+100*time.Millisecond {
 		t.Errorf("Timeout duration unexpected: got %v, expected around %v", duration, timeout)
+	}
+	
+	// Verify context was cancelled due to timeout
+	if ctx.Err() != context.DeadlineExceeded {
+		t.Errorf("Expected context.DeadlineExceeded, got: %v", ctx.Err())
 	}
 }
 
