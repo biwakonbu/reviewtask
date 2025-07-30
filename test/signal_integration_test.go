@@ -287,6 +287,8 @@ func getBinaryPath(t testing.TB) string {
 
 // getTestRepoDir returns a directory suitable for testing
 func getTestRepoDir(t testing.TB) string {
+	t.Helper()
+	
 	// Use current working directory or a test directory
 	wd, err := os.Getwd()
 	if err != nil {
