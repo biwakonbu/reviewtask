@@ -301,31 +301,53 @@ func getBinaryPath(t testing.TB) string {
 		parentDir = wd
 	}
 	
-	// Build in the test directory
-	buildPath := filepath.Join(parentDir, "test", "reviewtask")
-	cmd := exec.Command("go", "build", "-o", buildPath, ".")
-	cmd.Dir = parentDir
-
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Logf("Failed to build reviewtask: %v", err)
-		if len(output) > 0 {
-			t.Logf("Build output: %s", output)
+	// Build the binary in the current test directory
+	buildPath := "./reviewtask"
+	if filepath.Base(wd) == "test" {
+		// We're in the test directory, build to current directory
+		cmd := exec.Command("go", "build", "-o", buildPath, "..")
+		cmd.Dir = wd
+		
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Logf("Failed to build reviewtask: %v", err)
+			if len(output) > 0 {
+				t.Logf("Build output: %s", output)
+			}
+			return ""
 		}
-		return ""
+	} else {
+		// We're in the parent directory
+		buildPath = "./test/reviewtask"
+		cmd := exec.Command("go", "build", "-o", buildPath, ".")
+		cmd.Dir = parentDir
+		
+		if output, err := cmd.CombinedOutput(); err != nil {
+			t.Logf("Failed to build reviewtask: %v", err)
+			if len(output) > 0 {
+				t.Logf("Build output: %s", output)
+			}
+			return ""
+		}
 	}
 
 	t.Log("Successfully built reviewtask binary")
 	
 	// Make the binary executable
-	if err := os.Chmod(buildPath, 0755); err != nil {
+	absPath, _ := filepath.Abs(buildPath)
+	if err := os.Chmod(absPath, 0755); err != nil {
 		t.Logf("Failed to make binary executable: %v", err)
 	}
 	
-	// Return the path relative to current directory
-	if filepath.Base(wd) == "test" {
-		return "./reviewtask"
+	// Log the built binary location
+	t.Logf("Built binary at: %s (absolute: %s)", buildPath, absPath)
+	
+	// Verify the file exists
+	if _, err := os.Stat(buildPath); err != nil {
+		t.Logf("WARNING: Built binary not found at %s: %v", buildPath, err)
 	}
-	return "./test/reviewtask"
+	
+	// Return the built path
+	return buildPath
 }
 
 // getTestRepoDir returns a directory suitable for testing
