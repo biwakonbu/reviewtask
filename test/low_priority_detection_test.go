@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"testing"
 
 	"reviewtask/internal/ai"
@@ -130,7 +131,7 @@ func TestLowPriorityDetectionE2E(t *testing.T) {
 	}
 
 	// Generate tasks from reviews
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 	if err != nil {
 		t.Fatalf("Failed to generate tasks: %v", err)
 	}
@@ -218,7 +219,7 @@ func TestConfigurationBackwardCompatibility(t *testing.T) {
 	}
 
 	// Generate tasks
-	tasks, err := analyzer.GenerateTasks(reviews)
+	tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 	if err != nil {
 		t.Fatalf("Failed to generate tasks: %v", err)
 	}
@@ -368,7 +369,7 @@ func TestComplexCommentPatterns(t *testing.T) {
 				},
 			}
 
-			tasks, err := analyzer.GenerateTasks(reviews)
+			tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 			if err != nil {
 				t.Fatalf("Failed to generate tasks: %v", err)
 			}

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
@@ -50,7 +51,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		}
 
 		// Generate initial tasks
-		tasks1, err := analyzer.GenerateTasks(reviews)
+		tasks1, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
@@ -63,7 +64,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		reviews[0].Comments[0].Body = "Please add input validation for the username field."
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasks(reviews)
+		tasks2, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after edit: %v", err)
 		}
@@ -97,7 +98,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 			},
 		}
 
-		tasks1, err := analyzer.GenerateTasks(reviews)
+		tasks1, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
@@ -109,7 +110,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasks(reviews)
+		tasks2, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after semantic change: %v", err)
 		}
@@ -148,7 +149,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 			},
 		}
 
-		_, err := analyzer.GenerateTasks(reviews)
+		_, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate initial tasks: %v", err)
 		}
@@ -159,7 +160,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		reviews[0].Comments = reviews[0].Comments[:1]
 
 		// Generate tasks again
-		tasks2, err := analyzer.GenerateTasks(reviews)
+		tasks2, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks after deletion: %v", err)
 		}
@@ -202,7 +203,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 		}
 
 		// Generate tasks - should create multiple tasks despite max_tasks_per_comment=2
-		tasks, err := analyzer.GenerateTasks(reviews)
+		tasks, err := analyzer.GenerateTasks(context.Background(), reviews)
 		if err != nil {
 			t.Fatalf("Failed to generate tasks: %v", err)
 		}

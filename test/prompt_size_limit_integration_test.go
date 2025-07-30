@@ -61,7 +61,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		analyzerConsistent := ai.NewAnalyzerWithClient(cfgConsistent, mockClient)
 
 		// Generate tasks using parallel processing (validation enabled for consistent behavior)
-		tasks, err := analyzerConsistent.GenerateTasks([]github.Review{largeReview})
+		tasks, err := analyzerConsistent.GenerateTasks(context.Background(), []github.Review{largeReview})
 
 		// With size limits in test, may get errors - that's OK for this test
 		// The key is that parallel processing handles it gracefully without batch failures
@@ -105,7 +105,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 		smallReview := createLargeReviewForTesting(1) // Single comment
 
 		// Generate tasks - should fail gracefully without excessive retries
-		_, err := analyzerWithSizeErrors.GenerateTasks([]github.Review{smallReview})
+		_, err := analyzerWithSizeErrors.GenerateTasks(context.Background(), []github.Review{smallReview})
 
 		// Should handle size errors gracefully
 		if err == nil {
@@ -149,7 +149,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 		}
 
 		analyzer := ai.NewAnalyzerWithClient(cfgNoValidation, mockClient)
-		tasks, err := analyzer.GenerateTasks([]github.Review{testReview})
+		tasks, err := analyzer.GenerateTasks(context.Background(), []github.Review{testReview})
 
 		if err != nil {
 			t.Fatalf("GenerateTasks failed: %v", err)
@@ -184,7 +184,7 @@ func TestValidationModeUsesParallelProcessingIntegration(t *testing.T) {
 		}
 
 		analyzer := ai.NewAnalyzerWithClient(cfgConsistent, mockClient)
-		tasks, err := analyzer.GenerateTasks([]github.Review{testReview})
+		tasks, err := analyzer.GenerateTasks(context.Background(), []github.Review{testReview})
 
 		if err != nil {
 			t.Fatalf("GenerateTasks failed: %v", err)
