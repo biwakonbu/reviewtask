@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -83,7 +84,8 @@ func TestFetchCommandCtrlCHandling(t *testing.T) {
 				// Process exited
 				if err != nil {
 					// Check if it's an expected signal-related exit
-					if exitError, ok := err.(*exec.ExitError); ok {
+					var exitError *exec.ExitError
+					if errors.As(err, &exitError) {
 						// Signal-related exits are expected
 						t.Logf("Process exited with signal: %v", exitError)
 					} else {
