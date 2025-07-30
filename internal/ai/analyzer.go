@@ -86,7 +86,7 @@ func NewTaskValidator(cfg *config.Config) *TaskValidator {
 	}
 }
 
-func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error) {
+func (a *Analyzer) GenerateTasks(ctx context.Context, reviews []github.Review) ([]storage.Task, error) {
 	// Clear validation feedback to ensure clean state for each PR analysis
 	a.clearValidationFeedback()
 
@@ -151,14 +151,14 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 		printf("  🐛 Using validation-enabled path with parallel processing\n")
 		// Use parallel processing for validation mode to handle large PRs
-		return a.generateTasksParallelWithValidation(allComments)
+		return a.generateTasksParallelWithValidation(ctx, allComments)
 	}
 
-	return a.generateTasksParallel(allComments)
+	return a.generateTasksParallel(ctx, allComments)
 }
 
 // GenerateTasksWithCache generates tasks with MD5-based change detection using existing data
-func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
+func (a *Analyzer) GenerateTasksWithCache(ctx context.Context, reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
 	// Clear validation feedback to ensure clean state for each PR analysis
 	a.clearValidationFeedback()
 
@@ -270,9 +270,9 @@ func (a *Analyzer) GenerateTasksWithCache(reviews []github.Review, prNumber int,
 
 		// Generate tasks only for changed comments
 		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-			newTasks, err = a.generateTasksParallelWithValidation(changedCommentsCtx)
+			newTasks, err = a.generateTasksParallelWithValidation(ctx, changedCommentsCtx)
 		} else {
-			newTasks, err = a.generateTasksParallel(changedCommentsCtx)
+			newTasks, err = a.generateTasksParallel(ctx, changedCommentsCtx)
 		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate tasks: %w", err)
@@ -309,7 +309,7 @@ type CommentContext struct {
 	SourceReview github.Review
 }
 
-func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]storage.Task, error) {
+func (a *Analyzer) GenerateTasksWithValidation(ctx context.Context, reviews []github.Review) ([]storage.Task, error) {
 	validator := NewTaskValidator(a.config)
 	var bestResult *ValidationResult
 	var bestTasks []TaskRequest
@@ -319,7 +319,7 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 		printf("🔄 Task generation attempt %d/%d...\n", attempt, validator.maxRetries)
 
 		// Generate tasks
-		tasks, err := a.callClaudeCodeWithRetry(reviews, attempt)
+		tasks, err := a.callClaudeCodeWithRetry(ctx, reviews, attempt)
 		if err != nil {
 			printf("  ❌ Generation failed: %v\n", err)
 			// If it's a prompt size error, no point in retrying
@@ -385,10 +385,10 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 	return nil, fmt.Errorf("failed to generate valid tasks after %d attempts", validator.maxRetries)
 }
 
-func (a *Analyzer) generateTasksLegacy(reviews []github.Review) ([]storage.Task, error) {
+func (a *Analyzer) generateTasksLegacy(ctx context.Context, reviews []github.Review) ([]storage.Task, error) {
 	// Legacy implementation without validation
 	prompt := a.buildAnalysisPrompt(reviews)
-	tasks, err := a.callClaudeCode(prompt)
+	tasks, err := a.callClaudeCode(ctx, prompt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Claude Code: %w", err)
 	}
@@ -481,7 +481,7 @@ Task Generation Guidelines:
 	return prompt
 }
 
-func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
+func (a *Analyzer) callClaudeCode(ctx context.Context, prompt string) ([]TaskRequest, error) {
 	// Check for very large prompts that might exceed system limits
 	const maxPromptSize = 32 * 1024 // 32KB limit for safety
 	if len(prompt) > maxPromptSize {
@@ -503,7 +503,6 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		printf("  🐛 Prompt size: %d characters\n", len(prompt))
 	}
 
-	ctx := context.Background()
 	output, err := client.Execute(ctx, prompt, "json")
 	if err != nil {
 		return nil, NewClaudeAPIError("execution failed", err)
@@ -725,7 +724,7 @@ func (a *Analyzer) hasStructuredNitpickContent(lowerBody string) bool {
 	return false
 }
 
-func (a *Analyzer) callClaudeCodeWithRetry(reviews []github.Review, attempt int) ([]TaskRequest, error) {
+func (a *Analyzer) callClaudeCodeWithRetry(ctx context.Context, reviews []github.Review, attempt int) ([]TaskRequest, error) {
 	var prompt string
 	if attempt == 1 {
 		prompt = a.buildAnalysisPrompt(reviews)
@@ -733,7 +732,7 @@ func (a *Analyzer) callClaudeCodeWithRetry(reviews []github.Review, attempt int)
 		prompt = a.buildAnalysisPromptWithFeedback(reviews)
 	}
 
-	return a.callClaudeCode(prompt)
+	return a.callClaudeCode(ctx, prompt)
 }
 
 func (a *Analyzer) buildAnalysisPromptWithFeedback(reviews []github.Review) string {
@@ -766,7 +765,7 @@ func (a *Analyzer) clearValidationFeedback() {
 }
 
 // processCommentsParallel handles common parallel processing logic
-func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
+func (a *Analyzer) processCommentsParallel(ctx context.Context, comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
 	type commentResult struct {
 		tasks []TaskRequest
 		err   error
@@ -779,10 +778,22 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 	// Process each comment in parallel
 	for i, commentCtx := range comments {
 		wg.Add(1)
-		go func(index int, ctx CommentContext) {
+		go func(index int, commentCtx CommentContext) {
 			defer wg.Done()
 
-			tasks, err := processor(ctx)
+			// Check context cancellation before processing
+			select {
+			case <-ctx.Done():
+				results <- commentResult{
+					tasks: nil,
+					err:   ctx.Err(),
+					index: index,
+				}
+				return
+			default:
+			}
+
+			tasks, err := processor(commentCtx)
 			results <- commentResult{
 				tasks: tasks,
 				err:   err,
@@ -797,17 +808,30 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 		close(results)
 	}()
 
-	// Collect results
+	// Collect results with context cancellation support
 	var allTasks []TaskRequest
 	var errors []error
 
-	for result := range results {
-		if result.err != nil {
-			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
-		} else {
-			allTasks = append(allTasks, result.tasks...)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case result, ok := <-results:
+			if !ok {
+				goto done
+			}
+			if result.err != nil {
+				// Check if error is context cancellation
+				if result.err == context.Canceled {
+					return nil, result.err
+				}
+				errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
+			} else {
+				allTasks = append(allTasks, result.tasks...)
+			}
 		}
 	}
+done:
 
 	// Report errors but continue if we have some successful results
 	if len(errors) > 0 {
@@ -834,9 +858,9 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 }
 
 // generateTasksParallel processes comments in parallel using goroutines
-func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) generateTasksParallel(ctx context.Context, comments []CommentContext) ([]storage.Task, error) {
 	printf("Processing %d comments in parallel...\n", len(comments))
-	tasks, err := a.processCommentsParallel(comments, a.processComment)
+	tasks, err := a.processCommentsParallel(ctx, comments, a.processComment)
 	if err == nil {
 		printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
 	}
@@ -850,7 +874,8 @@ func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
 	}
 
 	prompt := a.buildCommentPrompt(ctx)
-	return a.callClaudeCode(prompt)
+	// Use background context for now - this needs to be passed from caller
+	return a.callClaudeCode(context.Background(), prompt)
 }
 
 // processCommentWithValidation validates individual comment JSON responses
@@ -863,7 +888,7 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		}
 
 		prompt := a.buildCommentPrompt(ctx)
-		tasks, err := a.callClaudeCode(prompt)
+		tasks, err := a.callClaudeCode(context.Background(), prompt)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
 				printf("    ❌ Comment %d generation failed: %v\n", ctx.Comment.ID, err)
@@ -1039,8 +1064,8 @@ func (a *Analyzer) findClaudeCommand() (string, error) {
 }
 
 // generateTasksParallelWithValidation processes comments in parallel with validation enabled
-func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
-	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
+func (a *Analyzer) generateTasksParallelWithValidation(ctx context.Context, comments []CommentContext) ([]storage.Task, error) {
+	tasks, err := a.processCommentsParallel(ctx, comments, a.processCommentWithValidation)
 	if err == nil {
 		// Tasks are already deduplicated in processCommentsParallel
 		printf("✓ Generated %d tasks from %d comments with validation\n", len(tasks), len(comments))

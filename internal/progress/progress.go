@@ -35,6 +35,7 @@ type Model struct {
 	stats        Statistics
 	errorQueue   []string
 	maxErrors    int
+	interrupted  bool // Track if user pressed Ctrl-C
 }
 
 // Statistics represents real-time statistics
@@ -150,6 +151,15 @@ func (m Model) Init() tea.Cmd {
 // Update handles messages
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c":
+			// Mark as user interrupted and quit
+			m.interrupted = true
+			return m, tea.Quit
+		}
+		return m, nil
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height

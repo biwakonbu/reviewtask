@@ -444,7 +444,14 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	// Remove process group setting to allow proper signal handling
+	// cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
 	if err := cmd.Run(); err != nil {
+		// Check if it's a context cancellation
+		if ctx.Err() == context.Canceled {
+			return "", ctx.Err()
+		}
 		return "", fmt.Errorf("claude execution failed: %w, stderr: %s", err, stderr.String())
 	}
 

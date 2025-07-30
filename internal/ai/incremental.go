@@ -20,6 +20,7 @@ type IncrementalOptions struct {
 	ShowProgress    bool
 	OnProgress      func(processed, total int)
 	OnBatchComplete func(batchTasks []storage.Task)
+	Context         context.Context // Main context for cancellation handling
 }
 
 // GenerateTasksIncremental processes reviews incrementally with checkpointing
@@ -55,7 +56,14 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	}
 
 	// Process in batches with timeout and checkpointing
-	ctx, cancel := context.WithTimeout(context.Background(), opts.MaxTimeout)
+	// Use provided context if available, otherwise create new one
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if opts.Context != nil {
+		ctx, cancel = context.WithTimeout(opts.Context, opts.MaxTimeout)
+	} else {
+		ctx, cancel = context.WithTimeout(context.Background(), opts.MaxTimeout)
+	}
 	defer cancel()
 
 	allTasks := append([]storage.Task{}, checkpoint.PartialTasks...)
@@ -83,8 +91,8 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		// No need for batch-level progress messages since we have real-time progress
 
-		// Process batch
-		batchTasks, err := a.processBatch(batch, opts)
+		// Process batch with context
+		batchTasks, err := a.processBatch(ctx, batch, opts)
 		if err != nil {
 			// Save checkpoint before continuing
 			checkpoint.PartialTasks = allTasks
@@ -254,28 +262,33 @@ func (a *Analyzer) filterProcessedComments(comments []CommentContext, checkpoint
 }
 
 // processBatch processes a batch of comments with optimizations
-func (a *Analyzer) processBatch(batch []CommentContext, opts IncrementalOptions) ([]storage.Task, error) {
+func (a *Analyzer) processBatch(ctx context.Context, batch []CommentContext, opts IncrementalOptions) ([]storage.Task, error) {
 	if len(batch) == 0 {
 		return []storage.Task{}, nil
+	}
+
+	// Check context cancellation before processing
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
 
 	// Use fast mode optimizations
 	if opts.FastMode {
 		// Process with reduced validation and simpler prompts
-		return a.processBatchFastMode(batch)
+		return a.processBatchFastMode(ctx, batch)
 	}
 
 	// Check if validation is enabled
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		return a.processBatchWithValidation(batch)
+		return a.processBatchWithValidation(ctx, batch)
 	}
 
 	// Standard parallel processing
-	return a.processBatchStandard(batch)
+	return a.processBatchStandard(ctx, batch)
 }
 
 // processBatchStandard processes batch with standard parallel processing
-func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) processBatchStandard(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
 	type commentResult struct {
 		tasks []TaskRequest
 		err   error
@@ -333,12 +346,12 @@ func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task,
 }
 
 // processBatchWithValidation processes batch with validation enabled
-func (a *Analyzer) processBatchWithValidation(batch []CommentContext) ([]storage.Task, error) {
-	return a.processCommentsParallel(batch, a.processCommentWithValidation)
+func (a *Analyzer) processBatchWithValidation(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
+	return a.processCommentsParallel(ctx, batch, a.processCommentWithValidation)
 }
 
 // processBatchFastMode processes batch with fast mode optimizations
-func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) processBatchFastMode(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
 	// In fast mode, we skip validation and use simpler prompts
 	var allTasks []TaskRequest
 
@@ -351,7 +364,7 @@ func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task,
 
 		// Use simplified prompt for speed
 		prompt := a.buildFastModePrompt(commentCtx)
-		tasks, err := a.callClaudeCode(prompt)
+		tasks, err := a.callClaudeCode(ctx, prompt)
 		if err != nil {
 			printf("  ⚠️  Fast mode processing error: %v\n", err)
 			continue

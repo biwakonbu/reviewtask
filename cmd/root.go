@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -112,7 +114,38 @@ func init() {
 }
 
 func runReviewTask(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
+	// Create context with signal cancellation for Ctrl-C handling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Set up signal handling for graceful shutdown
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
+	
+	go func() {
+		sigCount := 0
+		for range signalCh {
+			sigCount++
+			if sigCount == 1 {
+				// First signal: try graceful cancellation
+				cancel()
+				
+				// Wait for graceful shutdown with timeout
+				go func() {
+					time.Sleep(3 * time.Second)
+					if sigCount == 1 {
+						// If still only one signal after 3 seconds, force exit
+						fmt.Println("\nForcing exit...")
+						os.Exit(1)
+					}
+				}()
+			} else {
+				// Second signal: force immediate exit
+				fmt.Println("\nForce terminating...")
+				os.Exit(1)
+			}
+		}
+	}()
 
 	// Check if initialization is needed
 	if setup.ShouldPromptInit() {
@@ -169,6 +202,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	if err := storageManager.CleanupClosedPRs(func(prNumber int) (bool, error) {
 		return ghClient.IsPROpen(ctx, prNumber)
 	}); err != nil {
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		// Don't fail the command if cleanup fails, just warn
 		fmt.Printf("Warning: Failed to cleanup closed PRs: %v\n", err)
 	}
@@ -184,6 +221,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		// Get PR number from current branch
 		prNumber, err = ghClient.GetCurrentBranchPR(ctx)
 		if err != nil {
+			// Check if it's a context cancellation (Ctrl-C)
+			if ctx.Err() == context.Canceled {
+				return nil // Exit silently on Ctrl-C
+			}
 			// Check if it's a "no PR found" error
 			if errors.Is(err, github.ErrNoPRFound) {
 				// Get current branch name for helpful message
@@ -208,14 +249,13 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 	// Create progress tracker
 	progressTracker := progress.NewTracker()
-	progressCtx, progressCancel := context.WithCancel(ctx)
-	defer progressCancel()
 
-	// Start progress display
-	if err := progressTracker.Start(progressCtx); err != nil {
+	// Start progress display with main context for signal handling
+	if err := progressTracker.Start(ctx); err != nil {
 		// If progress tracker fails, continue without it
 		fmt.Printf("Fetching reviews for PR #%d...\n", prNumber)
 	}
+	defer progressTracker.Stop()
 
 	// Fetch PR information
 	progressTracker.SetStageStatus("github", "in_progress")
@@ -225,8 +265,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	prInfo, err := ghClient.GetPRInfo(ctx, prNumber)
 	if err != nil {
 		progressTracker.SetStageStatus("github", "error")
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		return fmt.Errorf("failed to fetch PR info: %w", err)
 	}
 	progressTracker.SetGitHubProgress(1, 2)
@@ -236,8 +278,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	reviews, err := ghClient.GetPRReviews(ctx, prNumber)
 	if err != nil {
 		progressTracker.SetStageStatus("github", "error")
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		return fmt.Errorf("failed to fetch PR reviews: %w", err)
 	}
 	progressTracker.SetGitHubProgress(2, 2)
@@ -250,8 +294,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 	if err := storageManager.SavePRInfo(prNumber, prInfo); err != nil {
 		progressTracker.SetStageStatus("saving", "error")
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		return fmt.Errorf("failed to save PR info: %w", err)
 	}
 	progressTracker.SetSavingProgress(1, 2)
@@ -259,8 +305,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	progressTracker.UpdateStatistics(0, 0, 0, "Saving reviews data...")
 	if err := storageManager.SaveReviews(prNumber, reviews); err != nil {
 		progressTracker.SetStageStatus("saving", "error")
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
 	progressTracker.SetSavingProgress(2, 2)
@@ -303,6 +351,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		FastMode:     false,
 		MaxTimeout:   10 * time.Minute, // Generous timeout
 		ShowProgress: true,
+		Context:      ctx, // Pass main context for signal handling
 		OnProgress: func(processed, total int) {
 			progressTracker.SetAnalysisProgress(processed, total)
 			// Get current task count from storage
@@ -316,8 +365,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 	if err != nil {
 		progressTracker.SetStageStatus("analysis", "error")
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		// Check if it's a timeout error and suggest retry
 		if strings.Contains(err.Error(), "timed out") {
 			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")
@@ -331,14 +382,12 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Merge tasks with existing ones (preserves task statuses)
 	progressTracker.UpdateStatistics(totalComments, totalComments, len(tasks), "Merging tasks...")
 	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
-		progressCancel()
-		progressTracker.Stop()
+		// Check if it's a context cancellation (Ctrl-C)
+		if ctx.Err() == context.Canceled {
+			return nil // Exit silently on Ctrl-C
+		}
 		return fmt.Errorf("failed to merge tasks: %w", err)
 	}
-
-	// Stop progress display
-	progressCancel()
-	progressTracker.Stop()
 
 	// Show final results
 	fmt.Printf("\n✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)

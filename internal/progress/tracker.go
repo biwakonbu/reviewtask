@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
@@ -59,12 +60,19 @@ func (t *Tracker) Start(ctx context.Context) error {
 	t.console.SetBufferEnabled(true)
 
 	go func() {
-		if _, err := t.program.Run(); err != nil {
+		finalModel, err := t.program.Run()
+		if err != nil {
 			t.console.WriteWithSync(func(w io.Writer) {
 				fmt.Fprintf(w, "Error running progress tracker: %v\n", err)
 			})
 		}
 		close(t.done)
+		
+		// Check if user interrupted with Ctrl-C
+		if model, ok := finalModel.(Model); ok && model.interrupted {
+			// User pressed Ctrl-C, terminate the entire process immediately
+			os.Exit(0)
+		}
 	}()
 
 	// Wait for context cancellation
@@ -84,7 +92,14 @@ func (t *Tracker) Stop() {
 
 	if t.program != nil {
 		t.program.Quit()
-		<-t.done
+		
+		// Wait for program to finish with timeout to prevent hanging
+		select {
+		case <-t.done:
+			// Program finished normally
+		case <-time.After(500 * time.Millisecond):
+			// Timeout - force exit without waiting
+		}
 	}
 
 	// Disable progress mode and flush any buffered messages
