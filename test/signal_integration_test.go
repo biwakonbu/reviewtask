@@ -18,7 +18,7 @@ func TestFetchCommandCtrlCHandling(t *testing.T) {
 	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
 		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
 	}
-	
+
 	// Skip if we don't have the binary built
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
@@ -127,7 +127,7 @@ func TestDoubleCtrlCForceExit(t *testing.T) {
 	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
 		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
 	}
-	
+
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
@@ -198,7 +198,7 @@ func TestCtrlCDuringDifferentPhases(t *testing.T) {
 	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
 		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
 	}
-	
+
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
@@ -285,14 +285,14 @@ func getBinaryPath(t testing.TB) string {
 
 	// Try to build it from parent directory
 	t.Log("Binary not found, attempting to build...")
-	
+
 	// Get current working directory
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Logf("Failed to get working directory: %v", err)
 		return ""
 	}
-	
+
 	// If we're in the test directory, go to parent
 	var parentDir string
 	if filepath.Base(wd) == "test" {
@@ -300,14 +300,14 @@ func getBinaryPath(t testing.TB) string {
 	} else {
 		parentDir = wd
 	}
-	
+
 	// Build the binary in the current test directory
 	buildPath := "./reviewtask"
 	if filepath.Base(wd) == "test" {
 		// We're in the test directory, build to current directory
 		cmd := exec.Command("go", "build", "-o", buildPath, "..")
 		cmd.Dir = wd
-		
+
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Logf("Failed to build reviewtask: %v", err)
 			if len(output) > 0 {
@@ -320,7 +320,7 @@ func getBinaryPath(t testing.TB) string {
 		buildPath = "./test/reviewtask"
 		cmd := exec.Command("go", "build", "-o", buildPath, ".")
 		cmd.Dir = parentDir
-		
+
 		if output, err := cmd.CombinedOutput(); err != nil {
 			t.Logf("Failed to build reviewtask: %v", err)
 			if len(output) > 0 {
@@ -331,21 +331,21 @@ func getBinaryPath(t testing.TB) string {
 	}
 
 	t.Log("Successfully built reviewtask binary")
-	
+
 	// Make the binary executable
 	absPath, _ := filepath.Abs(buildPath)
 	if err := os.Chmod(absPath, 0755); err != nil {
 		t.Logf("Failed to make binary executable: %v", err)
 	}
-	
+
 	// Log the built binary location
 	t.Logf("Built binary at: %s (absolute: %s)", buildPath, absPath)
-	
+
 	// Verify the file exists
 	if _, err := os.Stat(buildPath); err != nil {
 		t.Logf("WARNING: Built binary not found at %s: %v", buildPath, err)
 	}
-	
+
 	// Return the built path
 	return buildPath
 }
@@ -413,7 +413,7 @@ func TestProcessCleanupAfterCtrlC(t *testing.T) {
 	if os.Getenv("CI") == "true" && os.Getenv("TEST_SIGNAL_INTEGRATION") != "true" {
 		t.Skip("Skipping signal integration test in CI (set TEST_SIGNAL_INTEGRATION=true to run)")
 	}
-	
+
 	binaryPath := getBinaryPath(t)
 	if binaryPath == "" {
 		t.Skip("reviewtask binary not found, skipping integration test")
