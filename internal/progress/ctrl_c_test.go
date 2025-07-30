@@ -2,10 +2,12 @@ package progress
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mattn/go-isatty"
 	"reviewtask/internal/ui"
 )
 
@@ -185,8 +187,8 @@ func TestProgressTrackerNonTTY(t *testing.T) {
 
 // isTerminalAvailable checks if we're running in a terminal environment
 func isTerminalAvailable() bool {
-	// This is a simplified check - in real scenarios you might want more sophisticated detection
-	return false // For testing, assume we're not in a terminal to avoid TTY dependencies
+	// Check if stdout is a terminal
+	return isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd())
 }
 
 // BenchmarkProgressModelUpdate benchmarks the Update method performance
