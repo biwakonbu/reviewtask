@@ -268,10 +268,28 @@ func getBinaryPath(t testing.TB) string {
 		return "../reviewtask"
 	}
 
-	// Try to build it
+	// Try to build it from parent directory
 	t.Log("Binary not found, attempting to build...")
-	cmd := exec.Command("go", "build", "-o", "reviewtask", ".")
-	cmd.Dir = filepath.Dir(".")
+	
+	// Get current working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Logf("Failed to get working directory: %v", err)
+		return ""
+	}
+	
+	// If we're in the test directory, go to parent
+	var parentDir string
+	if filepath.Base(wd) == "test" {
+		parentDir = filepath.Dir(wd)
+	} else {
+		parentDir = wd
+	}
+	
+	// Build in the test directory
+	buildPath := filepath.Join(parentDir, "test", "reviewtask")
+	cmd := exec.Command("go", "build", "-o", buildPath, ".")
+	cmd.Dir = parentDir
 
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Logf("Failed to build reviewtask: %v", err)
@@ -282,7 +300,12 @@ func getBinaryPath(t testing.TB) string {
 	}
 
 	t.Log("Successfully built reviewtask binary")
-	return "./reviewtask"
+	
+	// Return the path relative to current directory
+	if filepath.Base(wd) == "test" {
+		return "./reviewtask"
+	}
+	return "./test/reviewtask"
 }
 
 // getTestRepoDir returns a directory suitable for testing
