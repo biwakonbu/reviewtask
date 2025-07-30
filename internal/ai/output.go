@@ -51,10 +51,20 @@ func print(msg string) {
 
 // isErrorMessage detects if a message is an error/warning that should be queued
 func isErrorMessage(msg string) bool {
-	return strings.Contains(msg, "⚠️") ||
-		strings.Contains(msg, "❌") ||
-		strings.Contains(msg, "error") ||
-		strings.Contains(msg, "failed") ||
-		strings.Contains(msg, "Failed") ||
-		strings.Contains(msg, "Error")
+	// Check for emoji indicators first
+	if strings.Contains(msg, "⚠️") || strings.Contains(msg, "❌") {
+		return true
+	}
+	
+	// Check for error keywords (case-insensitive)
+	msgLower := strings.ToLower(msg)
+	errorKeywords := []string{"error", "failed", "warning", "exception"}
+	
+	for _, keyword := range errorKeywords {
+		if strings.Contains(msgLower, keyword) {
+			return true
+		}
+	}
+	
+	return false
 }
