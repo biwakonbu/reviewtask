@@ -231,6 +231,8 @@ func TestSignalHandlerRobustness(t *testing.T) {
 
 // BenchmarkStopPerformance benchmarks the Stop method performance
 func BenchmarkStopPerformance(b *testing.B) {
+	durations := make([]time.Duration, 0, b.N)
+	
 	for i := 0; i < b.N; i++ {
 		tracker := NewTracker()
 		// Force non-TTY for consistent benchmarking
@@ -246,6 +248,25 @@ func BenchmarkStopPerformance(b *testing.B) {
 
 		cancel()
 
-		b.Logf("Stop took %v", duration)
+		durations = append(durations, duration)
+	}
+	
+	// Calculate and report statistics after the benchmark
+	if len(durations) > 0 {
+		var total time.Duration
+		var min, max time.Duration = durations[0], durations[0]
+		
+		for _, d := range durations {
+			total += d
+			if d < min {
+				min = d
+			}
+			if d > max {
+				max = d
+			}
+		}
+		
+		avg := total / time.Duration(len(durations))
+		b.Logf("Stop performance - Avg: %v, Min: %v, Max: %v", avg, min, max)
 	}
 }
