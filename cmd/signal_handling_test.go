@@ -42,7 +42,6 @@ func TestSignalHandling(t *testing.T) {
 			signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM)
 			defer signal.Stop(signalCh)
 
-			cancelCalled := false
 			signalReceived := make(chan struct{})
 
 			// Simulate the signal handling goroutine
@@ -53,7 +52,6 @@ func TestSignalHandling(t *testing.T) {
 					if sigCount == 1 {
 						// First signal: try graceful cancellation
 						cancel()
-						cancelCalled = true
 						close(signalReceived)
 
 						// Wait for graceful shutdown with timeout
@@ -77,14 +75,21 @@ func TestSignalHandling(t *testing.T) {
 			// Send the test signal
 			signalCh <- tt.signal
 
-			// Wait for cancellation with timeout
+			// Wait for signal to be received and processed
 			select {
-			case <-ctx.Done():
-				if !cancelCalled {
-					t.Error("Context was cancelled but cancel was not called by signal handler")
-				}
+			case <-signalReceived:
+				// Signal was received and processed
 			case <-time.After(tt.timeout):
 				t.Error("Signal handling timed out")
+				return
+			}
+
+			// Wait for context cancellation
+			select {
+			case <-ctx.Done():
+				// Context was cancelled successfully
+			case <-time.After(100 * time.Millisecond):
+				t.Error("Context was not cancelled after signal")
 			}
 
 			// Verify the context was properly cancelled
@@ -104,7 +109,6 @@ func TestDoubleSignalHandling(t *testing.T) {
 	signal.Notify(signalCh, os.Interrupt)
 	defer signal.Stop(signalCh)
 
-	forceExitCalled := false
 	firstSignalReceived := make(chan struct{})
 	secondSignalReceived := make(chan struct{})
 
@@ -118,7 +122,6 @@ func TestDoubleSignalHandling(t *testing.T) {
 				close(firstSignalReceived)
 			} else {
 				// Second signal: force immediate exit
-				forceExitCalled = true
 				close(secondSignalReceived)
 				return
 			}
@@ -134,10 +137,11 @@ func TestDoubleSignalHandling(t *testing.T) {
 	signalCh <- os.Interrupt
 
 	// Wait for second signal to be processed
-	<-secondSignalReceived
-
-	if !forceExitCalled {
-		t.Error("Expected force exit to be called after second signal")
+	select {
+	case <-secondSignalReceived:
+		// Second signal was processed - force exit would be called
+	case <-time.After(500 * time.Millisecond):
+		t.Error("Second signal was not processed")
 	}
 
 	// Verify the context was cancelled

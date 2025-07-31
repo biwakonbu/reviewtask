@@ -71,25 +71,30 @@ func TestContextCancellationWithTimeout(t *testing.T) {
 	// Simulate the timeout goroutine from cmd/root.go
 	ctx, cancel := context.WithCancel(context.Background())
 
-	timeoutTriggered := false
+	timeoutTriggered := make(chan bool, 1)
 	sigCount := 1
 
 	// Simulate the timeout goroutine
 	go func() {
 		time.Sleep(100 * time.Millisecond) // Shorter timeout for testing
 		if sigCount == 1 {
-			timeoutTriggered = true
+			timeoutTriggered <- true
+		} else {
+			timeoutTriggered <- false
 		}
 	}()
 
 	// Cancel the context
 	cancel()
 
-	// Wait for timeout
-	time.Sleep(150 * time.Millisecond)
-
-	if !timeoutTriggered {
-		t.Error("Timeout mechanism was not triggered")
+	// Wait for timeout result
+	select {
+	case triggered := <-timeoutTriggered:
+		if !triggered {
+			t.Error("Timeout mechanism was not triggered")
+		}
+	case <-time.After(200 * time.Millisecond):
+		t.Error("Timeout test timed out")
 	}
 
 	// Verify context is cancelled

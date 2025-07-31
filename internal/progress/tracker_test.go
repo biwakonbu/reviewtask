@@ -191,17 +191,33 @@ func TestProgressPercentageCalculation(t *testing.T) {
 }
 
 func captureOutput(f func()) string {
+	// Use a buffer directly instead of pipes which can cause issues in CI
+	var buf bytes.Buffer
 	oldStdout := os.Stdout
+
+	// Create a custom writer that writes to our buffer
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Start reading from pipe before executing function
+	readerDone := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		buf.ReadFrom(r)
+	}()
+
+	// Execute the function
 	f()
 
+	// Close writer to signal EOF to reader
 	w.Close()
+
+	// Wait for reader to finish
+	<-readerDone
+
+	// Restore stdout
 	os.Stdout = oldStdout
 
-	var buf bytes.Buffer
-	buf.ReadFrom(r)
 	return buf.String()
 }
 
