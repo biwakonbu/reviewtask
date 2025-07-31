@@ -165,3 +165,7 @@ func (m *mockProgressTracker) AddError(message string) {
 	default:
 	}
 }
+
+func (m *mockProgressTracker) SetAnalysisProgress(current, total int) {
+	// Mock implementation - do nothing
+}

@@ -68,6 +68,14 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 	allTasks := append([]storage.Task{}, checkpoint.PartialTasks...)
 
+	// Create a progress reporter for fine-grained tracking
+	progressReporter := NewProgressReporter(len(allComments), func(current, total int) {
+		if opts.OnProgress != nil {
+			// Report fine-grained progress
+			opts.OnProgress(current, total)
+		}
+	})
+
 	for i := 0; i < len(remainingComments); i += opts.BatchSize {
 		select {
 		case <-ctx.Done():
@@ -89,10 +97,8 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		batch := remainingComments[i:end]
 
-		// No need for batch-level progress messages since we have real-time progress
-
-		// Process batch with context
-		batchTasks, err := a.processBatch(ctx, batch, opts)
+		// Process batch with context and progress reporting
+		batchTasks, err := a.processBatch(ctx, batch, opts, progressReporter, i)
 		if err != nil {
 			// Save checkpoint before continuing
 			checkpoint.PartialTasks = allTasks
@@ -128,10 +134,6 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			printf("⚠️  Failed to save checkpoint: %v\n", err)
 		}
 
-		// Call progress callbacks
-		if opts.OnProgress != nil {
-			opts.OnProgress(checkpoint.ProcessedCount, checkpoint.TotalComments)
-		}
 		if opts.OnBatchComplete != nil {
 			opts.OnBatchComplete(batchTasks)
 		}
@@ -262,7 +264,7 @@ func (a *Analyzer) filterProcessedComments(comments []CommentContext, checkpoint
 }
 
 // processBatch processes a batch of comments with optimizations
-func (a *Analyzer) processBatch(ctx context.Context, batch []CommentContext, opts IncrementalOptions) ([]storage.Task, error) {
+func (a *Analyzer) processBatch(ctx context.Context, batch []CommentContext, opts IncrementalOptions, progressReporter *ProgressReporter, startIndex int) ([]storage.Task, error) {
 	if len(batch) == 0 {
 		return []storage.Task{}, nil
 	}
@@ -275,20 +277,20 @@ func (a *Analyzer) processBatch(ctx context.Context, batch []CommentContext, opt
 	// Use fast mode optimizations
 	if opts.FastMode {
 		// Process with reduced validation and simpler prompts
-		return a.processBatchFastMode(ctx, batch)
+		return a.processBatchFastMode(ctx, batch, progressReporter, startIndex)
 	}
 
 	// Check if validation is enabled
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		return a.processBatchWithValidation(ctx, batch)
+		return a.processBatchWithValidation(ctx, batch, progressReporter, startIndex)
 	}
 
 	// Standard parallel processing
-	return a.processBatchStandard(ctx, batch)
+	return a.processBatchStandard(ctx, batch, progressReporter, startIndex)
 }
 
 // processBatchStandard processes batch with standard parallel processing
-func (a *Analyzer) processBatchStandard(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) processBatchStandard(ctx context.Context, batch []CommentContext, progressReporter *ProgressReporter, startIndex int) ([]storage.Task, error) {
 	type commentResult struct {
 		tasks []TaskRequest
 		err   error
@@ -301,16 +303,16 @@ func (a *Analyzer) processBatchStandard(ctx context.Context, batch []CommentCont
 	// Process each comment in parallel
 	for i, commentCtx := range batch {
 		wg.Add(1)
-		go func(index int, ctx CommentContext) {
+		go func(index int, localIndex int, ctx CommentContext) {
 			defer wg.Done()
 
-			tasks, err := a.processComment(ctx)
+			tasks, err := a.processComment(ctx, progressReporter, startIndex+localIndex)
 			results <- commentResult{
 				tasks: tasks,
 				err:   err,
 				index: index,
 			}
-		}(i, commentCtx)
+		}(i, i, commentCtx)
 	}
 
 	// Wait for all goroutines to complete
@@ -346,31 +348,43 @@ func (a *Analyzer) processBatchStandard(ctx context.Context, batch []CommentCont
 }
 
 // processBatchWithValidation processes batch with validation enabled
-func (a *Analyzer) processBatchWithValidation(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) processBatchWithValidation(ctx context.Context, batch []CommentContext, progressReporter *ProgressReporter, startIndex int) ([]storage.Task, error) {
 	return a.processCommentsParallel(ctx, batch, a.processCommentWithValidation)
 }
 
 // processBatchFastMode processes batch with fast mode optimizations
-func (a *Analyzer) processBatchFastMode(ctx context.Context, batch []CommentContext) ([]storage.Task, error) {
+func (a *Analyzer) processBatchFastMode(ctx context.Context, batch []CommentContext, progressReporter *ProgressReporter, startIndex int) ([]storage.Task, error) {
 	// In fast mode, we skip validation and use simpler prompts
 	var allTasks []TaskRequest
 
 	// Process comments with minimal overhead
-	for _, commentCtx := range batch {
+	for i, commentCtx := range batch {
 		// Skip very short comments in fast mode
 		if len(commentCtx.Comment.Body) < 20 {
 			continue
 		}
 
+		// Report prompt preparation
+		progressReporter.ReportStepProgress(startIndex+i, StepPreparePrompt)
+
 		// Use simplified prompt for speed
 		prompt := a.buildFastModePrompt(commentCtx)
+
+		// Report Claude API call
+		progressReporter.ReportStepProgress(startIndex+i, StepCallClaude)
 		tasks, err := a.callClaudeCode(ctx, prompt)
 		if err != nil {
 			printf("  ⚠️  Fast mode processing error: %v\n", err)
 			continue
 		}
 
+		// Report parse response
+		progressReporter.ReportStepProgress(startIndex+i, StepParseResponse)
+
 		allTasks = append(allTasks, tasks...)
+
+		// Mark as complete
+		progressReporter.ReportCommentComplete(startIndex + i)
 	}
 
 	return a.convertToStorageTasks(allTasks), nil

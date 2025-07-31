@@ -356,12 +356,26 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		ShowProgress: true,
 		Context:      ctx, // Pass main context for signal handling
 		OnProgress: func(processed, total int) {
+			// This callback now represents fine-grained step progress
+			// The total is now total steps across all comments, not just comment count
 			progressTracker.SetAnalysisProgress(processed, total)
+
+			// Calculate percentage of comments processed based on step progress
+			// Assuming average steps per comment based on weights
+			totalStepsPerComment := 0
+			for _, weight := range ai.StepWeights {
+				totalStepsPerComment += weight
+			}
+			commentsProcessed := processed / totalStepsPerComment
+			if commentsProcessed > totalComments {
+				commentsProcessed = totalComments
+			}
+
 			// Get current task count from storage
 			existingTasks, _ := storageManager.GetTasksByPR(prNumber)
 			tasksGenerated = len(existingTasks)
-			progressTracker.UpdateStatistics(processed, totalComments, tasksGenerated,
-				fmt.Sprintf("Processing comment from %s...", getReviewerName(reviews, processed)))
+			progressTracker.UpdateStatistics(commentsProcessed, totalComments, tasksGenerated,
+				fmt.Sprintf("Processing comments (%d%% complete)...", (processed*100)/total))
 		},
 	}
 

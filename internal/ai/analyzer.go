@@ -765,7 +765,7 @@ func (a *Analyzer) clearValidationFeedback() {
 }
 
 // processCommentsParallel handles common parallel processing logic
-func (a *Analyzer) processCommentsParallel(ctx context.Context, comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
+func (a *Analyzer) processCommentsParallel(ctx context.Context, comments []CommentContext, processor func(CommentContext, *ProgressReporter, int) ([]TaskRequest, error)) ([]storage.Task, error) {
 	type commentResult struct {
 		tasks []TaskRequest
 		err   error
@@ -774,6 +774,15 @@ func (a *Analyzer) processCommentsParallel(ctx context.Context, comments []Comme
 
 	results := make(chan commentResult, len(comments))
 	var wg sync.WaitGroup
+
+	// Create progress reporter
+	progressReporter := NewProgressReporter(len(comments), func(current, total int) {
+		// This callback will be called for each step progress
+		if globalProgressTracker != nil {
+			// Update the analysis progress with fine-grained steps
+			globalProgressTracker.SetAnalysisProgress(current, total)
+		}
+	})
 
 	// Process each comment in parallel
 	for i, commentCtx := range comments {
@@ -793,7 +802,11 @@ func (a *Analyzer) processCommentsParallel(ctx context.Context, comments []Comme
 			default:
 			}
 
-			tasks, err := processor(commentCtx)
+			tasks, err := processor(commentCtx, progressReporter, index)
+			if err == nil {
+				progressReporter.ReportCommentComplete(index)
+			}
+
 			results <- commentResult{
 				tasks: tasks,
 				err:   err,
@@ -868,18 +881,30 @@ func (a *Analyzer) generateTasksParallel(ctx context.Context, comments []Comment
 }
 
 // processComment handles a single comment and returns tasks for it
-func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
+func (a *Analyzer) processComment(ctx CommentContext, progressReporter *ProgressReporter, index int) ([]TaskRequest, error) {
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		return a.processCommentWithValidation(ctx)
+		return a.processCommentWithValidation(ctx, progressReporter, index)
 	}
 
+	// Report prompt preparation step
+	progressReporter.ReportStepProgress(index, StepPreparePrompt)
 	prompt := a.buildCommentPrompt(ctx)
-	// Use background context for now - this needs to be passed from caller
-	return a.callClaudeCode(context.Background(), prompt)
+
+	// Report Claude API call step
+	progressReporter.ReportStepProgress(index, StepCallClaude)
+	tasks, err := a.callClaudeCode(context.Background(), prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	// Report parse response step
+	progressReporter.ReportStepProgress(index, StepParseResponse)
+
+	return tasks, nil
 }
 
 // processCommentWithValidation validates individual comment JSON responses
-func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskRequest, error) {
+func (a *Analyzer) processCommentWithValidation(ctx CommentContext, progressReporter *ProgressReporter, index int) ([]TaskRequest, error) {
 	validator := NewTaskValidator(a.config)
 
 	for attempt := 1; attempt <= validator.maxRetries; attempt++ {
@@ -887,7 +912,12 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 			printf("    🔄 Comment %d validation attempt %d/%d\n", ctx.Comment.ID, attempt, validator.maxRetries)
 		}
 
+		// Report prompt preparation step
+		progressReporter.ReportStepProgress(index, StepPreparePrompt)
 		prompt := a.buildCommentPrompt(ctx)
+
+		// Report Claude API call step
+		progressReporter.ReportStepProgress(index, StepCallClaude)
 		tasks, err := a.callClaudeCode(context.Background(), prompt)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
@@ -903,7 +933,11 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 			continue
 		}
 
+		// Report parse response step
+		progressReporter.ReportStepProgress(index, StepParseResponse)
+
 		// Stage 1: Format validation for this comment's tasks
+		progressReporter.ReportStepProgress(index, StepValidateFormat)
 		formatResult, err := validator.validateFormat(tasks)
 		if err != nil {
 			if a.config.AISettings.DebugMode {
@@ -924,6 +958,7 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		}
 
 		// Stage 2: Content validation for this comment's tasks
+		progressReporter.ReportStepProgress(index, StepValidateContent)
 		// Create a mini-review slice for validation context
 		miniReviews := []github.Review{ctx.SourceReview}
 		contentResult, err := validator.validateContent(formatResult.Tasks, miniReviews)

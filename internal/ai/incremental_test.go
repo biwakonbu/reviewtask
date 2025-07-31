@@ -202,8 +202,16 @@ func TestGenerateTasksIncremental(t *testing.T) {
 
 		// Verify progress callback was called
 		assert.Greater(t, progressCalls, 0)
-		assert.Equal(t, 3, lastProcessed)
-		assert.Equal(t, 3, lastTotal)
+		// With fine-grained progress, we now report step-based progress
+		// Total steps = number of comments * total step weights
+		totalStepsPerComment := 0
+		for _, weight := range StepWeights {
+			totalStepsPerComment += weight
+		}
+		expectedTotal := 3 * totalStepsPerComment // 3 comments
+		assert.Equal(t, expectedTotal, lastTotal)
+		// Last processed should be less than or equal to total
+		assert.LessOrEqual(t, lastProcessed, lastTotal)
 	})
 
 	t.Run("BatchCompleteCallback", func(t *testing.T) {

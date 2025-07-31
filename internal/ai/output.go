@@ -8,10 +8,14 @@ import (
 
 var globalProgressTracker interface {
 	AddError(message string)
+	SetAnalysisProgress(current, total int)
 }
 
 // SetProgressTracker allows the AI package to send errors to the progress display
-func SetProgressTracker(tracker interface{ AddError(message string) }) {
+func SetProgressTracker(tracker interface {
+	AddError(message string)
+	SetAnalysisProgress(current, total int)
+}) {
 	globalProgressTracker = tracker
 }
 
