@@ -277,7 +277,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 			} else if processed%5 == 0 || processed == total {
 				showProgress = true // Show every 5 comments for large PRs
 			}
-			
+
 			if showProgress {
 				percentage := (processed * 100) / total
 				// Clear line and show progress

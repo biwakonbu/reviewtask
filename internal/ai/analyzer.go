@@ -394,8 +394,8 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 		// Check if validation passed
 		if contentResult.IsValid && contentResult.Score >= a.config.AISettings.QualityThreshold {
 			if a.config.AISettings.DebugMode {
-			fmt.Printf("  ✅ Validation passed!\n")
-		}
+				fmt.Printf("  ✅ Validation passed!\n")
+			}
 			return a.convertToStorageTasks(formatResult.Tasks), nil
 		}
 
