@@ -13,11 +13,12 @@ const (
 )
 
 type Config struct {
-	PriorityRules   PriorityRules   `json:"priority_rules"`
-	ProjectSpecific ProjectSpecific `json:"project_specific"`
-	TaskSettings    TaskSettings    `json:"task_settings"`
-	AISettings      AISettings      `json:"ai_settings"`
-	UpdateCheck     UpdateCheck     `json:"update_check"`
+	PriorityRules        PriorityRules        `json:"priority_rules"`
+	ProjectSpecific      ProjectSpecific      `json:"project_specific"`
+	TaskSettings         TaskSettings         `json:"task_settings"`
+	AISettings           AISettings           `json:"ai_settings"`
+	VerificationSettings VerificationSettings `json:"verification_settings"`
+	UpdateCheck          UpdateCheck          `json:"update_check"`
 }
 
 type PriorityRules struct {
@@ -54,6 +55,18 @@ type AISettings struct {
 	SimilarityThreshold    float64 `json:"similarity_threshold"`     // Task similarity threshold for deduplication (0.0-1.0)
 	ProcessNitpickComments bool    `json:"process_nitpick_comments"` // Process nitpick comments from review bots (default: true)
 	NitpickPriority        string  `json:"nitpick_priority"`         // Priority level for nitpick-generated tasks (default: "low")
+}
+
+type VerificationSettings struct {
+	BuildCommand    string            `json:"build_command"`    // Command to run for build verification
+	TestCommand     string            `json:"test_command"`     // Command to run for test verification
+	LintCommand     string            `json:"lint_command"`     // Command to run for lint verification
+	FormatCommand   string            `json:"format_command"`   // Command to run for format verification
+	CustomRules     map[string]string `json:"custom_rules"`     // Task-type to command mapping
+	MandatoryChecks []string          `json:"mandatory_checks"` // Required verification types
+	OptionalChecks  []string          `json:"optional_checks"`  // Optional verification types
+	TimeoutMinutes  int               `json:"timeout_minutes"`  // Verification timeout in minutes
+	Enabled         bool              `json:"enabled"`          // Enable verification functionality
 }
 
 type UpdateCheck struct {
@@ -98,6 +111,17 @@ func defaultConfig() *Config {
 			SimilarityThreshold:    0.8,
 			ProcessNitpickComments: true,
 			NitpickPriority:        "low",
+		},
+		VerificationSettings: VerificationSettings{
+			BuildCommand:    "go build ./...",
+			TestCommand:     "go test ./...",
+			LintCommand:     "golangci-lint run",
+			FormatCommand:   "gofmt -l .",
+			CustomRules:     make(map[string]string),
+			MandatoryChecks: []string{"build"},
+			OptionalChecks:  []string{"test", "lint"},
+			TimeoutMinutes:  5,
+			Enabled:         true,
 		},
 		UpdateCheck: UpdateCheck{
 			Enabled:           true,
@@ -219,6 +243,32 @@ func mergeWithDefaults(config *Config) {
 	// Merge boolean pointer fields
 	if config.AISettings.ValidationEnabled == nil {
 		config.AISettings.ValidationEnabled = defaults.AISettings.ValidationEnabled
+	}
+
+	// Merge verification settings
+	if config.VerificationSettings.BuildCommand == "" {
+		config.VerificationSettings.BuildCommand = defaults.VerificationSettings.BuildCommand
+	}
+	if config.VerificationSettings.TestCommand == "" {
+		config.VerificationSettings.TestCommand = defaults.VerificationSettings.TestCommand
+	}
+	if config.VerificationSettings.LintCommand == "" {
+		config.VerificationSettings.LintCommand = defaults.VerificationSettings.LintCommand
+	}
+	if config.VerificationSettings.FormatCommand == "" {
+		config.VerificationSettings.FormatCommand = defaults.VerificationSettings.FormatCommand
+	}
+	if config.VerificationSettings.CustomRules == nil {
+		config.VerificationSettings.CustomRules = make(map[string]string)
+	}
+	if len(config.VerificationSettings.MandatoryChecks) == 0 {
+		config.VerificationSettings.MandatoryChecks = defaults.VerificationSettings.MandatoryChecks
+	}
+	if len(config.VerificationSettings.OptionalChecks) == 0 {
+		config.VerificationSettings.OptionalChecks = defaults.VerificationSettings.OptionalChecks
+	}
+	if config.VerificationSettings.TimeoutMinutes == 0 {
+		config.VerificationSettings.TimeoutMinutes = defaults.VerificationSettings.TimeoutMinutes
 	}
 
 	// Merge update check settings

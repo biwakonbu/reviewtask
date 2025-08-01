@@ -62,6 +62,9 @@ Examples:
 	cmd.AddCommand(fetchCmd)
 	cmd.AddCommand(statusCmd)
 	cmd.AddCommand(updateCmd)
+	cmd.AddCommand(completeCmd)
+	cmd.AddCommand(verifyCmd)
+	cmd.AddCommand(configCmd)
 	cmd.AddCommand(showCmd)
 	cmd.AddCommand(statsCmd)
 	cmd.AddCommand(versionCmd)
@@ -101,6 +104,8 @@ func Execute() error {
 func init() {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(claudeCmd)
+	rootCmd.AddCommand(completeCmd)
+	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(debugCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(promptCmd)
@@ -108,6 +113,7 @@ func init() {
 	rootCmd.AddCommand(statsCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(updateCmd)
+	rootCmd.AddCommand(verifyCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(versionsCmd)
 }

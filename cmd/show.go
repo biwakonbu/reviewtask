@@ -116,6 +116,16 @@ func displayTaskDetails(task storage.Task) error {
 	fmt.Printf("Task ID: %s\n", task.ID)
 	fmt.Printf("Status: %s %s\n", statusIndicator, strings.Title(task.Status))
 	fmt.Printf("Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
+
+	// Implementation and Verification Status
+	if task.ImplementationStatus != "" {
+		implIndicator := getImplementationIndicator(task.ImplementationStatus)
+		fmt.Printf("Implementation: %s %s\n", implIndicator, strings.Title(task.ImplementationStatus))
+	}
+	if task.VerificationStatus != "" {
+		verifyIndicator := getVerificationIndicator(task.VerificationStatus)
+		fmt.Printf("Verification: %s %s\n", verifyIndicator, strings.Title(task.VerificationStatus))
+	}
 	fmt.Println()
 
 	// Task Description
@@ -167,7 +177,43 @@ func displayTaskDetails(task storage.Task) error {
 			fmt.Printf("   Updated: %s\n", task.UpdatedAt)
 		}
 	}
+
+	// Last verification timestamp
+	if task.LastVerificationAt != "" {
+		if verifyTime, err := time.Parse("2006-01-02T15:04:05Z", task.LastVerificationAt); err == nil {
+			fmt.Printf("   Last Verification: %s\n", verifyTime.Format("2006-01-02 15:04:05"))
+		} else {
+			fmt.Printf("   Last Verification: %s\n", task.LastVerificationAt)
+		}
+	}
 	fmt.Println()
+
+	// Verification History
+	if len(task.VerificationResults) > 0 {
+		fmt.Println("🔍 Verification History:")
+		for i, result := range task.VerificationResults {
+			resultIndicator := "✅"
+			if !result.Success {
+				resultIndicator = "❌"
+			}
+
+			verifyTime := result.Timestamp
+			if parsedTime, err := time.Parse("2006-01-02T15:04:05Z", result.Timestamp); err == nil {
+				verifyTime = parsedTime.Format("2006-01-02 15:04:05")
+			}
+
+			fmt.Printf("   %d. %s %s", i+1, resultIndicator, verifyTime)
+			if len(result.ChecksRun) > 0 {
+				fmt.Printf(" (checks: %s)", strings.Join(result.ChecksRun, ", "))
+			}
+			fmt.Println()
+
+			if result.FailureReason != "" {
+				fmt.Printf("      Reason: %s\n", result.FailureReason)
+			}
+		}
+		fmt.Println()
+	}
 
 	// Action suggestions based on status
 	fmt.Println("💡 Suggested Actions:")
@@ -176,7 +222,13 @@ func displayTaskDetails(task storage.Task) error {
 		fmt.Printf("   Start working on this task:\n")
 		fmt.Printf("   reviewtask update %s doing\n", task.ID)
 	case "doing":
-		fmt.Printf("   Mark as completed when done:\n")
+		fmt.Printf("   Verify and complete task:\n")
+		fmt.Printf("   reviewtask complete %s\n", task.ID)
+		fmt.Printf("   \n")
+		fmt.Printf("   Or verify without completing:\n")
+		fmt.Printf("   reviewtask verify %s\n", task.ID)
+		fmt.Printf("   \n")
+		fmt.Printf("   Or mark as done directly (skip verification):\n")
 		fmt.Printf("   reviewtask update %s done\n", task.ID)
 		fmt.Printf("   \n")
 		fmt.Printf("   Or mark as pending if blocked:\n")
@@ -225,5 +277,29 @@ func getPriorityIndicator(priority string) string {
 		return "🟢"
 	default:
 		return "⚪"
+	}
+}
+
+func getImplementationIndicator(status string) string {
+	switch status {
+	case "implemented":
+		return "✅"
+	case "not_implemented":
+		return "❌"
+	default:
+		return "❓"
+	}
+}
+
+func getVerificationIndicator(status string) string {
+	switch status {
+	case "verified":
+		return "✅"
+	case "failed":
+		return "❌"
+	case "not_verified":
+		return "⏳"
+	default:
+		return "❓"
 	}
 }

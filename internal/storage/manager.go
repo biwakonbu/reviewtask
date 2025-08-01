@@ -26,20 +26,33 @@ type Manager struct {
 }
 
 type Task struct {
-	ID              string `json:"id"`          // Format: UUID (RFC 4122 compliant)
-	Description     string `json:"description"` // AI-generated task description (user language)
-	OriginText      string `json:"origin_text"` // Original review comment text
-	Priority        string `json:"priority"`
-	SourceReviewID  int64  `json:"source_review_id"`
-	SourceCommentID int64  `json:"source_comment_id"` // Required: comment this task belongs to
-	TaskIndex       int    `json:"task_index"`        // Index within the comment (for multiple tasks per comment)
-	File            string `json:"file"`
-	Line            int    `json:"line"`
-	Status          string `json:"status"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
-	PRNumber        int    `json:"pr_number"`
-	CommentHash     string `json:"comment_hash"` // MD5 hash of comment content for change detection
+	ID                   string               `json:"id"`          // Format: UUID (RFC 4122 compliant)
+	Description          string               `json:"description"` // AI-generated task description (user language)
+	OriginText           string               `json:"origin_text"` // Original review comment text
+	Priority             string               `json:"priority"`
+	SourceReviewID       int64                `json:"source_review_id"`
+	SourceCommentID      int64                `json:"source_comment_id"` // Required: comment this task belongs to
+	TaskIndex            int                  `json:"task_index"`        // Index within the comment (for multiple tasks per comment)
+	File                 string               `json:"file"`
+	Line                 int                  `json:"line"`
+	Status               string               `json:"status"`
+	ImplementationStatus string               `json:"implementation_status"` // implemented, not_implemented
+	VerificationStatus   string               `json:"verification_status"`   // verified, not_verified, failed
+	VerificationResults  []VerificationResult `json:"verification_results"`  // History of verification attempts
+	LastVerificationAt   string               `json:"last_verification_at"`  // Last verification timestamp
+	CreatedAt            string               `json:"created_at"`
+	UpdatedAt            string               `json:"updated_at"`
+	PRNumber             int                  `json:"pr_number"`
+	CommentHash          string               `json:"comment_hash"` // MD5 hash of comment content for change detection
+}
+
+// VerificationResult represents the result of a task verification attempt
+type VerificationResult struct {
+	Timestamp     string   `json:"timestamp"`
+	Success       bool     `json:"success"`
+	FailureReason string   `json:"failure_reason,omitempty"`
+	ChecksRun     []string `json:"checks_run"`
+	Output        string   `json:"output,omitempty"`
 }
 
 type TasksFile struct {
@@ -592,4 +605,126 @@ func (m *Manager) GetPRInfo(prNumber int) (*github.PRInfo, error) {
 	}
 
 	return &prInfo, nil
+}
+
+// UpdateTaskVerificationStatus updates the verification status of a task
+func (m *Manager) UpdateTaskVerificationStatus(taskID string, verificationStatus string, result *VerificationResult) error {
+	// Find the task across all PRs
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !isPRDir(entry.Name()) {
+			continue
+		}
+
+		tasksPath := filepath.Join(m.baseDir, entry.Name(), "tasks.json")
+		tasksFile, err := m.loadTasksFile(tasksPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+
+		// Check if task exists in this file
+		taskFound := false
+		for i := range tasksFile.Tasks {
+			if tasksFile.Tasks[i].ID == taskID {
+				// Update verification status
+				tasksFile.Tasks[i].VerificationStatus = verificationStatus
+				tasksFile.Tasks[i].LastVerificationAt = time.Now().Format("2006-01-02T15:04:05Z")
+				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
+
+				// Add verification result to history
+				if result != nil {
+					if tasksFile.Tasks[i].VerificationResults == nil {
+						tasksFile.Tasks[i].VerificationResults = make([]VerificationResult, 0)
+					}
+					tasksFile.Tasks[i].VerificationResults = append(tasksFile.Tasks[i].VerificationResults, *result)
+				}
+
+				taskFound = true
+				break
+			}
+		}
+
+		if taskFound {
+			// Save updated tasks file
+			data, err := json.MarshalIndent(tasksFile, "", "  ")
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(tasksPath, data, 0644)
+		}
+	}
+
+	return ErrTaskNotFound
+}
+
+// UpdateTaskImplementationStatus updates the implementation status of a task
+func (m *Manager) UpdateTaskImplementationStatus(taskID string, implementationStatus string) error {
+	// Find the task across all PRs
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !isPRDir(entry.Name()) {
+			continue
+		}
+
+		tasksPath := filepath.Join(m.baseDir, entry.Name(), "tasks.json")
+		tasksFile, err := m.loadTasksFile(tasksPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+
+		// Check if task exists in this file
+		taskFound := false
+		for i := range tasksFile.Tasks {
+			if tasksFile.Tasks[i].ID == taskID {
+				tasksFile.Tasks[i].ImplementationStatus = implementationStatus
+				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
+				taskFound = true
+				break
+			}
+		}
+
+		if taskFound {
+			// Save updated tasks file
+			data, err := json.MarshalIndent(tasksFile, "", "  ")
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(tasksPath, data, 0644)
+		}
+	}
+
+	return ErrTaskNotFound
+}
+
+// GetTaskVerificationHistory returns the verification history for a task
+func (m *Manager) GetTaskVerificationHistory(taskID string) ([]VerificationResult, error) {
+	allTasks, err := m.GetAllTasks()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tasks: %w", err)
+	}
+
+	for _, task := range allTasks {
+		if task.ID == taskID {
+			if task.VerificationResults == nil {
+				return []VerificationResult{}, nil
+			}
+			return task.VerificationResults, nil
+		}
+	}
+
+	return nil, ErrTaskNotFound
 }
