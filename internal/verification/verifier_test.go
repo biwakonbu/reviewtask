@@ -224,7 +224,6 @@ func TestGetConfig(t *testing.T) {
 	}
 }
 
-
 func TestIsMandatory(t *testing.T) {
 	// Create a verifier with test config
 	cfg := &config.Config{
@@ -504,7 +503,7 @@ func TestGetVerificationStatus(t *testing.T) {
 
 func TestGetVerificationHistory(t *testing.T) {
 	mockStorage := NewMockStorage()
-	
+
 	// Add some verification results
 	results := []storage.VerificationResult{
 		{
@@ -560,12 +559,12 @@ func TestVerificationWithDisabledConfig(t *testing.T) {
 
 	// Should still work but with different behavior when disabled
 	results, err := verifier.VerifyTask("disabled-task-1")
-	
+
 	// Verification should still work - the Enabled flag affects behavior not availability
 	if err != nil {
 		t.Errorf("Expected verification to work even when disabled, got: %v", err)
 	}
-	
+
 	// Results may be empty or limited when disabled
 	_ = results // Just ensure no panic
 }
@@ -614,7 +613,7 @@ func TestCompleteTaskWithVerificationEdgeCases(t *testing.T) {
 	}
 
 	mockStorage := NewMockStorage()
-	
+
 	// Test with task that has multiple mandatory checks - some pass, some fail
 	task := storage.Task{
 		ID:          "complex-task-1",
@@ -647,20 +646,20 @@ func TestCompleteTaskWithVerificationEdgeCases(t *testing.T) {
 func TestNewVerifierErrorHandling(t *testing.T) {
 	// Test that NewVerifier handles configuration loading gracefully
 	verifier, err := NewVerifier()
-	
+
 	// Even if config loading fails, we should get a verifier with defaults
 	if verifier == nil {
 		t.Fatal("Expected verifier to be created even with config errors")
 	}
-	
+
 	// Error may be non-nil if config file doesn't exist, which is OK
 	_ = err
-	
+
 	// Verify that basic operations work with default config
 	if verifier.config == nil {
 		t.Fatal("Expected verifier to have config initialized")
 	}
-	
+
 	if verifier.storage == nil {
 		t.Fatal("Expected verifier to have storage initialized")
 	}
@@ -669,12 +668,12 @@ func TestNewVerifierErrorHandling(t *testing.T) {
 func TestRunVerificationAllTypes(t *testing.T) {
 	cfg := &config.Config{
 		VerificationSettings: config.VerificationSettings{
-			BuildCommand:    "echo 'build success'",
-			TestCommand:     "echo 'test success'",
-			LintCommand:     "echo 'lint success'",
-			FormatCommand:   "echo 'format success'",
-			CustomRules:     map[string]string{"test-task": "echo 'custom success'"},
-			TimeoutMinutes:  1,
+			BuildCommand:   "echo 'build success'",
+			TestCommand:    "echo 'test success'",
+			LintCommand:    "echo 'lint success'",
+			FormatCommand:  "echo 'format success'",
+			CustomRules:    map[string]string{"test-task": "echo 'custom success'"},
+			TimeoutMinutes: 1,
 		},
 	}
 
@@ -698,15 +697,15 @@ func TestRunVerificationAllTypes(t *testing.T) {
 
 	for _, vType := range standardTypes {
 		result := verifier.runVerification(vType, standardTask)
-		
+
 		if !result.Success {
 			t.Errorf("Expected %s verification to succeed, got: %s", vType, result.Message)
 		}
-		
+
 		if result.Type != vType {
 			t.Errorf("Expected verification type %s, got %s", vType, result.Type)
 		}
-		
+
 		if result.Duration <= 0 {
 			t.Errorf("Expected positive duration for %s verification", vType)
 		}
@@ -719,15 +718,15 @@ func TestRunVerificationAllTypes(t *testing.T) {
 	}
 
 	result := verifier.runVerification(VerificationCustom, customTask)
-	
+
 	if !result.Success {
 		t.Errorf("Expected custom verification to succeed, got: %s", result.Message)
 	}
-	
+
 	if result.Type != VerificationCustom {
 		t.Errorf("Expected verification type custom, got %s", result.Type)
 	}
-	
+
 	if result.Duration <= 0 {
 		t.Error("Expected positive duration for custom verification")
 	}
