@@ -90,6 +90,26 @@ reviewtask update <task-id> pending  # Mark as blocked
 reviewtask show                      # Find next task to work on
 ```
 
+### 3. Debugging and Troubleshooting
+
+**Debug Commands for Testing:**
+```bash
+# Test specific phases independently  
+reviewtask debug fetch review 123    # Fetch reviews for PR #123 only
+reviewtask debug fetch task 123      # Generate tasks from saved reviews only
+```
+
+**Verbose Mode for Detailed Logging:**
+```bash
+# Enable verbose output in config for debugging
+# Set "verbose_mode": true in .pr-review/config.json
+```
+
+**Prompt Size and Validation Issues:**
+- Large comments (>20KB) are automatically chunked into smaller pieces
+- Validation mode optimizes prompt sizes to prevent failures
+- Pre-validation size checks avoid wasted API calls
+
 ### 3. Team Collaboration Rules
 
 **For PR Authors:**
@@ -192,11 +212,35 @@ internal/              # Private implementation packages
 - AI settings configurable but with sensible defaults
 - User language preferences honored throughout
 
+**AI Processing Configuration:**
+- **Verbose Mode**: `"verbose_mode": true` enables detailed logging and debugging output
+- **Validation Mode**: `"validation_enabled": true` enables AI-powered task validation with retries
+- **Comment Chunking**: Automatic for comments >20KB, configurable chunk size
+- **Prompt Size Optimization**: Pre-validation size checks prevent API failures
+- **Deduplication**: AI-powered task deduplication with similarity threshold control
+
+**Advanced Features:**
+```json
+{
+  "ai_settings": {
+    "verbose_mode": true,              // Enable detailed debug logging
+    "validation_enabled": true,        // Enable task validation with retries
+    "max_retries": 5,                 // Validation retry attempts
+    "quality_threshold": 0.8,         // Minimum validation score
+    "deduplication_enabled": true,    // AI-powered task deduplication
+    "similarity_threshold": 0.8,      // Task similarity detection threshold
+    "process_nitpick_comments": false, // Process CodeRabbit nitpick comments
+    "nitpick_priority": "low"         // Priority for nitpick-generated tasks
+  }
+}
+```
+
 **Extensibility Strategy:**
 - Priority rules easily customizable per project
 - AI processing modes configurable (parallel vs validation)
 - Authentication sources tried in predictable order
 - New features added with feature flags when possible
+- Debug commands available for testing individual phases
 
 ### Deployment and Distribution
 

@@ -24,6 +24,11 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
 - **💨 API Caching**: Reduces redundant GitHub API calls automatically
 - **📊 Auto-Resume**: Seamlessly continues from where it left off if interrupted
+- **🔧 Debug Commands**: Test specific phases independently for troubleshooting
+- **📏 Prompt Size Optimization**: Automatic chunking for large comments (>20KB) and pre-validation size checks
+- **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
+- **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
+- **🔄 Smart Deduplication**: AI-powered task deduplication with similarity threshold control
 
 ## Installation
 
@@ -250,6 +255,7 @@ Authentication sources (in order of preference):
 | `reviewtask versions` | List available versions from GitHub releases |
 | `reviewtask prompt <provider> <target>` | Generate AI provider command templates |
 | `reviewtask claude <target>` | (Deprecated) Use `reviewtask prompt claude <target>` |
+| `reviewtask debug fetch <phase> [PR]` | Test specific phases independently |
 | `reviewtask init` | Initialize repository |
 | `reviewtask auth <cmd>` | Authentication management |
 
@@ -279,6 +285,11 @@ Authentication sources (in order of preference):
 - `reviewtask prompt claude pr-review` - Generate PR review workflow template for Claude Code
 - `reviewtask prompt stdout <target>` - Output prompts to stdout for redirection or piping
 - `reviewtask prompt <provider> <target>` - Generate templates for various AI providers (extensible)
+
+#### Debug Commands
+- `reviewtask debug fetch review <PR>` - Fetch and save PR reviews only (no task generation)
+- `reviewtask debug fetch task <PR>` - Generate tasks from previously saved reviews only
+- Debug commands automatically enable verbose mode for detailed logging
 
 ## Configuration
 
@@ -321,10 +332,31 @@ The tool can automatically detect and handle low-priority comments (such as "nit
 
 Example: A comment like "nit: Consider using const instead of let" will create a task with `"pending"` status instead of `"todo"`.
 
+### Advanced AI Settings
+
+Configure advanced processing features in `.pr-review/config.json`:
+
+```json
+{
+  "ai_settings": {
+    "verbose_mode": false,            // Enable detailed debug logging
+    "validation_enabled": true,       // Enable AI task validation
+    "max_retries": 5,                // Validation retry attempts
+    "quality_threshold": 0.8,        // Minimum validation score (0.0-1.0)
+    "deduplication_enabled": true,   // AI-powered task deduplication
+    "similarity_threshold": 0.8,     // Task similarity detection threshold
+    "process_nitpick_comments": false, // Process CodeRabbit nitpick comments
+    "nitpick_priority": "low"        // Priority for nitpick-generated tasks
+  }
+}
+```
+
 ### Processing Modes
 
 - **Parallel Mode** (`validation_enabled: false`): Fast processing with individual comment analysis
-- **Validation Mode** (`validation_enabled: true`): Two-stage validation with retry logic
+- **Validation Mode** (`validation_enabled: true`): Two-stage validation with retry logic and quality scoring
+- **Verbose Mode** (`verbose_mode: true`): Detailed logging for debugging and development
+- **Automatic Chunking**: Large comments (>20KB) are automatically split for optimal processing
 
 ## Data Structure
 
