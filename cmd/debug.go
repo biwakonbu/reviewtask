@@ -195,13 +195,13 @@ func debugGenerateTasks(cfg *config.Config, storageManager *storage.Manager, prN
 	tasks, err := analyzer.GenerateTasks(reviews)
 	if err != nil {
 		fmt.Printf("\n❌ Error: %v\n", err)
-		
+
 		// Show debug tips for all errors in debug mode
 		fmt.Println("\n💡 Debug Tips:")
 		fmt.Println("  1. Check the error message above for details")
 		fmt.Println("  2. Large comments should be automatically chunked")
 		fmt.Println("  3. If chunking failed, check the comment structure")
-		
+
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
