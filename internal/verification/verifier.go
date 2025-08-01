@@ -45,10 +45,19 @@ type VerificationConfig struct {
 	Timeout       time.Duration      `json:"timeout"`      // command timeout
 }
 
+// StorageInterface defines the storage operations needed by verifier
+type StorageInterface interface {
+	GetAllTasks() ([]storage.Task, error)
+	UpdateTaskStatus(taskID, newStatus string) error
+	UpdateTaskVerificationStatus(taskID string, verificationStatus string, result *storage.VerificationResult) error
+	UpdateTaskImplementationStatus(taskID string, implementationStatus string) error
+	GetTaskVerificationHistory(taskID string) ([]storage.VerificationResult, error)
+}
+
 // Verifier handles task completion verification
 type Verifier struct {
 	config  *config.Config
-	storage *storage.Manager
+	storage StorageInterface
 }
 
 // NewVerifier creates a new verifier instance
