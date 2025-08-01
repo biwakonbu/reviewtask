@@ -16,6 +16,8 @@ func TestRootCommandRegistration(t *testing.T) {
 	expectedCommands := map[string]bool{
 		"status":   false,
 		"update":   false,
+		"complete": false,
+		"verify":   false,
 		"show":     false,
 		"stats":    false,
 		"version":  false,
