@@ -968,17 +968,17 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 	// Pre-check: Calculate actual prompt size to avoid validation failures
 	testPrompt := a.buildCommentPrompt(ctx)
 	const maxPromptSize = 32 * 1024 // 32KB limit (same as validator)
-	
+
 	if len(testPrompt) > maxPromptSize {
 		if a.config.AISettings.VerboseMode {
-			fmt.Printf("  📄 Comment %d prompt too large (%d bytes), using chunking instead of validation\n", 
+			fmt.Printf("  📄 Comment %d prompt too large (%d bytes), using chunking instead of validation\n",
 				ctx.Comment.ID, len(testPrompt))
 		}
 		// Use chunking without validation for oversized prompts
 		chunker := NewCommentChunker(20000)
 		return a.processLargeComment(ctx, chunker)
 	}
-	
+
 	// Check if comment needs chunking based on size
 	chunker := NewCommentChunker(20000) // 20KB chunks to leave room for prompt template
 	if chunker.ShouldChunkComment(ctx.Comment) {
@@ -1032,8 +1032,8 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		// Stage 2: Content validation for this comment's tasks
 		// Create a mini-review with only the current comment for validation context
 		miniReview := github.Review{
-			ID:   ctx.SourceReview.ID,
-			Body: ctx.SourceReview.Body,
+			ID:       ctx.SourceReview.ID,
+			Body:     ctx.SourceReview.Body,
 			Comments: []github.Comment{ctx.Comment}, // Only include the current comment
 		}
 		miniReviews := []github.Review{miniReview}
@@ -1250,7 +1250,7 @@ func (a *Analyzer) extractJSON(response string) string {
 
 	// If no code blocks, try to find JSON array or object
 	response = strings.TrimSpace(response)
-	
+
 	// Look for JSON array first
 	jsonStart := strings.Index(response, "[")
 	jsonEnd := strings.LastIndex(response, "]")
