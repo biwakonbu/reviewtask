@@ -105,17 +105,58 @@ func (v *Verifier) VerifyTask(taskID string) ([]VerificationResult, error) {
 func (v *Verifier) CompleteTaskWithVerification(taskID string) error {
 	results, err := v.VerifyTask(taskID)
 	if err != nil {
+		// Update verification status to failed
+		failureResult := &storage.VerificationResult{
+			Timestamp:     time.Now().Format("2006-01-02T15:04:05Z"),
+			Success:       false,
+			FailureReason: err.Error(),
+			ChecksRun:     []string{},
+		}
+		v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
 	// Check if all mandatory verifications passed
+	var failedChecks []string
+	var allChecks []string
 	for _, result := range results {
+		allChecks = append(allChecks, string(result.Type))
 		if !result.Success && v.isMandatory(result.Type) {
-			return fmt.Errorf("verification failed for %s: %s", result.Type, result.Message)
+			failedChecks = append(failedChecks, string(result.Type))
 		}
 	}
 
-	// All verifications passed, update task status
+	if len(failedChecks) > 0 {
+		// Update verification status to failed with details
+		failureResult := &storage.VerificationResult{
+			Timestamp:     time.Now().Format("2006-01-02T15:04:05Z"),
+			Success:       false,
+			FailureReason: fmt.Sprintf("Mandatory verification checks failed: %s", strings.Join(failedChecks, ", ")),
+			ChecksRun:     allChecks,
+		}
+		v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
+		return fmt.Errorf("verification failed for %s", strings.Join(failedChecks, ", "))
+	}
+
+	// All verifications passed, update both verification and task status
+	successResult := &storage.VerificationResult{
+		Timestamp:     time.Now().Format("2006-01-02T15:04:05Z"),
+		Success:       true,
+		FailureReason: "",
+		ChecksRun:     allChecks,
+	}
+
+	// Update verification status first
+	if err := v.storage.UpdateTaskVerificationStatus(taskID, "verified", successResult); err != nil {
+		return fmt.Errorf("failed to update verification status: %w", err)
+	}
+
+	// Update implementation status
+	if err := v.storage.UpdateTaskImplementationStatus(taskID, "implemented"); err != nil {
+		return fmt.Errorf("failed to update implementation status: %w", err)
+	}
+
+	// Finally update task status to done
 	return v.storage.UpdateTaskStatus(taskID, "done")
 }
 
@@ -249,6 +290,11 @@ func (v *Verifier) GetVerificationStatus(taskID string) ([]VerificationResult, e
 	// In a real implementation, this could load verification history from storage
 	// For now, we'll run verification on demand
 	return v.VerifyTask(taskID)
+}
+
+// GetVerificationHistory returns the stored verification history for a task
+func (v *Verifier) GetVerificationHistory(taskID string) ([]storage.VerificationResult, error) {
+	return v.storage.GetTaskVerificationHistory(taskID)
 }
 
 // GetConfig returns the current verification configuration
