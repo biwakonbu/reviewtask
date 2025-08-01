@@ -965,6 +965,13 @@ func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunk
 
 // processCommentWithValidation validates individual comment JSON responses
 func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskRequest, error) {
+	// Check if comment needs chunking first
+	chunker := NewCommentChunker(20000) // 20KB chunks to leave room for prompt template
+	if chunker.ShouldChunkComment(ctx.Comment) {
+		// Process large comment with chunking (no validation for chunks)
+		return a.processLargeComment(ctx, chunker)
+	}
+
 	validator := NewTaskValidator(a.config)
 
 	for attempt := 1; attempt <= validator.maxRetries; attempt++ {

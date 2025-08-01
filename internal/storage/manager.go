@@ -127,6 +127,23 @@ func (m *Manager) SaveReviews(prNumber int, reviews []github.Review) error {
 	return os.WriteFile(filePath, data, 0644)
 }
 
+func (m *Manager) LoadReviews(prNumber int) ([]github.Review, error) {
+	prDir := m.getPRDir(prNumber)
+	filePath := filepath.Join(prDir, "reviews.json")
+
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var reviewsFile ReviewsFile
+	if err := json.Unmarshal(data, &reviewsFile); err != nil {
+		return nil, err
+	}
+
+	return reviewsFile.Reviews, nil
+}
+
 func (m *Manager) SaveTasks(prNumber int, tasks []Task) error {
 	prDir := m.getPRDir(prNumber)
 	if err := m.ensureDir(prDir); err != nil {

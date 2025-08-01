@@ -67,6 +67,7 @@ Examples:
 	cmd.AddCommand(versionCmd)
 	cmd.AddCommand(versionsCmd)
 	cmd.AddCommand(authCmd)
+	cmd.AddCommand(debugCmd)
 	cmd.AddCommand(initCmd)
 	cmd.AddCommand(claudeCmd)
 	cmd.AddCommand(promptCmd)
@@ -100,6 +101,7 @@ func Execute() error {
 func init() {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(claudeCmd)
+	rootCmd.AddCommand(debugCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(promptCmd)
 	rootCmd.AddCommand(showCmd)

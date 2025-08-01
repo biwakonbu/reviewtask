@@ -23,6 +23,7 @@ func TestRootCommandRegistration(t *testing.T) {
 		"auth":     false,
 		"init":     false,
 		"claude":   false,
+		"debug":    false,
 		"fetch":    false,
 		"prompt":   false,
 	}
