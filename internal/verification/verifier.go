@@ -47,19 +47,19 @@ type VerificationConfig struct {
 
 // Verifier handles task completion verification
 type Verifier struct {
-	config  *VerificationConfig
+	config  *config.Config
 	storage *storage.Manager
 }
 
 // NewVerifier creates a new verifier instance
 func NewVerifier() (*Verifier, error) {
-	config, err := loadVerificationConfig()
+	cfg, err := config.Load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load verification config: %w", err)
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	return &Verifier{
-		config:  config,
+		config:  cfg,
 		storage: storage.NewManager(),
 	}, nil
 }
@@ -124,11 +124,15 @@ func (v *Verifier) getRequiredVerifications(task *storage.Task) []VerificationTy
 	verifications := make([]VerificationType, 0)
 
 	// Add mandatory verifications
-	verifications = append(verifications, v.config.Mandatory...)
+	for _, checkType := range v.config.VerificationSettings.MandatoryChecks {
+		if vType := stringToVerificationType(checkType); vType != "" {
+			verifications = append(verifications, vType)
+		}
+	}
 
 	// Add task-specific custom verifications if any
 	taskType := v.inferTaskType(task)
-	if customCommand, exists := v.config.CustomRules[taskType]; exists && customCommand != "" {
+	if customCommand, exists := v.config.VerificationSettings.CustomRules[taskType]; exists && customCommand != "" {
 		verifications = append(verifications, VerificationCustom)
 	}
 
@@ -146,16 +150,16 @@ func (v *Verifier) runVerification(verificationType VerificationType, task *stor
 	var command string
 	switch verificationType {
 	case VerificationBuild:
-		command = v.config.BuildCommand
+		command = v.config.VerificationSettings.BuildCommand
 	case VerificationTest:
-		command = v.config.TestCommand
+		command = v.config.VerificationSettings.TestCommand
 	case VerificationLint:
-		command = v.config.LintCommand
+		command = v.config.VerificationSettings.LintCommand
 	case VerificationFormat:
-		command = v.config.FormatCommand
+		command = v.config.VerificationSettings.FormatCommand
 	case VerificationCustom:
 		taskType := v.inferTaskType(task)
-		command = v.config.CustomRules[taskType]
+		command = v.config.VerificationSettings.CustomRules[taskType]
 	default:
 		result.Success = false
 		result.Message = fmt.Sprintf("unknown verification type: %s", verificationType)
@@ -177,7 +181,8 @@ func (v *Verifier) runVerification(verificationType VerificationType, task *stor
 
 // executeCommand runs a shell command and returns success status, output, and message
 func (v *Verifier) executeCommand(command string) (bool, string, string) {
-	ctx, cancel := context.WithTimeout(context.Background(), v.config.Timeout)
+	timeout := time.Duration(v.config.VerificationSettings.TimeoutMinutes) * time.Minute
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", command)
@@ -186,7 +191,7 @@ func (v *Verifier) executeCommand(command string) (bool, string, string) {
 
 	if err != nil {
 		if ctx.Err() == context.DeadlineExceeded {
-			return false, outputStr, fmt.Sprintf("command timed out after %v", v.config.Timeout)
+			return false, outputStr, fmt.Sprintf("command timed out after %v", timeout)
 		}
 		return false, outputStr, fmt.Sprintf("command failed: %v", err)
 	}
@@ -196,8 +201,8 @@ func (v *Verifier) executeCommand(command string) (bool, string, string) {
 
 // isMandatory checks if a verification type is mandatory
 func (v *Verifier) isMandatory(verificationType VerificationType) bool {
-	for _, mandatory := range v.config.Mandatory {
-		if mandatory == verificationType {
+	for _, mandatory := range v.config.VerificationSettings.MandatoryChecks {
+		if stringToVerificationType(mandatory) == verificationType {
 			return true
 		}
 	}
@@ -228,51 +233,15 @@ func (v *Verifier) inferTaskType(task *storage.Task) string {
 	return "general-task"
 }
 
-// loadVerificationConfig loads verification configuration from config file
-func loadVerificationConfig() (*VerificationConfig, error) {
-	_, err := config.Load()
-	if err != nil {
-		return nil, err
-	}
-
-	// Return default verification config if not present in main config
-	// In a real implementation, this could be extended to read from config
-	return getDefaultVerificationConfig(), nil
-}
-
-// getDefaultVerificationConfig returns default verification settings
-func getDefaultVerificationConfig() *VerificationConfig {
-	return &VerificationConfig{
-		BuildCommand:  "go build ./...",
-		TestCommand:   "go test ./...",
-		LintCommand:   "golangci-lint run",
-		FormatCommand: "gofmt -l .",
-		CustomRules: map[string]string{
-			"test-task":    "go test -v ./...",
-			"build-task":   "go build -v ./...",
-			"style-task":   "gofmt -l . && golangci-lint run",
-			"feature-task": "go build ./... && go test ./...",
-		},
-		Mandatory: []VerificationType{
-			VerificationBuild,
-		},
-		Optional: []VerificationType{
-			VerificationTest,
-			VerificationLint,
-		},
-		Timeout: 5 * time.Minute,
-	}
-}
-
 // SetVerificationCommand allows setting custom verification commands
 func (v *Verifier) SetVerificationCommand(taskType, command string) error {
-	if v.config.CustomRules == nil {
-		v.config.CustomRules = make(map[string]string)
+	if v.config.VerificationSettings.CustomRules == nil {
+		v.config.VerificationSettings.CustomRules = make(map[string]string)
 	}
-	v.config.CustomRules[taskType] = command
+	v.config.VerificationSettings.CustomRules[taskType] = command
 
 	// Save the configuration to persistence
-	return v.saveVerificationConfig()
+	return v.config.Save()
 }
 
 // GetVerificationStatus returns the verification status for a task
@@ -284,13 +253,43 @@ func (v *Verifier) GetVerificationStatus(taskID string) ([]VerificationResult, e
 
 // GetConfig returns the current verification configuration
 func (v *Verifier) GetConfig() *VerificationConfig {
-	return v.config
+	return &VerificationConfig{
+		BuildCommand:  v.config.VerificationSettings.BuildCommand,
+		TestCommand:   v.config.VerificationSettings.TestCommand,
+		LintCommand:   v.config.VerificationSettings.LintCommand,
+		FormatCommand: v.config.VerificationSettings.FormatCommand,
+		CustomRules:   v.config.VerificationSettings.CustomRules,
+		Mandatory:     stringSliceToVerificationTypes(v.config.VerificationSettings.MandatoryChecks),
+		Optional:      stringSliceToVerificationTypes(v.config.VerificationSettings.OptionalChecks),
+		Timeout:       time.Duration(v.config.VerificationSettings.TimeoutMinutes) * time.Minute,
+	}
 }
 
-// saveVerificationConfig saves the verification configuration to storage
-func (v *Verifier) saveVerificationConfig() error {
-	// For now, we'll save to a JSON file in .pr-review/
-	// In a real implementation, this could be integrated with the main config
-	// This is a placeholder - configuration persistence can be enhanced
-	return nil
+// stringToVerificationType converts string to VerificationType
+func stringToVerificationType(s string) VerificationType {
+	switch s {
+	case "build":
+		return VerificationBuild
+	case "test":
+		return VerificationTest
+	case "lint":
+		return VerificationLint
+	case "format":
+		return VerificationFormat
+	case "custom":
+		return VerificationCustom
+	default:
+		return ""
+	}
+}
+
+// stringSliceToVerificationTypes converts string slice to VerificationType slice
+func stringSliceToVerificationTypes(strings []string) []VerificationType {
+	types := make([]VerificationType, 0, len(strings))
+	for _, s := range strings {
+		if vType := stringToVerificationType(s); vType != "" {
+			types = append(types, vType)
+		}
+	}
+	return types
 }
