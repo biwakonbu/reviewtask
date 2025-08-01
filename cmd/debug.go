@@ -194,18 +194,14 @@ func debugGenerateTasks(cfg *config.Config, storageManager *storage.Manager, prN
 	// Use standard task generation (it will show verbose output)
 	tasks, err := analyzer.GenerateTasks(reviews)
 	if err != nil {
-		// Check if it's a prompt size error
-		if err.Error() != "" {
-			fmt.Printf("\n❌ Error: %v\n", err)
-
-			// If it's a prompt size error, show helpful information
-			if len(err.Error()) > 0 {
-				fmt.Println("\n💡 Debug Tips:")
-				fmt.Println("  1. Check the error message above for details")
-				fmt.Println("  2. Large comments should be automatically chunked")
-				fmt.Println("  3. If chunking failed, check the comment structure")
-			}
-		}
+		fmt.Printf("\n❌ Error: %v\n", err)
+		
+		// Show debug tips for all errors in debug mode
+		fmt.Println("\n💡 Debug Tips:")
+		fmt.Println("  1. Check the error message above for details")
+		fmt.Println("  2. Large comments should be automatically chunked")
+		fmt.Println("  3. If chunking failed, check the comment structure")
+		
 		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
