@@ -21,6 +21,7 @@ type Analyzer struct {
 	config             *config.Config
 	validationFeedback []ValidationIssue
 	claudeClient       ClaudeClient
+	promptSizeTracker  *PromptSizeTracker
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
@@ -427,15 +428,21 @@ func (a *Analyzer) generateTasksLegacy(reviews []github.Review) ([]storage.Task,
 }
 
 func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
+	// Initialize prompt size tracker
+	a.promptSizeTracker = NewPromptSizeTracker()
+
 	var languageInstruction string
 	if a.config.AISettings.UserLanguage != "" {
 		languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
 	}
+	a.promptSizeTracker.TrackLanguagePrompt(languageInstruction)
 
 	priorityPrompt := a.config.GetPriorityPrompt()
+	a.promptSizeTracker.TrackPriorityPrompt(priorityPrompt)
 
 	// Add nitpick handling instructions
 	nitpickInstruction := a.buildNitpickInstruction()
+	a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
 
 	// Build review data
 	var reviewsData strings.Builder
@@ -470,11 +477,12 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 		reviewsData.WriteString("\n")
 	}
 
-	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
+	// Track review data
+	reviewsDataStr := reviewsData.String()
+	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
 
-%s
-%s
-%s
+	// Build system prompt
+	systemPrompt := `You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
 
 CRITICAL: Return response as JSON array with this EXACT format:
 [
@@ -504,9 +512,10 @@ Task Generation Guidelines:
 - If a comment mentions multiple unrelated issues, create separate tasks
 - Ensure each task is self-contained and actionable
 - Don't artificially combine unrelated items
-- AI deduplication will handle any redundancy later
+- AI deduplication will handle any redundancy later`
+	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
 
-%s`, languageInstruction, priorityPrompt, nitpickInstruction, reviewsData.String())
+	prompt := fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
 
 	return prompt
 }
@@ -515,6 +524,17 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	// Check for very large prompts that might exceed system limits
 	const maxPromptSize = 32 * 1024 // 32KB limit for safety
 	if len(prompt) > maxPromptSize {
+		// Generate detailed error message if tracker is available
+		if a.promptSizeTracker != nil && a.promptSizeTracker.IsExceeded() {
+			if a.config.AISettings.DebugMode {
+				return nil, fmt.Errorf("%s", a.promptSizeTracker.GenerateErrorMessage())
+			} else {
+				// In non-debug mode, show simplified error with key info
+				largestComponent, largestSize := a.promptSizeTracker.GetLargestComponent()
+				return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). %s is too large (%d bytes). Use --debug for detailed breakdown",
+					len(prompt), maxPromptSize, largestComponent, largestSize)
+			}
+		}
 		return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", len(prompt), maxPromptSize)
 	}
 
