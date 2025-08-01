@@ -901,7 +901,7 @@ func TestValidationModeParallelProcessingPerformance(t *testing.T) {
 	cfg := &config.Config{
 		AISettings: config.AISettings{
 			ValidationEnabled: &[]bool{false}[0], // Disable validation for simpler test
-			DebugMode:         true,              // Enable debug for visibility
+			VerboseMode:       true,              // Enable debug for visibility
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",

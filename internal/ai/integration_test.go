@@ -23,7 +23,7 @@ func TestTaskGenerationIntegrationWithUUIDs(t *testing.T) {
 			MaxRetries:        1,                 // Limit retries for testing
 			ValidationEnabled: &[]bool{false}[0], // Disable validation for integration test
 			QualityThreshold:  0.8,
-			DebugMode:         false,
+			VerboseMode:       false,
 		},
 	}
 

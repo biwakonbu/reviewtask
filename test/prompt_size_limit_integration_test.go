@@ -22,7 +22,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 			ValidationEnabled: &[]bool{true}[0],
 			MaxRetries:        3,
 			UserLanguage:      "English",
-			DebugMode:         true,
+			VerboseMode:       true,
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",
@@ -45,7 +45,7 @@ func TestPromptSizeLimitIntegration(t *testing.T) {
 				ValidationEnabled: &[]bool{true}[0], // Keep validation enabled for consistent behavior
 				MaxRetries:        3,
 				UserLanguage:      "English",
-				DebugMode:         false, // Reduce debug noise
+				VerboseMode:       false, // Reduce debug noise
 			},
 			TaskSettings: config.TaskSettings{
 				DefaultStatus: "todo",

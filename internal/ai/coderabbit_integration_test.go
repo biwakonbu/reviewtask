@@ -192,7 +192,7 @@ func TestCodeRabbitJSONParsingErrorHandling(t *testing.T) {
 		AISettings: config.AISettings{
 			ProcessNitpickComments: true,
 			NitpickPriority:        "low",
-			DebugMode:              false,
+			VerboseMode:            false,
 		},
 	}
 

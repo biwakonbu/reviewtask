@@ -21,7 +21,7 @@ func TestAdvancedDeduplication(t *testing.T) {
 			DeduplicationEnabled: false, // Disable AI deduplication for testing
 			MaxTasksPerComment:   2,
 			SimilarityThreshold:  0.8,
-			DebugMode:            true,
+			VerboseMode:          true,
 		},
 	}
 

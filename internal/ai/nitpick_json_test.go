@@ -12,7 +12,7 @@ import (
 func TestExtractJSON(t *testing.T) {
 	cfg := &config.Config{
 		AISettings: config.AISettings{
-			DebugMode: false,
+			VerboseMode: false,
 		},
 	}
 	analyzer := NewAnalyzer(cfg)

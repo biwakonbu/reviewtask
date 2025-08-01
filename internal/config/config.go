@@ -47,7 +47,7 @@ type AISettings struct {
 	MaxRetries             int     `json:"max_retries"`              // Validation retry attempts (default: 5)
 	ValidationEnabled      *bool   `json:"validation_enabled"`       // Enable two-stage validation
 	QualityThreshold       float64 `json:"quality_threshold"`        // Minimum score to accept (0.0-1.0)
-	DebugMode              bool    `json:"debug_mode"`               // Enable debug information (PATH, command locations)
+	VerboseMode            bool    `json:"verbose_mode"`             // Enable verbose output (detailed progress and errors)
 	ClaudePath             string  `json:"claude_path"`              // Custom path to Claude CLI (overrides default search)
 	MaxTasksPerComment     int     `json:"max_tasks_per_comment"`    // Maximum tasks to generate per comment (default: 2)
 	DeduplicationEnabled   bool    `json:"deduplication_enabled"`    // Enable task deduplication (default: true)
@@ -91,7 +91,7 @@ func defaultConfig() *Config {
 			MaxRetries:             5,
 			ValidationEnabled:      &validationTrue,
 			QualityThreshold:       0.8,
-			DebugMode:              false,
+			VerboseMode:            false,
 			ClaudePath:             "", // Empty means use default search paths
 			MaxTasksPerComment:     2,
 			DeduplicationEnabled:   true,
@@ -226,7 +226,7 @@ func mergeWithDefaults(config *Config) {
 		config.UpdateCheck.IntervalHours = defaults.UpdateCheck.IntervalHours
 	}
 
-	// Note: DebugMode is NOT merged with defaults - explicit false values are preserved
+	// Note: VerboseMode is NOT merged with defaults - explicit false values are preserved
 	// The JSON unmarshaling process preserves explicit false values from config file
 	// Only missing fields get default values during initial config creation
 }

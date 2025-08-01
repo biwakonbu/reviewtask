@@ -46,7 +46,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	// Filter out already processed comments if resuming
 	remainingComments := a.filterProcessedComments(allComments, checkpoint)
 
-	if opts.ShowProgress && checkpoint.ProcessedCount > 0 && a.config.AISettings.DebugMode {
+	if opts.ShowProgress && checkpoint.ProcessedCount > 0 && a.config.AISettings.VerboseMode {
 		fmt.Printf("  Resuming from checkpoint: %d/%d comments already processed\n", checkpoint.ProcessedCount, checkpoint.TotalComments)
 	}
 
@@ -66,7 +66,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			// Save checkpoint before timeout
 			checkpoint.PartialTasks = allTasks
 			if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
-				if a.config.AISettings.DebugMode {
+				if a.config.AISettings.VerboseMode {
 					fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
 				}
 				return nil, fmt.Errorf("processing timed out after %v and failed to save checkpoint: %w", opts.MaxTimeout, err)
@@ -99,7 +99,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			// Save checkpoint before continuing
 			checkpoint.PartialTasks = allTasks
 			if saveErr := storageManager.SaveCheckpoint(prNumber, checkpoint); saveErr != nil {
-				if a.config.AISettings.DebugMode {
+				if a.config.AISettings.VerboseMode {
 					fmt.Printf("⚠️  Failed to save checkpoint: %v\n", saveErr)
 				}
 				// For critical errors with checkpoint save failure, return both
@@ -114,7 +114,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			}
 
 			// For other errors, log and continue
-			if a.config.AISettings.DebugMode {
+			if a.config.AISettings.VerboseMode {
 				fmt.Printf("  ⚠️  Some comments could not be processed: %v\n", err)
 			}
 			continue
@@ -131,7 +131,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 		// Save checkpoint after each batch
 		if err := storageManager.SaveCheckpoint(prNumber, checkpoint); err != nil {
-			if a.config.AISettings.DebugMode {
+			if a.config.AISettings.VerboseMode {
 				fmt.Printf("⚠️  Failed to save checkpoint: %v\n", err)
 			}
 		}
@@ -152,7 +152,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 
 	// Delete checkpoint on successful completion
 	if err := storageManager.DeleteCheckpoint(prNumber); err != nil {
-		if a.config.AISettings.DebugMode {
+		if a.config.AISettings.VerboseMode {
 			fmt.Printf("⚠️  Failed to delete checkpoint: %v\n", err)
 		}
 	}
@@ -160,7 +160,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	// Apply deduplication
 	if a.config.AISettings.DeduplicationEnabled {
 		deduped := a.deduplicateTasks(allTasks)
-		if opts.ShowProgress && len(deduped) < len(allTasks) && a.config.AISettings.DebugMode {
+		if opts.ShowProgress && len(deduped) < len(allTasks) && a.config.AISettings.VerboseMode {
 			fmt.Printf("  AI deduplication: %d tasks → %d unique tasks\n",
 				len(allTasks), len(deduped))
 		}
@@ -212,7 +212,7 @@ func (a *Analyzer) extractComments(reviews []github.Review) []CommentContext {
 	}
 
 	if resolvedCommentCount > 0 {
-		if a.config.AISettings.DebugMode {
+		if a.config.AISettings.VerboseMode {
 			fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
 		}
 	}
@@ -231,13 +231,13 @@ func (a *Analyzer) loadOrCreateCheckpoint(prNumber int, storageManager *storage.
 		if checkpoint != nil {
 			// Check if checkpoint is still valid (not too old)
 			if !storage.IsCheckpointStale(checkpoint, 24*time.Hour) {
-				if a.config.AISettings.DebugMode {
+				if a.config.AISettings.VerboseMode {
 					fmt.Printf("✅ Resuming from checkpoint (processed %d/%d comments)\n",
 						checkpoint.ProcessedCount, checkpoint.TotalComments)
 				}
 				return checkpoint, nil
 			}
-			if a.config.AISettings.DebugMode {
+			if a.config.AISettings.VerboseMode {
 				fmt.Println("⚠️  Checkpoint is too old, starting fresh")
 			}
 		}
@@ -344,7 +344,7 @@ func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task,
 
 	// Report errors but continue if we have some successful results
 	if len(errors) > 0 {
-		if a.config.AISettings.DebugMode {
+		if a.config.AISettings.VerboseMode {
 			for _, err := range errors {
 				fmt.Printf("  ⚠️  %v\n", err)
 			}
@@ -379,7 +379,7 @@ func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task,
 		prompt := a.buildFastModePrompt(commentCtx)
 		tasks, err := a.callClaudeCode(prompt)
 		if err != nil {
-			if a.config.AISettings.DebugMode {
+			if a.config.AISettings.VerboseMode {
 				fmt.Printf("  ⚠️  Fast mode processing error: %v\n", err)
 			}
 			continue
