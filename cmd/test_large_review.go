@@ -3,7 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -26,7 +26,7 @@ func init() {
 
 func runTestLargeReview(cmd *cobra.Command, args []string) error {
 	// Load test data
-	data, err := ioutil.ReadFile("/tmp/test_large_review.json")
+	data, err := os.ReadFile("/tmp/test_large_review.json")
 	if err != nil {
 		return fmt.Errorf("failed to read test data: %w", err)
 	}
@@ -38,7 +38,11 @@ func runTestLargeReview(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to parse test data: %w", err)
 	}
 
-	fmt.Printf("Loaded %d reviews with total %d comments\n", len(testData.Reviews), len(testData.Reviews[0].Comments))
+	totalComments := 0
+	for _, review := range testData.Reviews {
+		totalComments += len(review.Comments)
+	}
+	fmt.Printf("Loaded %d reviews with total %d comments\n", len(testData.Reviews), totalComments)
 
 	// Create configuration
 	validationEnabled := false
@@ -60,12 +64,6 @@ func runTestLargeReview(cmd *cobra.Command, args []string) error {
 	// Start task generation with progress tracking
 	fmt.Println("\nStarting task generation...")
 	startTime := time.Now()
-
-	// Initialize task generation progress
-	totalComments := 0
-	for _, review := range testData.Reviews {
-		totalComments += len(review.Comments)
-	}
 
 	fmt.Printf("  Found %d comments to analyze\n", totalComments)
 
