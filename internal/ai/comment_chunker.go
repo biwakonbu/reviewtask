@@ -2,8 +2,8 @@ package ai
 
 import (
 	"fmt"
-	"strings"
 	"reviewtask/internal/github"
+	"strings"
 )
 
 // CommentChunker handles splitting large comments into manageable chunks
@@ -41,12 +41,12 @@ func (c *CommentChunker) ChunkComment(comment github.Comment) []github.Comment {
 			CreatedAt: comment.CreatedAt,
 			Replies:   comment.Replies, // Include replies only in first chunk
 		}
-		
+
 		// Add chunk indicator
 		if len(chunks) > 1 {
 			result[i].Body = fmt.Sprintf("[Part %d/%d]\n%s", i+1, len(chunks), chunk)
 		}
-		
+
 		// Only include replies in the first chunk
 		if i > 0 {
 			result[i].Replies = nil
@@ -73,7 +73,7 @@ func (c *CommentChunker) splitIntoChunks(text string) []string {
 
 		// Try to find a good break point (sentence end, paragraph, etc.)
 		chunkEnd := c.findBreakPoint(remaining, c.maxChunkSize)
-		
+
 		chunk := strings.TrimSpace(remaining[:chunkEnd])
 		chunks = append(chunks, chunk)
 		remaining = strings.TrimSpace(remaining[chunkEnd:])

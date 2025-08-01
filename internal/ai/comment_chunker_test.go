@@ -31,7 +31,7 @@ func TestCommentChunker(t *testing.T) {
 
 		chunks := chunker.ChunkComment(comment)
 		assert.Greater(t, len(chunks), 1)
-		
+
 		// Verify chunks contain part indicators
 		for _, chunk := range chunks {
 			assert.Contains(t, chunk.Body, "[Part")
@@ -48,7 +48,7 @@ func TestCommentChunker(t *testing.T) {
 
 		chunks := chunker.ChunkComment(comment)
 		assert.Greater(t, len(chunks), 1)
-		
+
 		// First chunk should end with a sentence
 		firstChunk := chunks[0].Body
 		assert.Contains(t, firstChunk, "sentence.")
@@ -70,7 +70,7 @@ func TestCommentChunker(t *testing.T) {
 		}
 
 		chunks := chunker.ChunkComment(comment)
-		
+
 		// All chunks should preserve metadata
 		for i, chunk := range chunks {
 			assert.Equal(t, comment.ID, chunk.ID)
@@ -78,7 +78,7 @@ func TestCommentChunker(t *testing.T) {
 			assert.Equal(t, comment.Line, chunk.Line)
 			assert.Equal(t, comment.Author, chunk.Author)
 			assert.Equal(t, comment.CreatedAt, chunk.CreatedAt)
-			
+
 			// Only first chunk should have replies
 			if i == 0 {
 				assert.Len(t, chunk.Replies, 1)
@@ -90,12 +90,12 @@ func TestCommentChunker(t *testing.T) {
 
 	t.Run("ShouldChunkComment", func(t *testing.T) {
 		chunker := NewCommentChunker(100)
-		
+
 		smallComment := github.Comment{
 			Body: "Small",
 		}
 		assert.False(t, chunker.ShouldChunkComment(smallComment))
-		
+
 		largeComment := github.Comment{
 			Body: strings.Repeat("Large ", 100),
 		}
@@ -105,12 +105,12 @@ func TestCommentChunker(t *testing.T) {
 
 func TestChunkingStrategies(t *testing.T) {
 	t.Run("Paragraph breaks", func(t *testing.T) {
-		chunker := NewCommentChunker(50)  // Smaller size to force chunking
+		chunker := NewCommentChunker(50) // Smaller size to force chunking
 		text := "First paragraph with some text.\n\nSecond paragraph with more text.\n\nThird paragraph."
-		
+
 		chunks := chunker.splitIntoChunks(text)
 		assert.Greater(t, len(chunks), 1)
-		
+
 		// Should break at paragraph boundaries
 		assert.Contains(t, chunks[0], "First paragraph")
 		// Since we respect paragraph boundaries, the third paragraph should be in a later chunk
@@ -122,9 +122,9 @@ func TestChunkingStrategies(t *testing.T) {
 	t.Run("List items", func(t *testing.T) {
 		chunker := NewCommentChunker(80)
 		text := "Issues found:\n- First issue that needs fixing\n- Second issue to address\n- Third issue"
-		
+
 		chunks := chunker.splitIntoChunks(text)
-		
+
 		// Should try to keep list items together
 		for _, chunk := range chunks {
 			// Each chunk should have complete list items
@@ -137,9 +137,9 @@ func TestChunkingStrategies(t *testing.T) {
 	t.Run("Code blocks", func(t *testing.T) {
 		chunker := NewCommentChunker(100)
 		text := "Here's the problem:\n```go\nfunc main() {\n    // This is a code block\n}\n```\nPlease fix this."
-		
+
 		chunks := chunker.splitIntoChunks(text)
-		
+
 		// Verify chunking doesn't break in the middle of code blocks if possible
 		assert.Greater(t, len(chunks), 0)
 	})

@@ -916,7 +916,7 @@ func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
 // processLargeComment handles comments that exceed size limits by chunking
 func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunker) ([]TaskRequest, error) {
 	if a.config.AISettings.DebugMode {
-		fmt.Printf("  📄 Large comment detected (ID: %d, size: %d bytes), chunking...\n", 
+		fmt.Printf("  📄 Large comment detected (ID: %d, size: %d bytes), chunking...\n",
 			ctx.Comment.ID, len(ctx.Comment.Body))
 	}
 
@@ -937,7 +937,7 @@ func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunk
 		// Process the chunk
 		var tasks []TaskRequest
 		var err error
-		
+
 		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 			tasks, err = a.processCommentWithValidation(chunkCtx)
 		} else {
