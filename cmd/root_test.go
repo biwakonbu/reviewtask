@@ -18,6 +18,7 @@ func TestRootCommandRegistration(t *testing.T) {
 		"update":   false,
 		"complete": false,
 		"verify":   false,
+		"config":   false,
 		"show":     false,
 		"stats":    false,
 		"version":  false,

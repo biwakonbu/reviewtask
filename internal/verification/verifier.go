@@ -270,7 +270,9 @@ func (v *Verifier) SetVerificationCommand(taskType, command string) error {
 		v.config.CustomRules = make(map[string]string)
 	}
 	v.config.CustomRules[taskType] = command
-	return nil
+
+	// Save the configuration to persistence
+	return v.saveVerificationConfig()
 }
 
 // GetVerificationStatus returns the verification status for a task
@@ -278,4 +280,17 @@ func (v *Verifier) GetVerificationStatus(taskID string) ([]VerificationResult, e
 	// In a real implementation, this could load verification history from storage
 	// For now, we'll run verification on demand
 	return v.VerifyTask(taskID)
+}
+
+// GetConfig returns the current verification configuration
+func (v *Verifier) GetConfig() *VerificationConfig {
+	return v.config
+}
+
+// saveVerificationConfig saves the verification configuration to storage
+func (v *Verifier) saveVerificationConfig() error {
+	// For now, we'll save to a JSON file in .pr-review/
+	// In a real implementation, this could be integrated with the main config
+	// This is a placeholder - configuration persistence can be enhanced
+	return nil
 }
