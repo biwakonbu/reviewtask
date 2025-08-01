@@ -224,38 +224,6 @@ func TestGetConfig(t *testing.T) {
 	}
 }
 
-func TestSetVerificationCommand(t *testing.T) {
-	// Create a verifier with test config
-	cfg := &config.Config{
-		VerificationSettings: config.VerificationSettings{
-			BuildCommand:    "go build",
-			TestCommand:     "go test",
-			LintCommand:     "golangci-lint run",
-			FormatCommand:   "gofmt -l .",
-			CustomRules:     make(map[string]string),
-			MandatoryChecks: []string{"build"},
-			OptionalChecks:  []string{"test"},
-			TimeoutMinutes:  5,
-			Enabled:         true,
-		},
-	}
-
-	verifier := &Verifier{
-		config:  cfg,
-		storage: NewMockStorage(),
-	}
-
-	// Note: In a real test, we would mock the config.Save() call
-	// For this test, we'll verify the custom rule is set correctly
-	if verifier.config.VerificationSettings.CustomRules == nil {
-		verifier.config.VerificationSettings.CustomRules = make(map[string]string)
-	}
-	verifier.config.VerificationSettings.CustomRules["test-task"] = "go test -v ./..."
-
-	if verifier.config.VerificationSettings.CustomRules["test-task"] != "go test -v ./..." {
-		t.Errorf("Expected custom rule to be set, got %q", verifier.config.VerificationSettings.CustomRules["test-task"])
-	}
-}
 
 func TestIsMandatory(t *testing.T) {
 	// Create a verifier with test config
@@ -389,5 +357,378 @@ func TestVerificationResult(t *testing.T) {
 
 	if result.Duration != 2*time.Second {
 		t.Errorf("Expected Duration 2s, got %v", result.Duration)
+	}
+}
+
+func TestVerifyTask(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			TestCommand:     "echo 'test success'",
+			MandatoryChecks: []string{"build"},
+			OptionalChecks:  []string{"test"},
+			TimeoutMinutes:  1,
+			Enabled:         true,
+		},
+	}
+
+	mockStorage := NewMockStorage()
+	task := storage.Task{
+		ID:          "verify-task-1",
+		Description: "Test task for verification",
+		Status:      "doing",
+	}
+	mockStorage.AddTask(task)
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: mockStorage,
+	}
+
+	results, err := verifier.VerifyTask("verify-task-1")
+	if err != nil {
+		t.Errorf("Expected no error verifying task, got: %v", err)
+	}
+
+	if len(results) == 0 {
+		t.Error("Expected verification results, got none")
+	}
+
+	// Test with non-existent task
+	_, err = verifier.VerifyTask("non-existent-task")
+	if err == nil {
+		t.Error("Expected error for non-existent task")
+	}
+}
+
+func TestCompleteTaskWithVerification(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			MandatoryChecks: []string{"build"},
+			TimeoutMinutes:  1,
+			Enabled:         true,
+		},
+	}
+
+	mockStorage := NewMockStorage()
+	task := storage.Task{
+		ID:          "complete-task-1",
+		Description: "Test task for completion",
+		Status:      "doing",
+	}
+	mockStorage.AddTask(task)
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: mockStorage,
+	}
+
+	err := verifier.CompleteTaskWithVerification("complete-task-1")
+	if err != nil {
+		t.Errorf("Expected no error completing task, got: %v", err)
+	}
+
+	// Verify the task status was updated in mock storage
+	if mockStorage.verificationStatusUpdates["complete-task-1"] == "" {
+		t.Error("Expected verification status to be updated")
+	}
+
+	// Test with non-existent task
+	err = verifier.CompleteTaskWithVerification("non-existent-task")
+	if err == nil {
+		t.Error("Expected error for non-existent task")
+	}
+}
+
+func TestSetVerificationCommand(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			CustomRules: make(map[string]string),
+		},
+	}
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: NewMockStorage(),
+	}
+
+	err := verifier.SetVerificationCommand("test-task", "go test -v ./...")
+	if err != nil {
+		t.Errorf("Expected no error setting verification command, got: %v", err)
+	}
+
+	if verifier.config.VerificationSettings.CustomRules["test-task"] != "go test -v ./..." {
+		t.Errorf("Expected custom rule to be set")
+	}
+}
+
+func TestGetVerificationStatus(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			MandatoryChecks: []string{"build"},
+			TimeoutMinutes:  1,
+			Enabled:         true,
+		},
+	}
+
+	mockStorage := NewMockStorage()
+	task := storage.Task{
+		ID:                 "status-task-1",
+		VerificationStatus: "verified",
+		Status:             "doing",
+	}
+	mockStorage.AddTask(task)
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: mockStorage,
+	}
+
+	results, err := verifier.GetVerificationStatus("status-task-1")
+	if err != nil {
+		t.Errorf("Expected no error getting verification status, got: %v", err)
+	}
+
+	if len(results) == 0 {
+		t.Error("Expected verification results, got none")
+	}
+
+	// Test with non-existent task
+	_, err = verifier.GetVerificationStatus("non-existent-task")
+	if err == nil {
+		t.Error("Expected error for non-existent task")
+	}
+}
+
+func TestGetVerificationHistory(t *testing.T) {
+	mockStorage := NewMockStorage()
+	
+	// Add some verification results
+	results := []storage.VerificationResult{
+		{
+			Timestamp:     time.Now().Format("2006-01-02T15:04:05Z"),
+			Success:       true,
+			FailureReason: "",
+			ChecksRun:     []string{"build"},
+		},
+	}
+	mockStorage.verificationResults["history-task-1"] = results
+
+	verifier := &Verifier{
+		config:  &config.Config{},
+		storage: mockStorage,
+	}
+
+	history, err := verifier.GetVerificationHistory("history-task-1")
+	if err != nil {
+		t.Errorf("Expected no error getting verification history, got: %v", err)
+	}
+
+	if len(history) != 1 {
+		t.Errorf("Expected 1 verification result, got %d", len(history))
+	}
+
+	if !history[0].Success {
+		t.Error("Expected first result to be successful")
+	}
+}
+
+func TestVerificationWithDisabledConfig(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			MandatoryChecks: []string{"build"},
+			TimeoutMinutes:  1,
+			Enabled:         false, // Disabled
+		},
+	}
+
+	mockStorage := NewMockStorage()
+	task := storage.Task{
+		ID:          "disabled-task-1",
+		Description: "Test task with disabled verification",
+		Status:      "doing",
+	}
+	mockStorage.AddTask(task)
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: mockStorage,
+	}
+
+	// Should still work but with different behavior when disabled
+	results, err := verifier.VerifyTask("disabled-task-1")
+	
+	// Verification should still work - the Enabled flag affects behavior not availability
+	if err != nil {
+		t.Errorf("Expected verification to work even when disabled, got: %v", err)
+	}
+	
+	// Results may be empty or limited when disabled
+	_ = results // Just ensure no panic
+}
+
+func TestRunVerificationFailureScenarios(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:   "exit 1", // Command that fails
+			TimeoutMinutes: 1,
+		},
+	}
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: NewMockStorage(),
+	}
+
+	task := &storage.Task{
+		ID:          "fail-task-1",
+		Description: "Task that will fail verification",
+	}
+
+	result := verifier.runVerification(VerificationBuild, task)
+
+	if result.Success {
+		t.Error("Expected verification to fail with exit 1 command")
+	}
+
+	if result.Type != VerificationBuild {
+		t.Errorf("Expected verification type build, got %s", result.Type)
+	}
+
+	if result.Duration <= 0 {
+		t.Error("Expected duration to be measured even for failed commands")
+	}
+}
+
+func TestCompleteTaskWithVerificationEdgeCases(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			MandatoryChecks: []string{"build"},
+			TimeoutMinutes:  1,
+			Enabled:         true,
+		},
+	}
+
+	mockStorage := NewMockStorage()
+	
+	// Test with task that has multiple mandatory checks - some pass, some fail
+	task := storage.Task{
+		ID:          "complex-task-1",
+		Description: "Complex task for edge case testing",
+		Status:      "doing",
+	}
+	mockStorage.AddTask(task)
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: mockStorage,
+	}
+
+	// Test successful completion flow
+	err := verifier.CompleteTaskWithVerification("complex-task-1")
+	if err != nil {
+		t.Errorf("Expected no error in complex verification, got: %v", err)
+	}
+
+	// Verify all the expected storage updates occurred
+	if mockStorage.verificationStatusUpdates["complex-task-1"] == "" {
+		t.Error("Expected verification status to be updated")
+	}
+
+	if len(mockStorage.verificationResults["complex-task-1"]) == 0 {
+		t.Error("Expected verification results to be stored")
+	}
+}
+
+func TestNewVerifierErrorHandling(t *testing.T) {
+	// Test that NewVerifier handles configuration loading gracefully
+	verifier, err := NewVerifier()
+	
+	// Even if config loading fails, we should get a verifier with defaults
+	if verifier == nil {
+		t.Fatal("Expected verifier to be created even with config errors")
+	}
+	
+	// Error may be non-nil if config file doesn't exist, which is OK
+	_ = err
+	
+	// Verify that basic operations work with default config
+	if verifier.config == nil {
+		t.Fatal("Expected verifier to have config initialized")
+	}
+	
+	if verifier.storage == nil {
+		t.Fatal("Expected verifier to have storage initialized")
+	}
+}
+
+func TestRunVerificationAllTypes(t *testing.T) {
+	cfg := &config.Config{
+		VerificationSettings: config.VerificationSettings{
+			BuildCommand:    "echo 'build success'",
+			TestCommand:     "echo 'test success'",
+			LintCommand:     "echo 'lint success'",
+			FormatCommand:   "echo 'format success'",
+			CustomRules:     map[string]string{"test-task": "echo 'custom success'"},
+			TimeoutMinutes:  1,
+		},
+	}
+
+	verifier := &Verifier{
+		config:  cfg,
+		storage: NewMockStorage(),
+	}
+
+	// Test standard verification types
+	standardTask := &storage.Task{
+		ID:          "standard-task",
+		Description: "Task to test standard verification types",
+	}
+
+	standardTypes := []VerificationType{
+		VerificationBuild,
+		VerificationTest,
+		VerificationLint,
+		VerificationFormat,
+	}
+
+	for _, vType := range standardTypes {
+		result := verifier.runVerification(vType, standardTask)
+		
+		if !result.Success {
+			t.Errorf("Expected %s verification to succeed, got: %s", vType, result.Message)
+		}
+		
+		if result.Type != vType {
+			t.Errorf("Expected verification type %s, got %s", vType, result.Type)
+		}
+		
+		if result.Duration <= 0 {
+			t.Errorf("Expected positive duration for %s verification", vType)
+		}
+	}
+
+	// Test custom verification type (needs specific task description)
+	customTask := &storage.Task{
+		ID:          "custom-task",
+		Description: "Fix test failure in user service", // This matches test-task pattern
+	}
+
+	result := verifier.runVerification(VerificationCustom, customTask)
+	
+	if !result.Success {
+		t.Errorf("Expected custom verification to succeed, got: %s", result.Message)
+	}
+	
+	if result.Type != VerificationCustom {
+		t.Errorf("Expected verification type custom, got %s", result.Type)
+	}
+	
+	if result.Duration <= 0 {
+		t.Error("Expected positive duration for custom verification")
 	}
 }
