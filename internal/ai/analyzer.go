@@ -899,12 +899,68 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 
 // processComment handles a single comment and returns tasks for it
 func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
+	// Check if comment needs chunking
+	chunker := NewCommentChunker(20000) // 20KB chunks to leave room for prompt template
+	if chunker.ShouldChunkComment(ctx.Comment) {
+		return a.processLargeComment(ctx, chunker)
+	}
+
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
 		return a.processCommentWithValidation(ctx)
 	}
 
 	prompt := a.buildCommentPrompt(ctx)
 	return a.callClaudeCode(prompt)
+}
+
+// processLargeComment handles comments that exceed size limits by chunking
+func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunker) ([]TaskRequest, error) {
+	if a.config.AISettings.DebugMode {
+		fmt.Printf("  📄 Large comment detected (ID: %d, size: %d bytes), chunking...\n", 
+			ctx.Comment.ID, len(ctx.Comment.Body))
+	}
+
+	chunks := chunker.ChunkComment(ctx.Comment)
+	var allTasks []TaskRequest
+
+	for i, chunk := range chunks {
+		if a.config.AISettings.DebugMode {
+			fmt.Printf("    Processing chunk %d/%d (size: %d bytes)\n", i+1, len(chunks), len(chunk.Body))
+		}
+
+		// Create a new context with the chunked comment
+		chunkCtx := CommentContext{
+			Comment:      chunk,
+			SourceReview: ctx.SourceReview,
+		}
+
+		// Process the chunk
+		var tasks []TaskRequest
+		var err error
+		
+		if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+			tasks, err = a.processCommentWithValidation(chunkCtx)
+		} else {
+			prompt := a.buildCommentPrompt(chunkCtx)
+			tasks, err = a.callClaudeCode(prompt)
+		}
+
+		if err != nil {
+			if a.config.AISettings.DebugMode {
+				fmt.Printf("    ❌ Failed to process chunk %d: %v\n", i+1, err)
+			}
+			// Continue with other chunks even if one fails
+			continue
+		}
+
+		allTasks = append(allTasks, tasks...)
+	}
+
+	if len(allTasks) == 0 && len(chunks) > 0 {
+		return nil, fmt.Errorf("failed to process any chunks of large comment %d", ctx.Comment.ID)
+	}
+
+	return allTasks, nil
 }
 
 // processCommentWithValidation validates individual comment JSON responses
