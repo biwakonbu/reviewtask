@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -50,7 +51,8 @@ func outputPRReviewPromptToStdout(cmd *cobra.Command) error {
 // getPRReviewPromptTemplate returns the PR review workflow prompt template
 // This is shared between claude.go and prompt_stdout.go to maintain consistency
 func getPRReviewPromptTemplate() string {
-	return `---
+	// Use § as placeholder for backticks to enable true heredoc format
+	template := `---
 name: review-task-workflow
 description: Execute PR review tasks systematically using reviewtask
 ---
@@ -61,38 +63,38 @@ You are tasked with executing PR review tasks systematically using the reviewtas
 
 The reviewtask tool provides the following commands for managing PR review tasks:
 
-- **` + "`reviewtask`" + `** - Fetch latest PR reviews and generate/update tasks
-- **` + "`reviewtask status`" + `** - Check overall task status and get summary
-- **` + "`reviewtask show`" + `** - Get next recommended task based on priority
-- **` + "`reviewtask show <task-id>`" + `** - Show detailed information for a specific task
-- **` + "`reviewtask update <task-id> <status>`" + `** - Update task status
-  - Status options: ` + "`todo`, `doing`, `done`, `pending`, `cancel`" + `
+- **§reviewtask§** - Fetch latest PR reviews and generate/update tasks
+- **§reviewtask status§** - Check overall task status and get summary
+- **§reviewtask show§** - Get next recommended task based on priority
+- **§reviewtask show <task-id>§** - Show detailed information for a specific task
+- **§reviewtask update <task-id> <status>§** - Update task status
+  - Status options: §todo§, §doing§, §done§, §pending§, §cancel§
 
 ### Task Completion Verification Commands:
 
-- **` + "`reviewtask verify <task-id>`" + `** - Run verification checks before task completion
-- **` + "`reviewtask complete <task-id>`" + `** - Complete task with automatic verification
-- **` + "`reviewtask complete <task-id> --skip-verification`" + `** - Complete task without verification
-- **` + "`reviewtask config set-verifier <task-type> <command>`" + `** - Configure custom verification commands
-- **` + "`reviewtask config show`" + `** - Display current verification configuration
+- **§reviewtask verify <task-id>§** - Run verification checks before task completion
+- **§reviewtask complete <task-id>§** - Complete task with automatic verification
+- **§reviewtask complete <task-id> --skip-verification§** - Complete task without verification
+- **§reviewtask config set-verifier <task-type> <command>§** - Configure custom verification commands
+- **§reviewtask config show§** - Display current verification configuration
 
 ## Task Priority System:
 
 Tasks are automatically assigned priority levels that determine processing order:
-- **` + "`critical`" + `** - Security issues, critical bugs, breaking changes
-- **` + "`high`" + `** - Important functionality issues, major improvements
-- **` + "`medium`" + `** - Moderate improvements, refactoring suggestions
-- **` + "`low`" + `** - Minor improvements, style suggestions
+- **§critical§** - Security issues, critical bugs, breaking changes
+- **§high§** - Important functionality issues, major improvements
+- **§medium§** - Moderate improvements, refactoring suggestions
+- **§low§** - Minor improvements, style suggestions
 
 ## Initial Setup (Execute Once Per Command Invocation):
 
-**Fetch Latest Reviews**: Run ` + "`reviewtask`" + ` without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
+**Fetch Latest Reviews**: Run §reviewtask§ without arguments to fetch the latest PR reviews and generate/update tasks. This ensures you're working with the most current review feedback and tasks.
 
 After completing the initial setup, follow this exact workflow:
 
 ## Workflow Steps:
 
-1. **Check Status**: Use ` + "`reviewtask status`" + ` to check current task status and identify any tasks in progress
+1. **Check Status**: Use §reviewtask status§ to check current task status and identify any tasks in progress
    - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
    - **If only pending tasks remain**: Review each pending task and decide action (see Step 2d)
    - **Continue only if todo, doing, or pending tasks exist**
@@ -107,17 +109,17 @@ After completing the initial setup, follow this exact workflow:
    
    c) **For todo tasks**: 
       - First, evaluate if the task is needed using the **Task Classification Guidelines** below
-      - If needed: Use ` + "`reviewtask show`" + ` to get the next recommended task, then run ` + "`reviewtask update <task-id> doing`" + `
-      - If duplicate/unnecessary: Update to ` + "`cancel`" + `
-      - If uncertain: Update to ` + "`pending`" + `
+      - If needed: Use §reviewtask show§ to get the next recommended task, then run §reviewtask update <task-id> doing§
+      - If duplicate/unnecessary: Update to §cancel§
+      - If uncertain: Update to §pending§
    
    d) **For pending-only scenario**: 
       - List all pending tasks and their reasons for being blocked
       - For each pending task, decide:
-        - ` + "`doing`" + `: If you can now resolve the blocking issue
-        - ` + "`todo`" + `: If the task should be attempted again
-        - ` + "`cancel`" + `: If the task is no longer relevant or cannot be completed
-      - Update task status: ` + "`reviewtask update <task-id> <new-status>`" + `
+        - §doing§: If you can now resolve the blocking issue
+        - §todo§: If the task should be attempted again
+        - §cancel§: If the task is no longer relevant or cannot be completed
+      - Update task status: §reviewtask update <task-id> <new-status>§
 
 3. **Verify Task Start**: Confirm the status change was successful before proceeding
 
@@ -125,16 +127,16 @@ After completing the initial setup, follow this exact workflow:
 
 5. **Verify and Complete Task**: When implementation is finished:
    a) **Verify Implementation**: Run verification checks to ensure quality:
-      - ` + "`reviewtask verify <task-id>`" + ` - Check if implementation meets verification requirements
+      - §reviewtask verify <task-id>§ - Check if implementation meets verification requirements
       - If verification fails: Review and fix issues, then retry verification
       - If verification passes: Continue to completion
    
    b) **Complete Task**: Choose completion method:
-      - **Recommended**: ` + "`reviewtask complete <task-id>`" + ` - Complete with automatic verification
-      - **Alternative**: ` + "`reviewtask complete <task-id> --skip-verification`" + ` - Skip verification if needed
-      - **Manual**: ` + "`reviewtask update <task-id> done`" + ` - Direct status update (no verification)
-   - Commit changes using this message template (adjust language based on ` + "`user_language`" + ` setting in ` + "`.pr-review/config.json`" + `):
-     ` + `
+      - **Recommended**: §reviewtask complete <task-id>§ - Complete with automatic verification
+      - **Alternative**: §reviewtask complete <task-id> --skip-verification§ - Skip verification if needed
+      - **Manual**: §reviewtask update <task-id> done§ - Direct status update (no verification)
+   - Commit changes using this message template (adjust language based on §user_language§ setting in §.pr-review/config.json§):
+     §§§
      fix: [Clear, concise description of what was fixed or implemented]
      
      **Feedback:** [Brief summary of the issue identified in the review]
@@ -159,12 +161,12 @@ After completing the initial setup, follow this exact workflow:
      
      Comment ID: [source_comment_id]
      Review Comment: https://github.com/[owner]/[repo]/pull/[pr-number]#discussion_r[comment-id]
-     ` + `
+     §§§
 
 6. **Commit Changes**: After successful task completion, commit with proper message format
 
 7. **Continue Workflow**: After committing:
-   - Check status again with ` + "`reviewtask status`" + `
+   - Check status again with §reviewtask status§
    - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
    - **If only pending tasks remain**: Handle pending tasks as described in Step 2d
    - **If todo or doing tasks remain**: Repeat this entire workflow from step 1
@@ -202,24 +204,24 @@ The reviewtask tool includes intelligent AI processing that:
 The tool includes verification capabilities to ensure task quality before completion:
 
 **Verification Types:**
-- **Build Verification**: Runs build/compile checks (default: ` + "`go build ./...`" + `)
-- **Test Execution**: Runs test suites (default: ` + "`go test ./...`" + `)
-- **Code Quality**: Lint and format checks (default: ` + "`golangci-lint run`, `gofmt -l .`" + `)
+- **Build Verification**: Runs build/compile checks (default: §go build ./...§)
+- **Test Execution**: Runs test suites (default: §go test ./...§)
+- **Code Quality**: Lint and format checks (default: §golangci-lint run§, §gofmt -l .§)
 - **Custom Verification**: Project-specific commands based on task type
 
 **Task Type Detection:**
 Tasks are automatically categorized for custom verification:
-- ` + "`test-task`" + `: Tasks containing "test" or "testing"
-- ` + "`build-task`" + `: Tasks containing "build" or "compile"
-- ` + "`style-task`" + `: Tasks containing "lint" or "format"
-- ` + "`bug-fix`" + `: Tasks containing "bug" or "fix"
-- ` + "`feature-task`" + `: Tasks containing "feature" or "implement"
-- ` + "`general-task`" + `: All other tasks
+- §test-task§: Tasks containing "test" or "testing"
+- §build-task§: Tasks containing "build" or "compile"
+- §style-task§: Tasks containing "lint" or "format"
+- §bug-fix§: Tasks containing "bug" or "fix"
+- §feature-task§: Tasks containing "feature" or "implement"
+- §general-task§: All other tasks
 
 **Configuration:**
-- ` + "`reviewtask config show`" + ` - View current verification settings
-- ` + "`reviewtask config set-verifier <task-type> <command>`" + ` - Set custom verification commands
-- Verification settings stored in ` + "`.pr-review/config.json`" + `
+- §reviewtask config show§ - View current verification settings
+- §reviewtask config set-verifier <task-type> <command>§ - Set custom verification commands
+- Verification settings stored in §.pr-review/config.json§
 
 ## Current Tool Features:
 
@@ -234,13 +236,13 @@ This workflow leverages the full capabilities of the current reviewtask implemen
 - Work only in the current branch
 - Always verify status changes before proceeding
 - Include proper commit message format with task details and comment references
-- **Task Priority**: Always work on ` + "`doing`" + ` tasks first, then ` + "`todo`" + ` tasks (by priority level), then handle ` + "`pending`" + ` tasks
+- **Task Priority**: Always work on §doing§ tasks first, then §todo§ tasks (by priority level), then handle §pending§ tasks
 - **Priority-Based Processing**: Within todo tasks, process critical → high → medium → low priority items
-- **Task Completion Verification**: Use ` + "`reviewtask complete <task-id>`" + ` for verified completion (recommended)
+- **Task Completion Verification**: Use §reviewtask complete <task-id>§ for verified completion (recommended)
 - **Verification Failure Handling**: If verification fails, fix issues and retry before completing
 - **Verification Configuration**: Custom verification commands can be set per task type for project-specific requirements
-- **Pending Task Management**: Pending tasks must be resolved by changing status to ` + "`doing`, `todo`, or `cancel`" + `
-- **Efficient Task Management**: Classify duplicate/unnecessary tasks as ` + "`cancel`" + ` and uncertain tasks as ` + "`pending`" + ` to focus on actionable work
+- **Pending Task Management**: Pending tasks must be resolved by changing status to §doing§, §todo§, or §cancel§
+- **Efficient Task Management**: Classify duplicate/unnecessary tasks as §cancel§ and uncertain tasks as §pending§ to focus on actionable work
 - **Automatic Task Generation**: The tool intelligently creates tasks from review feedback with appropriate priorities
 - Continue until all tasks are completed or no more actionable tasks remain
 - The initial review fetch is executed only once per command invocation, not during the iterative workflow steps
@@ -249,8 +251,8 @@ This workflow leverages the full capabilities of the current reviewtask implemen
 
 Here are examples of actual reviewtask command outputs to demonstrate expected behavior:
 
-**` + "`reviewtask status` output example:" + `**
-` + "```" + `
+**§reviewtask status§ output example:**
+§§§text
 PR Review Tasks Status:
 ┌────────┬──────────────────────────────────────────┬──────────┬──────────┐
 │ Status │ Task Description                         │ Priority │ ID       │
@@ -262,10 +264,10 @@ PR Review Tasks Status:
 └────────┴──────────────────────────────────────────┴──────────┴──────────┘
 
 Next recommended task: task-001 (doing - critical priority)
-` + "```" + `
+§§§
 
-**` + "`reviewtask show` output example:" + `**
-` + "```" + `
+**§reviewtask show§ output example:**
+§§§text
 Task ID: task-001
 Status: doing
 Priority: critical
@@ -286,10 +288,10 @@ Files to modify:
 Last Verification: 2025-08-01 18:19:53
 Verification History:
   1. PASSED 2025-08-01 18:19:53 (checks: build, test)
-` + "```" + `
+§§§
 
-**` + "`reviewtask verify` output example:" + `**
-` + "```" + `
+**§reviewtask verify§ output example:**
+§§§text
 Running verification checks for task 'task-001'...
 
 BUILD: verification passed (0.45s)
@@ -297,15 +299,17 @@ TEST: verification passed (2.3s)
 
 All verification checks passed for task 'task-001'
 You can now safely complete this task with: reviewtask complete task-001
-` + "```" + `
+§§§
 
-**` + "`reviewtask complete` output example:" + `**
-` + "```" + `
+**§reviewtask complete§ output example:**
+§§§text
 Running verification checks for task 'task-001'...
 Task 'task-001' completed successfully!
 All verification checks passed
-` + "```" + `
+§§§
 
 Execute this workflow now.
 `
+	// Replace § placeholders with backticks
+	return strings.ReplaceAll(template, "§", "`")
 }
