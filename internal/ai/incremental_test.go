@@ -26,7 +26,7 @@ func TestGenerateTasksIncremental(t *testing.T) {
 			DeduplicationEnabled: false, // Disable for tests to avoid Claude calls
 			SimilarityThreshold:  0.8,
 			MaxTasksPerComment:   5,
-			DebugMode:            false,
+			VerboseMode:          false,
 		},
 		TaskSettings: config.TaskSettings{
 			DefaultStatus:     "todo",

@@ -30,7 +30,7 @@ func TestDeduplicationIntegration(t *testing.T) {
 			MaxRetries:           1,
 			ValidationEnabled:    &validationTrue,
 			QualityThreshold:     0.8,
-			DebugMode:            true, // Enable debug for test
+			VerboseMode:          true, // Enable debug for test
 			MaxTasksPerComment:   2,
 			DeduplicationEnabled: false, // Disable AI deduplication for testing
 			SimilarityThreshold:  0.7,

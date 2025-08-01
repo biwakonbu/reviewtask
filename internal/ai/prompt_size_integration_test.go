@@ -15,7 +15,7 @@ func TestPromptSizeDebugOutput(t *testing.T) {
 		cfg := &config.Config{
 			AISettings: config.AISettings{
 				UserLanguage: "English",
-				DebugMode:    true,
+				VerboseMode:  true,
 			},
 		}
 
@@ -66,7 +66,7 @@ func TestPromptSizeDebugOutput(t *testing.T) {
 		cfg := &config.Config{
 			AISettings: config.AISettings{
 				UserLanguage: "English",
-				DebugMode:    false,
+				VerboseMode:  false,
 			},
 		}
 
@@ -92,7 +92,7 @@ func TestPromptSizeDebugOutput(t *testing.T) {
 		// Should get simplified error in non-debug mode
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "exceeds maximum limit")
-		assert.Contains(t, err.Error(), "Use --debug for detailed breakdown")
+		assert.Contains(t, err.Error(), "Use --verbose for detailed breakdown")
 		assert.NotContains(t, err.Error(), "Prompt size breakdown:")
 	})
 }

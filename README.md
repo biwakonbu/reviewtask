@@ -303,7 +303,7 @@ Edit `.pr-review/config.json` to customize priority rules:
   "ai_settings": {
     "user_language": "English",
     "validation_enabled": false,
-    "debug_mode": true
+    "verbose_mode": true
   }
 }
 ```
