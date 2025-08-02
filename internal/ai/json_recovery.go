@@ -336,7 +336,7 @@ func (jr *JSONRecoverer) cleanMalformedJSON(response string) string {
 	// Fix missing quotes around field names
 	cleaned = regexp.MustCompile(`(\w+):`).ReplaceAllString(cleaned, `"$1":`)
 
-	return cleaned
+	return strings.TrimSpace(cleaned)
 }
 
 // isValidTaskRequest validates that a task request has required fields

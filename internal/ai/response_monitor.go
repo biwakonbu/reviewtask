@@ -160,6 +160,10 @@ func (rm *ResponseMonitor) AnalyzePerformance() (*ResponseAnalytics, error) {
 		return &ResponseAnalytics{
 			TotalRequests:   0,
 			SuccessRate:     0,
+			TruncationPatterns: TruncationAnalytics{
+				OptimalPromptSize:     20000,
+				HighRiskSizeThreshold: 30000,
+			},
 			Recommendations: []OptimizationTip{},
 		}, nil
 	}
