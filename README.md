@@ -29,6 +29,9 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
 - **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
 - **🔄 Smart Deduplication**: AI-powered task deduplication with similarity threshold control
+- **🛡️ JSON Recovery**: Automatic recovery from incomplete Claude API responses with partial task extraction
+- **🔁 Intelligent Retry**: Smart retry strategies with pattern detection and prompt size adjustment
+- **📊 Response Monitoring**: Performance analytics and optimization recommendations for API usage
 
 ## Installation
 
@@ -339,17 +342,43 @@ Configure advanced processing features in `.pr-review/config.json`:
 ```json
 {
   "ai_settings": {
-    "verbose_mode": false,            // Enable detailed debug logging
-    "validation_enabled": true,       // Enable AI task validation
-    "max_retries": 5,                // Validation retry attempts
-    "quality_threshold": 0.8,        // Minimum validation score (0.0-1.0)
-    "deduplication_enabled": true,   // AI-powered task deduplication
-    "similarity_threshold": 0.8,     // Task similarity detection threshold
-    "process_nitpick_comments": false, // Process CodeRabbit nitpick comments
-    "nitpick_priority": "low"        // Priority for nitpick-generated tasks
+    "verbose_mode": false,               // Enable detailed debug logging
+    "validation_enabled": true,          // Enable AI task validation
+    "max_retries": 5,                    // Validation retry attempts
+    "quality_threshold": 0.8,            // Minimum validation score (0.0-1.0)
+    "deduplication_enabled": true,       // AI-powered task deduplication
+    "similarity_threshold": 0.8,         // Task similarity detection threshold
+    "process_nitpick_comments": false,   // Process CodeRabbit nitpick comments
+    "nitpick_priority": "low",           // Priority for nitpick-generated tasks
+    "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
+    "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
+    "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
+    "log_truncated_responses": true      // Log truncated responses for debugging
   }
 }
 ```
+
+### JSON Recovery and Retry Features
+
+The tool now includes advanced recovery mechanisms for handling incomplete Claude API responses:
+
+- **JSON Recovery**: Automatically recovers valid tasks from truncated or malformed JSON responses
+  - Extracts complete task objects from partial arrays
+  - Cleans up malformed JSON syntax
+  - Validates recovered data before processing
+  - Configurable recovery attempts and thresholds
+
+- **Intelligent Retry**: Smart retry strategies based on error patterns
+  - Automatic prompt size reduction for token limit errors
+  - Exponential backoff for rate limiting
+  - Pattern detection for common truncation issues
+  - Configurable retry attempts and delays
+
+- **Response Monitoring**: Tracks API performance and provides optimization insights
+  - Response size and truncation pattern analysis
+  - Success rate tracking and error distribution
+  - Optimal prompt size recommendations
+  - Performance analytics and reporting
 
 ### Processing Modes
 
@@ -565,6 +594,30 @@ reviewtask prompt claude pr-review
 # - AI provider CLI not in PATH
 # - Authentication required
 # - Network connectivity
+```
+
+### JSON Recovery and API Response Issues
+
+Handle incomplete or truncated Claude API responses:
+
+```bash
+# Enable verbose mode to see recovery attempts
+# Edit .pr-review/config.json:
+{
+  "ai_settings": {
+    "verbose_mode": true,
+    "enable_json_recovery": true
+  }
+}
+
+# Common recovery scenarios:
+# - "unexpected end of JSON input" errors
+# - Truncated responses at token limits
+# - Malformed JSON from API timeouts
+# - Partial task arrays
+
+# Monitor API performance:
+# Check .pr-review/response_analytics.json for patterns
 ```
 
 ### Permission Requirements

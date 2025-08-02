@@ -110,6 +110,12 @@ reviewtask debug fetch task 123      # Generate tasks from saved reviews only
 - Validation mode optimizes prompt sizes to prevent failures
 - Pre-validation size checks avoid wasted API calls
 
+**JSON Recovery and API Resilience:**
+- Automatic recovery from truncated or incomplete Claude API responses
+- Intelligent retry strategies with prompt size reduction
+- Response monitoring and performance analytics
+- Pattern detection for common API failure modes
+
 ### 3. Team Collaboration Rules
 
 **For PR Authors:**
@@ -218,19 +224,26 @@ internal/              # Private implementation packages
 - **Comment Chunking**: Automatic for comments >20KB, configurable chunk size
 - **Prompt Size Optimization**: Pre-validation size checks prevent API failures
 - **Deduplication**: AI-powered task deduplication with similarity threshold control
+- **JSON Recovery**: `"enable_json_recovery": true` recovers tasks from incomplete API responses
+- **Intelligent Retry**: Smart retry strategies with exponential backoff and prompt reduction
+- **Response Monitoring**: Performance tracking and optimization recommendations
 
 **Advanced Features:**
 ```json
 {
   "ai_settings": {
-    "verbose_mode": true,              // Enable detailed debug logging
-    "validation_enabled": true,        // Enable task validation with retries
-    "max_retries": 5,                 // Validation retry attempts
-    "quality_threshold": 0.8,         // Minimum validation score
-    "deduplication_enabled": true,    // AI-powered task deduplication
-    "similarity_threshold": 0.8,      // Task similarity detection threshold
-    "process_nitpick_comments": false, // Process CodeRabbit nitpick comments
-    "nitpick_priority": "low"         // Priority for nitpick-generated tasks
+    "verbose_mode": true,                  // Enable detailed debug logging
+    "validation_enabled": true,            // Enable task validation with retries
+    "max_retries": 5,                      // Validation retry attempts
+    "quality_threshold": 0.8,              // Minimum validation score
+    "deduplication_enabled": true,         // AI-powered task deduplication
+    "similarity_threshold": 0.8,           // Task similarity detection threshold
+    "process_nitpick_comments": false,     // Process CodeRabbit nitpick comments
+    "nitpick_priority": "low",             // Priority for nitpick-generated tasks
+    "enable_json_recovery": true,          // Enable recovery from incomplete JSON responses
+    "max_recovery_attempts": 3,            // Maximum attempts to recover valid tasks
+    "partial_response_threshold": 0.7,     // Minimum ratio for accepting partial responses
+    "log_truncated_responses": true        // Log truncated responses for debugging
   }
 }
 ```
