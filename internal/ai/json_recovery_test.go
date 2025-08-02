@@ -60,9 +60,9 @@ func TestJSONRecoverer_CategorizeError(t *testing.T) {
 	recoverer := NewJSONRecoverer(true, false)
 
 	tests := []struct {
-		name          string
-		error         error
-		expectedType  string
+		name         string
+		error        error
+		expectedType string
 	}{
 		{
 			name:         "unexpected end of JSON input",
@@ -104,13 +104,13 @@ func TestJSONRecoverer_CategorizeError(t *testing.T) {
 func TestJSONRecoverer_RecoverJSON_Disabled(t *testing.T) {
 	recoverer := NewJSONRecoverer(false, false)
 	err := errors.New("test error")
-	
+
 	result := recoverer.RecoverJSON("invalid json", err)
-	
+
 	if result.IsRecovered {
 		t.Error("Expected recovery to be disabled")
 	}
-	
+
 	if result.Message != "JSON recovery disabled" {
 		t.Errorf("Expected disabled message, got: %s", result.Message)
 	}
@@ -120,10 +120,10 @@ func TestJSONRecoverer_TryRecoverPartialArray(t *testing.T) {
 	recoverer := NewJSONRecoverer(true, false)
 
 	tests := []struct {
-		name           string
-		input          string
-		expectedTasks  int
-		shouldSucceed  bool
+		name          string
+		input         string
+		expectedTasks int
+		shouldSucceed bool
 	}{
 		{
 			name: "complete truncated array",
@@ -193,7 +193,7 @@ func TestJSONRecoverer_TryRecoverPartialArray(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tasks := recoverer.tryRecoverPartialArray(tt.input)
-			
+
 			if tt.shouldSucceed {
 				if tasks == nil {
 					t.Error("Expected recovery to succeed but got nil")
@@ -215,9 +215,9 @@ func TestJSONRecoverer_ExtractCompleteObjects(t *testing.T) {
 	recoverer := NewJSONRecoverer(true, false)
 
 	tests := []struct {
-		name           string
-		input          string
-		expectedTasks  int
+		name          string
+		input         string
+		expectedTasks int
 	}{
 		{
 			name: "multiple complete objects",
@@ -279,7 +279,7 @@ func TestJSONRecoverer_ExtractCompleteObjects(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tasks := recoverer.extractCompleteObjects(tt.input)
-			
+
 			if len(tasks) != tt.expectedTasks {
 				t.Errorf("Expected %d tasks, got %d", tt.expectedTasks, len(tasks))
 			}
@@ -402,9 +402,9 @@ func TestJSONRecoverer_FindCompleteJSONObjects(t *testing.T) {
 	recoverer := NewJSONRecoverer(true, false)
 
 	tests := []struct {
-		name           string
-		input          string
-		expectedCount  int
+		name          string
+		input         string
+		expectedCount int
 	}{
 		{
 			name:          "simple object",
@@ -452,12 +452,12 @@ func TestJSONRecoverer_RecoverJSON_Integration(t *testing.T) {
 	recoverer := NewJSONRecoverer(true, false)
 
 	tests := []struct {
-		name                string
-		input               string
-		error               error
-		expectedRecovered   bool
-		expectedTaskCount   int
-		expectedErrorType   string
+		name              string
+		input             string
+		error             error
+		expectedRecovered bool
+		expectedTaskCount int
+		expectedErrorType string
 	}{
 		{
 			name: "successful truncation recovery",
@@ -472,10 +472,10 @@ func TestJSONRecoverer_RecoverJSON_Integration(t *testing.T) {
 					"line": 10,
 					"task_index": 0
 				}`,
-			error:               errors.New("unexpected end of JSON input"),
-			expectedRecovered:   true,
-			expectedTaskCount:   1,
-			expectedErrorType:   "truncation",
+			error:             errors.New("unexpected end of JSON input"),
+			expectedRecovered: true,
+			expectedTaskCount: 1,
+			expectedErrorType: "truncation",
 		},
 		{
 			name: "successful malformed recovery",
@@ -491,37 +491,37 @@ func TestJSONRecoverer_RecoverJSON_Integration(t *testing.T) {
 					"task_index": 0
 				},
 			]`,
-			error:               errors.New("invalid character ']' looking for beginning of object key string"),
-			expectedRecovered:   true,
-			expectedTaskCount:   1,
-			expectedErrorType:   "malformed",
+			error:             errors.New("invalid character ']' looking for beginning of object key string"),
+			expectedRecovered: true,
+			expectedTaskCount: 1,
+			expectedErrorType: "malformed",
 		},
 		{
-			name:                "failed recovery - no valid data",
-			input:               "completely invalid data",
-			error:               errors.New("unexpected end of JSON input"),
-			expectedRecovered:   false,
-			expectedTaskCount:   0,
-			expectedErrorType:   "truncation",
+			name:              "failed recovery - no valid data",
+			input:             "completely invalid data",
+			error:             errors.New("unexpected end of JSON input"),
+			expectedRecovered: false,
+			expectedTaskCount: 0,
+			expectedErrorType: "truncation",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := recoverer.RecoverJSON(tt.input, tt.error)
-			
+
 			if result.IsRecovered != tt.expectedRecovered {
 				t.Errorf("Expected IsRecovered=%v, got %v", tt.expectedRecovered, result.IsRecovered)
 			}
-			
+
 			if len(result.Tasks) != tt.expectedTaskCount {
 				t.Errorf("Expected %d tasks, got %d", tt.expectedTaskCount, len(result.Tasks))
 			}
-			
+
 			if result.ErrorType != tt.expectedErrorType {
 				t.Errorf("Expected error type %s, got %s", tt.expectedErrorType, result.ErrorType)
 			}
-			
+
 			if result.OriginalSize != len(tt.input) {
 				t.Errorf("Expected original size %d, got %d", len(tt.input), result.OriginalSize)
 			}

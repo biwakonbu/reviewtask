@@ -214,10 +214,10 @@ func TestRetryStrategy_CalculateDelay(t *testing.T) {
 	strategy := NewRetryStrategy(false)
 
 	tests := []struct {
-		name         string
-		attempt      int
-		expectedMin  time.Duration
-		expectedMax  time.Duration
+		name        string
+		attempt     int
+		expectedMin time.Duration
+		expectedMax time.Duration
 	}{
 		{
 			name:        "first retry (attempt 0)",
@@ -257,42 +257,42 @@ func TestRetryStrategy_CalculateDelay(t *testing.T) {
 
 func TestRetryStrategy_ShouldRetry(t *testing.T) {
 	tests := []struct {
-		name           string
-		enableRetry    bool
-		maxRetries     int
-		attempt        int
-		shouldRetry    bool
+		name                  string
+		enableRetry           bool
+		maxRetries            int
+		attempt               int
+		shouldRetry           bool
 		expectedAttemptNumber int
 	}{
 		{
-			name:           "first attempt, retry enabled",
-			enableRetry:    true,
-			maxRetries:     3,
-			attempt:        0,
-			shouldRetry:    true,
+			name:                  "first attempt, retry enabled",
+			enableRetry:           true,
+			maxRetries:            3,
+			attempt:               0,
+			shouldRetry:           true,
 			expectedAttemptNumber: 1,
 		},
 		{
-			name:           "second attempt, retry enabled",
-			enableRetry:    true,
-			maxRetries:     3,
-			attempt:        1,
-			shouldRetry:    true,
+			name:                  "second attempt, retry enabled",
+			enableRetry:           true,
+			maxRetries:            3,
+			attempt:               1,
+			shouldRetry:           true,
 			expectedAttemptNumber: 2,
 		},
 		{
-			name:           "max attempts reached",
-			enableRetry:    true,
-			maxRetries:     3,
-			attempt:        3,
-			shouldRetry:    false,
+			name:        "max attempts reached",
+			enableRetry: true,
+			maxRetries:  3,
+			attempt:     3,
+			shouldRetry: false,
 		},
 		{
-			name:           "retry disabled",
-			enableRetry:    false,
-			maxRetries:     3,
-			attempt:        0,
-			shouldRetry:    false,
+			name:        "retry disabled",
+			enableRetry: false,
+			maxRetries:  3,
+			attempt:     0,
+			shouldRetry: false,
 		},
 	}
 
@@ -346,10 +346,10 @@ This is a very long review with lots of text that should be reduced when we need
 ` + string(make([]byte, 10000)) // Add padding to make it large
 
 	tests := []struct {
-		name                string
-		strategy_type       string
-		expectedReduction   bool
-		maxExpectedSize     int
+		name              string
+		strategy_type     string
+		expectedReduction bool
+		maxExpectedSize   int
 	}{
 		{
 			name:              "aggressive reduction",
@@ -412,12 +412,12 @@ func TestTruncationPatternDetector_AnalyzeResponse(t *testing.T) {
 	detector := NewTruncationPatternDetector(false)
 
 	tests := []struct {
-		name           string
-		promptSize     int
-		responseSize   int
-		errorType      string
-		expectedScore  float64
-		tolerance      float64
+		name          string
+		promptSize    int
+		responseSize  int
+		errorType     string
+		expectedScore float64
+		tolerance     float64
 	}{
 		{
 			name:          "JSON truncation with large prompt",

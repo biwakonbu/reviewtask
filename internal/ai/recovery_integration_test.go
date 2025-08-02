@@ -15,7 +15,7 @@ import (
 // Helper function to create a mock client that simulates different failure scenarios
 func createFailingMockClient(failureType string, maxFailures int) *MockClaudeClient {
 	client := NewMockClaudeClient()
-	
+
 	switch failureType {
 	case "truncated_json":
 		// Return incomplete JSON that should trigger recovery
@@ -30,7 +30,7 @@ func createFailingMockClient(failureType string, maxFailures int) *MockClaudeCli
 	case "network_timeout":
 		client.Error = errors.New("network timeout occurred")
 	}
-	
+
 	return client
 }
 
@@ -143,7 +143,7 @@ func TestRecoveryMechanism_RetryWithPromptReduction(t *testing.T) {
 
 	// Create large review to trigger prompt size issues
 	largeBody := strings.Repeat("This is a very long review comment with lots of text. ", 1000)
-	
+
 	reviews := []github.Review{
 		{
 			ID:   123,
@@ -361,14 +361,14 @@ func TestRecoveryMechanism_PartialRecoveryScenarios(t *testing.T) {
 		shouldSucceed     bool
 	}{
 		{
-			name: "multiple complete tasks with truncation",
-			response: `{"type":"completion","subtype":"text","is_error":false,"result":"[{\"description\":\"Fix bug 1\",\"origin_text\":\"Bug 1\",\"priority\":\"high\",\"source_review_id\":123,\"source_comment_id\":456,\"file\":\"test.go\",\"line\":10,\"task_index\":0},{\"description\":\"Fix bug 2\",\"origin_text\":\"Bug 2\",\"priority\":\"medium\",\"source_review_id\":123,\"source_comment_id\":457,\"file\":\"test.go\",\"line\":20,\"task_index\":1},{\"description\":\"Incomplete"}`,
+			name:              "multiple complete tasks with truncation",
+			response:          `{"type":"completion","subtype":"text","is_error":false,"result":"[{\"description\":\"Fix bug 1\",\"origin_text\":\"Bug 1\",\"priority\":\"high\",\"source_review_id\":123,\"source_comment_id\":456,\"file\":\"test.go\",\"line\":10,\"task_index\":0},{\"description\":\"Fix bug 2\",\"origin_text\":\"Bug 2\",\"priority\":\"medium\",\"source_review_id\":123,\"source_comment_id\":457,\"file\":\"test.go\",\"line\":20,\"task_index\":1},{\"description\":\"Incomplete"}`,
 			expectedTaskCount: 2,
 			shouldSucceed:     true,
 		},
 		{
-			name: "single complete task with truncation",
-			response: `{"type":"completion","subtype":"text","is_error":false,"result":"[{\"description\":\"Fix the bug\",\"origin_text\":\"Bug here\",\"priority\":\"high\",\"source_review_id\":123,\"source_comment_id\":456,\"file\":\"test.go\",\"line\":10,\"task_index\":0},{\"desc"}`,
+			name:              "single complete task with truncation",
+			response:          `{"type":"completion","subtype":"text","is_error":false,"result":"[{\"description\":\"Fix the bug\",\"origin_text\":\"Bug here\",\"priority\":\"high\",\"source_review_id\":123,\"source_comment_id\":456,\"file\":\"test.go\",\"line\":10,\"task_index\":0},{\"desc"}`,
 			expectedTaskCount: 1,
 			shouldSucceed:     true,
 		},
@@ -476,10 +476,10 @@ func TestRecoveryMechanism_PerformanceImpact(t *testing.T) {
 
 func TestRecoveryMechanism_ConfigurationRespected(t *testing.T) {
 	tests := []struct {
-		name                string
-		enableJSONRecovery  bool
-		verboseMode         bool
-		expectedRetryCount  int
+		name               string
+		enableJSONRecovery bool
+		verboseMode        bool
+		expectedRetryCount int
 	}{
 		{
 			name:               "recovery enabled, verbose mode",
@@ -535,12 +535,12 @@ func TestRecoveryMechanism_ConfigurationRespected(t *testing.T) {
 			// Check that retry behavior respects configuration
 			if tt.enableJSONRecovery {
 				if mockClient.callCount < tt.expectedRetryCount {
-					t.Errorf("Expected at least %d retries when recovery enabled, got %d", 
+					t.Errorf("Expected at least %d retries when recovery enabled, got %d",
 						tt.expectedRetryCount, mockClient.callCount)
 				}
 			} else {
 				if mockClient.callCount > 1 {
-					t.Errorf("Expected no retries when recovery disabled, got %d calls", 
+					t.Errorf("Expected no retries when recovery disabled, got %d calls",
 						mockClient.callCount)
 				}
 			}

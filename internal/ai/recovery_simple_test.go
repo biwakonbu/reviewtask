@@ -119,29 +119,29 @@ func TestResponseMonitor_Integration(t *testing.T) {
 	// Test event recording and analysis
 	events := []ResponseEvent{
 		{
-			PromptSize:      10000,
-			ResponseSize:    5000,
-			ProcessingTime:  2000,
-			Success:         true,
-			RecoveryUsed:    false,
-			TasksExtracted:  2,
+			PromptSize:     10000,
+			ResponseSize:   5000,
+			ProcessingTime: 2000,
+			Success:        true,
+			RecoveryUsed:   false,
+			TasksExtracted: 2,
 		},
 		{
-			PromptSize:      20000,
-			ResponseSize:    1000,
-			ProcessingTime:  8000,
-			Success:         false,
-			ErrorType:       "json_truncation",
-			RecoveryUsed:    true,
-			TasksExtracted:  0,
+			PromptSize:     20000,
+			ResponseSize:   1000,
+			ProcessingTime: 8000,
+			Success:        false,
+			ErrorType:      "json_truncation",
+			RecoveryUsed:   true,
+			TasksExtracted: 0,
 		},
 		{
-			PromptSize:      15000,
-			ResponseSize:    4000,
-			ProcessingTime:  3000,
-			Success:         true,
-			RecoveryUsed:    true,
-			TasksExtracted:  1,
+			PromptSize:     15000,
+			ResponseSize:   4000,
+			ProcessingTime: 3000,
+			Success:        true,
+			RecoveryUsed:   true,
+			TasksExtracted: 1,
 		},
 	}
 
@@ -272,7 +272,7 @@ func TestConfigurationOverrides_Integration(t *testing.T) {
 			recoverer := NewJSONRecoverer(tt.enableJSONRecovery, false)
 
 			if recoverer.config.EnableRecovery != tt.enableJSONRecovery {
-				t.Errorf("Expected EnableRecovery=%v, got %v", 
+				t.Errorf("Expected EnableRecovery=%v, got %v",
 					tt.enableJSONRecovery, recoverer.config.EnableRecovery)
 			}
 

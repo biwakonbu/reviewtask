@@ -58,7 +58,7 @@ func TestNewResponseMonitor(t *testing.T) {
 func TestResponseMonitor_RecordEvent(t *testing.T) {
 	// Create temporary directory for test
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
@@ -96,7 +96,7 @@ func TestResponseMonitor_RecordEvent(t *testing.T) {
 
 func TestResponseMonitor_AnalyzePerformance(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
@@ -126,7 +126,7 @@ func TestResponseMonitor_AnalyzePerformance(t *testing.T) {
 		},
 		{
 			Timestamp:       time.Now().Add(-30 * time.Minute),
-			SessionID:       "session-2", 
+			SessionID:       "session-2",
 			PromptSize:      20000,
 			ResponseSize:    3000,
 			ProcessingTime:  5000,
@@ -189,7 +189,7 @@ func TestResponseMonitor_AnalyzePerformance(t *testing.T) {
 
 func TestResponseMonitor_GetOptimalPromptSize(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
@@ -209,7 +209,7 @@ func TestResponseMonitor_GetOptimalPromptSize(t *testing.T) {
 		{PromptSize: 10000, Success: true},
 		{PromptSize: 10000, Success: true},
 		{PromptSize: 10000, Success: true},
-		// Medium prompts (15KB) - medium success rate  
+		// Medium prompts (15KB) - medium success rate
 		{PromptSize: 15000, Success: true},
 		{PromptSize: 15000, Success: true},
 		{PromptSize: 15000, Success: false},
@@ -238,7 +238,7 @@ func TestResponseMonitor_GetOptimalPromptSize(t *testing.T) {
 
 func TestResponseMonitor_ShouldOptimizePrompt(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
@@ -270,7 +270,7 @@ func TestResponseMonitor_ShouldOptimizePrompt(t *testing.T) {
 
 func TestResponseMonitor_GenerateReport(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
@@ -316,7 +316,7 @@ func TestResponseMonitor_GenerateReport(t *testing.T) {
 	expectedSections := []string{
 		"# Claude API Response Performance Report",
 		"## Summary Statistics",
-		"## Truncation Analysis", 
+		"## Truncation Analysis",
 		"## Optimization Impact",
 		"## Error Distribution",
 		"## Optimization Recommendations",
@@ -367,7 +367,7 @@ func TestResponseMonitor_ApplyRetentionPolicy(t *testing.T) {
 
 	now := time.Now()
 	events := []ResponseEvent{
-		{Timestamp: now.AddDate(0, 0, -10), SessionID: "old-1"}, // 10 days old - should be removed
+		{Timestamp: now.AddDate(0, 0, -10), SessionID: "old-1"},   // 10 days old - should be removed
 		{Timestamp: now.AddDate(0, 0, -5), SessionID: "recent-1"}, // 5 days old - should be kept
 		{Timestamp: now.AddDate(0, 0, -3), SessionID: "recent-2"}, // 3 days old - should be kept
 		{Timestamp: now.AddDate(0, 0, -1), SessionID: "recent-3"}, // 1 day old - should be kept
@@ -503,7 +503,7 @@ func TestResponseMonitor_AnalyzeTruncationPatterns(t *testing.T) {
 
 func TestResponseMonitor_LoadSaveEvents(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	monitor := NewResponseMonitor(false)
 	monitor.dataFile = filepath.Join(tempDir, "test_events.json")
 
