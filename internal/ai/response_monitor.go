@@ -28,32 +28,32 @@ type ResponseMonitorConfig struct {
 
 // ResponseEvent records a single API response event
 type ResponseEvent struct {
-	Timestamp        time.Time `json:"timestamp"`
-	SessionID        string    `json:"session_id"`
-	PromptSize       int       `json:"prompt_size"`
-	ResponseSize     int       `json:"response_size"`
-	ProcessingTime   int64     `json:"processing_time_ms"`
-	Success          bool      `json:"success"`
-	ErrorType        string    `json:"error_type,omitempty"`
-	RecoveryUsed     bool      `json:"recovery_used"`
-	RetryCount       int       `json:"retry_count"`
-	TruncationScore  float64   `json:"truncation_score"`
-	TasksExtracted   int       `json:"tasks_extracted"`
-	PromptOptimized  bool      `json:"prompt_optimized"`
+	Timestamp       time.Time `json:"timestamp"`
+	SessionID       string    `json:"session_id"`
+	PromptSize      int       `json:"prompt_size"`
+	ResponseSize    int       `json:"response_size"`
+	ProcessingTime  int64     `json:"processing_time_ms"`
+	Success         bool      `json:"success"`
+	ErrorType       string    `json:"error_type,omitempty"`
+	RecoveryUsed    bool      `json:"recovery_used"`
+	RetryCount      int       `json:"retry_count"`
+	TruncationScore float64   `json:"truncation_score"`
+	TasksExtracted  int       `json:"tasks_extracted"`
+	PromptOptimized bool      `json:"prompt_optimized"`
 }
 
 // ResponseAnalytics contains aggregated response analytics
 type ResponseAnalytics struct {
-	TotalRequests      int                    `json:"total_requests"`
-	SuccessRate        float64                `json:"success_rate"`
-	AveragePromptSize  float64                `json:"average_prompt_size"`
-	AverageResponseSize float64               `json:"average_response_size"`
+	TotalRequests         int                 `json:"total_requests"`
+	SuccessRate           float64             `json:"success_rate"`
+	AveragePromptSize     float64             `json:"average_prompt_size"`
+	AverageResponseSize   float64             `json:"average_response_size"`
 	AverageProcessingTime float64             `json:"average_processing_time_ms"`
-	RecoveryRate       float64                `json:"recovery_rate"`
-	ErrorDistribution  map[string]int         `json:"error_distribution"`
-	TruncationPatterns TruncationAnalytics    `json:"truncation_patterns"`
-	OptimizationImpact OptimizationMetrics    `json:"optimization_impact"`
-	Recommendations    []OptimizationTip      `json:"recommendations"`
+	RecoveryRate          float64             `json:"recovery_rate"`
+	ErrorDistribution     map[string]int      `json:"error_distribution"`
+	TruncationPatterns    TruncationAnalytics `json:"truncation_patterns"`
+	OptimizationImpact    OptimizationMetrics `json:"optimization_impact"`
+	Recommendations       []OptimizationTip   `json:"recommendations"`
 }
 
 // TruncationAnalytics provides insights into truncation patterns
@@ -66,9 +66,9 @@ type TruncationAnalytics struct {
 
 // OptimizationMetrics tracks the impact of prompt optimizations
 type OptimizationMetrics struct {
-	OptimizationUsageRate float64 `json:"optimization_usage_rate"`
-	SuccessRateImprovement float64 `json:"success_rate_improvement"`
-	SizeReductionAverage   float64 `json:"size_reduction_average"`
+	OptimizationUsageRate   float64 `json:"optimization_usage_rate"`
+	SuccessRateImprovement  float64 `json:"success_rate_improvement"`
+	SizeReductionAverage    float64 `json:"size_reduction_average"`
 	ResponseTimeImprovement float64 `json:"response_time_improvement"`
 }
 
@@ -158,7 +158,7 @@ func (rm *ResponseMonitor) AnalyzePerformance() (*ResponseAnalytics, error) {
 
 	if len(events) == 0 {
 		return &ResponseAnalytics{
-			TotalRequests:    0,
+			TotalRequests:   0,
 			SuccessRate:     0,
 			Recommendations: []OptimizationTip{},
 		}, nil
@@ -366,14 +366,14 @@ func (rm *ResponseMonitor) calculateAnalytics(events []ResponseEvent) *ResponseA
 
 	analytics := &ResponseAnalytics{
 		TotalRequests:         totalRequests,
-		SuccessRate:          float64(successCount) / float64(totalRequests),
-		AveragePromptSize:    float64(totalPromptSize) / float64(totalRequests),
-		AverageResponseSize:  float64(totalResponseSize) / float64(totalRequests),
+		SuccessRate:           float64(successCount) / float64(totalRequests),
+		AveragePromptSize:     float64(totalPromptSize) / float64(totalRequests),
+		AverageResponseSize:   float64(totalResponseSize) / float64(totalRequests),
 		AverageProcessingTime: float64(totalProcessingTime) / float64(totalRequests),
-		RecoveryRate:         float64(recoveryCount) / float64(totalRequests),
-		ErrorDistribution:    errorCounts,
-		TruncationPatterns:   rm.analyzeTruncationPatterns(events, truncationEvents, totalTruncationScore),
-		OptimizationImpact:   rm.analyzeOptimizationImpact(optimizedEvents, nonOptimizedEvents),
+		RecoveryRate:          float64(recoveryCount) / float64(totalRequests),
+		ErrorDistribution:     errorCounts,
+		TruncationPatterns:    rm.analyzeTruncationPatterns(events, truncationEvents, totalTruncationScore),
+		OptimizationImpact:    rm.analyzeOptimizationImpact(optimizedEvents, nonOptimizedEvents),
 	}
 
 	return analytics

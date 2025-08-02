@@ -617,7 +617,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 			}
 			a.responseMonitor.RecordEvent(event)
 		}
-		
+
 		return nil, NewClaudeAPIError("execution failed", err)
 	}
 
@@ -683,7 +683,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 				fmt.Printf("  ✅ JSON recovery successful: %s\n", recoveryResult.Message)
 			}
 			tasks = recoveryResult.Tasks
-			
+
 			// Record successful recovery event for monitoring
 			if a.responseMonitor != nil {
 				processingTime := time.Since(startTime).Milliseconds()
@@ -701,7 +701,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 				}
 				a.responseMonitor.RecordEvent(event)
 			}
-			
+
 			return tasks, nil
 		} else {
 			// JSON recovery failed, check if we should retry the entire request
@@ -747,7 +747,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 				}
 				a.responseMonitor.RecordEvent(event)
 			}
-			
+
 			// Recovery and retry both failed, return original error with recovery info
 			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s",
 				err, recoveryResult.Message, result)
@@ -769,7 +769,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 			TasksExtracted:  len(tasks),
 			PromptOptimized: len(prompt) < len(originalPrompt),
 		}
-		
+
 		a.responseMonitor.RecordEvent(event)
 	}
 
