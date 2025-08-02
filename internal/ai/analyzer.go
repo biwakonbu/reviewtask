@@ -527,7 +527,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 // callClaudeCodeWithRetryStrategy executes Claude API call with intelligent retry logic
 func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemptNumber int) ([]TaskRequest, error) {
 	prompt := originalPrompt
-	
+
 	// Initialize retry strategy if this is the first attempt
 	var retryStrategy *RetryStrategy
 	if attemptNumber == 0 && a.config.AISettings.EnableJSONRecovery {
@@ -568,10 +568,10 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 
 	ctx := context.Background()
 	output, err := client.Execute(ctx, prompt, "json")
-	
+
 	// Track response size for retry strategy analysis
 	responseSize := len(output)
-	
+
 	if err != nil {
 		// Check if we should retry with enhanced strategy
 		if retryStrategy != nil {
@@ -579,7 +579,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 			if shouldRetry {
 				// Execute retry delay
 				retryStrategy.ExecuteDelay(retryAttempt)
-				
+
 				// Adjust prompt if needed
 				adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
 				if adjustedPrompt != originalPrompt {
@@ -588,7 +588,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 						fmt.Printf("  🔧 Adjusted prompt size: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
 					}
 				}
-				
+
 				// Recursive retry with adjusted prompt
 				return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
 			}
@@ -666,10 +666,10 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 					if a.config.AISettings.VerboseMode {
 						fmt.Printf("  🔄 JSON parsing failed, attempting full retry with strategy: %s\n", retryAttempt.Strategy)
 					}
-					
+
 					// Execute retry delay
 					retryStrategy.ExecuteDelay(retryAttempt)
-					
+
 					// Adjust prompt if needed
 					adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
 					if adjustedPrompt != originalPrompt {
@@ -678,12 +678,12 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 							fmt.Printf("  🔧 Adjusted prompt size for retry: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
 						}
 					}
-					
+
 					// Recursive retry with adjusted prompt
 					return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
 				}
 			}
-			
+
 			// Recovery and retry both failed, return original error with recovery info
 			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s",
 				err, recoveryResult.Message, result)
