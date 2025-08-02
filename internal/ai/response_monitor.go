@@ -158,8 +158,8 @@ func (rm *ResponseMonitor) AnalyzePerformance() (*ResponseAnalytics, error) {
 
 	if len(events) == 0 {
 		return &ResponseAnalytics{
-			TotalRequests:   0,
-			SuccessRate:     0,
+			TotalRequests: 0,
+			SuccessRate:   0,
 			TruncationPatterns: TruncationAnalytics{
 				OptimalPromptSize:     20000,
 				HighRiskSizeThreshold: 30000,
