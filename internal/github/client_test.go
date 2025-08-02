@@ -74,6 +74,30 @@ func MockGitHubServer(t *testing.T) *httptest.Server {
 			"body": "Fix this issue",
 			"user": {"login": "reviewer1"},
 			"created_at": "2023-01-01T02:00:00Z"
+		}, {
+			"id": 2,
+			"path": "main.go",
+			"line": 20,
+			"body": "TODO: Add error handling here",
+			"user": {"login": "testuser"},
+			"created_at": "2023-01-01T03:00:00Z"
+		}]`
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(response))
+	})
+
+	// Mock issue comments endpoint
+	mux.HandleFunc("/repos/test/repo/issues/123/comments", func(w http.ResponseWriter, r *http.Request) {
+		response := `[{
+			"id": 3,
+			"body": "I noticed a potential issue with the error handling",
+			"user": {"login": "testuser"},
+			"created_at": "2023-01-01T04:00:00Z"
+		}, {
+			"id": 4,
+			"body": "Great implementation!",
+			"user": {"login": "reviewer2"},
+			"created_at": "2023-01-01T05:00:00Z"
 		}]`
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(response))
@@ -201,6 +225,118 @@ func TestClient_GetPRReviews(t *testing.T) {
 	}
 }
 
+// TestClient_GetSelfReviews tests self-review retrieval
+func TestClient_GetSelfReviews(t *testing.T) {
+	server := MockGitHubServer(t)
+	defer server.Close()
+
+	// Create client with mock server
+	client := github.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(server.URL + "/")
+
+	ghClient := &Client{
+		client: client,
+		owner:  "test",
+		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
+	}
+
+	// Test getting self-reviews for PR author "testuser"
+	selfReviews, err := ghClient.GetSelfReviews(context.Background(), 123, "testuser")
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// Verify we got a self-review
+	if len(selfReviews) != 1 {
+		t.Fatalf("Expected 1 self-review, got: %d", len(selfReviews))
+	}
+
+	selfReview := selfReviews[0]
+	
+	// Verify self-review properties
+	if selfReview.ID != -1 {
+		t.Errorf("Expected self-review ID -1, got: %d", selfReview.ID)
+	}
+
+	if selfReview.Reviewer != "testuser" {
+		t.Errorf("Expected reviewer 'testuser', got: %s", selfReview.Reviewer)
+	}
+
+	if selfReview.State != "COMMENTED" {
+		t.Errorf("Expected state 'COMMENTED', got: %s", selfReview.State)
+	}
+
+	// Verify we have 2 comments (1 issue comment + 1 PR review comment)
+	if len(selfReview.Comments) != 2 {
+		t.Fatalf("Expected 2 comments, got: %d", len(selfReview.Comments))
+	}
+
+	// Verify issue comment
+	issueComment := selfReview.Comments[0]
+	if issueComment.ID != 3 {
+		t.Errorf("Expected issue comment ID 3, got: %d", issueComment.ID)
+	}
+	if issueComment.Body != "I noticed a potential issue with the error handling" {
+		t.Errorf("Expected specific body, got: %s", issueComment.Body)
+	}
+	if issueComment.Author != "testuser" {
+		t.Errorf("Expected author 'testuser', got: %s", issueComment.Author)
+	}
+	if issueComment.File != "" {
+		t.Errorf("Expected empty file for issue comment, got: %s", issueComment.File)
+	}
+	if issueComment.Line != 0 {
+		t.Errorf("Expected line 0 for issue comment, got: %d", issueComment.Line)
+	}
+
+	// Verify PR review comment
+	prComment := selfReview.Comments[1]
+	if prComment.ID != 2 {
+		t.Errorf("Expected PR comment ID 2, got: %d", prComment.ID)
+	}
+	if prComment.Body != "TODO: Add error handling here" {
+		t.Errorf("Expected specific body, got: %s", prComment.Body)
+	}
+	if prComment.Author != "testuser" {
+		t.Errorf("Expected author 'testuser', got: %s", prComment.Author)
+	}
+	if prComment.File != "main.go" {
+		t.Errorf("Expected file 'main.go', got: %s", prComment.File)
+	}
+	if prComment.Line != 20 {
+		t.Errorf("Expected line 20, got: %d", prComment.Line)
+	}
+}
+
+// TestClient_GetSelfReviews_NoComments tests self-review with no comments
+func TestClient_GetSelfReviews_NoComments(t *testing.T) {
+	server := MockGitHubServer(t)
+	defer server.Close()
+
+	// Create client with mock server
+	client := github.NewClient(nil)
+	client.BaseURL, _ = client.BaseURL.Parse(server.URL + "/")
+
+	ghClient := &Client{
+		client: client,
+		owner:  "test",
+		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
+	}
+
+	// Test getting self-reviews for a different user (no self-comments expected)
+	selfReviews, err := ghClient.GetSelfReviews(context.Background(), 123, "otheruser")
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	// Verify we got no self-reviews
+	if len(selfReviews) != 0 {
+		t.Errorf("Expected 0 self-reviews, got: %d", len(selfReviews))
+	}
+}
+
 // MockClient creates a mock GitHub client for testing
 type MockClient struct {
 	prInfo    *PRInfo
@@ -251,6 +387,14 @@ func (m *MockClient) GetPRReviews(ctx context.Context, prNumber int) ([]Review, 
 		return nil, m.err
 	}
 	return m.reviews, nil
+}
+
+func (m *MockClient) GetSelfReviews(ctx context.Context, prNumber int, prAuthor string) ([]Review, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	// Return empty array by default for MockClient
+	return []Review{}, nil
 }
 
 func (m *MockClient) GetCurrentBranchPR(ctx context.Context) (int, error) {
