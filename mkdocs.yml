@@ -69,6 +69,7 @@ plugins:
       cards_color:
         fill: "#1e88e5"
         text: "#FFFFFF"
+      cards_layout: default/variant
   - git-revision-date-localized:
       enable_creation_date: true
       type: timeago
