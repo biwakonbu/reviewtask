@@ -203,7 +203,7 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		ID:          -1, // Special ID for self-review
 		Reviewer:    prAuthor,
 		State:       "COMMENTED", // Self-reviews are always comments
-		Body:        "", // Will be populated with aggregated comments
+		Body:        "",          // Will be populated with aggregated comments
 		SubmittedAt: time.Now().Format("2006-01-02T15:04:05Z"),
 		Comments:    []Comment{},
 	}

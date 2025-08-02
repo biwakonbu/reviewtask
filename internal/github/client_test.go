@@ -261,7 +261,7 @@ func TestClient_GetSelfReviews(t *testing.T) {
 	}
 
 	selfReview := selfReviews[0]
-	
+
 	// Verify self-review properties
 	if selfReview.ID != -1 {
 		t.Errorf("Expected self-review ID -1, got: %d", selfReview.ID)
