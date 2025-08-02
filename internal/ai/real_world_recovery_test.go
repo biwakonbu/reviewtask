@@ -16,12 +16,12 @@ func TestRealWorldClaudeAPIFailures(t *testing.T) {
 
 	// Real-world test scenarios based on Issue #140
 	testCases := []struct {
-		name            string
-		truncatedJSON   string
-		originalError   string
-		expectedRecover bool
+		name              string
+		truncatedJSON     string
+		originalError     string
+		expectedRecover   bool
 		minTasksRecovered int
-		description     string
+		description       string
 	}{
 		{
 			name: "Claude API sudden truncation mid-array",
@@ -97,16 +97,16 @@ func TestRealWorldClaudeAPIFailures(t *testing.T) {
 			description:       "Tests recovery from malformed JSON with syntax errors",
 		},
 		{
-			name: "Claude API response with markdown wrapper truncation",
-			truncatedJSON: "```json\n[\n\t{\n\t\t\"description\": \"Refactor authentication module\",\n\t\t\"origin_text\": \"The authentication module needs refactoring for better security\",\n\t\t\"priority\": \"high\",\n\t\t\"source_review_id\": 123456,\n\t\t\"source_comment_id\": 789018,\n\t\t\"file\": \"internal/auth/handler.go\",\n\t\t\"line\": 89,\n\t\t\"task_index\": 0\n\t}\n]", // Missing closing ```
+			name:              "Claude API response with markdown wrapper truncation",
+			truncatedJSON:     "```json\n[\n\t{\n\t\t\"description\": \"Refactor authentication module\",\n\t\t\"origin_text\": \"The authentication module needs refactoring for better security\",\n\t\t\"priority\": \"high\",\n\t\t\"source_review_id\": 123456,\n\t\t\"source_comment_id\": 789018,\n\t\t\"file\": \"internal/auth/handler.go\",\n\t\t\"line\": 89,\n\t\t\"task_index\": 0\n\t}\n]", // Missing closing ```
 			originalError:     "unexpected end of JSON input",
 			expectedRecover:   true,
 			minTasksRecovered: 1,
 			description:       "Tests handling of markdown code blocks that get truncated",
 		},
 		{
-			name: "Large response truncation at token limit",
-			truncatedJSON: generateLargeTruncatedResponse(),
+			name:              "Large response truncation at token limit",
+			truncatedJSON:     generateLargeTruncatedResponse(),
 			originalError:     "unexpected end of JSON input",
 			expectedRecover:   true,
 			minTasksRecovered: 8, // Should recover most of the tasks before truncation
@@ -117,7 +117,7 @@ func TestRealWorldClaudeAPIFailures(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Logf("Testing scenario: %s", tc.description)
-			
+
 			// Test JSON recovery directly
 			recoverer := NewJSONRecoverer(true, true) // Verbose mode for debugging
 			result := recoverer.RecoverJSON(tc.truncatedJSON, errors.New(tc.originalError))
@@ -165,7 +165,7 @@ func TestEndToEndRecoveryWithAnalyzer(t *testing.T) {
 
 	// Create a mock Claude client that returns truncated responses
 	mockClient := NewMockClaudeClient()
-	
+
 	// Simulate the exact failure pattern from Issue #140
 	mockClient.Responses["Test comment that causes truncation"] = `[
 		{
@@ -239,53 +239,53 @@ func TestRetryStrategyWithRealPatterns(t *testing.T) {
 	strategy := NewRetryStrategy(true) // Verbose mode
 
 	realWorldErrors := []struct {
-		name           string
-		error          error
-		promptSize     int
-		responseSize   int
+		name             string
+		error            error
+		promptSize       int
+		responseSize     int
 		expectedStrategy string
-		description    string
+		description      string
 	}{
 		{
-			name:           "Large prompt causes truncation",
-			error:          errors.New("unexpected end of JSON input"),
-			promptSize:     35000, // Large prompt
-			responseSize:   1200,  // Small response suggests truncation
+			name:             "Large prompt causes truncation",
+			error:            errors.New("unexpected end of JSON input"),
+			promptSize:       35000,                    // Large prompt
+			responseSize:     1200,                     // Small response suggests truncation
 			expectedStrategy: "reduce_prompt_moderate", // Large prompt > threshold triggers moderate reduction
-			description:    "Large prompts often cause Claude to truncate responses",
+			description:      "Large prompts often cause Claude to truncate responses",
 		},
 		{
-			name:           "Severe truncation with high score",
-			error:          errors.New("unexpected end of JSON input"),
-			promptSize:     40000, // Very large prompt
-			responseSize:   200,   // Very small response -> high truncation score
+			name:             "Severe truncation with high score",
+			error:            errors.New("unexpected end of JSON input"),
+			promptSize:       40000,                      // Very large prompt
+			responseSize:     200,                        // Very small response -> high truncation score
 			expectedStrategy: "reduce_prompt_aggressive", // High truncation score triggers aggressive reduction
-			description:    "Severe truncation patterns require aggressive prompt reduction",
+			description:      "Severe truncation patterns require aggressive prompt reduction",
 		},
 		{
-			name:           "Medium prompt with JSON errors",
-			error:          errors.New("invalid character '}' looking for beginning of object key string"),
-			promptSize:     18000,
-			responseSize:   3400,
+			name:             "Medium prompt with JSON errors",
+			error:            errors.New("invalid character '}' looking for beginning of object key string"),
+			promptSize:       18000,
+			responseSize:     3400,
 			expectedStrategy: "simple_retry",
-			description:    "Malformed JSON might be temporary, try simple retry first",
+			description:      "Malformed JSON might be temporary, try simple retry first",
 		},
 		{
-			name:           "Rate limiting during high usage",
-			error:          errors.New("rate limit exceeded"),
-			promptSize:     15000,
-			responseSize:   0,
+			name:             "Rate limiting during high usage",
+			error:            errors.New("rate limit exceeded"),
+			promptSize:       15000,
+			responseSize:     0,
 			expectedStrategy: "exponential_backoff",
-			description:    "Rate limits require exponential backoff strategy",
+			description:      "Rate limits require exponential backoff strategy",
 		},
 	}
 
 	for _, testCase := range realWorldErrors {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Logf("Testing pattern: %s", testCase.description)
-			
+
 			retryAttempt, shouldRetry := strategy.ShouldRetry(0, testCase.error, testCase.promptSize, testCase.responseSize)
-			
+
 			if !shouldRetry {
 				t.Error("Expected retry to be recommended for real-world error pattern")
 				return
@@ -311,14 +311,14 @@ func generateLargeTruncatedResponse() string {
 		if i > 0 {
 			builder.WriteString(",\n")
 		}
-		
+
 		taskLetter := string(rune('A' + i))
 		moduleNum := strconv.Itoa(i)
 		reviewID := strconv.Itoa(123450 + i)
 		commentID := strconv.Itoa(678900 + i)
 		lineNum := strconv.Itoa(i * 10)
 		taskIndex := strconv.Itoa(i)
-		
+
 		builder.WriteString(`	{
 		"description": "Task ` + taskLetter + `: Fix critical issue in module ` + moduleNum + `",
 		"origin_text": "This is a detailed comment about issue ` + taskLetter + ` that requires attention. The issue involves complex logic that needs to be refactored for better performance and maintainability. This comment contains a lot of detail to simulate real-world review comments that can be quite lengthy.",

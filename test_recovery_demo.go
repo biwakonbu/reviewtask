@@ -18,10 +18,10 @@ type MockFailingClaudeClient struct {
 
 func (m *MockFailingClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	m.CallCount++
-	
+
 	fmt.Printf("📡 Mock Claude API Call #%d\n", m.CallCount)
 	fmt.Printf("📊 Input size: %d characters\n", len(input))
-	
+
 	// Simulate different failure patterns on different calls
 	switch m.CallCount {
 	case 1:
@@ -46,7 +46,7 @@ func (m *MockFailingClaudeClient) Execute(ctx context.Context, input string, out
 				"file": "internal/db/connection.go",
 				"line": 78,
 				"task_in` // Sudden truncation during field name
-		
+
 		// Return in Claude CLI wrapper format
 		claudeResponse := fmt.Sprintf(`{
 			"type": "code_execution_result",
@@ -54,11 +54,11 @@ func (m *MockFailingClaudeClient) Execute(ctx context.Context, input string, out
 			"is_error": false,
 			"result": %q
 		}`, truncatedJSON)
-		
+
 		fmt.Printf("🚨 Simulating Claude API truncation (Issue #140 pattern)\n")
 		fmt.Printf("📄 Truncated response: %d chars\n", len(truncatedJSON))
 		return claudeResponse, nil
-		
+
 	case 2:
 		// Simulate successful retry with smaller prompt
 		successJSON := `[
@@ -73,17 +73,17 @@ func (m *MockFailingClaudeClient) Execute(ctx context.Context, input string, out
 				"task_index": 0
 			}
 		]`
-		
+
 		claudeResponse := fmt.Sprintf(`{
 			"type": "code_execution_result",
 			"subtype": "claude_execution",
 			"is_error": false,
 			"result": %q
 		}`, successJSON)
-		
+
 		fmt.Printf("✅ Simulating successful retry with reduced prompt\n")
 		return claudeResponse, nil
-		
+
 	default:
 		claudeResponse := `{
 			"type": "code_execution_result",
@@ -98,7 +98,7 @@ func (m *MockFailingClaudeClient) Execute(ctx context.Context, input string, out
 func main() {
 	fmt.Println("🧪 Testing Issue #140 Recovery Mechanism")
 	fmt.Println("========================================")
-	
+
 	// Configure recovery mechanism
 	cfg := &config.Config{
 		AISettings: config.AISettings{
@@ -107,11 +107,11 @@ func main() {
 			MaxRetries:         3,
 		},
 	}
-	
+
 	// Create analyzer with failing mock client
 	mockClient := &MockFailingClaudeClient{}
 	analyzer := ai.NewAnalyzerWithClient(cfg, mockClient)
-	
+
 	// Create test reviews that simulate the problematic scenario from Issue #140
 	problemReviews := []github.Review{
 		{
@@ -127,7 +127,7 @@ func main() {
 				},
 				{
 					ID:     789013,
-					File:   "internal/db/connection.go", 
+					File:   "internal/db/connection.go",
 					Line:   78,
 					Body:   "Database operations should have proper timeout and retry logic with exponential backoff.",
 					Author: "senior-developer",
@@ -135,27 +135,27 @@ func main() {
 			},
 		},
 	}
-	
+
 	fmt.Printf("\n📋 Processing %d review comments...\n", len(problemReviews[0].Comments))
-	
+
 	// This would have failed completely in the original Issue #140
 	// But should now succeed with recovery mechanism
 	fmt.Println("\n🔧 Attempting task generation (this would fail without recovery)...")
 	tasks, err := analyzer.GenerateTasks(problemReviews)
-	
+
 	if err != nil {
 		log.Fatalf("❌ Task generation failed even with recovery: %v", err)
 	}
-	
+
 	if len(tasks) == 0 {
 		log.Fatalf("❌ No tasks generated - recovery mechanism failed")
 	}
-	
+
 	// Success! The recovery mechanism worked
 	fmt.Printf("\n🎉 SUCCESS: Recovery mechanism worked!\n")
 	fmt.Printf("📊 Generated %d tasks from problematic Claude API responses\n", len(tasks))
 	fmt.Printf("🔄 Mock API calls made: %d (shows retry mechanism worked)\n", mockClient.CallCount)
-	
+
 	fmt.Println("\n📝 Generated Tasks:")
 	for i, task := range tasks {
 		fmt.Printf("  %d. %s (Priority: %s)\n", i+1, task.Description, task.Priority)
@@ -163,7 +163,7 @@ func main() {
 		fmt.Printf("     Origin: %s\n", truncateString(task.OriginText, 60))
 		fmt.Println()
 	}
-	
+
 	fmt.Println("✅ Issue #140 recovery mechanism verification complete!")
 	fmt.Println("📈 The system successfully recovered from Claude API failures that")
 	fmt.Println("   would have previously caused complete task generation failure.")
