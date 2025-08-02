@@ -198,30 +198,38 @@ func TestClient_GetPRReviews(t *testing.T) {
 		t.Errorf("Expected body 'Looks good!', got: %s", review.Body)
 	}
 
-	// Verify comments
-	if len(review.Comments) != 1 {
-		t.Errorf("Expected 1 comment, got: %d", len(review.Comments))
+	// Verify comments - now includes all PR comments (including self-review comment)
+	if len(review.Comments) != 2 {
+		t.Errorf("Expected 2 comments, got: %d", len(review.Comments))
 	}
 
-	comment := review.Comments[0]
-	if comment.ID != 1 {
-		t.Errorf("Expected comment ID 1, got: %d", comment.ID)
+	// Find the reviewer1 comment
+	var reviewerComment *Comment
+	for i, c := range review.Comments {
+		if c.Author == "reviewer1" {
+			reviewerComment = &review.Comments[i]
+			break
+		}
 	}
 
-	if comment.File != "test.go" {
-		t.Errorf("Expected file 'test.go', got: %s", comment.File)
+	if reviewerComment == nil {
+		t.Fatal("Expected to find comment from reviewer1")
 	}
 
-	if comment.Line != 10 {
-		t.Errorf("Expected line 10, got: %d", comment.Line)
+	if reviewerComment.ID != 1 {
+		t.Errorf("Expected comment ID 1, got: %d", reviewerComment.ID)
 	}
 
-	if comment.Body != "Fix this issue" {
-		t.Errorf("Expected body 'Fix this issue', got: %s", comment.Body)
+	if reviewerComment.File != "test.go" {
+		t.Errorf("Expected file 'test.go', got: %s", reviewerComment.File)
 	}
 
-	if comment.Author != "reviewer1" {
-		t.Errorf("Expected author 'reviewer1', got: %s", comment.Author)
+	if reviewerComment.Line != 10 {
+		t.Errorf("Expected line 10, got: %d", reviewerComment.Line)
+	}
+
+	if reviewerComment.Body != "Fix this issue" {
+		t.Errorf("Expected body 'Fix this issue', got: %s", reviewerComment.Body)
 	}
 }
 
