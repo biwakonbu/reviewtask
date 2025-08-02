@@ -7,8 +7,14 @@ repo_name: biwakonbu/reviewtask
 repo_url: https://github.com/biwakonbu/reviewtask
 edit_uri: edit/main/docs/
 
+# Copyright
+copyright: Copyright &copy; 2024 biwakonbu
+
 theme:
   name: material
+  font:
+    text: Roboto
+    code: Roboto Mono
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
@@ -58,6 +64,11 @@ theme:
 plugins:
   - search:
       lang: en
+  - social:
+      cards: true
+      cards_color:
+        fill: "#1e88e5"
+        text: "#FFFFFF"
   - git-revision-date-localized:
       enable_creation_date: true
       type: timeago
@@ -133,5 +144,17 @@ extra:
       link: https://github.com/biwakonbu/reviewtask
     - icon: fontawesome/solid/globe
       link: https://biwakonbu.github.io/reviewtask/
+  # OGP settings
+  og:
+    title: reviewtask - AI-Powered PR Review Management
+    type: website
+    description: Transform GitHub PR reviews into actionable tasks with AI
+    image: !ENV [SITE_URL, 'https://biwakonbu.github.io/reviewtask/']/assets/images/social/index.png
+    locale: en_US
+  twitter:
+    card: summary_large_image
+    title: reviewtask - AI-Powered PR Review Management
+    description: Transform GitHub PR reviews into actionable tasks with AI
+    image: !ENV [SITE_URL, 'https://biwakonbu.github.io/reviewtask/']/assets/images/social/index.png
 
 copyright: Copyright &copy; 2024 biwakonbu
