@@ -39,7 +39,7 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 	}{
 		{
 			name: "prepare with dry-run flag",
-			args: []string{"prepare", "patch", "--dry-run", "--yes"},
+			args: []string{"prepare", "patch", "--dry-run", "--yes", "--force"},
 			wantExit: func() int {
 				if isCI {
 					return 0 // CI always skips prerequisites check
@@ -59,7 +59,7 @@ func TestReleaseScriptDryRunMode(t *testing.T) {
 		},
 		{
 			name: "prepare without dry-run uses normal flow",
-			args: []string{"prepare", "patch", "--yes"},
+			args: []string{"prepare", "patch", "--yes", "--force"},
 			wantExit: func() int {
 				if isClean {
 					return 0 // Clean working directory should succeed
