@@ -196,6 +196,67 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 	return result, nil
 }
 
+// GetSelfReviews fetches review comments made by the PR author (self-reviews)
+func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor string) ([]Review, error) {
+	// Create a synthetic review for self-review comments
+	selfReview := Review{
+		ID:          -1, // Special ID for self-review
+		Reviewer:    prAuthor,
+		State:       "COMMENTED", // Self-reviews are always comments
+		Body:        "",          // Will be populated with aggregated comments
+		SubmittedAt: time.Now().Format("2006-01-02T15:04:05Z"),
+		Comments:    []Comment{},
+	}
+
+	// Get issue comments from the PR author
+	issueComments, _, err := c.client.Issues.ListComments(ctx, c.owner, c.repo, prNumber, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get issue comments: %w", err)
+	}
+
+	// Filter and add issue comments from the author
+	for _, comment := range issueComments {
+		if comment.GetUser().GetLogin() == prAuthor {
+			selfReview.Comments = append(selfReview.Comments, Comment{
+				ID:        comment.GetID(),
+				Body:      comment.GetBody(),
+				Author:    prAuthor,
+				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				// Issue comments don't have file/line info
+				File: "",
+				Line: 0,
+			})
+		}
+	}
+
+	// Get PR review comments from the author
+	allPRComments, _, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get PR comments: %w", err)
+	}
+
+	// Filter and add PR comments from the author
+	for _, comment := range allPRComments {
+		if comment.GetUser().GetLogin() == prAuthor {
+			selfReview.Comments = append(selfReview.Comments, Comment{
+				ID:        comment.GetID(),
+				Body:      comment.GetBody(),
+				Author:    prAuthor,
+				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				File:      comment.GetPath(),
+				Line:      comment.GetLine(),
+			})
+		}
+	}
+
+	// Only return the self-review if there are any comments
+	if len(selfReview.Comments) > 0 {
+		return []Review{selfReview}, nil
+	}
+
+	return []Review{}, nil
+}
+
 func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID int64) ([]Comment, error) {
 	// Check cache for PR comments
 	cacheKey := fmt.Sprintf("prcomments-%d", prNumber)

@@ -353,7 +353,32 @@ Configure advanced processing features in `.pr-review/config.json`:
     "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
     "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
-    "log_truncated_responses": true      // Log truncated responses for debugging
+    "log_truncated_responses": true,     // Log truncated responses for debugging
+    "process_self_reviews": false        // Process self-review comments from PR author
+  }
+}
+```
+
+### Self-Review Processing
+
+The tool can process self-reviews (comments made by the PR author on their own PR):
+
+- **`process_self_reviews`**: Enable processing of PR author's own comments (default: `false`)
+  - When enabled, fetches both issue comments and PR review comments from the author
+  - Self-review comments are processed through the same AI task generation pipeline
+  - Useful for capturing TODO comments, known issues, and self-documentation
+
+Example use cases:
+- Authors documenting known issues or technical debt
+- TODO comments for follow-up work
+- Self-review before requesting external reviews
+- Design decisions and trade-offs documentation
+
+To enable self-review processing:
+```json
+{
+  "ai_settings": {
+    "process_self_reviews": true
   }
 }
 ```

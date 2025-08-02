@@ -59,6 +59,7 @@ type AISettings struct {
 	MaxRecoveryAttempts      int     `json:"max_recovery_attempts"`      // Maximum JSON recovery attempts (default: 3)
 	PartialResponseThreshold float64 `json:"partial_response_threshold"` // Minimum threshold for accepting partial responses (default: 0.7)
 	LogTruncatedResponses    bool    `json:"log_truncated_responses"`    // Log truncated responses for debugging (default: true)
+	ProcessSelfReviews       bool    `json:"process_self_reviews"`       // Process self-reviews from PR author (default: false)
 }
 
 type VerificationSettings struct {
@@ -119,6 +120,7 @@ func defaultConfig() *Config {
 			MaxRecoveryAttempts:      3,
 			PartialResponseThreshold: 0.7,
 			LogTruncatedResponses:    true,
+			ProcessSelfReviews:       false,
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",
@@ -247,6 +249,7 @@ func mergeWithDefaults(config *Config) {
 	}
 
 	// Note: Boolean fields (DeduplicationEnabled, ProcessNitpickComments, EnableJSONRecovery, LogTruncatedResponses) default to true
+	// ProcessSelfReviews defaults to false for backward compatibility
 	// Set defaults if the config appears to be missing the new fields (old or empty config)
 	if isOldConfig && !config.AISettings.DeduplicationEnabled {
 		config.AISettings.DeduplicationEnabled = defaults.AISettings.DeduplicationEnabled
@@ -260,6 +263,7 @@ func mergeWithDefaults(config *Config) {
 	if isOldConfig && !config.AISettings.LogTruncatedResponses {
 		config.AISettings.LogTruncatedResponses = defaults.AISettings.LogTruncatedResponses
 	}
+	// ProcessSelfReviews is not set for old configs to maintain backward compatibility (defaults to false)
 
 	// Merge boolean pointer fields
 	if config.AISettings.ValidationEnabled == nil {

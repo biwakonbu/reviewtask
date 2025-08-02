@@ -115,6 +115,18 @@ func debugFetchReviews(cfg *config.Config, storageManager *storage.Manager, prNu
 		return fmt.Errorf("failed to fetch PR reviews: %w", err)
 	}
 
+	// Check if self-reviews should be processed
+	if cfg.AISettings.ProcessSelfReviews {
+		fmt.Println("📥 Fetching self-review comments...")
+		selfReviews, err := ghClient.GetSelfReviews(ctx, prNumber, prInfo.Author)
+		if err != nil {
+			fmt.Printf("  ⚠️  Warning: failed to fetch self-reviews: %v\n", err)
+		} else if len(selfReviews) > 0 {
+			reviews = append(reviews, selfReviews...)
+			fmt.Printf("  ✅ Found %d self-review comments\n", len(selfReviews[0].Comments))
+		}
+	}
+
 	// Save data
 	fmt.Println("💾 Saving PR data...")
 	if err := storageManager.SavePRInfo(prNumber, prInfo); err != nil {
