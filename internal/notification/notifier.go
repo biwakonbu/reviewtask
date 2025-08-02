@@ -20,10 +20,20 @@ type Notifier struct {
 
 // New creates a new Notifier instance
 func New(githubClient GitHubClient, cfg *config.Config) *Notifier {
+	throttler := NewThrottler(cfg.CommentSettings.Throttling)
+	
+	// Enable AI throttling if verbose mode is on
+	if cfg.AISettings.VerboseMode {
+		aiThrottler, err := NewAIThrottler(cfg)
+		if err == nil {
+			throttler.SetAIThrottler(aiThrottler)
+		}
+	}
+	
 	return &Notifier{
 		githubClient: githubClient,
 		config:       cfg,
-		throttler:    NewThrottler(cfg.CommentSettings.Throttling),
+		throttler:    throttler,
 	}
 }
 

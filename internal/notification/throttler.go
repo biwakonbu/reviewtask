@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -15,6 +16,7 @@ type Throttler struct {
 	recentComments  []CommentRecord
 	batchQueue      map[string]*CommentBatch
 	mu              sync.Mutex
+	aiThrottler     *AIThrottler // Optional AI-powered throttling
 }
 
 // CommentRecord tracks a posted comment for rate limiting
@@ -55,6 +57,13 @@ func NewThrottler(config config.ThrottlingSettings) *Throttler {
 		recentComments: make([]CommentRecord, 0),
 		batchQueue:     make(map[string]*CommentBatch),
 	}
+}
+
+// SetAIThrottler sets an AI throttler for enhanced decisions
+func (t *Throttler) SetAIThrottler(aiThrottler *AIThrottler) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.aiThrottler = aiThrottler
 }
 
 // ShouldPostNow determines if a comment should be posted immediately
@@ -195,4 +204,103 @@ func (t *Throttler) shouldBatchComment(task *storage.Task, notificationType stri
 // getBatchID generates a unique batch ID for a PR
 func (t *Throttler) getBatchID(pr int) string {
 	return fmt.Sprintf("%s-pr-%d", time.Now().Format("2006-01-02"), pr)
+}
+
+// OptimizeBatches uses AI to reorganize pending batches for optimal delivery
+func (t *Throttler) OptimizeBatches(ctx context.Context) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.aiThrottler == nil {
+		return nil // No AI throttler available
+	}
+
+	// Collect all pending comments
+	var pendingComments []PendingComment
+	for _, batch := range t.batchQueue {
+		for _, comment := range batch.Comments {
+			pendingComments = append(pendingComments, PendingComment{
+				Task: &storage.Task{
+					ID: comment.TaskID,
+					PR: batch.PR,
+				},
+				Comment:          comment.Content,
+				NotificationType: comment.Type,
+				CreatedAt:        batch.Created,
+			})
+		}
+	}
+
+	if len(pendingComments) == 0 {
+		return nil
+	}
+
+	// Get AI batching decision
+	decision, err := t.aiThrottler.AnalyzeBatchingStrategy(ctx, pendingComments, t.recentComments)
+	if err != nil {
+		return fmt.Errorf("AI batch optimization failed: %w", err)
+	}
+
+	// Reorganize batches based on AI decision
+	if decision.ShouldBatch {
+		// Clear existing batches
+		t.batchQueue = make(map[string]*CommentBatch)
+
+		// Create new optimized batches
+		for _, group := range decision.BatchGroups {
+			batch := &CommentBatch{
+				ID:       group.GroupID,
+				PR:       0, // Will be set from first task
+				Comments: make([]BatchedComment, 0),
+				Created:  time.Now(),
+			}
+
+			// Add tasks to this batch
+			for _, taskID := range group.TaskIDs {
+				// Find the pending comment for this task
+				for _, pc := range pendingComments {
+					if pc.Task.ID == taskID {
+						if batch.PR == 0 {
+							batch.PR = pc.Task.PR
+						}
+						batch.Comments = append(batch.Comments, BatchedComment{
+							TaskID:  taskID,
+							Type:    pc.NotificationType,
+							Content: pc.Comment,
+						})
+						break
+					}
+				}
+			}
+
+			if len(batch.Comments) > 0 {
+				t.batchQueue[batch.ID] = batch
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetAIBatchRecommendation gets AI recommendation for a specific comment
+func (t *Throttler) GetAIBatchRecommendation(ctx context.Context, task *storage.Task, notificationType string) (bool, time.Duration, error) {
+	t.mu.Lock()
+	aiThrottler := t.aiThrottler
+	recentComments := make([]CommentRecord, len(t.recentComments))
+	copy(recentComments, t.recentComments)
+	t.mu.Unlock()
+
+	if aiThrottler == nil {
+		return true, 0, nil // No AI available, send immediately
+	}
+
+	// Get reviewer-specific activity
+	var reviewerActivity []CommentRecord
+	for _, rec := range recentComments {
+		if rec.ReviewerLogin == task.ReviewerLogin {
+			reviewerActivity = append(reviewerActivity, rec)
+		}
+	}
+
+	return aiThrottler.OptimizeCommentTiming(ctx, task, notificationType, reviewerActivity)
 }
