@@ -10,16 +10,6 @@ import (
 
 func TestJSONRecovery_Integration(t *testing.T) {
 	// Test the JSON recovery mechanism with a simple truncated response
-	cfg := &config.Config{
-		AISettings: config.AISettings{
-			EnableJSONRecovery: true,
-			VerboseMode:        false,
-		},
-	}
-
-	// Create analyzer without Claude client (will use manual JSON recovery)
-	analyzer := NewAnalyzer(cfg)
-
 	// Test truncated JSON recovery directly
 	truncatedJSON := `[
 		{
@@ -259,15 +249,6 @@ func TestConfigurationOverrides_Integration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &config.Config{
-				AISettings: config.AISettings{
-					EnableJSONRecovery: tt.enableJSONRecovery,
-					VerboseMode:        false,
-				},
-			}
-
-			analyzer := NewAnalyzer(cfg)
-
 			// Test that configuration is respected
 			recoverer := NewJSONRecoverer(tt.enableJSONRecovery, false)
 
