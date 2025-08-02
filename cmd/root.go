@@ -14,6 +14,7 @@ import (
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
+	"reviewtask/internal/notification"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/version"
@@ -299,6 +300,71 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\n✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)
 	fmt.Printf("✓ Saved reviews to .pr-review/PR-%d/reviews.json\n", prNumber)
 	fmt.Printf("✓ Generated %d tasks and saved to .pr-review/PR-%d/tasks.json\n", len(tasks), prNumber)
+
+	// Handle exclusion notifications if enabled
+	if cfg.CommentSettings.Enabled && cfg.CommentSettings.AutoCommentOn.TaskExclusion {
+		fmt.Println("\n🔍 Analyzing excluded comments...")
+		
+		// Get the final tasks after merging
+		finalTasks, err := storageManager.GetTasksByPR(prNumber)
+		if err != nil {
+			fmt.Printf("⚠️  Warning: Could not load final tasks for exclusion analysis: %v\n", err)
+		} else {
+			// Analyze which comments were excluded
+			exclusionAnalyzer := notification.NewExclusionAnalyzer()
+			excludedComments := exclusionAnalyzer.AnalyzeExclusions(reviews, finalTasks)
+			
+			if len(excludedComments) > 0 {
+				fmt.Printf("Found %d comments that were not converted to tasks\n", len(excludedComments))
+				
+				// Create AI analyzer for enhanced exclusion reasoning if verbose mode is enabled
+				var aiAnalyzer *notification.AIExclusionAnalyzer
+				if cfg.AISettings.VerboseMode {
+					aiAnalyzer, err = notification.NewAIExclusionAnalyzer(cfg)
+					if err != nil {
+						fmt.Printf("⚠️  Warning: Could not create AI analyzer: %v\n", err)
+					}
+				}
+				
+				// Create notifier to post exclusion comments
+				notifier := notification.New(ghClient, cfg)
+				excludedCount := 0
+				
+				for _, excluded := range excludedComments {
+					// Enhance reason with AI if available and confidence is low
+					if aiAnalyzer != nil && excluded.ExclusionReason.Confidence < 0.7 {
+						commentBody := excluded.Comment.Body
+						if excluded.IsReviewBody {
+							commentBody = excluded.Review.Body
+						}
+						enhancedReason, err := aiAnalyzer.EnhanceExclusionReason(
+							ctx, 
+							excluded.ExclusionReason,
+							commentBody,
+							excluded.Review,
+						)
+						if err == nil {
+							excluded.ExclusionReason = enhancedReason
+						}
+					}
+					
+					// Only notify for comments with clear exclusion reasons
+					if excluded.ExclusionReason.Confidence >= 0.7 {
+						err := notifier.NotifyTaskExclusion(ctx, excluded.Review, excluded.ExclusionReason)
+						if err != nil {
+							fmt.Printf("⚠️  Warning: Could not post exclusion comment: %v\n", err)
+						} else {
+							excludedCount++
+						}
+					}
+				}
+				
+				if excludedCount > 0 {
+					fmt.Printf("📝 Posted %d exclusion explanations to GitHub\n", excludedCount)
+				}
+			}
+		}
+	}
 
 	return nil
 }
