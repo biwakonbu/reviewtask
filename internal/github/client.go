@@ -41,6 +41,11 @@ type Review struct {
 	Body        string    `json:"body"`
 	SubmittedAt string    `json:"submitted_at"`
 	Comments    []Comment `json:"comments"`
+	User        struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	PR          int       `json:"pr"`          // PR number for this review
+	CommentID   int64     `json:"comment_id"`  // For individual review comments
 }
 
 type Comment struct {
@@ -383,4 +388,18 @@ func (c *Client) IsPROpen(ctx context.Context, prNumber int) (bool, error) {
 
 	// PR is open if state is "open"
 	return pr.GetState() == "open", nil
+}
+
+// CreateIssueComment creates a comment on a pull request
+func (c *Client) CreateIssueComment(ctx context.Context, prNumber int, body string) error {
+	comment := &github.IssueComment{
+		Body: github.String(body),
+	}
+
+	_, _, err := c.client.Issues.CreateComment(ctx, c.owner, c.repo, prNumber, comment)
+	if err != nil {
+		return fmt.Errorf("failed to create comment on PR #%d: %w", prNumber, err)
+	}
+
+	return nil
 }

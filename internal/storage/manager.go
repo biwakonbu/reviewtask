@@ -44,6 +44,12 @@ type Task struct {
 	UpdatedAt            string               `json:"updated_at"`
 	PRNumber             int                  `json:"pr_number"`
 	CommentHash          string               `json:"comment_hash"` // MD5 hash of comment content for change detection
+	// New fields for notification support
+	Title                string               `json:"title"`           // Task title for notifications
+	PR                   int                  `json:"pr"`              // PR number (alias for PRNumber)
+	CommentID            int64                `json:"comment_id"`      // GitHub comment ID for replies
+	ReviewerLogin        string               `json:"reviewer_login"`  // Reviewer's GitHub username
+	Implementation       string               `json:"implementation"`  // Description of implementation
 }
 
 // VerificationResult represents the result of a task verification attempt
@@ -342,6 +348,52 @@ func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int6
 	}
 
 	return m.UpdateTaskStatus(targetTaskID, newStatus)
+}
+
+// GetTask retrieves a specific task by ID
+func (m *Manager) GetTask(taskID string) (*Task, error) {
+	// Get all PR directories
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !isPRDir(entry.Name()) {
+			continue
+		}
+
+		// Load tasks from this PR directory
+		tasksPath := filepath.Join(m.baseDir, entry.Name(), "tasks.json")
+		tasksFile, err := m.loadTasksFile(tasksPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		// Check if task exists in this file
+		for _, task := range tasksFile.Tasks {
+			if task.ID == taskID {
+				// Ensure PR field is populated for compatibility
+				if task.PR == 0 && task.PRNumber != 0 {
+					task.PR = task.PRNumber
+				}
+				// Ensure Title is populated
+				if task.Title == "" && task.Description != "" {
+					task.Title = task.Description
+				}
+				// Ensure CommentID is populated
+				if task.CommentID == 0 && task.SourceCommentID != 0 {
+					task.CommentID = task.SourceCommentID
+				}
+				return &task, nil
+			}
+		}
+	}
+
+	return nil, ErrTaskNotFound
 }
 
 // MergeTasks combines new tasks with existing ones, preserving existing task statuses

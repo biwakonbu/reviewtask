@@ -19,6 +19,7 @@ type Config struct {
 	AISettings           AISettings           `json:"ai_settings"`
 	VerificationSettings VerificationSettings `json:"verification_settings"`
 	UpdateCheck          UpdateCheck          `json:"update_check"`
+	CommentSettings      CommentSettings      `json:"comment_settings"`
 }
 
 type PriorityRules struct {
@@ -76,6 +77,35 @@ type UpdateCheck struct {
 	LastCheck         time.Time `json:"last_check"`         // Last check timestamp
 }
 
+type CommentSettings struct {
+	Enabled       bool                  `json:"enabled"`         // Enable comment notifications
+	AutoCommentOn AutoCommentSettings   `json:"auto_comment_on"` // When to auto-comment
+	Throttling    ThrottlingSettings    `json:"throttling"`      // Throttling configuration
+	Templates     CommentTemplates      `json:"templates"`       // Comment templates
+}
+
+type AutoCommentSettings struct {
+	TaskExclusion   bool `json:"task_exclusion"`   // Comment when excluding from tasks
+	TaskCompletion  bool `json:"task_completion"`  // Comment when marking done
+	TaskCancellation bool `json:"task_cancellation"` // Comment when cancelling
+	TaskPending     bool `json:"task_pending"`     // Comment when marking pending
+	TaskCreation    bool `json:"task_creation"`    // Comment when creating (usually unnecessary)
+}
+
+type ThrottlingSettings struct {
+	Enabled              bool `json:"enabled"`                // Enable throttling
+	MaxCommentsPerHour   int  `json:"max_comments_per_hour"`  // Max comments per hour
+	BatchSimilarComments bool `json:"batch_similar_comments"` // Batch similar comments
+	BatchWindowMinutes   int  `json:"batch_window_minutes"`   // Batch window in minutes
+}
+
+type CommentTemplates struct {
+	Exclusion    string `json:"exclusion"`    // Template for exclusion comments
+	Completion   string `json:"completion"`   // Template for completion comments
+	Cancellation string `json:"cancellation"` // Template for cancellation comments
+	Pending      string `json:"pending"`      // Template for pending comments
+}
+
 // Default configuration
 func defaultConfig() *Config {
 	validationTrue := true
@@ -128,6 +158,28 @@ func defaultConfig() *Config {
 			IntervalHours:     24,
 			NotifyPrereleases: false,
 			LastCheck:         time.Time{}, // Zero time means never checked
+		},
+		CommentSettings: CommentSettings{
+			Enabled: false, // Disabled by default for gradual adoption
+			AutoCommentOn: AutoCommentSettings{
+				TaskExclusion:    true,
+				TaskCompletion:   true,
+				TaskCancellation: true,
+				TaskPending:      true,
+				TaskCreation:     false,
+			},
+			Throttling: ThrottlingSettings{
+				Enabled:              true,
+				MaxCommentsPerHour:   20,
+				BatchSimilarComments: true,
+				BatchWindowMinutes:   30,
+			},
+			Templates: CommentTemplates{
+				Exclusion:    "default",
+				Completion:   "default",
+				Cancellation: "default",
+				Pending:      "default",
+			},
 		},
 	}
 }
@@ -274,6 +326,29 @@ func mergeWithDefaults(config *Config) {
 	// Merge update check settings
 	if config.UpdateCheck.IntervalHours == 0 {
 		config.UpdateCheck.IntervalHours = defaults.UpdateCheck.IntervalHours
+	}
+
+	// Merge comment settings
+	// Note: CommentSettings.Enabled defaults to false, so we don't merge it
+	// Only merge if the entire AutoCommentOn struct is empty
+	if config.CommentSettings.Throttling.MaxCommentsPerHour == 0 {
+		config.CommentSettings.Throttling.MaxCommentsPerHour = defaults.CommentSettings.Throttling.MaxCommentsPerHour
+	}
+	if config.CommentSettings.Throttling.BatchWindowMinutes == 0 {
+		config.CommentSettings.Throttling.BatchWindowMinutes = defaults.CommentSettings.Throttling.BatchWindowMinutes
+	}
+	// Set default templates if not specified
+	if config.CommentSettings.Templates.Exclusion == "" {
+		config.CommentSettings.Templates.Exclusion = defaults.CommentSettings.Templates.Exclusion
+	}
+	if config.CommentSettings.Templates.Completion == "" {
+		config.CommentSettings.Templates.Completion = defaults.CommentSettings.Templates.Completion
+	}
+	if config.CommentSettings.Templates.Cancellation == "" {
+		config.CommentSettings.Templates.Cancellation = defaults.CommentSettings.Templates.Cancellation
+	}
+	if config.CommentSettings.Templates.Pending == "" {
+		config.CommentSettings.Templates.Pending = defaults.CommentSettings.Templates.Pending
 	}
 
 	// Note: VerboseMode is NOT merged with defaults - explicit false values are preserved
