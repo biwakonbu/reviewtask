@@ -22,6 +22,7 @@ type Analyzer struct {
 	validationFeedback []ValidationIssue
 	claudeClient       ClaudeClient
 	promptSizeTracker  *PromptSizeTracker
+	responseMonitor    *ResponseMonitor
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
@@ -31,20 +32,23 @@ func NewAnalyzer(cfg *config.Config) *Analyzer {
 		// If Claude is not available, return analyzer without client
 		// This allows tests to inject their own mock
 		return &Analyzer{
-			config: cfg,
+			config:          cfg,
+			responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
 		}
 	}
 	return &Analyzer{
-		config:       cfg,
-		claudeClient: client,
+		config:          cfg,
+		claudeClient:    client,
+		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
 	}
 }
 
 // NewAnalyzerWithClient creates an analyzer with a specific Claude client (for testing)
 func NewAnalyzerWithClient(cfg *config.Config, client ClaudeClient) *Analyzer {
 	return &Analyzer{
-		config:       cfg,
-		claudeClient: client,
+		config:          cfg,
+		claudeClient:    client,
+		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
 	}
 }
 
@@ -521,6 +525,21 @@ Task Generation Guidelines:
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
+	return a.callClaudeCodeWithRetryStrategy(prompt, 0)
+}
+
+// callClaudeCodeWithRetryStrategy executes Claude API call with intelligent retry logic
+func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemptNumber int) ([]TaskRequest, error) {
+	prompt := originalPrompt
+	startTime := time.Now()
+	sessionID := uuid.New().String()
+
+	// Initialize retry strategy if this is the first attempt
+	var retryStrategy *RetryStrategy
+	if attemptNumber == 0 && a.config.AISettings.EnableJSONRecovery {
+		retryStrategy = NewRetryStrategy(a.config.AISettings.VerboseMode)
+	}
+
 	// Check for very large prompts that might exceed system limits
 	const maxPromptSize = 32 * 1024 // 32KB limit for safety
 	if len(prompt) > maxPromptSize {
@@ -550,12 +569,55 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 
 	// Debug information if enabled
 	if a.config.AISettings.VerboseMode {
-		fmt.Printf("  🐛 Prompt size: %d characters\n", len(prompt))
+		fmt.Printf("  🐛 Prompt size: %d characters (attempt %d)\n", len(prompt), attemptNumber+1)
 	}
 
 	ctx := context.Background()
 	output, err := client.Execute(ctx, prompt, "json")
+
+	// Track response size for retry strategy analysis
+	responseSize := len(output)
+
 	if err != nil {
+		// Check if we should retry with enhanced strategy
+		if retryStrategy != nil {
+			retryAttempt, shouldRetry := retryStrategy.ShouldRetry(attemptNumber, err, len(prompt), responseSize)
+			if shouldRetry {
+				// Execute retry delay
+				retryStrategy.ExecuteDelay(retryAttempt)
+
+				// Adjust prompt if needed
+				adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
+				if adjustedPrompt != originalPrompt {
+					retryAttempt.AdjustedPrompt = true
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("  🔧 Adjusted prompt size: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
+					}
+				}
+
+				// Recursive retry with adjusted prompt
+				return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
+			}
+		}
+		// Record API failure event for monitoring
+		if a.responseMonitor != nil {
+			processingTime := time.Since(startTime).Milliseconds()
+			event := ResponseEvent{
+				Timestamp:       time.Now(),
+				SessionID:       sessionID,
+				PromptSize:      len(prompt),
+				ResponseSize:    responseSize,
+				ProcessingTime:  processingTime,
+				Success:         false,
+				ErrorType:       "api_execution_failed",
+				RecoveryUsed:    false,
+				RetryCount:      attemptNumber,
+				TasksExtracted:  0,
+				PromptOptimized: len(prompt) < len(originalPrompt),
+			}
+			a.responseMonitor.RecordEvent(event)
+		}
+
 		return nil, NewClaudeAPIError("execution failed", err)
 	}
 
@@ -604,10 +666,111 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		return nil, fmt.Errorf("no valid JSON found in Claude response")
 	}
 
-	// Parse the actual task array
+	// Parse the actual task array with recovery mechanism
 	var tasks []TaskRequest
 	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
-		return nil, fmt.Errorf("failed to parse task array from result: %w\nResult was: %s", err, result)
+		// First attempt JSON recovery for incomplete/malformed responses
+		recoverer := NewJSONRecoverer(
+			a.config.AISettings.EnableJSONRecovery,
+			a.config.AISettings.VerboseMode,
+		)
+
+		recoveryResult := recoverer.RecoverJSON(result, err)
+		recoverer.LogRecoveryAttempt(recoveryResult)
+
+		if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  ✅ JSON recovery successful: %s\n", recoveryResult.Message)
+			}
+			tasks = recoveryResult.Tasks
+
+			// Record successful recovery event for monitoring
+			if a.responseMonitor != nil {
+				processingTime := time.Since(startTime).Milliseconds()
+				event := ResponseEvent{
+					Timestamp:       time.Now(),
+					SessionID:       sessionID,
+					PromptSize:      len(prompt),
+					ResponseSize:    responseSize,
+					ProcessingTime:  processingTime,
+					Success:         true,
+					RecoveryUsed:    true,
+					RetryCount:      attemptNumber,
+					TasksExtracted:  len(recoveryResult.Tasks),
+					PromptOptimized: len(prompt) < len(originalPrompt),
+				}
+				a.responseMonitor.RecordEvent(event)
+			}
+
+			return tasks, nil
+		} else {
+			// JSON recovery failed, check if we should retry the entire request
+			if retryStrategy != nil && attemptNumber < retryStrategy.config.MaxRetries {
+				retryAttempt, shouldRetry := retryStrategy.ShouldRetry(attemptNumber, err, len(prompt), responseSize)
+				if shouldRetry {
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("  🔄 JSON parsing failed, attempting full retry with strategy: %s\n", retryAttempt.Strategy)
+					}
+
+					// Execute retry delay
+					retryStrategy.ExecuteDelay(retryAttempt)
+
+					// Adjust prompt if needed
+					adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
+					if adjustedPrompt != originalPrompt {
+						retryAttempt.AdjustedPrompt = true
+						if a.config.AISettings.VerboseMode {
+							fmt.Printf("  🔧 Adjusted prompt size for retry: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
+						}
+					}
+
+					// Recursive retry with adjusted prompt
+					return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
+				}
+			}
+
+			// Record failure event for monitoring
+			if a.responseMonitor != nil {
+				processingTime := time.Since(startTime).Milliseconds()
+				event := ResponseEvent{
+					Timestamp:       time.Now(),
+					SessionID:       sessionID,
+					PromptSize:      len(prompt),
+					ResponseSize:    responseSize,
+					ProcessingTime:  processingTime,
+					Success:         false,
+					ErrorType:       "json_parsing_failed",
+					RecoveryUsed:    true,
+					RetryCount:      attemptNumber,
+					TasksExtracted:  0,
+					PromptOptimized: len(prompt) < len(originalPrompt),
+				}
+				a.responseMonitor.RecordEvent(event)
+			}
+
+			// Recovery and retry both failed, return original error with recovery info
+			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s",
+				err, recoveryResult.Message, result)
+		}
+	}
+
+	// Record successful response event for monitoring
+	if a.responseMonitor != nil {
+		processingTime := time.Since(startTime).Milliseconds()
+		event := ResponseEvent{
+			Timestamp:       time.Now(),
+			SessionID:       sessionID,
+			PromptSize:      len(prompt),
+			ResponseSize:    responseSize,
+			ProcessingTime:  processingTime,
+			Success:         true,
+			RecoveryUsed:    false, // Will be updated if recovery was used
+			RetryCount:      attemptNumber,
+			TasksExtracted:  len(tasks),
+			PromptOptimized: len(prompt) < len(originalPrompt),
+		}
+
+		a.responseMonitor.RecordEvent(event)
 	}
 
 	return tasks, nil
