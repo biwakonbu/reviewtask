@@ -130,6 +130,6 @@ func (bp *BatchProcessor) GetStatus() (bool, time.Duration) {
 	// Calculate time until next batch
 	// This is approximate since we don't track the exact last tick time
 	interval := time.Duration(bp.config.CommentSettings.Throttling.BatchWindowMinutes) * time.Minute
-	
+
 	return true, interval
 }

@@ -34,8 +34,8 @@ func NewAIExclusionAnalyzer(cfg *config.Config) (*AIExclusionAnalyzer, error) {
 // AnalyzeExclusionWithAI uses AI to determine why a comment was excluded
 func (aea *AIExclusionAnalyzer) AnalyzeExclusionWithAI(ctx context.Context, comment string, review github.Review) (*ExclusionReason, error) {
 	prompt := aea.buildExclusionAnalysisPrompt(comment, review)
-	
-	response, err := aea.claudeClient.SendMessage(ctx, prompt)
+
+	response, err := aea.claudeClient.Execute(ctx, prompt, "json")
 	if err != nil {
 		return nil, fmt.Errorf("AI analysis failed: %w", err)
 	}
@@ -70,13 +70,13 @@ Analyze why this comment was not converted to an actionable task. Consider:
 
 Respond with JSON in this exact format:
 {
-  "type": "string", // One of: "Already Implemented", "Invalid Suggestion", "Low Priority", "Project Policy Violation", "Out of Scope", "Duplicate Suggestion", "Unknown"
+  "type": "string", // One of: "Already Implemented", "Invalid Suggestion", "Low Priority", "Project Policy Violation", "Out of Scope", "Duplicate Suggestion"
   "explanation": "string", // Clear explanation in 1-2 sentences
   "references": ["string"], // Optional: relevant files or policies
   "confidence": 0.0 // Confidence score 0.0-1.0
 }
 
-Focus on being accurate and helpful. If unsure, use "Unknown" with lower confidence.`,
+Focus on being accurate and helpful. If unsure, use "Invalid Suggestion" with lower confidence.`,
 		projectContext,
 		comment,
 		review.Reviewer,
@@ -93,7 +93,7 @@ func (aea *AIExclusionAnalyzer) loadProjectContext() string {
 	// Check for common project files
 	projectFiles := []string{
 		"CONTRIBUTING.md",
-		"CODE_OF_CONDUCT.md", 
+		"CODE_OF_CONDUCT.md",
 		"ARCHITECTURE.md",
 		".github/PULL_REQUEST_TEMPLATE.md",
 		"README.md",
@@ -102,7 +102,7 @@ func (aea *AIExclusionAnalyzer) loadProjectContext() string {
 	for _, file := range projectFiles {
 		if _, err := os.Stat(file); err == nil {
 			context.WriteString(fmt.Sprintf("- %s\n", file))
-			
+
 			// Read first few lines for context
 			content, err := aea.readFileHead(file, 20)
 			if err == nil && content != "" {

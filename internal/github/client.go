@@ -44,8 +44,8 @@ type Review struct {
 	User        struct {
 		Login string `json:"login"`
 	} `json:"user"`
-	PR          int       `json:"pr"`          // PR number for this review
-	CommentID   int64     `json:"comment_id"`  // For individual review comments
+	PR        int   `json:"pr"`         // PR number for this review
+	CommentID int64 `json:"comment_id"` // For individual review comments
 }
 
 type Comment struct {

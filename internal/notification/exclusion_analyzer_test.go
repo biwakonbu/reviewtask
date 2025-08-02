@@ -1,6 +1,7 @@
 package notification
 
 import (
+	"strings"
 	"testing"
 
 	"reviewtask/internal/github"
@@ -60,13 +61,13 @@ func TestAnalyzeExclusions(t *testing.T) {
 				t.Errorf("Expected LGTM to be excluded as non-actionable, got %s", exc.ExclusionReason.Type)
 			}
 		}
-		
+
 		if exc.Comment.ID == 101 {
 			if exc.ExclusionReason.Type != ExclusionTypeLowPriority {
 				t.Errorf("Expected nit comment to be excluded as low priority, got %s", exc.ExclusionReason.Type)
 			}
 		}
-		
+
 		if exc.Comment.ID == 102 {
 			if exc.ExclusionReason.Type != ExclusionTypeAlreadyImplemented {
 				t.Errorf("Expected resolved comment to be excluded as already implemented, got %s", exc.ExclusionReason.Type)
@@ -90,7 +91,8 @@ func TestIsResolved(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := analyzer.isResolved(test.comment)
+		// Convert to lowercase as the method expects
+		result := analyzer.isResolved(strings.ToLower(test.comment))
 		if result != test.expected {
 			t.Errorf("isResolved(%q) = %v, want %v", test.comment, result, test.expected)
 		}
@@ -116,7 +118,8 @@ func TestIsNonActionable(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := analyzer.isNonActionable(test.comment)
+		// Convert to lowercase as the method expects
+		result := analyzer.isNonActionable(strings.ToLower(test.comment))
 		if result != test.expected {
 			t.Errorf("isNonActionable(%q) = %v, want %v", test.comment, result, test.expected)
 		}
@@ -140,7 +143,8 @@ func TestIsLowPriority(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		result := analyzer.isLowPriority(test.comment)
+		// Convert to lowercase as the method expects
+		result := analyzer.isLowPriority(strings.ToLower(test.comment))
 		if result != test.expected {
 			t.Errorf("isLowPriority(%q) = %v, want %v", test.comment, result, test.expected)
 		}

@@ -118,7 +118,7 @@ func (ea *ExclusionAnalyzer) analyzeExclusionReason(commentBody string, review g
 
 	// Default: unclear why it was excluded
 	return &ExclusionReason{
-		Type:        "Unknown",
+		Type:        ExclusionTypeInvalid,
 		Explanation: "The AI determined this comment doesn't require action",
 		Confidence:  0.5,
 	}
@@ -164,6 +164,8 @@ func (ea *ExclusionAnalyzer) isNonActionable(lowerBody string) bool {
 		"no changes needed",
 		"for your information",
 		"fyi",
+		"great work",
+		"well done",
 	}
 
 	// Check if the entire comment is just one of these patterns
@@ -171,6 +173,21 @@ func (ea *ExclusionAnalyzer) isNonActionable(lowerBody string) bool {
 	for _, pattern := range nonActionablePatterns {
 		if trimmed == pattern || trimmed == pattern+"." || trimmed == pattern+"!" {
 			return true
+		}
+		// Also check if comment starts with pattern followed by punctuation
+		if strings.HasPrefix(trimmed, pattern+"!") || strings.HasPrefix(trimmed, pattern+".") {
+			// Check if the rest is also non-actionable
+			remainder := strings.TrimSpace(strings.TrimPrefix(trimmed, pattern))
+			remainder = strings.TrimPrefix(remainder, "!")
+			remainder = strings.TrimPrefix(remainder, ".")
+			remainder = strings.TrimSpace(remainder)
+			if remainder == "" {
+				return true
+			}
+			// Recursively check if remainder is also non-actionable
+			if ea.isNonActionable(remainder) {
+				return true
+			}
 		}
 	}
 

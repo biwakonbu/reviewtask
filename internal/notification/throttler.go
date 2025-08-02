@@ -12,11 +12,11 @@ import (
 
 // Throttler manages comment rate limiting and batching
 type Throttler struct {
-	config          config.ThrottlingSettings
-	recentComments  []CommentRecord
-	batchQueue      map[string]*CommentBatch
-	mu              sync.Mutex
-	aiThrottler     *AIThrottler // Optional AI-powered throttling
+	config         config.ThrottlingSettings
+	recentComments []CommentRecord
+	batchQueue     map[string]*CommentBatch
+	mu             sync.Mutex
+	aiThrottler    *AIThrottler // Optional AI-powered throttling
 }
 
 // CommentRecord tracks a posted comment for rate limiting

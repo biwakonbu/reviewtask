@@ -33,12 +33,12 @@ func NewAIThrottler(cfg *config.Config) (*AIThrottler, error) {
 
 // BatchingDecision represents AI's decision on how to batch comments
 type BatchingDecision struct {
-	ShouldBatch     bool              `json:"should_batch"`
-	BatchGroups     []BatchGroup      `json:"batch_groups"`
-	ImmediateSend   []string          `json:"immediate_send"`   // Task IDs to send immediately
-	DelayedSend     []string          `json:"delayed_send"`     // Task IDs to delay
-	Reason          string            `json:"reason"`
-	OptimalDelay    int               `json:"optimal_delay_minutes"`
+	ShouldBatch   bool         `json:"should_batch"`
+	BatchGroups   []BatchGroup `json:"batch_groups"`
+	ImmediateSend []string     `json:"immediate_send"` // Task IDs to send immediately
+	DelayedSend   []string     `json:"delayed_send"`   // Task IDs to delay
+	Reason        string       `json:"reason"`
+	OptimalDelay  int          `json:"optimal_delay_minutes"`
 }
 
 // BatchGroup represents a group of related comments to batch together
@@ -52,8 +52,8 @@ type BatchGroup struct {
 // AnalyzeBatchingStrategy uses AI to determine optimal batching strategy
 func (at *AIThrottler) AnalyzeBatchingStrategy(ctx context.Context, pendingComments []PendingComment, recentActivity []CommentRecord) (*BatchingDecision, error) {
 	prompt := at.buildBatchingPrompt(pendingComments, recentActivity)
-	
-	response, err := at.claudeClient.SendMessage(ctx, prompt)
+
+	response, err := at.claudeClient.Execute(ctx, prompt, "json")
 	if err != nil {
 		return nil, fmt.Errorf("AI analysis failed: %w", err)
 	}
@@ -66,7 +66,7 @@ func (at *AIThrottler) buildBatchingPrompt(pendingComments []PendingComment, rec
 	// Build pending comments summary
 	var pendingStr strings.Builder
 	for _, pc := range pendingComments {
-		pendingStr.WriteString(fmt.Sprintf("- Task %s: %s (PR #%d)\n", 
+		pendingStr.WriteString(fmt.Sprintf("- Task %s: %s (PR #%d)\n",
 			pc.Task.ID, pc.NotificationType, pc.Task.PR))
 	}
 
@@ -157,8 +157,8 @@ type PendingComment struct {
 // OptimizeCommentTiming determines the best time to send a comment
 func (at *AIThrottler) OptimizeCommentTiming(ctx context.Context, task *storage.Task, notificationType string, reviewerActivity []CommentRecord) (bool, time.Duration, error) {
 	prompt := at.buildTimingPrompt(task, notificationType, reviewerActivity)
-	
-	response, err := at.claudeClient.SendMessage(ctx, prompt)
+
+	response, err := at.claudeClient.Execute(ctx, prompt, "json")
 	if err != nil {
 		return false, 0, fmt.Errorf("AI analysis failed: %w", err)
 	}
@@ -172,7 +172,7 @@ func (at *AIThrottler) buildTimingPrompt(task *storage.Task, notificationType st
 	var activityStr strings.Builder
 	now := time.Now()
 	notificationCount := 0
-	
+
 	for _, rec := range reviewerActivity {
 		if rec.ReviewerLogin == task.ReviewerLogin {
 			age := now.Sub(rec.Timestamp)

@@ -45,11 +45,11 @@ type Task struct {
 	PRNumber             int                  `json:"pr_number"`
 	CommentHash          string               `json:"comment_hash"` // MD5 hash of comment content for change detection
 	// New fields for notification support
-	Title                string               `json:"title"`           // Task title for notifications
-	PR                   int                  `json:"pr"`              // PR number (alias for PRNumber)
-	CommentID            int64                `json:"comment_id"`      // GitHub comment ID for replies
-	ReviewerLogin        string               `json:"reviewer_login"`  // Reviewer's GitHub username
-	Implementation       string               `json:"implementation"`  // Description of implementation
+	Title          string `json:"title"`          // Task title for notifications
+	PR             int    `json:"pr"`             // PR number (alias for PRNumber)
+	CommentID      int64  `json:"comment_id"`     // GitHub comment ID for replies
+	ReviewerLogin  string `json:"reviewer_login"` // Reviewer's GitHub username
+	Implementation string `json:"implementation"` // Description of implementation
 }
 
 // VerificationResult represents the result of a task verification attempt

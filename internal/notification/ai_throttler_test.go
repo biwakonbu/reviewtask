@@ -2,27 +2,33 @@ package notification
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
+	"reviewtask/internal/ai"
+	"reviewtask/internal/config"
 	"reviewtask/internal/storage"
 )
 
 // MockClaudeClient for testing AI throttler
 type MockClaudeClient struct {
-	SendMessageFunc func(ctx context.Context, prompt string) (string, error)
+	ExecuteFunc func(ctx context.Context, input string, outputFormat string) (string, error)
 }
 
-func (m *MockClaudeClient) SendMessage(ctx context.Context, prompt string) (string, error) {
-	if m.SendMessageFunc != nil {
-		return m.SendMessageFunc(ctx, prompt)
+func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
+	if m.ExecuteFunc != nil {
+		return m.ExecuteFunc(ctx, input, outputFormat)
 	}
 	return "", nil
 }
 
+// Ensure MockClaudeClient implements ai.ClaudeClient
+var _ ai.ClaudeClient = (*MockClaudeClient)(nil)
+
 func TestAnalyzeBatchingStrategy(t *testing.T) {
 	mockClient := &MockClaudeClient{
-		SendMessageFunc: func(ctx context.Context, prompt string) (string, error) {
+		ExecuteFunc: func(ctx context.Context, input string, outputFormat string) (string, error) {
 			// Return a mock AI response
 			return `{
 				"should_batch": true,
@@ -44,6 +50,15 @@ func TestAnalyzeBatchingStrategy(t *testing.T) {
 
 	aiThrottler := &AIThrottler{
 		claudeClient: mockClient,
+		config: &config.Config{
+			CommentSettings: config.CommentSettings{
+				Throttling: config.ThrottlingSettings{
+					MaxCommentsPerHour:   20,
+					BatchWindowMinutes:   30,
+					BatchSimilarComments: true,
+				},
+			},
+		},
 	}
 
 	pendingComments := []PendingComment{
@@ -110,9 +125,9 @@ func TestAnalyzeBatchingStrategy(t *testing.T) {
 
 func TestOptimizeCommentTiming(t *testing.T) {
 	mockClient := &MockClaudeClient{
-		SendMessageFunc: func(ctx context.Context, prompt string) (string, error) {
+		ExecuteFunc: func(ctx context.Context, input string, outputFormat string) (string, error) {
 			// Return different responses based on prompt content
-			if contains(prompt, "high") {
+			if strings.Contains(input, "high") {
 				return `{"send_now": true, "delay_minutes": 0, "reason": "High priority task"}`, nil
 			}
 			return `{"send_now": false, "delay_minutes": 15, "reason": "Reviewer recently notified"}`, nil
@@ -121,6 +136,15 @@ func TestOptimizeCommentTiming(t *testing.T) {
 
 	aiThrottler := &AIThrottler{
 		claudeClient: mockClient,
+		config: &config.Config{
+			CommentSettings: config.CommentSettings{
+				Throttling: config.ThrottlingSettings{
+					MaxCommentsPerHour:   20,
+					BatchWindowMinutes:   30,
+					BatchSimilarComments: true,
+				},
+			},
+		},
 	}
 
 	// Test high priority task

@@ -304,7 +304,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Handle exclusion notifications if enabled
 	if cfg.CommentSettings.Enabled && cfg.CommentSettings.AutoCommentOn.TaskExclusion {
 		fmt.Println("\n🔍 Analyzing excluded comments...")
-		
+
 		// Get the final tasks after merging
 		finalTasks, err := storageManager.GetTasksByPR(prNumber)
 		if err != nil {
@@ -313,10 +313,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 			// Analyze which comments were excluded
 			exclusionAnalyzer := notification.NewExclusionAnalyzer()
 			excludedComments := exclusionAnalyzer.AnalyzeExclusions(reviews, finalTasks)
-			
+
 			if len(excludedComments) > 0 {
 				fmt.Printf("Found %d comments that were not converted to tasks\n", len(excludedComments))
-				
+
 				// Create AI analyzer for enhanced exclusion reasoning if verbose mode is enabled
 				var aiAnalyzer *notification.AIExclusionAnalyzer
 				if cfg.AISettings.VerboseMode {
@@ -325,11 +325,11 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 						fmt.Printf("⚠️  Warning: Could not create AI analyzer: %v\n", err)
 					}
 				}
-				
+
 				// Create notifier to post exclusion comments
 				notifier := notification.New(ghClient, cfg)
 				excludedCount := 0
-				
+
 				for _, excluded := range excludedComments {
 					// Enhance reason with AI if available and confidence is low
 					if aiAnalyzer != nil && excluded.ExclusionReason.Confidence < 0.7 {
@@ -338,7 +338,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 							commentBody = excluded.Review.Body
 						}
 						enhancedReason, err := aiAnalyzer.EnhanceExclusionReason(
-							ctx, 
+							ctx,
 							excluded.ExclusionReason,
 							commentBody,
 							excluded.Review,
@@ -347,7 +347,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 							excluded.ExclusionReason = enhancedReason
 						}
 					}
-					
+
 					// Only notify for comments with clear exclusion reasons
 					if excluded.ExclusionReason.Confidence >= 0.7 {
 						err := notifier.NotifyTaskExclusion(ctx, excluded.Review, excluded.ExclusionReason)
@@ -358,7 +358,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 						}
 					}
 				}
-				
+
 				if excludedCount > 0 {
 					fmt.Printf("📝 Posted %d exclusion explanations to GitHub\n", excludedCount)
 				}

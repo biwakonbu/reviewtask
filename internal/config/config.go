@@ -78,18 +78,18 @@ type UpdateCheck struct {
 }
 
 type CommentSettings struct {
-	Enabled       bool                  `json:"enabled"`         // Enable comment notifications
-	AutoCommentOn AutoCommentSettings   `json:"auto_comment_on"` // When to auto-comment
-	Throttling    ThrottlingSettings    `json:"throttling"`      // Throttling configuration
-	Templates     CommentTemplates      `json:"templates"`       // Comment templates
+	Enabled       bool                `json:"enabled"`         // Enable comment notifications
+	AutoCommentOn AutoCommentSettings `json:"auto_comment_on"` // When to auto-comment
+	Throttling    ThrottlingSettings  `json:"throttling"`      // Throttling configuration
+	Templates     CommentTemplates    `json:"templates"`       // Comment templates
 }
 
 type AutoCommentSettings struct {
-	TaskExclusion   bool `json:"task_exclusion"`   // Comment when excluding from tasks
-	TaskCompletion  bool `json:"task_completion"`  // Comment when marking done
+	TaskExclusion    bool `json:"task_exclusion"`    // Comment when excluding from tasks
+	TaskCompletion   bool `json:"task_completion"`   // Comment when marking done
 	TaskCancellation bool `json:"task_cancellation"` // Comment when cancelling
-	TaskPending     bool `json:"task_pending"`     // Comment when marking pending
-	TaskCreation    bool `json:"task_creation"`    // Comment when creating (usually unnecessary)
+	TaskPending      bool `json:"task_pending"`      // Comment when marking pending
+	TaskCreation     bool `json:"task_creation"`     // Comment when creating (usually unnecessary)
 }
 
 type ThrottlingSettings struct {
