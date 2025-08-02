@@ -604,10 +604,28 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 		return nil, fmt.Errorf("no valid JSON found in Claude response")
 	}
 
-	// Parse the actual task array
+	// Parse the actual task array with recovery mechanism
 	var tasks []TaskRequest
 	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
-		return nil, fmt.Errorf("failed to parse task array from result: %w\nResult was: %s", err, result)
+		// Attempt JSON recovery for incomplete/malformed responses
+		recoverer := NewJSONRecoverer(
+			a.config.AISettings.EnableJSONRecovery, 
+			a.config.AISettings.VerboseMode,
+		)
+		
+		recoveryResult := recoverer.RecoverJSON(result, err)
+		recoverer.LogRecoveryAttempt(recoveryResult)
+		
+		if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  ✅ JSON recovery successful: %s\n", recoveryResult.Message)
+			}
+			tasks = recoveryResult.Tasks
+		} else {
+			// Recovery failed, return original error with recovery info
+			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s", 
+				err, recoveryResult.Message, result)
+		}
 	}
 
 	return tasks, nil
