@@ -521,6 +521,19 @@ Task Generation Guidelines:
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
+	return a.callClaudeCodeWithRetryStrategy(prompt, 0)
+}
+
+// callClaudeCodeWithRetryStrategy executes Claude API call with intelligent retry logic
+func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemptNumber int) ([]TaskRequest, error) {
+	prompt := originalPrompt
+	
+	// Initialize retry strategy if this is the first attempt
+	var retryStrategy *RetryStrategy
+	if attemptNumber == 0 && a.config.AISettings.EnableJSONRecovery {
+		retryStrategy = NewRetryStrategy(a.config.AISettings.VerboseMode)
+	}
+
 	// Check for very large prompts that might exceed system limits
 	const maxPromptSize = 32 * 1024 // 32KB limit for safety
 	if len(prompt) > maxPromptSize {
@@ -550,12 +563,36 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 
 	// Debug information if enabled
 	if a.config.AISettings.VerboseMode {
-		fmt.Printf("  🐛 Prompt size: %d characters\n", len(prompt))
+		fmt.Printf("  🐛 Prompt size: %d characters (attempt %d)\n", len(prompt), attemptNumber+1)
 	}
 
 	ctx := context.Background()
 	output, err := client.Execute(ctx, prompt, "json")
+	
+	// Track response size for retry strategy analysis
+	responseSize := len(output)
+	
 	if err != nil {
+		// Check if we should retry with enhanced strategy
+		if retryStrategy != nil {
+			retryAttempt, shouldRetry := retryStrategy.ShouldRetry(attemptNumber, err, len(prompt), responseSize)
+			if shouldRetry {
+				// Execute retry delay
+				retryStrategy.ExecuteDelay(retryAttempt)
+				
+				// Adjust prompt if needed
+				adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
+				if adjustedPrompt != originalPrompt {
+					retryAttempt.AdjustedPrompt = true
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("  🔧 Adjusted prompt size: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
+					}
+				}
+				
+				// Recursive retry with adjusted prompt
+				return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
+			}
+		}
 		return nil, NewClaudeAPIError("execution failed", err)
 	}
 
@@ -607,7 +644,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	// Parse the actual task array with recovery mechanism
 	var tasks []TaskRequest
 	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
-		// Attempt JSON recovery for incomplete/malformed responses
+		// First attempt JSON recovery for incomplete/malformed responses
 		recoverer := NewJSONRecoverer(
 			a.config.AISettings.EnableJSONRecovery,
 			a.config.AISettings.VerboseMode,
@@ -622,7 +659,32 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 			}
 			tasks = recoveryResult.Tasks
 		} else {
-			// Recovery failed, return original error with recovery info
+			// JSON recovery failed, check if we should retry the entire request
+			if retryStrategy != nil && attemptNumber < retryStrategy.config.MaxRetries {
+				retryAttempt, shouldRetry := retryStrategy.ShouldRetry(attemptNumber, err, len(prompt), responseSize)
+				if shouldRetry {
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("  🔄 JSON parsing failed, attempting full retry with strategy: %s\n", retryAttempt.Strategy)
+					}
+					
+					// Execute retry delay
+					retryStrategy.ExecuteDelay(retryAttempt)
+					
+					// Adjust prompt if needed
+					adjustedPrompt := retryStrategy.AdjustPromptForRetry(originalPrompt, retryAttempt)
+					if adjustedPrompt != originalPrompt {
+						retryAttempt.AdjustedPrompt = true
+						if a.config.AISettings.VerboseMode {
+							fmt.Printf("  🔧 Adjusted prompt size for retry: %d -> %d bytes\n", len(originalPrompt), len(adjustedPrompt))
+						}
+					}
+					
+					// Recursive retry with adjusted prompt
+					return a.callClaudeCodeWithRetryStrategy(adjustedPrompt, attemptNumber+1)
+				}
+			}
+			
+			// Recovery and retry both failed, return original error with recovery info
 			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s",
 				err, recoveryResult.Message, result)
 		}
