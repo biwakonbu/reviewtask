@@ -609,13 +609,13 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
 		// Attempt JSON recovery for incomplete/malformed responses
 		recoverer := NewJSONRecoverer(
-			a.config.AISettings.EnableJSONRecovery, 
+			a.config.AISettings.EnableJSONRecovery,
 			a.config.AISettings.VerboseMode,
 		)
-		
+
 		recoveryResult := recoverer.RecoverJSON(result, err)
 		recoverer.LogRecoveryAttempt(recoveryResult)
-		
+
 		if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
 			if a.config.AISettings.VerboseMode {
 				fmt.Printf("  ✅ JSON recovery successful: %s\n", recoveryResult.Message)
@@ -623,7 +623,7 @@ func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 			tasks = recoveryResult.Tasks
 		} else {
 			// Recovery failed, return original error with recovery info
-			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s", 
+			return nil, fmt.Errorf("failed to parse task array from result: %w (recovery attempted: %s)\nResult was: %s",
 				err, recoveryResult.Message, result)
 		}
 	}

@@ -43,22 +43,22 @@ type TaskSettings struct {
 }
 
 type AISettings struct {
-	UserLanguage           string  `json:"user_language"`            // e.g., "Japanese", "English"
-	OutputFormat           string  `json:"output_format"`            // "json"
-	MaxRetries             int     `json:"max_retries"`              // Validation retry attempts (default: 5)
-	ValidationEnabled      *bool   `json:"validation_enabled"`       // Enable two-stage validation
-	QualityThreshold       float64 `json:"quality_threshold"`        // Minimum score to accept (0.0-1.0)
-	VerboseMode            bool    `json:"verbose_mode"`             // Enable verbose output (detailed progress and errors)
-	ClaudePath             string  `json:"claude_path"`              // Custom path to Claude CLI (overrides default search)
-	MaxTasksPerComment     int     `json:"max_tasks_per_comment"`    // Maximum tasks to generate per comment (default: 2)
-	DeduplicationEnabled   bool    `json:"deduplication_enabled"`    // Enable task deduplication (default: true)
-	SimilarityThreshold    float64 `json:"similarity_threshold"`     // Task similarity threshold for deduplication (0.0-1.0)
-	ProcessNitpickComments bool    `json:"process_nitpick_comments"` // Process nitpick comments from review bots (default: true)
-	NitpickPriority        string  `json:"nitpick_priority"`         // Priority level for nitpick-generated tasks (default: "low")
-	EnableJSONRecovery     bool    `json:"enable_json_recovery"`     // Enable JSON recovery for incomplete Claude API responses (default: true)
-	MaxRecoveryAttempts    int     `json:"max_recovery_attempts"`    // Maximum JSON recovery attempts (default: 3)
+	UserLanguage             string  `json:"user_language"`              // e.g., "Japanese", "English"
+	OutputFormat             string  `json:"output_format"`              // "json"
+	MaxRetries               int     `json:"max_retries"`                // Validation retry attempts (default: 5)
+	ValidationEnabled        *bool   `json:"validation_enabled"`         // Enable two-stage validation
+	QualityThreshold         float64 `json:"quality_threshold"`          // Minimum score to accept (0.0-1.0)
+	VerboseMode              bool    `json:"verbose_mode"`               // Enable verbose output (detailed progress and errors)
+	ClaudePath               string  `json:"claude_path"`                // Custom path to Claude CLI (overrides default search)
+	MaxTasksPerComment       int     `json:"max_tasks_per_comment"`      // Maximum tasks to generate per comment (default: 2)
+	DeduplicationEnabled     bool    `json:"deduplication_enabled"`      // Enable task deduplication (default: true)
+	SimilarityThreshold      float64 `json:"similarity_threshold"`       // Task similarity threshold for deduplication (0.0-1.0)
+	ProcessNitpickComments   bool    `json:"process_nitpick_comments"`   // Process nitpick comments from review bots (default: true)
+	NitpickPriority          string  `json:"nitpick_priority"`           // Priority level for nitpick-generated tasks (default: "low")
+	EnableJSONRecovery       bool    `json:"enable_json_recovery"`       // Enable JSON recovery for incomplete Claude API responses (default: true)
+	MaxRecoveryAttempts      int     `json:"max_recovery_attempts"`      // Maximum JSON recovery attempts (default: 3)
 	PartialResponseThreshold float64 `json:"partial_response_threshold"` // Minimum threshold for accepting partial responses (default: 0.7)
-	LogTruncatedResponses  bool    `json:"log_truncated_responses"`  // Log truncated responses for debugging (default: true)
+	LogTruncatedResponses    bool    `json:"log_truncated_responses"`    // Log truncated responses for debugging (default: true)
 }
 
 type VerificationSettings struct {
@@ -103,22 +103,22 @@ func defaultConfig() *Config {
 			LowPriorityStatus:   "pending",
 		},
 		AISettings: AISettings{
-			UserLanguage:           "English",
-			OutputFormat:           "json",
-			MaxRetries:             5,
-			ValidationEnabled:      &validationTrue,
-			QualityThreshold:       0.8,
-			VerboseMode:            false,
-			ClaudePath:             "", // Empty means use default search paths
-			MaxTasksPerComment:     2,
-			DeduplicationEnabled:   true,
-			SimilarityThreshold:    0.8,
-			ProcessNitpickComments: true,
-			NitpickPriority:        "low",
-			EnableJSONRecovery:     true,
-			MaxRecoveryAttempts:    3,
+			UserLanguage:             "English",
+			OutputFormat:             "json",
+			MaxRetries:               5,
+			ValidationEnabled:        &validationTrue,
+			QualityThreshold:         0.8,
+			VerboseMode:              false,
+			ClaudePath:               "", // Empty means use default search paths
+			MaxTasksPerComment:       2,
+			DeduplicationEnabled:     true,
+			SimilarityThreshold:      0.8,
+			ProcessNitpickComments:   true,
+			NitpickPriority:          "low",
+			EnableJSONRecovery:       true,
+			MaxRecoveryAttempts:      3,
 			PartialResponseThreshold: 0.7,
-			LogTruncatedResponses:  true,
+			LogTruncatedResponses:    true,
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",
