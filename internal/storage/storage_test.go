@@ -226,14 +226,14 @@ func TestStorageWorkflows(t *testing.T) {
 				func(t *testing.T, tempDir string) {
 					tasksFile := filepath.Join(tempDir, ".pr-review", "PR-200", "tasks.json")
 					data, _ := os.ReadFile(tasksFile)
-					
+
 					var tf TasksFile
 					json.Unmarshal(data, &tf)
-					
+
 					// Update first task to doing
 					tf.Tasks[0].Status = "doing"
 					tf.Tasks[0].UpdatedAt = time.Now().Format(time.RFC3339)
-					
+
 					newData, _ := json.MarshalIndent(tf, "", "  ")
 					os.WriteFile(tasksFile, newData, 0644)
 				},
@@ -241,10 +241,10 @@ func TestStorageWorkflows(t *testing.T) {
 				func(t *testing.T, tempDir string) {
 					tasksFile := filepath.Join(tempDir, ".pr-review", "PR-200", "tasks.json")
 					data, _ := os.ReadFile(tasksFile)
-					
+
 					var tf TasksFile
 					json.Unmarshal(data, &tf)
-					
+
 					if tf.Tasks[0].Status != "doing" {
 						t.Error("Task status not updated")
 					}
@@ -335,19 +335,19 @@ func TestTaskFileFieldHandling(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.verify(t, tt.task)
-			
+
 			// Test JSON serialization
 			data, err := json.Marshal(tt.task)
 			if err != nil {
 				t.Fatalf("Failed to serialize: %v", err)
 			}
-			
+
 			var decoded Task
 			err = json.Unmarshal(data, &decoded)
 			if err != nil {
 				t.Fatalf("Failed to deserialize: %v", err)
 			}
-			
+
 			if decoded.File != tt.task.File {
 				t.Error("File not preserved through JSON")
 			}
@@ -410,7 +410,7 @@ func TestTaskCommentTracking(t *testing.T) {
 			for _, task := range scenario.tasks {
 				grouped[task.SourceCommentID] = append(grouped[task.SourceCommentID], task)
 			}
-			
+
 			scenario.verify(t, grouped)
 		})
 	}
@@ -442,18 +442,18 @@ func TestPRDirectoryNaming(t *testing.T) {
 // TestTaskPriorityValidation tests priority value validation
 func TestTaskPriorityValidation(t *testing.T) {
 	validPriorities := []string{"critical", "high", "medium", "low"}
-	
+
 	for _, priority := range validPriorities {
 		task := Task{
 			ID:       "test",
 			Priority: priority,
 		}
-		
+
 		if !isValidPriority(task.Priority) {
 			t.Errorf("Priority %s should be valid", priority)
 		}
 	}
-	
+
 	// Test invalid priorities
 	invalidPriorities := []string{"", "urgent", "normal", "CRITICAL", "High"}
 	for _, priority := range invalidPriorities {
@@ -463,22 +463,22 @@ func TestTaskPriorityValidation(t *testing.T) {
 	}
 }
 
-// TestTaskStatusValidation tests status value validation  
+// TestTaskStatusValidation tests status value validation
 func TestTaskStatusValidation(t *testing.T) {
 	validStatuses := []string{"todo", "doing", "done", "pending", "cancel", "cancelled"}
-	
+
 	for _, status := range validStatuses {
 		task := Task{
 			ID:     "test",
 			Status: status,
 		}
-		
+
 		// Normalize cancelled to cancel
 		normalized := normalizeStatus(task.Status)
 		if normalized == "cancelled" {
 			normalized = "cancel"
 		}
-		
+
 		if !isValidStatus(normalized) {
 			t.Errorf("Status %s should be valid", status)
 		}
@@ -503,7 +503,7 @@ func TestConcurrentTaskOperations(t *testing.T) {
 		},
 		GeneratedAt: time.Now().Format(time.RFC3339),
 	}
-	
+
 	data, _ := json.MarshalIndent(tasksFile, "", "  ")
 	tasksPath := filepath.Join(prDir, "tasks.json")
 	os.WriteFile(tasksPath, data, 0644)
@@ -530,7 +530,7 @@ func TestConcurrentTaskOperations(t *testing.T) {
 
 // Helper functions
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && s != substr && 
+	return len(s) > 0 && len(substr) > 0 && s != substr &&
 		(s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
 }
 

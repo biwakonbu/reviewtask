@@ -198,14 +198,14 @@ func TestDetectAuthentication(t *testing.T) {
 				tempDir := t.TempDir()
 				os.Chdir(tempDir)
 				os.MkdirAll(filepath.Join(".pr-review", "auth"), 0755)
-				
+
 				creds := &Credentials{
 					Method:    "token",
 					Token:     "local-file-token",
 					Timestamp: time.Now(),
 				}
 				SaveCredentials(creds)
-				
+
 				return func() {}
 			},
 			expected: &Credentials{
@@ -230,7 +230,7 @@ func TestDetectAuthentication(t *testing.T) {
 			setup: func() func() {
 				tempDir := t.TempDir()
 				os.Chdir(tempDir)
-				
+
 				// Setup local file
 				os.MkdirAll(filepath.Join(".pr-review", "auth"), 0755)
 				localCreds := &Credentials{
@@ -239,10 +239,10 @@ func TestDetectAuthentication(t *testing.T) {
 					Timestamp: time.Now(),
 				}
 				SaveCredentials(localCreds)
-				
+
 				// Also set environment variable
 				os.Setenv("GITHUB_TOKEN", "env-priority-token")
-				
+
 				return func() {
 					os.Unsetenv("GITHUB_TOKEN")
 				}
@@ -323,7 +323,7 @@ func TestAuthenticationScenarios(t *testing.T) {
 						tempDir := t.TempDir()
 						os.Chdir(tempDir)
 						os.MkdirAll(filepath.Join(".pr-review", "auth"), 0755)
-						
+
 						oldCreds := &Credentials{
 							Method:    "token",
 							Token:     "old-token",
@@ -509,11 +509,11 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 			setup: func() func() {
 				tempDir := t.TempDir()
 				os.Chdir(tempDir)
-				
+
 				// Create read-only directory
 				authDir := filepath.Join(".pr-review", "auth")
 				os.MkdirAll(authDir, 0555)
-				
+
 				return func() {
 					os.Chmod(authDir, 0755)
 				}
@@ -532,14 +532,14 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 			setup: func() func() {
 				tempDir := t.TempDir()
 				os.Chdir(tempDir)
-				
+
 				authDir := filepath.Join(".pr-review", "auth")
 				os.MkdirAll(authDir, 0755)
-				
+
 				// Write corrupted JSON
 				credFile := filepath.Join(authDir, "credentials.json")
 				os.WriteFile(credFile, []byte("{ invalid json }"), 0600)
-				
+
 				return func() {}
 			},
 			operation: func() error {
@@ -569,7 +569,7 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 			defer cleanup()
 
 			err := tt.operation()
-			
+
 			if tt.expectErr && err == nil {
 				t.Error("Expected error but got none")
 			}
@@ -651,18 +651,18 @@ func ValidateCredentials(creds *Credentials) bool {
 	if creds == nil {
 		return false
 	}
-	
+
 	if creds.Method == "token" && strings.TrimSpace(creds.Token) == "" {
 		return false
 	}
-	
+
 	validMethods := []string{"token", "gh_cli", "env"}
 	for _, m := range validMethods {
 		if creds.Method == m {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -670,23 +670,23 @@ func IsValidGitHubToken(token string) bool {
 	if token == "" {
 		return false
 	}
-	
+
 	// GitHub token patterns
 	patterns := []string{
-		"ghp_", // Personal access token (classic)
+		"ghp_",        // Personal access token (classic)
 		"github_pat_", // Fine-grained personal access token
-		"gho_", // OAuth access token
-		"ghu_", // GitHub App user token
-		"ghs_", // GitHub App server token
-		"ghr_", // GitHub App refresh token
+		"gho_",        // OAuth access token
+		"ghu_",        // GitHub App user token
+		"ghs_",        // GitHub App server token
+		"ghr_",        // GitHub App refresh token
 	}
-	
+
 	for _, prefix := range patterns {
 		if strings.HasPrefix(token, prefix) && len(token) > len(prefix)+10 {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -697,33 +697,33 @@ func SaveCredentials(creds *Credentials) error {
 	if err := os.MkdirAll(authDir, 0755); err != nil {
 		return fmt.Errorf("failed to create auth directory: %w", err)
 	}
-	
+
 	data, err := json.MarshalIndent(creds, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal credentials: %w", err)
 	}
-	
+
 	credFile := filepath.Join(authDir, "credentials.json")
 	if err := os.WriteFile(credFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write credentials: %w", err)
 	}
-	
+
 	return nil
 }
 
 func LoadCredentials() (*Credentials, error) {
 	credFile := filepath.Join(".pr-review", "auth", "credentials.json")
-	
+
 	data, err := os.ReadFile(credFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read credentials: %w", err)
 	}
-	
+
 	var creds Credentials
 	if err := json.Unmarshal(data, &creds); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal credentials: %w", err)
 	}
-	
+
 	return &creds, nil
 }
 
@@ -732,7 +732,7 @@ func DetectAuthentication() (*Credentials, error) {
 	if creds, err := LoadCredentials(); err == nil {
 		return creds, nil
 	}
-	
+
 	// Check environment variables
 	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
 		return &Credentials{
@@ -741,7 +741,7 @@ func DetectAuthentication() (*Credentials, error) {
 			Timestamp: time.Now(),
 		}, nil
 	}
-	
+
 	if token := os.Getenv("GH_TOKEN"); token != "" {
 		return &Credentials{
 			Method:    "env",
@@ -749,7 +749,7 @@ func DetectAuthentication() (*Credentials, error) {
 			Timestamp: time.Now(),
 		}, nil
 	}
-	
+
 	if token := os.Getenv("REVIEWTASK_GITHUB_TOKEN"); token != "" {
 		return &Credentials{
 			Method:    "env",
@@ -757,7 +757,7 @@ func DetectAuthentication() (*Credentials, error) {
 			Timestamp: time.Now(),
 		}, nil
 	}
-	
+
 	return nil, fmt.Errorf("no authentication found")
 }
 

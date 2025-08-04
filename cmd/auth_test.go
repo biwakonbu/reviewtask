@@ -399,7 +399,7 @@ func TestAuthCommandIntegration(t *testing.T) {
 			},
 		}
 		statusCmd.SetOut(&statusOutput)
-		
+
 		err := statusCmd.Execute()
 		if err != nil {
 			t.Logf("Status command output: %s", statusOutput.String())
@@ -412,7 +412,7 @@ func TestAuthCommandIntegration(t *testing.T) {
 				return runAuthLogout(cmd, args)
 			},
 		}
-		
+
 		err = logoutCmd.Execute()
 		if err != nil {
 			t.Errorf("Logout command failed when no auth exists: %v", err)
@@ -442,7 +442,7 @@ func TestAuthErrorHandling(t *testing.T) {
 
 	t.Run("missing pr-review directory", func(t *testing.T) {
 		// Don't create .pr-review directory to test error handling
-		
+
 		// Test auth status in invalid directory
 		var output bytes.Buffer
 		cmd := &cobra.Command{
@@ -519,9 +519,9 @@ func TestAuthTokenValidation(t *testing.T) {
 			// Test token validation if such function exists
 			// This is mainly for future token validation logic
 			isValid := len(strings.TrimSpace(tt.token)) > 0
-			
+
 			if isValid != tt.expected {
-				t.Logf("Token validation result: %v, expected: %v for token: %q", 
+				t.Logf("Token validation result: %v, expected: %v for token: %q",
 					isValid, tt.expected, tt.token)
 			}
 		})
@@ -534,7 +534,7 @@ func setupTestAuth(t *testing.T, tempDir string) {
 		"token": "test-github-token",
 		"created_at": "2023-01-01T00:00:00Z"
 	}`
-	
+
 	authFile := tempDir + "/.pr-review/auth.json"
 	err := os.WriteFile(authFile, []byte(authContent), 0600)
 	if err != nil {
@@ -591,7 +591,7 @@ func TestAuthHelperFunctions(t *testing.T) {
 			{"", false},
 			{"   ", false},
 		}
-		
+
 		for _, tt := range tokens {
 			isValid := len(strings.TrimSpace(tt.token)) > 0
 			if isValid != tt.isValid {
@@ -731,7 +731,7 @@ func executeAuthCommand(t *testing.T, step authStep) {
 	cmd.SetErr(&output)
 
 	err := cmd.Execute()
-	
+
 	if step.expectError && err == nil {
 		t.Errorf("Expected error for command %s but got none", step.cmd)
 	}
@@ -766,7 +766,7 @@ func setupOldAuth(t *testing.T, dir string) {
 		"token":      "old-token",
 		"created_at": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),
 	}
-	
+
 	data, _ := json.Marshal(authData)
 	authFile := filepath.Join(dir, ".pr-review", "auth.json")
 	err := os.WriteFile(authFile, data, 0600)
@@ -838,7 +838,7 @@ func TestAuthMultipleEnvironments(t *testing.T) {
 				RunE: runAuthStatus,
 			}
 			cmd.SetOut(&output)
-			
+
 			err := cmd.Execute()
 			if err != nil {
 				t.Logf("Status command in %s: %v", env.name, err)
@@ -894,7 +894,7 @@ func TestAuthErrorRecovery(t *testing.T) {
 				return runAuthLogin(cmd, args)
 			},
 		}
-		
+
 		err = loginCmd.Execute()
 		if err != nil {
 			t.Logf("Login after corruption: %v", err)
@@ -1001,11 +1001,11 @@ func TestAuthConcurrency(t *testing.T) {
 // TestAuthCredentialsPriority tests the priority of different auth sources
 func TestAuthCredentialsPriority(t *testing.T) {
 	tests := []struct {
-		name         string
-		localToken   string
-		envToken     string
-		ghToken      string
-		expectedSrc  string
+		name        string
+		localToken  string
+		envToken    string
+		ghToken     string
+		expectedSrc string
 	}{
 		{
 			name:        "ローカルファイル優先",
@@ -1067,7 +1067,7 @@ func TestAuthCredentialsPriority(t *testing.T) {
 				RunE: runAuthStatus,
 			}
 			cmd.SetOut(&output)
-			
+
 			err := cmd.Execute()
 			if err != nil {
 				t.Logf("Status check: %v", err)

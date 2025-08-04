@@ -18,9 +18,9 @@ func TestFilterTasksByStatus(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		status       string
-		expectedIDs  []string
+		name        string
+		status      string
+		expectedIDs []string
 	}{
 		{
 			name:        "todoタスクのフィルタリング",
@@ -52,7 +52,7 @@ func TestFilterTasksByStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filtered := FilterTasksByStatus(tasks, tt.status)
-			
+
 			if len(filtered) != len(tt.expectedIDs) {
 				t.Errorf("Expected %d tasks, got %d", len(tt.expectedIDs), len(filtered))
 			}
@@ -69,8 +69,8 @@ func TestFilterTasksByStatus(t *testing.T) {
 // TestSortTasksByPriority tests priority-based sorting
 func TestSortTasksByPriority(t *testing.T) {
 	scenarios := []struct {
-		name        string
-		tasks       []storage.Task
+		name          string
+		tasks         []storage.Task
 		expectedOrder []string // Expected IDs in order
 	}{
 		{
@@ -187,9 +187,9 @@ func TestGenerateTaskID(t *testing.T) {
 // TestCalculateTaskStats tests statistics calculation
 func TestCalculateTaskStats(t *testing.T) {
 	scenarios := []struct {
-		name             string
-		tasks            []storage.Task
-		expectedStats    TaskStats
+		name          string
+		tasks         []storage.Task
+		expectedStats TaskStats
 	}{
 		{
 			name: "複数のタスクの統計",
@@ -221,7 +221,7 @@ func TestCalculateTaskStats(t *testing.T) {
 			},
 		},
 		{
-			name: "空のタスクリスト",
+			name:  "空のタスクリスト",
 			tasks: []storage.Task{},
 			expectedStats: TaskStats{
 				StatusCounts:   map[string]int{},
@@ -271,19 +271,19 @@ func TestCalculateTaskStats(t *testing.T) {
 
 			// Check status counts
 			if !reflect.DeepEqual(stats.StatusCounts, tt.expectedStats.StatusCounts) {
-				t.Errorf("StatusCounts mismatch.\nExpected: %v\nGot: %v", 
+				t.Errorf("StatusCounts mismatch.\nExpected: %v\nGot: %v",
 					tt.expectedStats.StatusCounts, stats.StatusCounts)
 			}
 
 			// Check priority counts
 			if !reflect.DeepEqual(stats.PriorityCounts, tt.expectedStats.PriorityCounts) {
-				t.Errorf("PriorityCounts mismatch.\nExpected: %v\nGot: %v", 
+				t.Errorf("PriorityCounts mismatch.\nExpected: %v\nGot: %v",
 					tt.expectedStats.PriorityCounts, stats.PriorityCounts)
 			}
 
 			// Check PR counts
 			if !reflect.DeepEqual(stats.PRCounts, tt.expectedStats.PRCounts) {
-				t.Errorf("PRCounts mismatch.\nExpected: %v\nGot: %v", 
+				t.Errorf("PRCounts mismatch.\nExpected: %v\nGot: %v",
 					tt.expectedStats.PRCounts, stats.PRCounts)
 			}
 		})
@@ -293,10 +293,10 @@ func TestCalculateTaskStats(t *testing.T) {
 // TestTaskWorkflowScenarios tests complete task workflows
 func TestTaskWorkflowScenarios(t *testing.T) {
 	scenarios := []struct {
-		name  string
-		steps []func(tasks []storage.Task) []storage.Task
+		name    string
+		steps   []func(tasks []storage.Task) []storage.Task
 		initial []storage.Task
-		verify func(t *testing.T, final []storage.Task)
+		verify  func(t *testing.T, final []storage.Task)
 	}{
 		{
 			name: "優先度別タスク処理フロー",
@@ -381,7 +381,7 @@ func TestTaskWorkflowScenarios(t *testing.T) {
 func TestEdgeCases(t *testing.T) {
 	t.Run("nil tasks slice", func(t *testing.T) {
 		var tasks []storage.Task
-		
+
 		filtered := FilterTasksByStatus(tasks, "todo")
 		if len(filtered) != 0 {
 			t.Error("Expected empty slice for nil input")
@@ -426,7 +426,7 @@ func TestPerformance(t *testing.T) {
 		// Create 10000 tasks
 		var tasks []storage.Task
 		priorities := []string{"critical", "high", "medium", "low"}
-		
+
 		for i := 0; i < 10000; i++ {
 			tasks = append(tasks, storage.Task{
 				ID:       string(rune(i)),
@@ -449,7 +449,7 @@ func TestPerformance(t *testing.T) {
 		var tasks []storage.Task
 		statuses := []string{"todo", "doing", "done", "pending"}
 		priorities := []string{"critical", "high", "medium", "low"}
-		
+
 		for i := 0; i < 10000; i++ {
 			tasks = append(tasks, storage.Task{
 				ID:       string(rune(i)),

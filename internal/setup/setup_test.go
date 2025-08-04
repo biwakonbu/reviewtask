@@ -114,40 +114,40 @@ func TestCreateDirectory(t *testing.T) {
 // TestUpdateGitignore tests .gitignore updates
 func TestUpdateGitignore(t *testing.T) {
 	scenarios := []struct {
-		name           string
+		name              string
 		existingGitignore string
-		expectUpdate   bool
-		expectedContent []string
+		expectUpdate      bool
+		expectedContent   []string
 	}{
 		{
-			name:           ".gitignoreが存在しない",
+			name:              ".gitignoreが存在しない",
 			existingGitignore: "",
-			expectUpdate:   true,
-			expectedContent: []string{".pr-review/"},
+			expectUpdate:      true,
+			expectedContent:   []string{".pr-review/"},
 		},
 		{
-			name:           "空の.gitignore",
+			name:              "空の.gitignore",
 			existingGitignore: "",
-			expectUpdate:   true,
-			expectedContent: []string{".pr-review/"},
+			expectUpdate:      true,
+			expectedContent:   []string{".pr-review/"},
 		},
 		{
-			name:           "既に.pr-review/が含まれている",
+			name:              "既に.pr-review/が含まれている",
 			existingGitignore: "node_modules/\n.pr-review/\n*.log",
-			expectUpdate:   false,
-			expectedContent: []string{"node_modules/", ".pr-review/", "*.log"},
+			expectUpdate:      false,
+			expectedContent:   []string{"node_modules/", ".pr-review/", "*.log"},
 		},
 		{
-			name:           "他のエントリがある.gitignore",
+			name:              "他のエントリがある.gitignore",
 			existingGitignore: "node_modules/\n*.log\n.env",
-			expectUpdate:   true,
-			expectedContent: []string{"node_modules/", "*.log", ".env", ".pr-review/"},
+			expectUpdate:      true,
+			expectedContent:   []string{"node_modules/", "*.log", ".env", ".pr-review/"},
 		},
 		{
-			name:           "コメント付き.gitignore",
+			name:              "コメント付き.gitignore",
 			existingGitignore: "# Dependencies\nnode_modules/\n\n# Logs\n*.log",
-			expectUpdate:   true,
-			expectedContent: []string{"# Dependencies", "node_modules/", "# Logs", "*.log", ".pr-review/"},
+			expectUpdate:      true,
+			expectedContent:   []string{"# Dependencies", "node_modules/", "# Logs", "*.log", ".pr-review/"},
 		},
 	}
 
@@ -249,11 +249,11 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("読み取り専用ディレクトリ", func(t *testing.T) {
 		tempDir := t.TempDir()
 		originalDir, _ := os.Getwd()
-		
+
 		// Create read-only parent directory
 		readOnlyDir := filepath.Join(tempDir, "readonly")
 		os.MkdirAll(readOnlyDir, 0555)
-		
+
 		os.Chdir(readOnlyDir)
 		defer os.Chdir(originalDir)
 

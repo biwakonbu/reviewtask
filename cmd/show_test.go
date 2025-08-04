@@ -349,7 +349,7 @@ func TestGetImplementationIndicator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getImplementationIndicator(tt.status)
 			if result != tt.expected {
-				t.Errorf("getImplementationIndicator(%q) = %q, expected %q", 
+				t.Errorf("getImplementationIndicator(%q) = %q, expected %q",
 					tt.status, result, tt.expected)
 			}
 		})
@@ -374,7 +374,7 @@ func TestGetVerificationIndicator(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := getVerificationIndicator(tt.status)
 			if result != tt.expected {
-				t.Errorf("getVerificationIndicator(%q) = %q, expected %q", 
+				t.Errorf("getVerificationIndicator(%q) = %q, expected %q",
 					tt.status, result, tt.expected)
 			}
 		})
@@ -580,7 +580,7 @@ func setupComplexTestDataForShow(t *testing.T) {
 
 	// Create complex test tasks data
 	longDescription := strings.Repeat("This is a very long description that spans multiple lines and contains various types of content including code snippets, URLs, and special characters. ", 10)
-	
+
 	tasksData := fmt.Sprintf(`[
 		{
 			"id": "long-desc-task",
@@ -809,7 +809,7 @@ type showCommand struct {
 
 func setupScenarioTasks(t *testing.T, dir string, tasks []storage.Task) {
 	os.MkdirAll(".pr-review", 0755)
-	
+
 	prTasks := make(map[int][]storage.Task)
 	for i := range tasks {
 		if tasks[i].CreatedAt == "" {
@@ -820,11 +820,11 @@ func setupScenarioTasks(t *testing.T, dir string, tasks []storage.Task) {
 		}
 		prTasks[tasks[i].PRNumber] = append(prTasks[tasks[i].PRNumber], tasks[i])
 	}
-	
+
 	for pr, prTaskList := range prTasks {
 		prDir := filepath.Join(".pr-review", fmt.Sprintf("PR-%d", pr))
 		os.MkdirAll(prDir, 0755)
-		
+
 		data, _ := json.MarshalIndent(prTaskList, "", "  ")
 		tasksFile := filepath.Join(prDir, "tasks.json")
 		err := os.WriteFile(tasksFile, data, 0644)
@@ -932,7 +932,7 @@ func TestShowPerformance(t *testing.T) {
 	setupScenarioTasks(t, tempDir, tasks)
 
 	start := time.Now()
-	
+
 	var output bytes.Buffer
 	cmd := &cobra.Command{
 		Use:  "show",
@@ -990,7 +990,7 @@ func TestShowErrorRecovery(t *testing.T) {
 					"status": "todo",
 				}
 				task["self"] = task // Circular reference
-				
+
 				os.MkdirAll(".pr-review/PR-900", 0755)
 				// This will fail to marshal due to circular reference
 				data, _ := json.Marshal([]interface{}{task})
@@ -1050,9 +1050,9 @@ func TestShowOutputFormats(t *testing.T) {
 	setupScenarioTasks(t, tempDir, tasks)
 
 	tests := []struct {
-		name   string
-		args   []string
-		check  func(t *testing.T, output string)
+		name  string
+		args  []string
+		check func(t *testing.T, output string)
 	}{
 		{
 			name: "通常フォーマット",

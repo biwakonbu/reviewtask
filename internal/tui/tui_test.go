@@ -68,7 +68,7 @@ func TestUIComponentRendering(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			data := scenario.setup()
-			
+
 			// Simulate rendering
 			var buf bytes.Buffer
 			switch v := data.(type) {
@@ -81,7 +81,7 @@ func TestUIComponentRendering(t *testing.T) {
 					buf.WriteString(status + ": " + indicator + "\n")
 				}
 			}
-			
+
 			output := buf.String()
 			scenario.verify(t, output)
 		})
@@ -111,7 +111,7 @@ func TestInteractiveSelection(t *testing.T) {
 			if tt.selectedIndex >= len(tasks) {
 				t.Fatal("Invalid index")
 			}
-			
+
 			selected := tasks[tt.selectedIndex]
 			if selected.ID != tt.expectedTaskID {
 				t.Errorf("Expected task %s, got %s", tt.expectedTaskID, selected.ID)
@@ -156,15 +156,15 @@ func TestUIResponsiveness(t *testing.T) {
 	}
 
 	start := time.Now()
-	
+
 	// Simulate rendering all tasks
 	var buf bytes.Buffer
 	for _, task := range tasks {
 		buf.WriteString(formatTask(task))
 	}
-	
+
 	elapsed := time.Since(start)
-	
+
 	// Should render 1000 tasks quickly
 	if elapsed > 100*time.Millisecond {
 		t.Logf("Rendering 1000 tasks took %v", elapsed)
@@ -238,7 +238,7 @@ func TestTaskFormatting(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			formatted := formatTask(tt.task)
-			
+
 			for _, exp := range tt.expected {
 				if !strings.Contains(formatted, exp) {
 					t.Errorf("Expected formatted output to contain %q", exp)
@@ -251,10 +251,10 @@ func TestTaskFormatting(t *testing.T) {
 // TestPaginationLogic tests pagination for large task lists
 func TestPaginationLogic(t *testing.T) {
 	tests := []struct {
-		name         string
-		totalTasks   int
-		pageSize     int
-		currentPage  int
+		name          string
+		totalTasks    int
+		pageSize      int
+		currentPage   int
 		expectedStart int
 		expectedEnd   int
 	}{
@@ -271,7 +271,7 @@ func TestPaginationLogic(t *testing.T) {
 			if end > tt.totalTasks {
 				end = tt.totalTasks
 			}
-			
+
 			if start != tt.expectedStart {
 				t.Errorf("Expected start %d, got %d", tt.expectedStart, start)
 			}
@@ -293,9 +293,9 @@ func TestFilterDisplay(t *testing.T) {
 	}
 
 	filters := []struct {
-		name      string
-		filterFn  func(storage.Task) bool
-		expected  int
+		name     string
+		filterFn func(storage.Task) bool
+		expected int
 	}{
 		{
 			name: "TODOタスクのみ",
@@ -328,7 +328,7 @@ func TestFilterDisplay(t *testing.T) {
 					filtered = append(filtered, task)
 				}
 			}
-			
+
 			if len(filtered) != filter.expected {
 				t.Errorf("Expected %d tasks, got %d", filter.expected, len(filtered))
 			}
@@ -346,10 +346,10 @@ func TestUIStateManagement(t *testing.T) {
 	}
 
 	tests := []struct {
-		name        string
-		initial     UIState
-		action      string
-		expected    UIState
+		name     string
+		initial  UIState
+		action   string
+		expected UIState
 	}{
 		{
 			name:     "次のタスクを選択",
@@ -374,7 +374,7 @@ func TestUIStateManagement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := tt.initial
-			
+
 			// Apply action
 			switch tt.action {
 			case "next":
@@ -385,7 +385,7 @@ func TestUIStateManagement(t *testing.T) {
 				state.Page++
 				state.SelectedTask = 0
 			}
-			
+
 			if state != tt.expected {
 				t.Errorf("Expected state %+v, got %+v", tt.expected, state)
 			}
@@ -400,6 +400,6 @@ func formatTask(task storage.Task) string {
 	if len(desc) > 50 {
 		desc = desc[:47] + "..."
 	}
-	
+
 	return task.ID + " | " + desc + " | " + task.Status + " | " + task.Priority
 }

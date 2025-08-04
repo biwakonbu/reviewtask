@@ -38,7 +38,7 @@ func TestDebugFetchCommand(t *testing.T) {
 		{
 			name:        "debug fetch review with PR number",
 			args:        []string{"review", "123"},
-			expectError: false, // May error due to API calls, but tests code path
+			expectError: false,      // May error due to API calls, but tests code path
 			expectOut:   []string{}, // Output depends on API response
 		},
 		{
@@ -454,7 +454,7 @@ func setupTestDataForDebug(t *testing.T) {
 			"verbose_mode": true
 		}
 	}`
-	
+
 	err = os.WriteFile(".pr-review/config.json", []byte(configContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
@@ -464,7 +464,7 @@ func setupTestDataForDebug(t *testing.T) {
 // Helper function to setup test data with reviews
 func setupTestDataForDebugWithReviews(t *testing.T) {
 	setupTestDataForDebug(t)
-	
+
 	// Create reviews file
 	reviewsContent := `{
 		"123": [
@@ -479,7 +479,7 @@ func setupTestDataForDebugWithReviews(t *testing.T) {
 			}
 		]
 	}`
-	
+
 	err := os.WriteFile(".pr-review/reviews.json", []byte(reviewsContent), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create reviews file: %v", err)

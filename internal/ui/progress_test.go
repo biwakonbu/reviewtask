@@ -10,10 +10,10 @@ import (
 // TestGenerateColoredProgressBar tests progress bar generation
 func TestGenerateColoredProgressBar(t *testing.T) {
 	scenarios := []struct {
-		name          string
-		stats         tasks.TaskStats
-		width         int
-		validateFunc  func(t *testing.T, result string)
+		name         string
+		stats        tasks.TaskStats
+		width        int
+		validateFunc func(t *testing.T, result string)
 	}{
 		{
 			name: "空のタスク統計",
@@ -126,9 +126,9 @@ func TestProgressBarFunctionality(t *testing.T) {
 			name: "正常な進捗バー生成",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"todo":  25,
-					"doing": 25,
-					"done":  25,
+					"todo":    25,
+					"doing":   25,
+					"done":    25,
 					"pending": 25,
 				},
 			},
@@ -138,9 +138,9 @@ func TestProgressBarFunctionality(t *testing.T) {
 			name: "偏った分布",
 			stats: tasks.TaskStats{
 				StatusCounts: map[string]int{
-					"todo":  5,
-					"doing": 1,
-					"done":  90,
+					"todo":    5,
+					"doing":   1,
+					"done":    90,
 					"pending": 4,
 				},
 			},
@@ -151,12 +151,12 @@ func TestProgressBarFunctionality(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GenerateColoredProgressBar(tt.stats, tt.width)
-			
+
 			// For positive width, should return non-empty result
 			if tt.width > 0 && result == "" {
 				t.Error("Expected non-empty progress bar for positive width")
 			}
-			
+
 			// Should contain progress bar characters
 			if tt.width > 0 && !strings.ContainsAny(result, "█▓▒░") {
 				t.Error("Progress bar should contain bar characters")
@@ -241,7 +241,7 @@ func TestProgressBarWorkflow(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			for i, stage := range scenario.stages {
 				bar := GenerateColoredProgressBar(stage, scenario.width)
-				
+
 				// Verify bar is generated
 				if bar == "" && scenario.width > 0 {
 					t.Errorf("Stage %d: Expected non-empty progress bar", i)
@@ -297,7 +297,7 @@ func TestEdgeCases(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Should not panic
 			result := GenerateColoredProgressBar(tt.stats, tt.width)
-			
+
 			// If width is positive, check for valid output
 			if tt.width > 0 && result != "" {
 				// Should contain some progress bar characters
@@ -324,7 +324,7 @@ func TestPerformance(t *testing.T) {
 
 		// Should complete quickly even with large numbers
 		result := GenerateColoredProgressBar(stats, 100)
-		
+
 		if result == "" {
 			t.Error("Expected non-empty result for large task counts")
 		}
@@ -346,7 +346,7 @@ func TestPerformance(t *testing.T) {
 
 		// Test with very wide progress bar
 		result := GenerateColoredProgressBar(stats, 10000)
-		
+
 		if result == "" {
 			t.Error("Expected non-empty result for wide progress bar")
 		}
