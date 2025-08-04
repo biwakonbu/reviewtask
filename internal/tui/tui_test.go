@@ -2,6 +2,7 @@ package tui
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -147,7 +148,7 @@ func TestUIResponsiveness(t *testing.T) {
 	var tasks []storage.Task
 	for i := 0; i < 1000; i++ {
 		tasks = append(tasks, storage.Task{
-			ID:          string(rune(i)),
+			ID:          fmt.Sprintf("task-%d", i),
 			Description: "Task description",
 			Status:      "todo",
 			Priority:    "medium",

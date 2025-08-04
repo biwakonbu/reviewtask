@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -429,7 +430,7 @@ func TestPerformance(t *testing.T) {
 
 		for i := 0; i < 10000; i++ {
 			tasks = append(tasks, storage.Task{
-				ID:       string(rune(i)),
+				ID:       fmt.Sprintf("task-%d", i),
 				Status:   "todo",
 				Priority: priorities[i%4],
 				PRNumber: i % 100,
@@ -452,7 +453,7 @@ func TestPerformance(t *testing.T) {
 
 		for i := 0; i < 10000; i++ {
 			tasks = append(tasks, storage.Task{
-				ID:       string(rune(i)),
+				ID:       fmt.Sprintf("task-%d", i),
 				Status:   statuses[i%4],
 				Priority: priorities[i%4],
 				PRNumber: i % 50,

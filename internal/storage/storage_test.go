@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,7 +178,10 @@ func TestStorageWorkflows(t *testing.T) {
 						UpdatedAt: time.Now().Format(time.RFC3339),
 					}
 
-					data, _ := json.MarshalIndent(prInfo, "", "  ")
+					data, err := json.MarshalIndent(prInfo, "", "  ")
+					if err != nil {
+						t.Fatalf("Failed to marshal PR info: %v", err)
+					}
 					err = os.WriteFile(filepath.Join(prDir, "pr_info.json"), data, 0644)
 					if err != nil {
 						t.Fatalf("Failed to save PR info: %v", err)
@@ -209,7 +213,9 @@ func TestStorageWorkflows(t *testing.T) {
 				// Step 1: Create initial tasks
 				func(t *testing.T, tempDir string) {
 					prDir := filepath.Join(tempDir, ".pr-review", "PR-200")
-					os.MkdirAll(prDir, 0755)
+					if err := os.MkdirAll(prDir, 0755); err != nil {
+						t.Fatalf("Failed to create PR directory: %v", err)
+					}
 
 					tasksFile := TasksFile{
 						Tasks: []Task{
@@ -219,8 +225,13 @@ func TestStorageWorkflows(t *testing.T) {
 						GeneratedAt: time.Now().Format(time.RFC3339),
 					}
 
-					data, _ := json.MarshalIndent(tasksFile, "", "  ")
-					os.WriteFile(filepath.Join(prDir, "tasks.json"), data, 0644)
+					data, err := json.MarshalIndent(tasksFile, "", "  ")
+					if err != nil {
+						t.Fatalf("Failed to marshal tasks file: %v", err)
+					}
+					if err := os.WriteFile(filepath.Join(prDir, "tasks.json"), data, 0644); err != nil {
+						t.Fatalf("Failed to write tasks file: %v", err)
+					}
 				},
 				// Step 2: Update task status
 				func(t *testing.T, tempDir string) {
@@ -494,7 +505,9 @@ func TestConcurrentTaskOperations(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	prDir := filepath.Join(tempDir, ".pr-review", "PR-300")
-	os.MkdirAll(prDir, 0755)
+	if err := os.MkdirAll(prDir, 0755); err != nil {
+		t.Fatalf("Failed to create PR directory: %v", err)
+	}
 
 	// Create initial tasks file
 	tasksFile := TasksFile{
@@ -504,9 +517,14 @@ func TestConcurrentTaskOperations(t *testing.T) {
 		GeneratedAt: time.Now().Format(time.RFC3339),
 	}
 
-	data, _ := json.MarshalIndent(tasksFile, "", "  ")
+	data, err := json.MarshalIndent(tasksFile, "", "  ")
+	if err != nil {
+		t.Fatalf("Failed to marshal tasks file: %v", err)
+	}
 	tasksPath := filepath.Join(prDir, "tasks.json")
-	os.WriteFile(tasksPath, data, 0644)
+	if err := os.WriteFile(tasksPath, data, 0644); err != nil {
+		t.Fatalf("Failed to write tasks file: %v", err)
+	}
 
 	// Simulate concurrent reads
 	done := make(chan bool, 10)
@@ -530,8 +548,7 @@ func TestConcurrentTaskOperations(t *testing.T) {
 
 // Helper functions
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && s != substr &&
-		(s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
+	return strings.Contains(s, substr)
 }
 
 func getPRDirName(prNumber int) string {
