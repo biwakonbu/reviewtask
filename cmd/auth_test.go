@@ -805,11 +805,11 @@ func setupTestDir(t *testing.T) string {
 	// Change to temp directory to initialize git
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
-	
+
 	// Initialize git repository for tests
 	exec.Command("git", "init").Run()
 	exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run()
-	
+
 	// Change back to original directory
 	os.Chdir(originalDir)
 
@@ -832,12 +832,12 @@ func setupOldAuth(t *testing.T, dir string) {
 	}
 
 	data, _ := json.Marshal(authData)
-	authFile := filepath.Join(".pr-review", "auth.json")  // Use relative path since we're already in tempDir
+	authFile := filepath.Join(".pr-review", "auth.json") // Use relative path since we're already in tempDir
 	err := os.WriteFile(authFile, data, 0600)
 	if err != nil {
 		t.Fatalf("Failed to setup old auth: %v", err)
 	}
-	
+
 	// Verify file was created
 	if _, err := os.Stat(authFile); err != nil {
 		t.Fatalf("Auth file not created: %v", err)

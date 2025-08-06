@@ -279,12 +279,12 @@ func TestErrorHandling(t *testing.T) {
 
 		// Test behavior and adapt expectations based on platform
 		err := CreateDirectory()
-		
+
 		// First, check if we can create a test directory to understand platform behavior
 		testDir := filepath.Join(readOnlyDir, "test")
 		testErr := os.MkdirAll(testDir, 0755)
 		os.RemoveAll(testDir) // Clean up test directory
-		
+
 		if testErr != nil {
 			// Platform properly enforces read-only permissions
 			if err == nil {
