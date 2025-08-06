@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,6 +29,10 @@ func TestShowCommand(t *testing.T) {
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
+
+	// Initialize git repository for tests
+	exec.Command("git", "init").Run()
+	exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run()
 
 	// Setup test data
 	setupTestDataForShow(t)
@@ -109,6 +115,10 @@ func TestShowCurrentOrNextTask(t *testing.T) {
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
 
+	// Initialize git repository for tests
+	exec.Command("git", "init").Run()
+	exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run()
+
 	// Setup test data
 	setupTestDataForShow(t)
 
@@ -164,6 +174,10 @@ func TestShowSpecificTask(t *testing.T) {
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
 	defer os.Chdir(originalDir)
+
+	// Initialize git repository for tests
+	exec.Command("git", "init").Run()
+	exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run()
 
 	// Setup test data
 	setupTestDataForShow(t)
@@ -265,13 +279,21 @@ func TestDisplayTaskDetails(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var output bytes.Buffer
-			cmd := &cobra.Command{}
-			cmd.SetOut(&output)
+			// Capture stdout
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
 
 			displayTaskDetails(tt.task)
 
-			outputStr := output.String()
+			// Restore stdout
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output
+			outputBytes, _ := io.ReadAll(r)
+			outputStr := string(outputBytes)
+
 			for _, expectedOut := range tt.expectOut {
 				if !strings.Contains(outputStr, expectedOut) {
 					t.Errorf("Expected output to contain %q, got: %s", expectedOut, outputStr)
@@ -541,28 +563,31 @@ func setupTestDataForShow(t *testing.T) {
 	}
 
 	// Create test tasks data
-	tasksData := `[
-		{
-			"id": "test-task-1",
-			"title": "Test Task 1",
-			"description": "Test description for task 1",
-			"status": "todo",
-			"priority": "high",
-			"comment_id": 123,
-			"origin": "Test origin 1",
-			"created_at": "2023-01-01T00:00:00Z"
-		},
-		{
-			"id": "test-task-2",
-			"title": "Test Task 2", 
-			"description": "Test description for task 2",
-			"status": "doing",
-			"priority": "medium",
-			"comment_id": 124,
-			"origin": "Test origin 2",
-			"created_at": "2023-01-01T01:00:00Z"
-		}
-	]`
+	tasksData := `{
+		"generated_at": "2023-01-01T00:00:00Z",
+		"tasks": [
+			{
+				"id": "test-task-1",
+				"title": "Test Task 1",
+				"description": "Test description for task 1",
+				"status": "todo",
+				"priority": "high",
+				"comment_id": 123,
+				"origin": "Test origin 1",
+				"created_at": "2023-01-01T00:00:00Z"
+			},
+			{
+				"id": "test-task-2",
+				"title": "Test Task 2", 
+				"description": "Test description for task 2",
+				"status": "doing",
+				"priority": "medium",
+				"comment_id": 124,
+				"origin": "Test origin 2",
+				"created_at": "2023-01-01T01:00:00Z"
+			}
+		]
+	}`
 
 	tasksFile := ".pr-review/PR-123/tasks.json"
 	err = os.WriteFile(tasksFile, []byte(tasksData), 0644)

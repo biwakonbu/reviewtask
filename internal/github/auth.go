@@ -42,12 +42,17 @@ func GetGitHubToken() (string, error) {
 
 // getGHToken reads token from gh CLI configuration using simple parsing
 func getGHToken() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+	// Check if GH_CONFIG_DIR is set (for testing)
+	configDir := os.Getenv("GH_CONFIG_DIR")
+	if configDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		configDir = filepath.Join(homeDir, ".config", "gh")
 	}
 
-	configPath := filepath.Join(homeDir, ".config", "gh", "hosts.yml")
+	configPath := filepath.Join(configDir, "hosts.yml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return "", err
