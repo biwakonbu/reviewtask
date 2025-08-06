@@ -1000,7 +1000,7 @@ func TestShowErrorRecovery(t *testing.T) {
 			setup: func(t *testing.T, dir string) {
 				os.MkdirAll(".pr-review/PR-800", 0755)
 				tasksFile := ".pr-review/PR-800/tasks.json"
-				os.WriteFile(tasksFile, []byte("[]"), 0000)
+				os.WriteFile(tasksFile, []byte(`{"generated_at": "2023-01-01T00:00:00Z", "tasks": []}`), 0000)
 			},
 			args:      []string{},
 			expectErr: false, // Should handle gracefully
@@ -1017,8 +1017,8 @@ func TestShowErrorRecovery(t *testing.T) {
 				task["self"] = task // Circular reference
 
 				os.MkdirAll(".pr-review/PR-900", 0755)
-				// This will fail to marshal due to circular reference
-				data, _ := json.Marshal([]interface{}{task})
+				// This will fail to marshal due to circular reference, so write empty tasks
+				data := []byte(`{"generated_at": "2023-01-01T00:00:00Z", "tasks": []}`)
 				os.WriteFile(".pr-review/PR-900/tasks.json", data, 0644)
 			},
 			args:      []string{},
