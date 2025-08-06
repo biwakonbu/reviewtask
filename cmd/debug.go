@@ -47,7 +47,7 @@ func runDebugFetch(cmd *cobra.Command, args []string) error {
 	}
 
 	phase := args[0]
-	if phase != "review" && phase != "task" {
+	if !IsValidDebugPhase(phase) {
 		return fmt.Errorf("invalid phase: %s (must be 'review' or 'task')", phase)
 	}
 
@@ -237,4 +237,9 @@ func debugGenerateTasks(cfg *config.Config, storageManager *storage.Manager, prN
 	}
 
 	return nil
+}
+
+// IsValidDebugPhase validates if the provided phase is a valid debug phase
+func IsValidDebugPhase(phase string) bool {
+	return phase == "review" || phase == "task"
 }

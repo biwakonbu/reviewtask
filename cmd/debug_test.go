@@ -647,9 +647,8 @@ func TestDebugPhaseValidation(t *testing.T) {
 
 	for _, phase := range validPhases {
 		t.Run(fmt.Sprintf("valid_phase_%s", phase), func(t *testing.T) {
-			// Test that valid phases are accepted
-			isValid := phase == "review" || phase == "task"
-			if !isValid {
+			// Test that valid phases are accepted using the actual validation function
+			if !IsValidDebugPhase(phase) {
 				t.Errorf("Phase %q should be valid", phase)
 			}
 		})
@@ -657,9 +656,8 @@ func TestDebugPhaseValidation(t *testing.T) {
 
 	for _, phase := range invalidPhases {
 		t.Run(fmt.Sprintf("invalid_phase_%s", phase), func(t *testing.T) {
-			// Test that invalid phases are rejected
-			isValid := phase == "review" || phase == "task"
-			if isValid && phase != "" {
+			// Test that invalid phases are rejected using the actual validation function
+			if IsValidDebugPhase(phase) {
 				t.Errorf("Phase %q should be invalid", phase)
 			}
 		})
