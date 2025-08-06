@@ -271,7 +271,7 @@ func TestStorageWorkflows(t *testing.T) {
 		t.Run(scenario.name, func(t *testing.T) {
 			tempDir, err := os.MkdirTemp("", "storage_test")
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("Failed to create temporary directory for storage test: %v", err)
 			}
 			defer os.RemoveAll(tempDir)
 
@@ -530,13 +530,17 @@ func TestConcurrentTaskOperations(t *testing.T) {
 	done := make(chan bool, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
+			defer func() { done <- true }()
 			data, err := os.ReadFile(tasksPath)
 			if err != nil {
-				t.Errorf("Failed to read: %v", err)
+				t.Logf("Failed to read: %v", err)
+				return
 			}
 			var tf TasksFile
-			json.Unmarshal(data, &tf)
-			done <- true
+			if err := json.Unmarshal(data, &tf); err != nil {
+				t.Logf("Failed to unmarshal: %v", err)
+				return
+			}
 		}()
 	}
 

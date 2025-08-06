@@ -24,16 +24,22 @@ func TestIsInitialized(t *testing.T) {
 		{
 			name: "初期化済みのリポジトリ（config.jsonあり）",
 			setup: func(t *testing.T, dir string) {
-				os.MkdirAll(PRReviewDir, 0755)
+				if err := os.MkdirAll(PRReviewDir, 0755); err != nil {
+					t.Fatalf("Failed to create PRReviewDir: %v", err)
+				}
 				configPath := filepath.Join(PRReviewDir, "config.json")
-				os.WriteFile(configPath, []byte("{}"), 0644)
+				if err := os.WriteFile(configPath, []byte("{}"), 0644); err != nil {
+					t.Fatalf("Failed to write config file: %v", err)
+				}
 			},
 			expected: true,
 		},
 		{
 			name: "ディレクトリのみ存在（config.jsonなし）",
 			setup: func(t *testing.T, dir string) {
-				os.MkdirAll(PRReviewDir, 0755)
+				if err := os.MkdirAll(PRReviewDir, 0755); err != nil {
+					t.Fatalf("Failed to create PRReviewDir: %v", err)
+				}
 			},
 			expected: false,
 		},
@@ -71,14 +77,23 @@ func TestCreateDirectory(t *testing.T) {
 		{
 			name: "既存ディレクトリが存在",
 			preSetup: func(t *testing.T) {
-				os.MkdirAll(PRReviewDir, 0755)
+				if err := os.MkdirAll(PRReviewDir, 0755); err != nil {
+					t.Fatalf("Failed to create PRReviewDir: %v", err)
+				}
 			},
 			expectError: false,
 		},
 		{
 			name: "ネストされたディレクトリ作成",
 			preSetup: func(t *testing.T) {
-				// PRReviewDir を一時的に変更してテスト
+				// Create a nested directory structure to test deep directory creation
+				nestedPath := filepath.Join("parent", "child", "grandchild")
+				if err := os.MkdirAll(nestedPath, 0755); err != nil {
+					t.Fatalf("Failed to create nested directory structure: %v", err)
+				}
+				if err := os.Chdir(nestedPath); err != nil {
+					t.Fatalf("Failed to change to nested directory: %v", err)
+				}
 			},
 			expectError: false,
 		},
@@ -252,17 +267,37 @@ func TestErrorHandling(t *testing.T) {
 
 		// Create read-only parent directory
 		readOnlyDir := filepath.Join(tempDir, "readonly")
-		os.MkdirAll(readOnlyDir, 0555)
+		if err := os.MkdirAll(readOnlyDir, 0555); err != nil {
+			t.Fatalf("Failed to create read-only directory: %v", err)
+		}
+		defer os.Chmod(readOnlyDir, 0755) // Restore permissions for cleanup
 
-		os.Chdir(readOnlyDir)
+		if err := os.Chdir(readOnlyDir); err != nil {
+			t.Fatalf("Failed to change to read-only directory: %v", err)
+		}
 		defer os.Chdir(originalDir)
 
+		// Test behavior and adapt expectations based on platform
 		err := CreateDirectory()
-		// This might fail on some systems
-		if err == nil {
-			// If it succeeds, verify the directory exists
-			if _, statErr := os.Stat(PRReviewDir); os.IsNotExist(statErr) {
-				t.Error("Directory creation reported success but directory doesn't exist")
+		
+		// First, check if we can create a test directory to understand platform behavior
+		testDir := filepath.Join(readOnlyDir, "test")
+		testErr := os.MkdirAll(testDir, 0755)
+		os.RemoveAll(testDir) // Clean up test directory
+		
+		if testErr != nil {
+			// Platform properly enforces read-only permissions
+			if err == nil {
+				t.Error("Expected error when creating directory in read-only parent, but got none")
+			}
+		} else {
+			// Platform allows directory creation despite read-only parent
+			t.Logf("Platform allows directory creation in read-only parent")
+			if err == nil {
+				// Verify the directory exists
+				if _, statErr := os.Stat(PRReviewDir); os.IsNotExist(statErr) {
+					t.Error("Directory creation reported success but directory doesn't exist")
+				}
 			}
 		}
 	})
