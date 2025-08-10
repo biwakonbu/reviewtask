@@ -47,13 +47,13 @@ func TestShowCommand(t *testing.T) {
 			name:        "show current task",
 			args:        []string{},
 			expectError: false,
-			expectOut:   []string{"Task Details", "Status:", "Priority:"},
+			expectOut:   []string{"Task ID:", "Status:", "Priority:"},
 		},
 		{
 			name:        "show specific task by ID",
 			args:        []string{"test-task-1"},
 			expectError: false,
-			expectOut:   []string{"Task Details"},
+			expectOut:   []string{"Task ID:"},
 		},
 		{
 			name:        "show non-existent task",
@@ -192,7 +192,7 @@ func TestShowSpecificTask(t *testing.T) {
 			name:        "show existing task",
 			taskID:      "test-task-1",
 			expectError: false,
-			expectOut:   []string{"Task Details", "ID:"},
+			expectOut:   []string{"Task ID:", "Status:"},
 		},
 		{
 			name:        "show non-existent task",
@@ -606,42 +606,45 @@ func setupComplexTestDataForShow(t *testing.T) {
 	// Create complex test tasks data
 	longDescription := strings.Repeat("This is a very long description that spans multiple lines and contains various types of content including code snippets, URLs, and special characters. ", 10)
 
-	tasksData := fmt.Sprintf(`[
-		{
-			"id": "long-desc-task",
-			"title": "Long Description Task",
-			"description": "%s",
-			"status": "todo",
-			"priority": "high",
-			"comment_id": 201,
-			"origin": "Long description origin",
-			"created_at": "2023-01-01T00:00:00Z"
-		},
-		{
-			"id": "unicode-task",
-			"title": "Unicode Task 特殊文字 🚀",
-			"description": "Task with unicode characters: 日本語, émojis 🎉, and symbols ★☆",
-			"status": "doing",
-			"priority": "medium",
-			"comment_id": 202,
-			"origin": "Unicode origin with 特殊文字",
-			"created_at": "2023-01-01T01:00:00Z"
-		},
-		{
-			"id": "implementation-task",
-			"title": "Implementation Task",
-			"description": "Task with implementation details",
-			"status": "todo",
-			"priority": "critical",
-			"comment_id": 203,
-			"origin": "Implementation origin",
-			"created_at": "2023-01-01T02:00:00Z",
-			"implementation": {
-				"type": "code",
-				"details": "Implement new feature in main.go"
+	tasksData := fmt.Sprintf(`{
+		"generated_at": "2023-01-01T00:00:00Z",
+		"tasks": [
+			{
+				"id": "long-desc-task",
+				"title": "Long Description Task",
+				"description": "%s",
+				"status": "todo",
+				"priority": "high",
+				"comment_id": 201,
+				"origin": "Long description origin",
+				"created_at": "2023-01-01T00:00:00Z"
+			},
+			{
+				"id": "unicode-task",
+				"title": "Unicode Task 特殊文字 🚀",
+				"description": "Task with unicode characters: 日本語, émojis 🎉, and symbols ★☆",
+				"status": "doing",
+				"priority": "medium",
+				"comment_id": 202,
+				"origin": "Unicode origin with 特殊文字",
+				"created_at": "2023-01-01T01:00:00Z"
+			},
+			{
+				"id": "implementation-task",
+				"title": "Implementation Task",
+				"description": "Task with implementation details",
+				"status": "todo",
+				"priority": "critical",
+				"comment_id": 203,
+				"origin": "Implementation origin",
+				"created_at": "2023-01-01T02:00:00Z",
+				"implementation": {
+					"type": "code",
+					"details": "Implement new feature in main.go"
+				}
 			}
-		}
-	]`, longDescription)
+		]
+	}`, longDescription)
 
 	tasksFile := ".pr-review/PR-456/tasks.json"
 	err = os.WriteFile(tasksFile, []byte(tasksData), 0644)
@@ -850,7 +853,13 @@ func setupScenarioTasks(t *testing.T, dir string, tasks []storage.Task) {
 		prDir := filepath.Join(".pr-review", fmt.Sprintf("PR-%d", pr))
 		os.MkdirAll(prDir, 0755)
 
-		data, _ := json.MarshalIndent(prTaskList, "", "  ")
+		// Wrap tasks in TasksFile structure
+		tasksFileData := storage.TasksFile{
+			GeneratedAt: time.Now().Format(time.RFC3339),
+			Tasks:       prTaskList,
+		}
+		
+		data, _ := json.MarshalIndent(tasksFileData, "", "  ")
 		tasksFile := filepath.Join(prDir, "tasks.json")
 		err := os.WriteFile(tasksFile, data, 0644)
 		if err != nil {
@@ -1084,9 +1093,9 @@ func TestShowOutputFormats(t *testing.T) {
 			args: []string{"format-001"},
 			check: func(t *testing.T, output string) {
 				if !strings.Contains(output, "Test formatting") {
-					t.Error("Missing title in normal format")
+					t.Error("Missing description in normal format")
 				}
-				if !strings.Contains(output, "high") {
+				if !strings.Contains(output, "HIGH") {
 					t.Error("Missing priority in normal format")
 				}
 			},
