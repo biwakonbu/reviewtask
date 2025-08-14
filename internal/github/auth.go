@@ -121,44 +121,8 @@ func saveLocalToken(token string) error {
 }
 
 // promptForToken interactively prompts user for GitHub token
-func promptForToken() (string, error) {
-	fmt.Println("GitHub token not found. Please provide a GitHub Personal Access Token.")
-	fmt.Println("You can create one at: https://github.com/settings/tokens")
-	fmt.Println("Required scopes: repo, pull_requests")
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter GitHub token: ")
-
-	// Read token (visible for simplicity in Go 1.20)
-	tokenInput, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("failed to read token: %w", err)
-	}
-
-	token := strings.TrimSpace(tokenInput)
-	if token == "" {
-		return "", fmt.Errorf("token cannot be empty")
-	}
-
-	// Ask if user wants to save locally
-	fmt.Print("Save token locally for future use? (y/N): ")
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response == "y" || response == "yes" {
-		if err := saveLocalToken(token); err != nil {
-			fmt.Printf("Warning: Failed to save token locally: %v\n", err)
-		} else {
-			fmt.Println("✓ Token saved to .pr-review/auth.json")
-		}
-	}
-
-	return token, nil
-}
+// Deprecated: replaced by PromptForTokenWithSave. Kept commented to avoid unused warnings.
+// func promptForToken() (string, error) { return PromptForTokenWithSave() }
 
 // GetTokenWithSource returns both the token and its source
 func GetTokenWithSource() (string, string, error) {

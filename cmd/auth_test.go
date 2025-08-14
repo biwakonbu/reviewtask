@@ -830,7 +830,6 @@ func setupOldAuth(t *testing.T, dir string) {
 	if err := os.MkdirAll(".pr-review", 0755); err != nil {
 		t.Fatalf("Failed to create .pr-review directory: %v", err)
 	}
-	
 	authData := map[string]interface{}{
 		"token":      "old-token",
 		"created_at": time.Now().Add(-24 * time.Hour).Format(time.RFC3339),

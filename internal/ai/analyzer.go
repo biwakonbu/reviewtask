@@ -11,10 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
+
+	"github.com/google/uuid"
 )
 
 type Analyzer struct {
@@ -420,16 +421,16 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 	return nil, fmt.Errorf("failed to generate valid tasks after %d attempts", validator.maxRetries)
 }
 
-func (a *Analyzer) generateTasksLegacy(reviews []github.Review) ([]storage.Task, error) {
-	// Legacy implementation without validation
-	prompt := a.buildAnalysisPrompt(reviews)
-	tasks, err := a.callClaudeCode(prompt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call Claude Code: %w", err)
-	}
-
-	return a.convertToStorageTasks(tasks), nil
-}
+// generateTasksLegacy is kept for historical reference; not used.
+// Leaving the function commented to avoid unused warnings.
+// func (a *Analyzer) generateTasksLegacy(reviews []github.Review) ([]storage.Task, error) {
+//     prompt := a.buildAnalysisPrompt(reviews)
+//     tasks, err := a.callClaudeCode(prompt)
+//     if err != nil {
+//         return nil, fmt.Errorf("failed to call Claude Code: %w", err)
+//     }
+//     return a.convertToStorageTasks(tasks), nil
+// }
 
 func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 	// Initialize prompt size tracker
@@ -615,7 +616,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 				TasksExtracted:  0,
 				PromptOptimized: len(prompt) < len(originalPrompt),
 			}
-			a.responseMonitor.RecordEvent(event)
+			_ = a.responseMonitor.RecordEvent(event)
 		}
 
 		return nil, NewClaudeAPIError("execution failed", err)
@@ -699,7 +700,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 					TasksExtracted:  len(recoveryResult.Tasks),
 					PromptOptimized: len(prompt) < len(originalPrompt),
 				}
-				a.responseMonitor.RecordEvent(event)
+				_ = a.responseMonitor.RecordEvent(event)
 			}
 
 			return tasks, nil
@@ -745,7 +746,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 					TasksExtracted:  0,
 					PromptOptimized: len(prompt) < len(originalPrompt),
 				}
-				a.responseMonitor.RecordEvent(event)
+				_ = a.responseMonitor.RecordEvent(event)
 			}
 
 			// Recovery and retry both failed, return original error with recovery info
@@ -770,7 +771,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 			PromptOptimized: len(prompt) < len(originalPrompt),
 		}
 
-		a.responseMonitor.RecordEvent(event)
+		_ = a.responseMonitor.RecordEvent(event)
 	}
 
 	return tasks, nil
@@ -1333,9 +1334,9 @@ func (a *Analyzer) buildRepliesContext(comment github.Comment) string {
 }
 
 // findClaudeCommand searches for Claude CLI using the shared utility function
-func (a *Analyzer) findClaudeCommand() (string, error) {
-	return FindClaudeCommand(a.config.AISettings.ClaudePath)
-}
+// func (a *Analyzer) findClaudeCommand() (string, error) {
+//     return FindClaudeCommand(a.config.AISettings.ClaudePath)
+// }
 
 // generateTasksParallelWithValidation processes comments in parallel with validation enabled
 func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
@@ -1596,8 +1597,8 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 
 	// Sort by priority, then by task index using Go's built-in sort.Slice
 	sort.Slice(sorted, func(i, j int) bool {
-		pi, _ := priorityOrder[sorted[i].Priority]
-		pj, _ := priorityOrder[sorted[j].Priority]
+		pi := priorityOrder[sorted[i].Priority]
+		pj := priorityOrder[sorted[j].Priority]
 
 		if pi != pj {
 			return pi < pj
