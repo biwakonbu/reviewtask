@@ -1,5 +1,5 @@
 # Cross-platform build system for reviewtask
-.PHONY: build build-all clean test version help
+.PHONY: build build-all clean test version help lint vet ci
 
 # Build variables
 BINARY_NAME=reviewtask
@@ -9,6 +9,13 @@ BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 # Build flags for optimization and version info
 LDFLAGS=-ldflags="-s -w -X main.version=$(VERSION) -X main.commitHash=$(COMMIT_HASH) -X main.buildDate=$(BUILD_DATE)"
+
+# Resource defaults (can be overridden: `make ci GOMAXPROCS=1 LINT_CONCURRENCY=1 TEST_P=1`)
+GOMAXPROCS?=1
+GOMEMLIMIT?=1GiB
+GOGC?=50
+LINT_CONCURRENCY?=1
+TEST_P?=1
 
 # Default build for current platform
 build:
@@ -69,7 +76,28 @@ clean:
 
 # Run tests
 test:
-	go test -v ./...
+	GOMAXPROCS=$(GOMAXPROCS) GOMEMLIMIT=$(GOMEMLIMIT) GOGC=$(GOGC) go test -v -p $(TEST_P) ./...
+
+# Run linter with resource limits
+lint:
+	@echo "Running golangci-lint with limited resources..."
+	@which golangci-lint >/dev/null 2>&1 || { echo "golangci-lint is not installed"; exit 1; }
+	MAX_PROCS=$(GOMAXPROCS) MEM_LIMIT=$(GOMEMLIMIT) GOGC_VALUE=$(GOGC) ./scripts/run-with-limits.sh golangci-lint run --concurrency $(LINT_CONCURRENCY) --timeout=5m ./cmd/... ./internal/... ./test/... .
+
+# Run go vet with resource limits
+vet:
+	@echo "Running go vet with limited resources..."
+	@./scripts/run-with-limits.sh go vet ./...
+
+# Local CI-like target: format check, lint, tests, build — all with limits
+ci:
+	@echo "Running local CI (fmt-check, vet, lint, test, build) with limits..."
+	@# gofmt はファイル数が多いと重いので並列を抑えた find -print0 + xargs で差分検出
+	@DIFFS=$$(gofmt -l .); if [ -z "$$DIFFS" ]; then echo "fmt: ok"; else echo "fmt: issues found"; echo "$$DIFFS"; exit 1; fi
+	@MAX_PROCS=$(GOMAXPROCS) MEM_LIMIT=$(GOMEMLIMIT) GOGC_VALUE=$(GOGC) ./scripts/run-with-limits.sh go vet ./...
+	@MAX_PROCS=$(GOMAXPROCS) MEM_LIMIT=$(GOMEMLIMIT) GOGC_VALUE=$(GOGC) ./scripts/run-with-limits.sh golangci-lint run --concurrency $(LINT_CONCURRENCY) --timeout=5m ./cmd/... ./internal/... ./test/... .
+	@MAX_PROCS=$(GOMAXPROCS) MEM_LIMIT=$(GOMEMLIMIT) GOGC_VALUE=$(GOGC) ./scripts/run-with-limits.sh go test -v -p $(TEST_P) ./...
+	@MAX_PROCS=$(GOMAXPROCS) MEM_LIMIT=$(GOMEMLIMIT) GOGC_VALUE=$(GOGC) ./scripts/run-with-limits.sh go build $(LDFLAGS) -o $(BINARY_NAME) .
 
 # Test cross-compilation without building
 test-cross-compile:
@@ -100,7 +128,10 @@ help:
 	@echo "  package            - Create distribution archives"
 	@echo "  checksums          - Generate SHA256 checksums"
 	@echo "  clean              - Clean build artifacts"
-	@echo "  test               - Run tests"
+	@echo "  test               - Run tests (resource limited)"
+	@echo "  lint               - Run golangci-lint (resource limited)"
+	@echo "  vet                - Run go vet (resource limited)"
+	@echo "  ci                 - Run local CI pipeline (resource limited)"
 	@echo "  test-cross-compile - Test cross-compilation without building"
 	@echo "  version            - Display version information"
 	@echo "  help               - Display this help message"

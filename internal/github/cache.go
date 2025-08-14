@@ -32,7 +32,11 @@ func NewAPICache(ttl time.Duration) *APICache {
 	cacheDir := filepath.Join(homeDir, ".cache", "reviewtask", "github-api")
 
 	// Ensure cache directory exists
-	os.MkdirAll(cacheDir, 0755)
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		// Fallback to temp dir on failure
+		cacheDir = filepath.Join(os.TempDir(), "reviewtask", "github-api")
+		_ = os.MkdirAll(cacheDir, 0755)
+	}
 
 	return &APICache{
 		cacheDir: cacheDir,

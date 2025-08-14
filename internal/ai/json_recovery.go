@@ -330,8 +330,8 @@ func (jr *JSONRecoverer) cleanMalformedJSON(response string) string {
 	cleaned = regexp.MustCompile("\n?```").ReplaceAllString(cleaned, "")
 
 	// Fix common trailing comma issues
-	cleaned = regexp.MustCompile(",\\s*]").ReplaceAllString(cleaned, "]")
-	cleaned = regexp.MustCompile(",\\s*}").ReplaceAllString(cleaned, "}")
+	cleaned = regexp.MustCompile(`,\s*]`).ReplaceAllString(cleaned, "]")
+	cleaned = regexp.MustCompile(`,\s*}`).ReplaceAllString(cleaned, "}")
 
 	// Fix missing quotes around field names
 	cleaned = regexp.MustCompile(`(\w+):`).ReplaceAllString(cleaned, `"$1":`)

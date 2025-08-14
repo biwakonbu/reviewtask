@@ -50,14 +50,14 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 	lines := strings.Split(input, "\n")
 	for _, line := range lines {
 		if strings.HasPrefix(line, "- Comment ID: ") {
-			fmt.Sscanf(line, "- Comment ID: %d", &commentID)
+			_, _ = fmt.Sscanf(line, "- Comment ID: %d", &commentID)
 		} else if strings.HasPrefix(line, "- Review ID: ") {
-			fmt.Sscanf(line, "- Review ID: %d", &reviewID)
+			_, _ = fmt.Sscanf(line, "- Review ID: %d", &reviewID)
 		} else if strings.HasPrefix(line, "- File: ") {
 			parts := strings.Split(line, ":")
 			if len(parts) >= 2 {
 				file = strings.TrimPrefix(parts[0], "- File: ")
-				fmt.Sscanf(parts[1], "%d", &lineNum)
+				_, _ = fmt.Sscanf(parts[1], "%d", &lineNum)
 			}
 		}
 	}

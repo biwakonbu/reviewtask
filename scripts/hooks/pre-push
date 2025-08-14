@@ -7,10 +7,17 @@
 #
 # To skip this hook: git push --no-verify
 # To disable specific checks, set environment variables:
-# - SKIP_FORMAT=1      : Skip code formatting check
-# - SKIP_LINT=1        : Skip linting
-# - SKIP_TESTS=1       : Skip tests
-# - SKIP_BUILD=1       : Skip build check
+# - SKIP_FORMAT=1       : Skip code formatting check
+# - SKIP_LINT=1         : Skip linting
+# - SKIP_TESTS=1        : Skip tests
+# - SKIP_BUILD=1        : Skip build check
+#
+# Resource control (override defaults by exporting these before push):
+# - MAX_PROCS           : GOMAXPROCS for all Go commands (default: 2)
+# - MEM_LIMIT           : GOMEMLIMIT for all Go commands, e.g. 1GiB/800MiB (default: 1GiB)
+# - GOGC_VALUE          : GOGC for GC aggressiveness (default: 50)
+# - LINT_CONCURRENCY    : golangci-lint worker concurrency (default: 2)
+# - TEST_P              : go test package-level parallelism (-p) (default: 2)
 
 remote="$1"
 url="$2"
@@ -25,6 +32,19 @@ set -e
 cd "$(git rev-parse --show-toplevel)"
 
 echo "📁 Working directory: $(pwd)"
+
+# 0. Apply resource limits (can be overridden via env)
+MAX_PROCS=${MAX_PROCS:-2}
+MEM_LIMIT=${MEM_LIMIT:-1GiB}
+GOGC_VALUE=${GOGC_VALUE:-50}
+LINT_CONCURRENCY=${LINT_CONCURRENCY:-2}
+TEST_P=${TEST_P:-2}
+
+export GOMAXPROCS="$MAX_PROCS"
+export GOMEMLIMIT="$MEM_LIMIT"
+export GOGC="$GOGC_VALUE"
+
+echo "⚙️  Resource limits -> GOMAXPROCS=$GOMAXPROCS, GOMEMLIMIT=$GOMEMLIMIT, GOGC=$GOGC, LINT_CONCURRENCY=$LINT_CONCURRENCY, TEST_P=$TEST_P"
 
 # 1. Format code
 if [ "$SKIP_FORMAT" != "1" ]; then
@@ -46,7 +66,7 @@ if [ "$SKIP_LINT" != "1" ]; then
     echo "🔍 Running linter (golangci-lint)..."
     if command -v golangci-lint >/dev/null 2>&1; then
         # Only check project files, exclude vendor and dependencies
-        if golangci-lint run --timeout=5m ./cmd/... ./internal/... ./test/... ./main.go 2>/dev/null || true; then
+        if golangci-lint run --concurrency "$LINT_CONCURRENCY" --timeout=5m ./cmd/... ./internal/... ./test/... . 2>/dev/null || true; then
             echo "✅ Linting completed (note: some warnings may have been ignored)"
         else
             echo "⚠️  Linting had issues, but continuing (use 'golangci-lint run' to see details)"
@@ -62,7 +82,7 @@ fi
 # 3. Run tests
 if [ "$SKIP_TESTS" != "1" ]; then
     echo "🧪 Running all tests..."
-    if go test ./...; then
+    if go test -p "$TEST_P" ./...; then
         echo "✅ All tests passed"
     else
         echo "❌ Tests failed"
