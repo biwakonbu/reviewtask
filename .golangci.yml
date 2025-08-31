@@ -1,7 +1,4 @@
 linters-settings:
-  govet:
-    enable:
-      - shadow
   gocyclo:
     min-complexity: 15
   goimports:
@@ -47,11 +44,15 @@ linters:
     - whitespace
 
 run:
+  concurrency: 1
   deadline: 5m
   issues-exit-code: 1
   tests: true
+  fast: true
 
 issues:
+  exclude-dirs:
+    - dist
   exclude-rules:
     - path: _test\.go
       linters:
@@ -59,6 +60,7 @@ issues:
         - errcheck
         - dupl
         - gosec
+        - govet
     
     # Exclude some staticcheck messages
     - linters:

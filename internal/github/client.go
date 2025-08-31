@@ -145,8 +145,8 @@ func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 		Branch:     pr.GetHead().GetRef(),
 	}
 
-	// Cache the result
-	c.cache.Set("GetPRInfo", c.owner, c.repo, prInfo, prNumber)
+	// Cache the result (ignore cache error)
+	_ = c.cache.Set("GetPRInfo", c.owner, c.repo, prInfo, prNumber)
 
 	return prInfo, nil
 }
@@ -190,8 +190,8 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		result = append(result, r)
 	}
 
-	// Cache the result
-	c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
+	// Cache the result (ignore cache error)
+	_ = c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
 
 	return result, nil
 }
@@ -273,8 +273,8 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 		if err != nil {
 			return nil, fmt.Errorf("failed to get PR comments: %w", err)
 		}
-		// Cache the raw comments
-		c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
+		// Cache the raw comments (ignore cache error)
+		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
 
 	// Filter comments for this review and build nested structure

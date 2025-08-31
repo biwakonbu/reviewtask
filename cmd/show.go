@@ -5,8 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
+
+	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var showCmd = &cobra.Command{
@@ -114,17 +117,18 @@ func displayTaskDetails(task storage.Task) error {
 
 	// Header
 	fmt.Printf("Task ID: %s\n", task.ID)
-	fmt.Printf("Status: %s %s\n", statusIndicator, strings.Title(task.Status))
+	title := cases.Title(language.Und)
+	fmt.Printf("Status: %s %s\n", statusIndicator, title.String(task.Status))
 	fmt.Printf("Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
 
 	// Implementation and Verification Status
 	if task.ImplementationStatus != "" {
 		implIndicator := getImplementationIndicator(task.ImplementationStatus)
-		fmt.Printf("Implementation: %s %s\n", implIndicator, strings.Title(task.ImplementationStatus))
+		fmt.Printf("Implementation: %s %s\n", implIndicator, title.String(task.ImplementationStatus))
 	}
 	if task.VerificationStatus != "" {
 		verifyIndicator := getVerificationIndicator(task.VerificationStatus)
-		fmt.Printf("Verification: %s %s\n", verifyIndicator, strings.Title(task.VerificationStatus))
+		fmt.Printf("Verification: %s %s\n", verifyIndicator, title.String(task.VerificationStatus))
 	}
 	fmt.Println()
 

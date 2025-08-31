@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/mattn/go-isatty"
@@ -14,7 +13,6 @@ import (
 type Tracker struct {
 	program *tea.Program
 	model   Model
-	mu      sync.Mutex
 	done    chan struct{}
 	isTTY   bool
 }

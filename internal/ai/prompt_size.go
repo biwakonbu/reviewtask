@@ -202,7 +202,7 @@ func (t *PromptSizeTracker) GenerateReport() string {
 
 	// Review data breakdown if it's the largest
 	if largestComponent == "Review data" && len(t.ReviewBreakdown) > 0 {
-		report.WriteString(fmt.Sprintf("\n📊 Review data breakdown:\n"))
+		report.WriteString("\n📊 Review data breakdown:\n")
 		report.WriteString(fmt.Sprintf("  - Review bodies: %d reviews, %d bytes\n",
 			len(t.ReviewBreakdown), t.ReviewBodies))
 		report.WriteString(fmt.Sprintf("  - Comments: %d comments, %d bytes\n",
