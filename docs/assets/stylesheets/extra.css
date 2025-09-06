@@ -1,0 +1,31 @@
+/* Custom styles for reviewtask documentation */
+
+/* Logo adjustments */
+.md-header__button.md-logo img {
+    max-height: 2rem;
+    width: auto;
+}
+
+/* Additional OGP meta tags styles */
+.md-social {
+    margin: 0;
+}
+
+.md-social__link {
+    display: inline-block;
+    margin: 0 0.1rem;
+    text-align: center;
+    border-radius: 100%;
+    transform: scale(0.8);
+}
+
+/* Custom brand colors */
+:root {
+    --md-primary-fg-color: #1e88e5;
+    --md-accent-fg-color: #1976d2;
+}
+
+/* Improve logo visibility in dark mode */
+[data-md-color-scheme="slate"] .md-header__button.md-logo img {
+    filter: brightness(1.1);
+}

@@ -12,6 +12,9 @@ copyright: Copyright &copy; 2024 biwakonbu
 
 theme:
   name: material
+  logo: assets/images/logo.png
+  favicon: assets/images/icon.png
+  custom_dir: docs/overrides
   font:
     text: Roboto
     code: Roboto Mono
@@ -66,10 +69,15 @@ plugins:
       lang: en
   - social:
       cards: true
+      cards_dir: assets/images/social
       cards_color:
         fill: "#1e88e5"
         text: "#FFFFFF"
       cards_layout: default/variant
+      cards_layout_options:
+        background_color: "#1e88e5"
+        color: "#FFFFFF"
+        font_family: Roboto
   - git-revision-date-localized:
       enable_creation_date: true
       type: timeago
@@ -145,5 +153,9 @@ extra:
       link: https://github.com/biwakonbu/reviewtask
     - icon: fontawesome/solid/globe
       link: https://biwakonbu.github.io/reviewtask/
+  generator: false
+
+extra_css:
+  - assets/stylesheets/extra.css
 
 copyright: Copyright &copy; 2024 biwakonbu

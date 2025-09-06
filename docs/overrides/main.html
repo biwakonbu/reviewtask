@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block extrahead %}
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:title" content="{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}">
+  <meta property="og:description" content="{{ config.site_description }}">
+  <meta property="og:image" content="{{ config.site_url }}assets/images/logo.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="{{ page.canonical_url }}">
+  <meta property="twitter:title" content="{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}">
+  <meta property="twitter:description" content="{{ config.site_description }}">
+  <meta property="twitter:image" content="{{ config.site_url }}assets/images/logo.png">
+
+  <!-- Additional meta tags -->
+  <meta name="application-name" content="reviewtask">
+  <meta name="apple-mobile-web-app-title" content="reviewtask">
+  <meta name="theme-color" content="#1e88e5">
+  <meta name="msapplication-TileColor" content="#1e88e5">
+  
+  <!-- Favicon variations -->
+  <link rel="icon" type="image/png" sizes="32x32" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="apple-touch-icon" href="{{ config.site_url }}assets/images/icon.png">
+{% endblock %}
