@@ -9,34 +9,42 @@
   <meta property="og:site_name" content="{{ config.site_name }}">
   <meta property="og:locale" content="en_US">
   
-  <!-- Primary OG Image (1200x630 for most platforms including LINE) -->
-  <meta property="og:image" content="{{ config.site_url }}assets/images/logo.png">
+  <!-- Primary OG Image (1200x630 - Facebook, LINE, LinkedIn optimal) -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
   
-  <!-- Secondary OG Image (Square format for platforms that prefer it) -->
-  <meta property="og:image" content="{{ config.site_url }}assets/images/icon.png">
-  <meta property="og:image:width" content="1024">
-  <meta property="og:image:height" content="1024">
+  <!-- Facebook 16:9 format (1200x675) -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x675.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="675">
+  <meta property="og:image:type" content="image/png">
+  
+  <!-- Square format for Instagram and other platforms (1200x1200) -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-1200x1200.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="1200">
+  <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="reviewtask logo square">
 
-  <!-- Twitter Card Large (Uses horizontal logo for large card) -->
+  <!-- Twitter Card Large (800x418 optimal for Summary Large) -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@biwakonbu">
   <meta name="twitter:url" content="{{ page.canonical_url }}">
   <meta name="twitter:title" content="{{ config.site_name }}">
   <meta name="twitter:description" content="{{ config.site_description }}">
-  <meta name="twitter:image" content="{{ config.site_url }}assets/images/logo.png">
-  <meta name="twitter:image:width" content="1024">
-  <meta name="twitter:image:height" content="512">
+  <meta name="twitter:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-800x418.png">
   <meta name="twitter:image:alt" content="reviewtask logo">
 
   <!-- Hatena Bookmark specific tags -->
-  <!-- For PC/Smartphone: Uses primary OG image (1200x630) -->
-  <meta name="hatena:image" content="{{ config.site_url }}assets/images/logo.png">
-  <!-- For App: Square format -->
-  <meta name="hatena:bookmark:image" content="{{ config.site_url }}assets/images/icon.png">
+  <!-- For PC: 1200x630 -->
+  <meta property="hatena:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png">
+  <!-- For Smartphone: 560x292 -->
+  <meta name="hatena:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-560x292.png">
+  <!-- For App: Square format 600x600 -->
+  <meta name="hatena:bookmark:image" content="{{ config.site_url }}assets/images/ogp/ogp-600x600.png">
 
   <!-- Schema.org markup for Google -->
   <script type="application/ld+json">
