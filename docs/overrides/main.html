@@ -9,8 +9,8 @@
   <meta property="og:site_name" content="{{ config.site_name }}">
   <meta property="og:locale" content="en_US">
   
-  <!-- Facebook/General OGP Images (All with logo/text) -->
-  <!-- Primary: 1200x630 (optimal for Facebook, LINE, LinkedIn) -->
+  <!-- OGP Images: Primary Set (Logo-based for Facebook/General) -->
+  <!-- Primary 1: 1200x630 (optimal for Facebook, LINE, LinkedIn) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/social/index.png">
   <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/social/index.png">
   <meta property="og:image:width" content="1200">
@@ -18,20 +18,25 @@
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
   
-  <!-- Alternative 1: 1200x675 (16:9 ratio) -->
+  <!-- Primary 2: 1200x1200 (square for Instagram/Facebook) -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x1200.png">
+  <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x1200.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="1200">
+  <meta property="og:image:type" content="image/png">
+  
+  <!-- OGP Images: Fallback Set (Alternative aspect ratios) -->
+  <!-- Fallback 1: 1200x675 (16:9 video ratio) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x675.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="675">
+  <meta property="og:image:type" content="image/png">
   
-  <!-- Alternative 2: 1200x1200 (square for Instagram) -->
-  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x1200.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="1200">
-  
-  <!-- Alternative 3: 800x418 (Facebook fallback - with logo) -->
+  <!-- Fallback 2: 800x418 (smaller size) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-800x418.png">
   <meta property="og:image:width" content="800">
   <meta property="og:image:height" content="418">
+  <meta property="og:image:type" content="image/png">
 
   <!-- Twitter Card (Icon-based, separate from Facebook) -->
   <meta name="twitter:card" content="summary_large_image">
