@@ -217,10 +217,17 @@ func TestDetectAuthentication(t *testing.T) {
 		{
 			name: "認証情報なし",
 			setup: func() func() {
+				// Create temp directory to ensure no local auth file exists
+				tempDir := t.TempDir()
+				originalDir, _ := os.Getwd()
+				os.Chdir(tempDir)
+
 				os.Unsetenv("GITHUB_TOKEN")
 				os.Unsetenv("GH_TOKEN")
 				os.Unsetenv("REVIEWTASK_GITHUB_TOKEN")
-				return func() {}
+				return func() {
+					os.Chdir(originalDir)
+				}
 			},
 			expected:  nil,
 			expectErr: true,
@@ -370,6 +377,10 @@ func TestAuthenticationScenarios(t *testing.T) {
 				{
 					name: "GitHub Actions環境をシミュレート",
 					setup: func() {
+						// Create clean temp directory to avoid interference from previous tests
+						tempDir := t.TempDir()
+						os.Chdir(tempDir)
+
 						os.Setenv("CI", "true")
 						os.Setenv("GITHUB_ACTIONS", "true")
 						os.Setenv("GITHUB_TOKEN", "gha-token")
@@ -704,8 +715,16 @@ func SaveCredentials(creds *Credentials) error {
 	}
 
 	credFile := filepath.Join(authDir, "credentials.json")
-	if err := os.WriteFile(credFile, data, 0600); err != nil {
+	// Write to temp file first, then rename atomically
+	tempFile := credFile + ".tmp"
+	if err := os.WriteFile(tempFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write credentials: %w", err)
+	}
+
+	// Atomic rename to avoid concurrent write issues
+	if err := os.Rename(tempFile, credFile); err != nil {
+		os.Remove(tempFile) // Clean up temp file
+		return fmt.Errorf("failed to save credentials: %w", err)
 	}
 
 	return nil
