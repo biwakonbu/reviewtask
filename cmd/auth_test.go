@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -565,6 +566,11 @@ func setupTestAuth(t *testing.T, tempDir string) {
 
 // TestAuthFilePermissions tests that auth files have correct permissions
 func TestAuthFilePermissions(t *testing.T) {
+	// Skip on Windows as file permissions work differently
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping file permission test on Windows")
+	}
+
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-auth-perms-test-*")
 	if err != nil {
@@ -981,6 +987,11 @@ func TestAuthErrorRecovery(t *testing.T) {
 	})
 
 	t.Run("権限エラーからの回復", func(t *testing.T) {
+		// Skip on Windows as file permissions work differently
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping file permission test on Windows")
+		}
+
 		tempDir := setupTestDir(t)
 		defer os.RemoveAll(tempDir)
 
