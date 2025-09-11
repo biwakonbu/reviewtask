@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
-  <!-- Primary Open Graph (General/Facebook/LINE) -->
+  <!-- Primary Open Graph (General) -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ page.canonical_url }}">
   <meta property="og:title" content="{{ config.site_name }}">
@@ -9,25 +9,31 @@
   <meta property="og:site_name" content="{{ config.site_name }}">
   <meta property="og:locale" content="en_US">
   
-  <!-- Primary OG Image (1200x630 - Facebook, LINE, LinkedIn optimal) -->
+  <!-- Facebook Primary Image (1200x630 - PC/SP optimal) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png">
+  <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
   
-  <!-- Facebook 16:9 format (1200x675) -->
+  <!-- Facebook Secondary Image (1200x675 - 16:9 for video placeholder) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x675.png">
+  <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x675.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="675">
   <meta property="og:image:type" content="image/png">
   
-  <!-- Square format for Instagram and other platforms (1200x1200) -->
+  <!-- Facebook/Instagram Square format (1200x1200) -->
   <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-1200x1200.png">
+  <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/ogp/ogp-1200x1200.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="1200">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:alt" content="reviewtask logo square">
+  
+  <!-- LINE specific (uses first og:image, which is 1200x630) -->
+  <!-- LinkedIn specific (uses first og:image, which is 1200x630) -->
 
   <!-- Twitter Card Large (800x418 optimal for Summary Large) -->
   <meta name="twitter:card" content="summary_large_image">
