@@ -67,13 +67,18 @@ var (
 )
 
 func NewClient() (*Client, error) {
-	token, err := getGitHubTokenFn()
+	return NewClientWithProviders(&DefaultAuthTokenProvider{}, &DefaultRepoInfoProvider{})
+}
+
+// NewClientWithProviders creates a client with dependency injection for testing
+func NewClientWithProviders(authProvider AuthTokenProvider, repoProvider RepoInfoProvider) (*Client, error) {
+	token, err := authProvider.GetToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GitHub token: %w", err)
 	}
 
-	// Get repository info from git
-	owner, repo, err := getRepoInfoFn()
+	// Get repository info
+	owner, repo, err := repoProvider.GetRepoInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
