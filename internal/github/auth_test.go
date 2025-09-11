@@ -497,33 +497,28 @@ func TestCredentialsValidation(t *testing.T) {
 
 // TestAuthenticationErrorHandling tests error handling
 func TestAuthenticationErrorHandling(t *testing.T) {
-	testTempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-	os.Chdir(testTempDir)
-	defer os.Chdir(originalDir)
-
 	tests := []struct {
 		name      string
-		setup     func() func()
-		operation func() error
+		setup     func(basePath string) func()
+		operation func(basePath string) error
 		expectErr bool
 	}{
 		{
 			name: "権限のないディレクトリへの保存",
-			setup: func() func() {
+			setup: func(basePath string) func() {
 				if runtime.GOOS == "windows" {
 					return func() {}
 				}
 
-				// Create read-only directory
-				authDir := filepath.Join(".pr-review", "auth")
+				// Create read-only directory under basePath
+				authDir := filepath.Join(basePath, ".pr-review", "auth")
 				os.MkdirAll(authDir, 0555)
 
 				return func() {
 					os.Chmod(authDir, 0755)
 				}
 			},
-			operation: func() error {
+			operation: func(basePath string) error {
 				if runtime.GOOS == "windows" {
 					t.Skip("Skipping read-only directory test on Windows")
 				}
@@ -531,14 +526,14 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 					Method: "token",
 					Token:  "test",
 				}
-				return SaveCredentials(creds)
+				return SaveCredentialsWithPath(basePath, creds)
 			},
 			expectErr: true,
 		},
 		{
 			name: "破損した認証ファイルの読み込み",
-			setup: func() func() {
-				authDir := filepath.Join(".pr-review", "auth")
+			setup: func(basePath string) func() {
+				authDir := filepath.Join(basePath, ".pr-review", "auth")
 				os.MkdirAll(authDir, 0755)
 
 				// Write corrupted JSON
@@ -547,19 +542,19 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 
 				return func() {}
 			},
-			operation: func() error {
-				_, err := LoadCredentials()
+			operation: func(basePath string) error {
+				_, err := LoadCredentialsWithPath(basePath)
 				return err
 			},
 			expectErr: true,
 		},
 		{
 			name: "存在しないファイルの読み込み",
-			setup: func() func() {
+			setup: func(basePath string) func() {
 				return func() {}
 			},
-			operation: func() error {
-				_, err := LoadCredentials()
+			operation: func(basePath string) error {
+				_, err := LoadCredentialsWithPath(basePath)
 				return err
 			},
 			expectErr: true,
@@ -568,10 +563,11 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cleanup := tt.setup()
+			basePath := t.TempDir()
+			cleanup := tt.setup(basePath)
 			defer cleanup()
 
-			err := tt.operation()
+			err := tt.operation(basePath)
 
 			if tt.expectErr && err == nil {
 				t.Error("Expected error but got none")
