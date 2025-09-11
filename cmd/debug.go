@@ -6,11 +6,12 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
+
+	"github.com/spf13/cobra"
 )
 
 var debugCmd = &cobra.Command{
@@ -36,6 +37,9 @@ Examples:
 func init() {
 	debugCmd.AddCommand(debugFetchCmd)
 }
+
+// Injectable factory for GitHub client (for tests)
+var newGitHubClientDebug = github.NewClient
 
 func runDebugFetch(cmd *cobra.Command, args []string) error {
 	// Debug: Print all arguments
@@ -72,7 +76,7 @@ func runDebugFetch(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// Get PR number from current branch
-		ghClient, err := github.NewClient()
+		ghClient, err := newGitHubClientDebug()
 		if err != nil {
 			return fmt.Errorf("failed to create GitHub client: %w", err)
 		}
@@ -98,7 +102,7 @@ func debugFetchReviews(cfg *config.Config, storageManager *storage.Manager, prNu
 	ctx := context.Background()
 
 	// Initialize GitHub client
-	ghClient, err := github.NewClient()
+	ghClient, err := newGitHubClientDebug()
 	if err != nil {
 		return fmt.Errorf("failed to create GitHub client: %w", err)
 	}

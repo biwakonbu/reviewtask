@@ -60,14 +60,20 @@ type Reply struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// Injectable function variables for easier testing/mocking
+var (
+	getGitHubTokenFn = GetGitHubToken
+	getRepoInfoFn    = getRepoInfo
+)
+
 func NewClient() (*Client, error) {
-	token, err := GetGitHubToken()
+	token, err := getGitHubTokenFn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GitHub token: %w", err)
 	}
 
 	// Get repository info from git
-	owner, repo, err := getRepoInfo()
+	owner, repo, err := getRepoInfoFn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
@@ -357,7 +363,7 @@ func getRepoInfo() (string, string, error) {
 // NewClientWithToken creates a client with a specific token
 func NewClientWithToken(token string) (*Client, error) {
 	// Get repository info from git
-	owner, repo, err := getRepoInfo()
+	owner, repo, err := getRepoInfoFn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}

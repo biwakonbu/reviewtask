@@ -10,13 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/version"
+
+	"github.com/spf13/cobra"
 )
 
 // Version information (set at build time)
@@ -101,6 +102,9 @@ func Execute() error {
 	return rootCmd.Execute()
 }
 
+// Injectable factory for GitHub client (for tests)
+var newGitHubClient = github.NewClient
+
 func init() {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(claudeCmd)
@@ -157,7 +161,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	checkForUpdatesAsync(cfg)
 
 	// Initialize GitHub client
-	ghClient, err := github.NewClient()
+	ghClient, err := newGitHubClient()
 	if err != nil {
 		fmt.Println("✗ GitHub authentication required")
 		fmt.Println()
