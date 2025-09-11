@@ -36,8 +36,8 @@
   <!-- LINE specific (uses first og:image, which is 1200x630) -->
   <!-- LinkedIn specific (uses first og:image, which is 1200x630) -->
 
-  <!-- Twitter Card (Multiple formats) -->
-  <!-- Summary Large Card (800x418 - horizontal logo) -->
+  <!-- Twitter Card -->
+  <!-- Primary: Summary Large Card (horizontal logo for large card) -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@biwakonbu">
   <meta name="twitter:url" content="{{ page.canonical_url }}">
@@ -46,7 +46,13 @@
   <meta name="twitter:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-800x418.png">
   <meta name="twitter:image:alt" content="reviewtask logo">
   
-  <!-- Twitter Summary Card fallback (600x600 - square icon for small card) -->
+  <!-- Alternative formats for Twitter -->
+  <!-- Standard size 800x418 with icon -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/ogp/ogp-icon-800x418.png">
+  <meta property="og:image:width" content="800">
+  <meta property="og:image:height" content="418">
+  
+  <!-- Summary Card square (600x600) -->
   <meta name="twitter:image:src" content="{{ config.site_url }}assets/images/ogp/ogp-600x600.png">
 
   <!-- Hatena Bookmark specific tags -->
