@@ -2,25 +2,25 @@
 
 /* Logo adjustments - Optimized for horizontal logo (1024x512) */
 .md-header__button.md-logo img {
-    height: 3rem;
+    height: 2rem;
     width: auto;
-    max-width: 6rem;  /* 2:1 aspect ratio */
+    max-width: 4rem;  /* 2:1 aspect ratio */
     object-fit: contain;
 }
 
 /* Tablet responsive logo size */
 @media screen and (max-width: 76.1875em) {
     .md-header__button.md-logo img {
-        height: 2.5rem;
-        max-width: 5rem;
+        height: 1.8rem;
+        max-width: 3.6rem;
     }
 }
 
 /* Small mobile devices */
 @media screen and (max-width: 600px) {
     .md-header__button.md-logo img {
-        height: 2rem;
-        max-width: 4rem;
+        height: 1.5rem;
+        max-width: 3rem;
     }
 }
 
