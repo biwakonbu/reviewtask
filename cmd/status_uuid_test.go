@@ -175,7 +175,7 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 		r, w, _ = os.Pipe()
 		os.Stdout = w
 
-		err := displayTaskDetails(task)
+		err := displayTaskDetails(task, false, false)
 		require.NoError(t, err, "displayTaskDetails should work with UUID: %s", task.ID)
 
 		w.Close()

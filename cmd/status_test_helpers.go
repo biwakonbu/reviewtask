@@ -11,5 +11,5 @@ func DisplayAIModeContentForTest(tasks []storage.Task, contextDescription string
 // DisplayTaskDetailsForTest is a test helper that exposes displayTaskDetails
 // for testing the show command output without running the full command.
 func DisplayTaskDetailsForTest(task storage.Task) error {
-	return displayTaskDetails(task)
+	return displayTaskDetails(task, false, false)
 }

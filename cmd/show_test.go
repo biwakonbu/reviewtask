@@ -143,7 +143,7 @@ func TestShowCurrentOrNextTask(t *testing.T) {
 			cmd.SetOut(&output)
 
 			storageManager := storage.NewManager()
-			err := showCurrentOrNextTask(storageManager)
+			err := showCurrentOrNextTask(storageManager, false, false)
 
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
@@ -218,7 +218,7 @@ func TestShowSpecificTask(t *testing.T) {
 			cmd.SetOut(&output)
 
 			storageManager := storage.NewManager()
-			err := showSpecificTask(storageManager, tt.taskID)
+			err := showSpecificTask(storageManager, tt.taskID, false, false)
 
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
@@ -288,7 +288,7 @@ func TestDisplayTaskDetails(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			displayTaskDetails(tt.task)
+			displayTaskDetails(tt.task, false, false)
 
 			// Restore stdout
 			w.Close()
@@ -1079,7 +1079,6 @@ func TestShowErrorRecovery(t *testing.T) {
 
 // TestShowOutputFormats tests different output formats
 func TestShowOutputFormats(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
@@ -1140,22 +1139,33 @@ func TestShowOutputFormats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var output bytes.Buffer
+			// Capture stdout like the status tests do
+			old := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
 			cmd := &cobra.Command{
 				Use:  "show",
 				RunE: runShow,
 			}
 			cmd.Flags().Bool("json", false, "JSON output")
 			cmd.Flags().Bool("brief", false, "Brief output")
-			cmd.SetOut(&output)
 			cmd.SetArgs(tt.args)
 
 			err := cmd.Execute()
+
+			w.Close()
+			os.Stdout = old
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
 
-			tt.check(t, output.String())
+			var buf bytes.Buffer
+			io.Copy(&buf, r)
+			output := buf.String()
+
+			tt.check(t, output)
 		})
 	}
 }

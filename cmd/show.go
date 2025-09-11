@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -28,23 +29,29 @@ If no TASK_ID is provided, shows the current task (doing status) or next task (t
 }
 
 func init() {
-	// No command registration needed here - done in root.go
+	// Register output format flags
+	showCmd.Flags().BoolP("json", "j", false, "Output in JSON format")
+	showCmd.Flags().BoolP("brief", "b", false, "Output only key fields (brief mode)")
 }
 
 func runShow(cmd *cobra.Command, args []string) error {
+	// Read flags to determine output format
+	jsonOut, _ := cmd.Flags().GetBool("json")
+	briefOut, _ := cmd.Flags().GetBool("brief")
+
 	storageManager := storage.NewManager()
 
 	if len(args) == 0 {
 		// No task ID provided, show current or next task
-		return showCurrentOrNextTask(storageManager)
+		return showCurrentOrNextTask(storageManager, jsonOut, briefOut)
 	}
 
 	// Task ID provided, show specific task
 	taskID := args[0]
-	return showSpecificTask(storageManager, taskID)
+	return showSpecificTask(storageManager, taskID, jsonOut, briefOut)
 }
 
-func showCurrentOrNextTask(storageManager *storage.Manager) error {
+func showCurrentOrNextTask(storageManager *storage.Manager, jsonOut, briefOut bool) error {
 	allTasks, err := storageManager.GetAllTasks()
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
@@ -59,9 +66,11 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 	// Look for current task (doing status)
 	for _, task := range allTasks {
 		if task.Status == "doing" {
-			fmt.Println("📍 Current Task (In Progress):")
-			fmt.Println()
-			return displayTaskDetails(task)
+			if !jsonOut && !briefOut {
+				fmt.Println("📍 Current Task (In Progress):")
+				fmt.Println()
+			}
+			return displayTaskDetails(task, jsonOut, briefOut)
 		}
 	}
 
@@ -81,18 +90,22 @@ func showCurrentOrNextTask(storageManager *storage.Manager) error {
 	}
 
 	if nextTask == nil {
-		fmt.Println("✅ No current or next tasks found.")
-		fmt.Println("All tasks may be completed, cancelled, or pending.")
-		fmt.Println("Run 'reviewtask status' to see overall task status.")
+		if !jsonOut && !briefOut {
+			fmt.Println("✅ No current or next tasks found.")
+			fmt.Println("All tasks may be completed, cancelled, or pending.")
+			fmt.Println("Run 'reviewtask status' to see overall task status.")
+		}
 		return nil
 	}
 
-	fmt.Println("🎯 Next Task (Recommended):")
-	fmt.Println()
-	return displayTaskDetails(*nextTask)
+	if !jsonOut && !briefOut {
+		fmt.Println("🎯 Next Task (Recommended):")
+		fmt.Println()
+	}
+	return displayTaskDetails(*nextTask, jsonOut, briefOut)
 }
 
-func showSpecificTask(storageManager *storage.Manager, taskID string) error {
+func showSpecificTask(storageManager *storage.Manager, taskID string, jsonOut, briefOut bool) error {
 	allTasks, err := storageManager.GetAllTasks()
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
@@ -101,14 +114,25 @@ func showSpecificTask(storageManager *storage.Manager, taskID string) error {
 	// Find the specific task
 	for _, task := range allTasks {
 		if task.ID == taskID {
-			return displayTaskDetails(task)
+			return displayTaskDetails(task, jsonOut, briefOut)
 		}
 	}
 
 	return fmt.Errorf("task with ID '%s' not found", taskID)
 }
 
-func displayTaskDetails(task storage.Task) error {
+func displayTaskDetails(task storage.Task, jsonOut, briefOut bool) error {
+	// Handle JSON output
+	if jsonOut {
+		return displayTaskAsJSON(task)
+	}
+
+	// Handle brief output
+	if briefOut {
+		return displayTaskBrief(task)
+	}
+
+	// Default detailed output
 	// Status indicator
 	statusIndicator := getStatusIndicator(task.Status)
 
@@ -306,4 +330,52 @@ func getVerificationIndicator(status string) string {
 	default:
 		return "❓"
 	}
+}
+
+// displayTaskAsJSON outputs the task in JSON format
+func displayTaskAsJSON(task storage.Task) error {
+	// Create a simplified JSON representation of the task
+	jsonTask := map[string]interface{}{
+		"id":                    task.ID,
+		"status":                task.Status,
+		"priority":              task.Priority,
+		"description":           task.Description,
+		"origin_text":           task.OriginText,
+		"file":                  task.File,
+		"line":                  task.Line,
+		"pr_number":             task.PRNumber,
+		"source_review_id":      task.SourceReviewID,
+		"source_comment_id":     task.SourceCommentID,
+		"task_index":            task.TaskIndex,
+		"created_at":            task.CreatedAt,
+		"updated_at":            task.UpdatedAt,
+		"implementation_status": task.ImplementationStatus,
+		"verification_status":   task.VerificationStatus,
+		"last_verification_at":  task.LastVerificationAt,
+		"verification_results":  task.VerificationResults,
+	}
+
+	jsonData, err := json.MarshalIndent(jsonTask, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal task to JSON: %w", err)
+	}
+
+	fmt.Println(string(jsonData))
+	return nil
+}
+
+// displayTaskBrief outputs the task in brief format (limited lines)
+func displayTaskBrief(task storage.Task) error {
+	// Brief format: just essential info, max ~5 lines
+	fmt.Printf("Task: %s | %s | %s\n", task.ID, task.Status, task.Priority)
+	fmt.Printf("Description: %s\n", task.Description)
+	if task.File != "" {
+		fmt.Printf("File: %s", task.File)
+		if task.Line > 0 {
+			fmt.Printf(":%d", task.Line)
+		}
+		fmt.Println()
+	}
+	fmt.Printf("PR: #%d | Comment: %d\n", task.PRNumber, task.SourceCommentID)
+	return nil
 }
