@@ -7,13 +7,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/config"
+	igh "reviewtask/internal/github"
 	"reviewtask/internal/storage"
+
+	"github.com/spf13/cobra"
 )
 
 // TestDebugFetchCommand tests the debug fetch command
 func TestDebugFetchCommand(t *testing.T) {
+	// Stub GitHub client factory to avoid external dependency
+	origFactory := newGitHubClientDebug
+	t.Cleanup(func() { newGitHubClientDebug = origFactory })
+	newGitHubClientDebug = func() (*igh.Client, error) { return nil, fmt.Errorf("stubbed client") }
+
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-debug-test-*")
 	if err != nil {
@@ -105,6 +112,11 @@ func TestDebugFetchCommand(t *testing.T) {
 
 // TestDebugFetchReviews tests the debugFetchReviews function
 func TestDebugFetchReviews(t *testing.T) {
+	// Stub GitHub client factory to avoid external dependency
+	origFactory := newGitHubClientDebug
+	t.Cleanup(func() { newGitHubClientDebug = origFactory })
+	newGitHubClientDebug = func() (*igh.Client, error) { return nil, fmt.Errorf("stubbed client") }
+
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-debug-reviews-test-*")
 	if err != nil {
