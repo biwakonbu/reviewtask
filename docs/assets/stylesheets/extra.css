@@ -2,25 +2,26 @@
 
 /* Logo adjustments - Optimized for horizontal logo (1024x512) */
 .md-header__button.md-logo img {
-    height: 2rem;
+    height: 2.5rem;  /* Increased height for better visibility */
     width: auto;
-    max-width: 4rem;  /* 2:1 aspect ratio */
+    max-width: 8rem;  /* Increased to show full logo without cutting off */
     object-fit: contain;
+    object-position: center top;  /* Align to top to prevent bottom cut-off */
 }
 
 /* Tablet responsive logo size */
 @media screen and (max-width: 76.1875em) {
     .md-header__button.md-logo img {
-        height: 1.8rem;
-        max-width: 3.6rem;
+        height: 2.2rem;
+        max-width: 7rem;  /* Proportionally increased */
     }
 }
 
 /* Small mobile devices */
 @media screen and (max-width: 600px) {
     .md-header__button.md-logo img {
-        height: 1.5rem;
-        max-width: 3rem;
+        height: 2rem;
+        max-width: 6rem;  /* Still readable on mobile */
     }
 }
 
