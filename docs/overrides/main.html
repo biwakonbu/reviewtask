@@ -1,30 +1,76 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
-  <!-- Open Graph / Facebook -->
+  <!-- Primary Open Graph / Facebook (Wide Format) -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ page.canonical_url }}">
   <meta property="og:title" content="{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}">
   <meta property="og:description" content="{{ config.site_description }}">
   <meta property="og:image" content="{{ config.site_url }}assets/images/logo.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+  <meta property="og:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:locale" content="en_US">
 
-  <!-- Twitter -->
-  <meta property="twitter:card" content="summary_large_image">
-  <meta property="twitter:url" content="{{ page.canonical_url }}">
-  <meta property="twitter:title" content="{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}">
-  <meta property="twitter:description" content="{{ config.site_description }}">
-  <meta property="twitter:image" content="{{ config.site_url }}assets/images/logo.png">
+  <!-- Twitter Card (Uses logo for large card, icon for summary) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@biwakonbu">
+  <meta name="twitter:url" content="{{ page.canonical_url }}">
+  <meta name="twitter:title" content="{% if page.title %}{{ page.title }} - {% endif %}{{ config.site_name }}">
+  <meta name="twitter:description" content="{{ config.site_description }}">
+  <meta name="twitter:image" content="{{ config.site_url }}assets/images/logo.png">
+  <meta name="twitter:image:alt" content="reviewtask logo">
+
+  <!-- LinkedIn and other platforms (Square format) -->
+  <meta property="og:image:secure_url" content="{{ config.site_url }}assets/images/icon.png">
+  <meta property="og:image:type" content="image/png">
+  
+  <!-- WhatsApp and mobile platforms -->
+  <meta property="og:image" content="{{ config.site_url }}assets/images/icon.png">
+  <meta property="og:image:width" content="1024">
+  <meta property="og:image:height" content="1024">
+
+  <!-- Schema.org markup for Google -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "reviewtask",
+    "description": "{{ config.site_description }}",
+    "url": "{{ config.site_url }}",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "Linux, macOS, Windows",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
 
   <!-- Additional meta tags -->
   <meta name="application-name" content="reviewtask">
   <meta name="apple-mobile-web-app-title" content="reviewtask">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#1e88e5">
   <meta name="msapplication-TileColor" content="#1e88e5">
+  <meta name="msapplication-TileImage" content="{{ config.site_url }}assets/images/icon.png">
   
   <!-- Favicon variations -->
+  <link rel="icon" type="image/png" sizes="1024x1024" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="{{ config.site_url }}assets/images/icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="{{ config.site_url }}assets/images/icon.png">
   <link rel="icon" type="image/png" sizes="16x16" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="{{ config.site_url }}assets/images/icon.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="{{ config.site_url }}assets/images/icon.png">
   <link rel="apple-touch-icon" href="{{ config.site_url }}assets/images/icon.png">
+  
+  <!-- Preconnect to external domains -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 {% endblock %}
