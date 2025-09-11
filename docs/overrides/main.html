@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 
 {% block extrahead %}
-  <!-- Primary Open Graph / Facebook (Wide Format) -->
+  <!-- Primary Open Graph / Facebook (Square Format) -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ page.canonical_url }}">
   <meta property="og:title" content="{{ config.site_name }}">
   <meta property="og:description" content="{{ config.site_description }}">
-  <meta property="og:image" content="{{ config.site_url }}assets/images/logo.png">
+  <meta property="og:image" content="{{ config.site_url }}assets/images/icon.png">
   <meta property="og:image:width" content="1024">
-  <meta property="og:image:height" content="512">
+  <meta property="og:image:height" content="1024">
   <meta property="og:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
   <meta property="og:site_name" content="{{ config.site_name }}">
   <meta property="og:locale" content="en_US">
 
-  <!-- Twitter Card (Uses logo for large card) -->
+  <!-- Twitter Card Large (Uses horizontal logo for large card) -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:site" content="@biwakonbu">
   <meta name="twitter:url" content="{{ page.canonical_url }}">
