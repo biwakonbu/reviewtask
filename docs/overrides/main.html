@@ -4,8 +4,8 @@
   <!-- Primary Open Graph Protocol Meta Tags -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="{{ page.canonical_url }}">
-  <meta property="og:title" content="{% if page.title %}{{ page.title }} - {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}">
-  <meta property="og:description" content="{% if page.meta.description %}{{ page.meta.description }}{% else %}{{ config.site_description }}{% endif %}">
+  <meta property="og:title" content="{% if page and page.title %}{{ page.title }} - {{ config.site_name }}{% else %}{{ config.site_name }}{% endif %}">
+  <meta property="og:description" content="{% if page and page.meta and page.meta.description %}{{ page.meta.description }}{% else %}{{ config.site_description }}{% endif %}">
   <meta property="og:site_name" content="{{ config.site_name }}">
   <meta property="og:locale" content="en_US">
   
@@ -29,8 +29,8 @@
   <meta name="twitter:site" content="@biwakonbu">
   <meta name="twitter:creator" content="@biwakonbu">
   <meta name="twitter:url" content="{{ page.canonical_url }}">
-  <meta name="twitter:title" content="{% if page.title %}{{ page.title }}{% else %}{{ config.site_name }}{% endif %}">
-  <meta name="twitter:description" content="{% if page.meta.description %}{{ page.meta.description }}{% else %}{{ config.site_description }}{% endif %}">
+  <meta name="twitter:title" content="{% if page and page.title %}{{ page.title }}{% else %}{{ config.site_name }}{% endif %}">
+  <meta name="twitter:description" content="{% if page and page.meta and page.meta.description %}{{ page.meta.description }}{% else %}{{ config.site_description }}{% endif %}">
   <meta name="twitter:image" content="{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png">
   <meta name="twitter:image:alt" content="reviewtask - AI-Powered PR Review Management Tool">
 
@@ -50,10 +50,10 @@
   <!-- <meta property="fb:app_id" content="YOUR_FB_APP_ID"> -->
   
   <!-- Article Metadata (for blog posts or documentation pages) -->
-  {% if page.meta.date %}
+  {% if page and page.meta and page.meta.date %}
   <meta property="article:published_time" content="{{ page.meta.date }}">
   {% endif %}
-  {% if page.meta.author %}
+  {% if page and page.meta and page.meta.author %}
   <meta property="article:author" content="{{ page.meta.author }}">
   {% endif %}
   
@@ -95,7 +95,7 @@
     "screenshot": "{{ config.site_url }}assets/images/ogp/ogp-logo-1200x630.png",
     "softwareVersion": "Latest",
     "datePublished": "2024-01-01",
-    "dateModified": "{{ page.meta.date_modified if page.meta.date_modified else '2024-12-01' }}",
+    "dateModified": "{% if page and page.meta and page.meta.date_modified %}{{ page.meta.date_modified }}{% else %}2024-12-01{% endif %}",
     "keywords": "github, pull request, code review, ai, task management, cli, developer tools",
     "license": "https://github.com/biwakonbu/reviewtask/blob/main/LICENSE"
   }
