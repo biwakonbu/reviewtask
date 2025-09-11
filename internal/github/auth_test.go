@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -140,14 +141,16 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 					t.Errorf("Token mismatch: expected %s, got %s", tt.creds.Token, loaded.Token)
 				}
 
-				// Check file permissions
-				credFile := filepath.Join(tempDir, ".pr-review", "auth", "credentials.json")
-				info, err := os.Stat(credFile)
-				if err != nil {
-					t.Errorf("Failed to stat credentials file: %v", err)
-				}
-				if info.Mode().Perm() != 0600 {
-					t.Errorf("Incorrect file permissions: %v", info.Mode().Perm())
+				// Check file permissions (skip on Windows)
+				if runtime.GOOS != "windows" {
+					credFile := filepath.Join(tempDir, ".pr-review", "auth", "credentials.json")
+					info, err := os.Stat(credFile)
+					if err != nil {
+						t.Errorf("Failed to stat credentials file: %v", err)
+					}
+					if info.Mode().Perm() != 0600 {
+						t.Errorf("Incorrect file permissions: %v", info.Mode().Perm())
+					}
 				}
 			}
 		})
@@ -158,13 +161,13 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 func TestDetectAuthentication(t *testing.T) {
 	scenarios := []struct {
 		name      string
-		setup     func() func()
+		setup     func(tempDir string) func()
 		expected  *Credentials
 		expectErr bool
 	}{
 		{
 			name: "環境変数GITHUB_TOKEN",
-			setup: func() func() {
+			setup: func(tempDir string) func() {
 				os.Setenv("GITHUB_TOKEN", "env-github-token")
 				return func() { os.Unsetenv("GITHUB_TOKEN") }
 			},
@@ -176,7 +179,7 @@ func TestDetectAuthentication(t *testing.T) {
 		},
 		{
 			name: "環境変数GH_TOKEN",
-			setup: func() func() {
+			setup: func(tempDir string) func() {
 				os.Setenv("GH_TOKEN", "env-gh-token")
 				return func() { os.Unsetenv("GH_TOKEN") }
 			},
@@ -188,10 +191,7 @@ func TestDetectAuthentication(t *testing.T) {
 		},
 		{
 			name: "ローカル認証ファイル",
-			setup: func() func() {
-				tempDir := t.TempDir()
-				originalDir, _ := os.Getwd()
-
+			setup: func(tempDir string) func() {
 				// Save credentials to temp directory
 				creds := &Credentials{
 					Method:    "token",
@@ -200,11 +200,8 @@ func TestDetectAuthentication(t *testing.T) {
 				}
 				SaveCredentialsWithPath(tempDir, creds)
 
-				// Change to temp directory for test
-				os.Chdir(tempDir)
-
 				return func() {
-					os.Chdir(originalDir)
+					// No cleanup needed
 				}
 			},
 			expected: &Credentials{
@@ -215,21 +212,14 @@ func TestDetectAuthentication(t *testing.T) {
 		},
 		{
 			name: "認証情報なし",
-			setup: func() func() {
-				// Create temp directory to ensure no local auth file exists
-				tempDir := t.TempDir()
-				originalDir, _ := os.Getwd()
-
+			setup: func(tempDir string) func() {
 				// Clear environment variables
 				os.Unsetenv("GITHUB_TOKEN")
 				os.Unsetenv("GH_TOKEN")
 				os.Unsetenv("REVIEWTASK_GITHUB_TOKEN")
 
-				// Change to temp directory (empty, no auth files)
-				os.Chdir(tempDir)
-
 				return func() {
-					os.Chdir(originalDir)
+					// No cleanup needed
 				}
 			},
 			expected:  nil,
@@ -237,10 +227,7 @@ func TestDetectAuthentication(t *testing.T) {
 		},
 		{
 			name: "複数の認証ソース（優先順位テスト）",
-			setup: func() func() {
-				tempDir := t.TempDir()
-				originalDir, _ := os.Getwd()
-
+			setup: func(tempDir string) func() {
 				// Setup local file
 				localCreds := &Credentials{
 					Method:    "token",
@@ -252,12 +239,8 @@ func TestDetectAuthentication(t *testing.T) {
 				// Also set environment variable
 				os.Setenv("GITHUB_TOKEN", "env-priority-token")
 
-				// Change to temp directory
-				os.Chdir(tempDir)
-
 				return func() {
 					os.Unsetenv("GITHUB_TOKEN")
-					os.Chdir(originalDir)
 				}
 			},
 			expected: &Credentials{
@@ -270,10 +253,11 @@ func TestDetectAuthentication(t *testing.T) {
 
 	for _, tt := range scenarios {
 		t.Run(tt.name, func(t *testing.T) {
-			cleanup := tt.setup()
+			tempDir := t.TempDir()
+			cleanup := tt.setup(tempDir)
 			defer cleanup()
 
-			creds, err := DetectAuthentication()
+			creds, err := DetectAuthenticationWithPath(tempDir)
 
 			if tt.expectErr && err == nil {
 				t.Error("Expected error but got none")
@@ -333,24 +317,15 @@ func TestAuthenticationScenarios(t *testing.T) {
 				{
 					name: "古い認証情報を保存",
 					setup: func() {
-						tempDir := t.TempDir()
-						originalDir, _ := os.Getwd()
-
 						oldCreds := &Credentials{
 							Method:    "token",
 							Token:     "old-token",
 							Timestamp: time.Now().Add(-48 * time.Hour),
 						}
-						SaveCredentialsWithPath(tempDir, oldCreds)
-
-						os.Chdir(tempDir)
-						// Store cleanup function for later
-						t.Cleanup(func() {
-							os.Chdir(originalDir)
-						})
+						SaveCredentialsWithPath(".", oldCreds)
 					},
 					action: func() (*Credentials, error) {
-						return LoadCredentials()
+						return LoadCredentialsWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -367,11 +342,11 @@ func TestAuthenticationScenarios(t *testing.T) {
 							Token:     "new-token",
 							Timestamp: time.Now(),
 						}
-						err := SaveCredentials(newCreds)
+						err := SaveCredentialsWithPath(".", newCreds)
 						if err != nil {
 							return nil, err
 						}
-						return LoadCredentials()
+						return LoadCredentialsWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -388,22 +363,12 @@ func TestAuthenticationScenarios(t *testing.T) {
 				{
 					name: "GitHub Actions環境をシミュレート",
 					setup: func() {
-						// Create clean temp directory to avoid interference from previous tests
-						tempDir := t.TempDir()
-						originalDir, _ := os.Getwd()
-
 						os.Setenv("CI", "true")
 						os.Setenv("GITHUB_ACTIONS", "true")
 						os.Setenv("GITHUB_TOKEN", "gha-token")
-
-						os.Chdir(tempDir)
-						// Register cleanup immediately
-						t.Cleanup(func() {
-							os.Chdir(originalDir)
-						})
 					},
 					action: func() (*Credentials, error) {
-						return DetectAuthentication()
+						return DetectAuthenticationWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -423,6 +388,12 @@ func TestAuthenticationScenarios(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
+			// Create temp directory for entire scenario
+			tempDir := t.TempDir()
+			originalDir, _ := os.Getwd()
+			os.Chdir(tempDir)
+			defer os.Chdir(originalDir)
+
 			for _, step := range scenario.steps {
 				t.Run(step.name, func(t *testing.T) {
 					if step.setup != nil {
@@ -526,6 +497,11 @@ func TestCredentialsValidation(t *testing.T) {
 
 // TestAuthenticationErrorHandling tests error handling
 func TestAuthenticationErrorHandling(t *testing.T) {
+	testTempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(testTempDir)
+	defer os.Chdir(originalDir)
+
 	tests := []struct {
 		name      string
 		setup     func() func()
@@ -535,8 +511,9 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 		{
 			name: "権限のないディレクトリへの保存",
 			setup: func() func() {
-				tempDir := t.TempDir()
-				os.Chdir(tempDir)
+				if runtime.GOOS == "windows" {
+					return func() {}
+				}
 
 				// Create read-only directory
 				authDir := filepath.Join(".pr-review", "auth")
@@ -547,6 +524,9 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 				}
 			},
 			operation: func() error {
+				if runtime.GOOS == "windows" {
+					t.Skip("Skipping read-only directory test on Windows")
+				}
 				creds := &Credentials{
 					Method: "token",
 					Token:  "test",
@@ -558,9 +538,6 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 		{
 			name: "破損した認証ファイルの読み込み",
 			setup: func() func() {
-				tempDir := t.TempDir()
-				os.Chdir(tempDir)
-
 				authDir := filepath.Join(".pr-review", "auth")
 				os.MkdirAll(authDir, 0755)
 
@@ -579,8 +556,6 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 		{
 			name: "存在しないファイルの読み込み",
 			setup: func() func() {
-				tempDir := t.TempDir()
-				os.Chdir(tempDir)
 				return func() {}
 			},
 			operation: func() error {
@@ -639,13 +614,6 @@ func TestTokenPatterns(t *testing.T) {
 // TestConcurrentAuthOperations tests thread safety
 func TestConcurrentAuthOperations(t *testing.T) {
 	tempDir := t.TempDir()
-	originalDir, _ := os.Getwd()
-
-	// Change to temp directory and ensure cleanup
-	os.Chdir(tempDir)
-	defer func() {
-		os.Chdir(originalDir)
-	}()
 
 	// Run concurrent saves
 	done := make(chan bool, 10)
@@ -818,16 +786,9 @@ func DetectAuthentication() (*Credentials, error) {
 func TestAuthenticationIntegration(t *testing.T) {
 	t.Run("完全な認証ライフサイクル", func(t *testing.T) {
 		tempDir := t.TempDir()
-		originalDir, _ := os.Getwd()
-
-		// Change to temp directory and ensure cleanup
-		os.Chdir(tempDir)
-		defer func() {
-			os.Chdir(originalDir)
-		}()
 
 		// Phase 1: No auth
-		_, err := DetectAuthentication()
+		_, err := DetectAuthenticationWithPath(tempDir)
 		if err == nil {
 			t.Error("Should fail with no auth")
 		}
@@ -836,7 +797,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		os.Setenv("GITHUB_TOKEN", "lifecycle-token")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
-		creds, err := DetectAuthentication()
+		creds, err := DetectAuthenticationWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Should detect env auth: %v", err)
 		}
@@ -850,13 +811,13 @@ func TestAuthenticationIntegration(t *testing.T) {
 			Token:     "local-lifecycle-token",
 			Timestamp: time.Now(),
 		}
-		err = SaveCredentials(localCreds)
+		err = SaveCredentialsWithPath(tempDir, localCreds)
 		if err != nil {
 			t.Errorf("Failed to save credentials: %v", err)
 		}
 
 		// Phase 4: Local should override env
-		creds, err = DetectAuthentication()
+		creds, err = DetectAuthenticationWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Should detect local auth: %v", err)
 		}
@@ -865,7 +826,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		}
 
 		// Phase 5: Verify persistence
-		loaded, err := LoadCredentials()
+		loaded, err := LoadCredentialsWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Failed to load credentials: %v", err)
 		}
