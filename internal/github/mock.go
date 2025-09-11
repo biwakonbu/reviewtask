@@ -15,18 +15,21 @@ type MockGitHubClient struct {
 	prNumber    int
 
 	// Error control
-	getPRInfoError       error
-	getPRReviewsError    error
-	getSelfReviewsError  error
+	getPRInfoError          error
+	getPRReviewsError       error
+	getSelfReviewsError     error
 	getCurrentBranchPRError error
-	isPROpenError        error
+	isPROpenError           error
 
 	// Call tracking
-	GetPRInfoCalls        []int
-	GetPRReviewsCalls     []int
-	GetSelfReviewsCalls   []struct{ PRNumber int; Author string }
+	GetPRInfoCalls      []int
+	GetPRReviewsCalls   []int
+	GetSelfReviewsCalls []struct {
+		PRNumber int
+		Author   string
+	}
 	GetCurrentBranchPRCalls int
-	IsPROpenCalls         []int
+	IsPROpenCalls           []int
 }
 
 // NewMockGitHubClient creates a new mock client
@@ -116,7 +119,10 @@ func (m *MockGitHubClient) GetPRReviews(ctx context.Context, prNumber int) ([]Re
 }
 
 func (m *MockGitHubClient) GetSelfReviews(ctx context.Context, prNumber int, prAuthor string) ([]Review, error) {
-	m.GetSelfReviewsCalls = append(m.GetSelfReviewsCalls, struct{ PRNumber int; Author string }{prNumber, prAuthor})
+	m.GetSelfReviewsCalls = append(m.GetSelfReviewsCalls, struct {
+		PRNumber int
+		Author   string
+	}{prNumber, prAuthor})
 	if m.getSelfReviewsError != nil {
 		return nil, m.getSelfReviewsError
 	}
@@ -144,13 +150,13 @@ func (m *MockGitHubClient) Reset() {
 	m.reviews = nil
 	m.selfReviews = nil
 	m.prNumber = 0
-	
+
 	m.getPRInfoError = nil
 	m.getPRReviewsError = nil
 	m.getSelfReviewsError = nil
 	m.getCurrentBranchPRError = nil
 	m.isPROpenError = nil
-	
+
 	m.GetPRInfoCalls = nil
 	m.GetPRReviewsCalls = nil
 	m.GetSelfReviewsCalls = nil
@@ -160,10 +166,10 @@ func (m *MockGitHubClient) Reset() {
 
 // MockAuthTokenProvider provides a mock implementation for authentication
 type MockAuthTokenProvider struct {
-	token       string
-	source      string
-	err         error
-	sourceErr   error
+	token     string
+	source    string
+	err       error
+	sourceErr error
 }
 
 func NewMockAuthTokenProvider() *MockAuthTokenProvider {

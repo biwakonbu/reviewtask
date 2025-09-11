@@ -4,9 +4,9 @@ import "context"
 
 // TestHelper provides utilities for testing with GitHub client mocks
 type TestHelper struct {
-	MockClient     *MockGitHubClient
-	AuthProvider   *MockAuthTokenProvider
-	RepoProvider   *MockRepoInfoProvider
+	MockClient   *MockGitHubClient
+	AuthProvider *MockAuthTokenProvider
+	RepoProvider *MockRepoInfoProvider
 }
 
 // NewTestHelper creates a new test helper with mock implementations
@@ -96,12 +96,12 @@ func WithRealMockClient(setup func(*TestHelper), fn WithClientFunction) error {
 	if setup != nil {
 		setup(helper)
 	}
-	
+
 	client, err := helper.CreateMockClient()
 	if err != nil {
 		return err
 	}
-	
+
 	return fn(client)
 }
 
@@ -139,12 +139,12 @@ func ExampleBasicUsage() error {
 		if err != nil {
 			return err
 		}
-		
+
 		prInfo, err := client.GetPRInfo(context.Background(), prNumber)
 		if err != nil {
 			return err
 		}
-		
+
 		_ = prInfo // Use the PR info
 		return nil
 	})
