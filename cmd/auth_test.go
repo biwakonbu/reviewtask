@@ -489,21 +489,56 @@ func TestAuthErrorHandling(t *testing.T) {
 	})
 
 	t.Run("read-only filesystem simulation", func(t *testing.T) {
-		// Create .pr-review directory
-		err = os.MkdirAll(".pr-review", 0755)
+		// Create .pr-review directory with read-only permissions to simulate write failure
+		err = os.MkdirAll(".pr-review", 0555) // Read and execute only, no write
 		if err != nil {
 			t.Fatalf("Failed to create .pr-review directory: %v", err)
 		}
+		defer func() {
+			// Restore permissions for cleanup
+			os.Chmod(".pr-review", 0755)
+			os.RemoveAll(".pr-review")
+		}()
 
-		// Create a file with restrictive permissions to simulate write failure
-		restrictedFile := ".pr-review/readonly.txt"
-		err := os.WriteFile(restrictedFile, []byte("test"), 0444)
-		if err != nil {
-			t.Fatalf("Failed to create restricted file: %v", err)
+		// Try to save credentials to the read-only directory - this should fail
+		var output bytes.Buffer
+		cmd := &cobra.Command{
+			Use: "login",
+			RunE: func(cmd *cobra.Command, args []string) error {
+				// Mock stdin for testing
+				oldStdin := os.Stdin
+				r, w, _ := os.Pipe()
+				os.Stdin = r
+				done := make(chan struct{})
+				go func() {
+					defer w.Close()
+					defer close(done)
+					w.WriteString("test_token_12345\n")
+				}()
+				defer func() { 
+					<-done // Wait for goroutine to complete
+					os.Stdin = oldStdin 
+				}()
+
+				return runAuthLogin(cmd, args)
+			},
+		}
+		cmd.SetOut(&output)
+		cmd.SetErr(&output)
+
+		// Execute command - should fail due to write permission
+		err := cmd.Execute()
+		if err == nil {
+			t.Error("Expected error due to read-only filesystem, but got none")
+		} else {
+			t.Logf("Got expected error for read-only filesystem: %v", err)
 		}
 
-		// Test will depend on how the auth commands handle write permissions
-		// This exercises error handling paths
+		// Verify that auth.json was not created
+		authFile := ".pr-review/auth.json"
+		if _, err := os.Stat(authFile); !os.IsNotExist(err) {
+			t.Error("Auth file should not exist in read-only directory")
+		}
 	})
 }
 
