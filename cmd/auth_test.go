@@ -88,11 +88,16 @@ func TestAuthLoginCommand(t *testing.T) {
 					oldStdin := os.Stdin
 					r, w, _ := os.Pipe()
 					os.Stdin = r
+					done := make(chan struct{})
 					go func() {
 						defer w.Close()
+						defer close(done)
 						w.WriteString(tt.input)
 					}()
-					defer func() { os.Stdin = oldStdin }()
+					defer func() { 
+						<-done // Wait for goroutine to complete
+						os.Stdin = oldStdin 
+					}()
 
 					return runAuthLogin(cmd, args)
 				},
