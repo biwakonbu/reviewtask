@@ -1,3 +1,5 @@
+//go:build testmode
+
 package cmd
 
 import (
@@ -694,7 +696,7 @@ func TestAuthScenarios(t *testing.T) {
 			name: "新規ユーザー認証フロー",
 			steps: []authStep{
 				{cmd: "status", expectOut: []string{"Not authenticated"}},
-				{cmd: "login", input: "test-token-123\n"},
+				{cmd: "login", input: "test-token-123\n", expectOut: []string{"Test mode: skipping token verification", "Token saved locally"}},
 				{cmd: "status", expectOut: []string{"Authentication configured"}},
 				{cmd: "check", expectError: false}, // Test mode skips validation
 			},
@@ -706,7 +708,7 @@ func TestAuthScenarios(t *testing.T) {
 				{cmd: "status", expectOut: []string{"Authentication configured"}},
 				{cmd: "logout"},
 				{cmd: "status", expectOut: []string{"Not authenticated"}},
-				{cmd: "login", input: "new-token-456\n"},
+				{cmd: "login", input: "new-token-456\n", expectOut: []string{"Test mode: skipping token verification", "Token saved locally"}},
 				{cmd: "status", expectOut: []string{"Authentication configured"}},
 			},
 		},
@@ -721,7 +723,7 @@ func TestAuthScenarios(t *testing.T) {
 		{
 			name: "マルチ認証ソースの優先順位",
 			steps: []authStep{
-				{cmd: "login", input: "local-token\n"},
+				{cmd: "login", input: "local-token\n", expectOut: []string{"Test mode: skipping token verification", "Token saved locally"}},
 				{setup: func(t *testing.T, dir string) { os.Setenv("GITHUB_TOKEN", "env-token") }},
 				{cmd: "status", expectOut: []string{"Authentication configured"}},
 				{cleanup: func() { os.Unsetenv("GITHUB_TOKEN") }},
@@ -769,6 +771,10 @@ type authStep struct {
 }
 
 func executeAuthCommand(t *testing.T, step authStep) {
+	// Ensure test mode is enabled
+	os.Setenv("REVIEWTASK_TEST_MODE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
+	
 	var output bytes.Buffer
 	var cmd *cobra.Command
 
@@ -781,11 +787,16 @@ func executeAuthCommand(t *testing.T, step authStep) {
 					oldStdin := os.Stdin
 					r, w, _ := os.Pipe()
 					os.Stdin = r
+					done := make(chan struct{})
 					go func() {
 						defer w.Close()
+						defer close(done)
 						w.WriteString(step.input)
 					}()
-					defer func() { os.Stdin = oldStdin }()
+					defer func() { 
+						<-done // Wait for goroutine to complete
+						os.Stdin = oldStdin 
+					}()
 				}
 				return runAuthLogin(cmd, args)
 			},
