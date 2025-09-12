@@ -66,7 +66,7 @@ if [ "$SKIP_LINT" != "1" ]; then
     echo "🔍 Running linter (golangci-lint)..."
     if command -v golangci-lint >/dev/null 2>&1; then
         # Only check project files, exclude vendor and dependencies
-        if golangci-lint run --concurrency "$LINT_CONCURRENCY" --timeout=5m ./cmd/... ./internal/... ./test/... . 2>/dev/null || true; then
+        if golangci-lint run --concurrency "$LINT_CONCURRENCY" --timeout=5m ./cmd/... ./internal/... ./test/... .; then
             echo "✅ Linting completed (note: some warnings may have been ignored)"
         else
             echo "⚠️  Linting had issues, but continuing (use 'golangci-lint run' to see details)"
