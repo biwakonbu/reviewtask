@@ -316,7 +316,7 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 			tempDir := t.TempDir()
 
 			// Save credentials with path
-			err := SaveCredentialsWithPath(tempDir, tt.creds)
+			err := testSaveCredentialsWithPath(tempDir, tt.creds)
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
 			}
@@ -326,7 +326,7 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 
 			if !tt.expectError {
 				// Load credentials with path
-				loaded, err := LoadCredentialsWithPath(tempDir)
+				loaded, err := testLoadCredentialsWithPath(tempDir)
 				if err != nil {
 					t.Errorf("Failed to load credentials: %v", err)
 				}
@@ -399,7 +399,7 @@ func TestDetectAuthentication(t *testing.T) {
 					Token:     "local-file-token",
 					Timestamp: time.Now(),
 				}
-				SaveCredentialsWithPath(tempDir, creds)
+				testSaveCredentialsWithPath(tempDir, creds)
 
 				return func() {
 					// No cleanup needed
@@ -435,7 +435,7 @@ func TestDetectAuthentication(t *testing.T) {
 					Token:     "local-priority-token",
 					Timestamp: time.Now(),
 				}
-				SaveCredentialsWithPath(tempDir, localCreds)
+				testSaveCredentialsWithPath(tempDir, localCreds)
 
 				// Also set environment variable
 				os.Setenv("GITHUB_TOKEN", "env-priority-token")
@@ -458,7 +458,7 @@ func TestDetectAuthentication(t *testing.T) {
 			cleanup := tt.setup(tempDir)
 			defer cleanup()
 
-			creds, err := DetectAuthenticationWithPath(tempDir)
+			creds, err := testDetectAuthenticationWithPath(tempDir)
 
 			if tt.expectErr && err == nil {
 				t.Error("Expected error but got none")
@@ -494,7 +494,7 @@ func TestAuthenticationScenarios(t *testing.T) {
 				{
 					name: "認証情報なしの状態確認",
 					action: func() (*Credentials, error) {
-						return DetectAuthentication()
+						return testDetectAuthentication()
 					},
 					expectError: true,
 				},
@@ -504,7 +504,7 @@ func TestAuthenticationScenarios(t *testing.T) {
 						os.Setenv("GITHUB_TOKEN", "setup-token")
 					},
 					action: func() (*Credentials, error) {
-						return DetectAuthentication()
+						return testDetectAuthentication()
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -526,10 +526,10 @@ func TestAuthenticationScenarios(t *testing.T) {
 							Token:     "old-token",
 							Timestamp: time.Now().Add(-48 * time.Hour),
 						}
-						SaveCredentialsWithPath(".", oldCreds)
+						testSaveCredentialsWithPath(".", oldCreds)
 					},
 					action: func() (*Credentials, error) {
-						return LoadCredentialsWithPath(".")
+						return testLoadCredentialsWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -546,11 +546,11 @@ func TestAuthenticationScenarios(t *testing.T) {
 							Token:     "new-token",
 							Timestamp: time.Now(),
 						}
-						err := SaveCredentialsWithPath(".", newCreds)
+						err := testSaveCredentialsWithPath(".", newCreds)
 						if err != nil {
 							return nil, err
 						}
-						return LoadCredentialsWithPath(".")
+						return testLoadCredentialsWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -572,7 +572,7 @@ func TestAuthenticationScenarios(t *testing.T) {
 						os.Setenv("GITHUB_TOKEN", "gha-token")
 					},
 					action: func() (*Credentials, error) {
-						return DetectAuthenticationWithPath(".")
+						return testDetectAuthenticationWithPath(".")
 					},
 					expectError: false,
 					validate: func(t *testing.T, creds *Credentials) {
@@ -733,7 +733,7 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 					Method: "token",
 					Token:  "test",
 				}
-				return SaveCredentialsWithPath(basePath, creds)
+				return testSaveCredentialsWithPath(basePath, creds)
 			},
 			expectErr: true,
 		},
@@ -750,7 +750,7 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 				return func() {}
 			},
 			operation: func(basePath string) error {
-				_, err := LoadCredentialsWithPath(basePath)
+				_, err := testLoadCredentialsWithPath(basePath)
 				return err
 			},
 			expectErr: true,
@@ -761,7 +761,7 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 				return func() {}
 			},
 			operation: func(basePath string) error {
-				_, err := LoadCredentialsWithPath(basePath)
+				_, err := testLoadCredentialsWithPath(basePath)
 				return err
 			},
 			expectErr: true,
@@ -830,7 +830,7 @@ func TestConcurrentAuthOperations(t *testing.T) {
 				Token:     fmt.Sprintf("concurrent-token-%d", id),
 				Timestamp: time.Now(),
 			}
-			SaveCredentialsWithPath(tempDir, creds)
+			testSaveCredentialsWithPath(tempDir, creds)
 			done <- true
 		}(i)
 	}
@@ -841,7 +841,7 @@ func TestConcurrentAuthOperations(t *testing.T) {
 	}
 
 	// Verify final state is consistent
-	loaded, err := LoadCredentialsWithPath(tempDir)
+	loaded, err := testLoadCredentialsWithPath(tempDir)
 	if err != nil {
 		t.Errorf("Failed to load after concurrent saves: %v", err)
 	}
@@ -897,11 +897,12 @@ func IsValidGitHubToken(token string) bool {
 	return false
 }
 
-// DEPRECATED: Legacy mock functions for testing (not aligned with production)
-// TODO: These functions should be moved to production code or renamed to avoid masking production implementations
-// The production implementation uses AuthConfig with .pr-review/auth.json format, not Credentials with .pr-review/auth/credentials.json
+// Test-only helper functions for authentication testing
+// These functions use a different data structure (Credentials) and file path than production code
+// Production implementation uses AuthConfig with .pr-review/auth.json format, not Credentials with .pr-review/auth/credentials.json
+// Renamed with 'test' prefix to avoid masking production implementations
 
-func SaveCredentialsWithPath(basePath string, creds *Credentials) error {
+func testSaveCredentialsWithPath(basePath string, creds *Credentials) error {
 	authDir := filepath.Join(basePath, ".pr-review", "auth")
 	if err := os.MkdirAll(authDir, 0755); err != nil {
 		return fmt.Errorf("failed to create auth directory: %w", err)
@@ -928,11 +929,11 @@ func SaveCredentialsWithPath(basePath string, creds *Credentials) error {
 	return nil
 }
 
-func SaveCredentials(creds *Credentials) error {
-	return SaveCredentialsWithPath(".", creds)
+func testSaveCredentials(creds *Credentials) error {
+	return testtestSaveCredentialsWithPath(".", creds)
 }
 
-func LoadCredentialsWithPath(basePath string) (*Credentials, error) {
+func testtestLoadCredentialsWithPath(basePath string) (*Credentials, error) {
 	credFile := filepath.Join(basePath, ".pr-review", "auth", "credentials.json")
 
 	data, err := os.ReadFile(credFile)
@@ -948,14 +949,14 @@ func LoadCredentialsWithPath(basePath string) (*Credentials, error) {
 	return &creds, nil
 }
 
-func LoadCredentials() (*Credentials, error) {
-	return LoadCredentialsWithPath(".")
+func testLoadCredentials() (*Credentials, error) {
+	return testtestLoadCredentialsWithPath(".")
 }
 
 // DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
-func DetectAuthenticationWithPath(basePath string) (*Credentials, error) {
+func testtestDetectAuthenticationWithPath(basePath string) (*Credentials, error) {
 	// Check local file first
-	if creds, err := LoadCredentialsWithPath(basePath); err == nil {
+	if creds, err := testtestLoadCredentialsWithPath(basePath); err == nil {
 		return creds, nil
 	}
 
@@ -988,8 +989,8 @@ func DetectAuthenticationWithPath(basePath string) (*Credentials, error) {
 }
 
 // DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
-func DetectAuthentication() (*Credentials, error) {
-	return DetectAuthenticationWithPath(".")
+func testtestDetectAuthentication() (*Credentials, error) {
+	return testtestDetectAuthenticationWithPath(".")
 }
 
 // TestAuthenticationIntegration tests full integration scenarios
@@ -1001,7 +1002,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		tempDir := t.TempDir()
 
 		// Phase 1: No auth
-		_, err := DetectAuthenticationWithPath(tempDir)
+		_, err := testDetectAuthenticationWithPath(tempDir)
 		if err == nil {
 			t.Error("Should fail with no auth")
 		}
@@ -1010,7 +1011,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		os.Setenv("GITHUB_TOKEN", "lifecycle-token")
 		defer os.Unsetenv("GITHUB_TOKEN")
 
-		creds, err := DetectAuthenticationWithPath(tempDir)
+		creds, err := testDetectAuthenticationWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Should detect env auth: %v", err)
 		}
@@ -1024,13 +1025,13 @@ func TestAuthenticationIntegration(t *testing.T) {
 			Token:     "local-lifecycle-token",
 			Timestamp: time.Now(),
 		}
-		err = SaveCredentialsWithPath(tempDir, localCreds)
+		err = testSaveCredentialsWithPath(tempDir, localCreds)
 		if err != nil {
 			t.Errorf("Failed to save credentials: %v", err)
 		}
 
 		// Phase 4: Local should override env
-		creds, err = DetectAuthenticationWithPath(tempDir)
+		creds, err = testDetectAuthenticationWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Should detect local auth: %v", err)
 		}
@@ -1039,7 +1040,7 @@ func TestAuthenticationIntegration(t *testing.T) {
 		}
 
 		// Phase 5: Verify persistence
-		loaded, err := LoadCredentialsWithPath(tempDir)
+		loaded, err := testLoadCredentialsWithPath(tempDir)
 		if err != nil {
 			t.Errorf("Failed to load credentials: %v", err)
 		}
