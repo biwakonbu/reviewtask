@@ -32,8 +32,12 @@ func TestShowCommand(t *testing.T) {
 	defer os.Chdir(originalDir)
 
 	// Initialize git repository for tests
-	exec.Command("git", "init").Run()
-	exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run()
+	if err := exec.Command("git", "init").Run(); err != nil {
+		t.Fatalf("Failed to initialize git repository: %v", err)
+	}
+	if err := exec.Command("git", "remote", "add", "origin", "https://github.com/test/repo.git").Run(); err != nil {
+		t.Fatalf("Failed to add git remote origin: %v", err)
+	}
 
 	// Setup test data
 	setupTestDataForShow(t)
