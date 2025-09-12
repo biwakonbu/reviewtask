@@ -295,7 +295,7 @@ func TestNewClientWithProviders(t *testing.T) {
 		}
 
 		if client == nil {
-			t.Error("Expected client to be created")
+			t.Fatal("Expected client to be created")
 		}
 
 		if client.owner != "test-owner" {

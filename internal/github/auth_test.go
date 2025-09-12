@@ -29,7 +29,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chdir(oldDir)
-		
+
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
@@ -43,7 +43,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 		// Test 2: Environment variable token (highest priority)
 		testToken := "ghp_test_env_token"
 		t.Setenv("GITHUB_TOKEN", testToken)
-		
+
 		token, err := GetGitHubToken()
 		if err != nil {
 			t.Errorf("Expected no error with env token, got %v", err)
@@ -61,7 +61,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chdir(oldDir)
-		
+
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
@@ -69,7 +69,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 		// Test with environment variable
 		testToken := "ghp_test_source_token"
 		t.Setenv("GITHUB_TOKEN", testToken)
-		
+
 		source, token, err := GetTokenWithSource()
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -90,7 +90,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chdir(oldDir)
-		
+
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
@@ -139,7 +139,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chdir(oldDir)
-		
+
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
@@ -178,7 +178,7 @@ func TestProductionAuthAPIs(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer os.Chdir(oldDir)
-		
+
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
@@ -187,21 +187,21 @@ func TestProductionAuthAPIs(t *testing.T) {
 		// but we can test that the function saves the token correctly by checking
 		// the side effects (file creation) and documenting that interactive testing
 		// should be done manually or with more sophisticated mocking.
-		
+
 		// For now, let's test that the save mechanism works by directly testing saveLocalToken
 		// which is the core functionality that PromptForTokenWithSave relies on.
-		
+
 		// This documents the split between unit tests (automated) and integration tests (manual)
 		t.Log("Interactive testing of PromptForTokenWithSave requires manual verification")
 		t.Log("The save mechanism is tested via saveLocalToken/getLocalToken tests above")
-		
+
 		// Test the save side-effect by simulating what PromptForTokenWithSave does
 		testToken := "ghp_simulated_interactive_token"
 		err = saveLocalToken(testToken)
 		if err != nil {
 			t.Errorf("Save mechanism failed: %v", err)
 		}
-		
+
 		// Verify the token was saved correctly (this simulates the side-effect of PromptForTokenWithSave)
 		savedToken, err := getLocalToken()
 		if err != nil {

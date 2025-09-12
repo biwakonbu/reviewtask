@@ -62,8 +62,7 @@ type Reply struct {
 
 // Injectable function variables for easier testing/mocking
 var (
-	getGitHubTokenFn = GetGitHubToken
-	getRepoInfoFn    = getRepoInfo
+	getRepoInfoFn = getRepoInfo
 )
 
 func NewClient() (*Client, error) {
