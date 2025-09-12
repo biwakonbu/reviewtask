@@ -9,6 +9,12 @@ import (
 	"reviewtask/internal/github"
 )
 
+// isTestMode returns true if the application is running in test mode.
+// This function provides compile-time safety by using build constraints.
+func isTestMode() bool {
+	return isTestModeImpl()
+}
+
 var authCmd = &cobra.Command{
 	Use:   "auth",
 	Short: "Authentication management",
@@ -69,7 +75,7 @@ func runAuthLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	// Skip token verification in test environment
-	if os.Getenv("REVIEWTASK_TEST_MODE") == "true" {
+	if isTestMode() {
 		fmt.Println("✓ Test mode: skipping token verification")
 		fmt.Println("✓ Token saved locally")
 		return nil
@@ -96,7 +102,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	tokenSource, token, err := github.GetTokenWithSource()
 	if err != nil {
 		// In test mode, consider presence of local auth file as configured to stabilize tests
-		if os.Getenv("REVIEWTASK_TEST_MODE") == "true" {
+		if isTestMode() {
 			if _, statErr := os.Stat(".pr-review/auth.json"); statErr == nil {
 				fmt.Printf("✓ Authentication configured (source: %s)\n", "local config (.pr-review/auth.json)")
 				fmt.Println("✓ Test mode: skipping token verification")
@@ -111,7 +117,7 @@ func runAuthStatus(cmd *cobra.Command, args []string) error {
 	}
 
 	// Skip token verification in test environment
-	if os.Getenv("REVIEWTASK_TEST_MODE") == "true" {
+	if isTestMode() {
 		fmt.Printf("✓ Authentication configured (source: %s)\n", tokenSource)
 		fmt.Println("✓ Test mode: skipping token verification")
 		return nil
@@ -173,7 +179,7 @@ func runAuthCheck(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Token found (source: %s)\n", tokenSource)
 
 	// Skip token verification in test environment
-	if os.Getenv("REVIEWTASK_TEST_MODE") == "true" {
+	if isTestMode() {
 		fmt.Println("✓ Test mode: skipping detailed permission checks")
 		fmt.Println("✓ All permissions OK (test mode)")
 		return nil
