@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"reviewtask/internal/storage"
 	"github.com/spf13/cobra"
+	"reviewtask/internal/storage"
 )
 
 // DisplayAIModeContentForTest is a test helper that exposes displayAIModeContent

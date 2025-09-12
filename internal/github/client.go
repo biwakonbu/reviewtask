@@ -298,7 +298,7 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 			}
 		}
 	}
-	
+
 	// If we don't have comments from cache, fetch them
 	if allComments == nil {
 		// Get all PR review comments
