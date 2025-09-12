@@ -492,6 +492,10 @@ func TestAuthErrorHandling(t *testing.T) {
 	})
 
 	t.Run("read-only filesystem simulation", func(t *testing.T) {
+		// Enable test mode to avoid actual GitHub API calls
+		os.Setenv("REVIEWTASK_TEST_MODE", "true")
+		defer os.Unsetenv("REVIEWTASK_TEST_MODE")
+
 		// Create .pr-review directory with read-only permissions to simulate write failure
 		err = os.MkdirAll(".pr-review", 0555) // Read and execute only, no write
 		if err != nil {
