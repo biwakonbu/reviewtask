@@ -134,8 +134,19 @@ func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 	// Check cache first
 	if cached, ok := c.cache.Get("GetPRInfo", c.owner, c.repo, prNumber); ok {
-		if prInfo, ok := cached.(*PRInfo); ok {
-			return prInfo, nil
+		// Handle both direct *PRInfo and map[string]interface{} from JSON
+		switch v := cached.(type) {
+		case *PRInfo:
+			return v, nil
+		default:
+			// Re-marshal and unmarshal to handle JSON-decoded cache entries
+			jsonData, err := json.Marshal(cached)
+			if err == nil {
+				var prInfo PRInfo
+				if err := json.Unmarshal(jsonData, &prInfo); err == nil {
+					return &prInfo, nil
+				}
+			}
 		}
 	}
 
@@ -273,10 +284,23 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	var allComments []*github.PullRequestComment
 
 	if cached, ok := c.cache.Get("ListComments", c.owner, c.repo, cacheKey); ok {
-		if comments, ok := cached.([]*github.PullRequestComment); ok {
-			allComments = comments
+		// Handle both direct []*github.PullRequestComment and []interface{} from JSON
+		switch v := cached.(type) {
+		case []*github.PullRequestComment:
+			allComments = v
+		default:
+			// Re-marshal and unmarshal to handle JSON-decoded cache entries
+			jsonData, err := json.Marshal(cached)
+			if err == nil {
+				if err := json.Unmarshal(jsonData, &allComments); err == nil {
+					// Successfully decoded from JSON cache
+				}
+			}
 		}
-	} else {
+	}
+	
+	// If we don't have comments from cache, fetch them
+	if allComments == nil {
 		// Get all PR review comments
 		var err error
 		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
