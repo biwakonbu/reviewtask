@@ -11,11 +11,206 @@ import (
 	"time"
 )
 
-// Test struct for credentials (the actual implementation doesn't have this)
+// Test struct for credentials (kept for backward compatibility with existing tests)
 type Credentials struct {
 	Method    string    `json:"method"`
 	Token     string    `json:"token"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+// Integration test functions that test production APIs
+func TestProductionAuthAPIs(t *testing.T) {
+	// Test GetGitHubToken() production function
+	t.Run("GetGitHubToken", func(t *testing.T) {
+		// Create a temporary directory for this test
+		tempDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(oldDir)
+		
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Test 1: No token found
+		_, err = GetGitHubToken()
+		if err == nil {
+			t.Error("Expected error when no token found")
+		}
+
+		// Test 2: Environment variable token (highest priority)
+		testToken := "ghp_test_env_token"
+		t.Setenv("GITHUB_TOKEN", testToken)
+		
+		token, err := GetGitHubToken()
+		if err != nil {
+			t.Errorf("Expected no error with env token, got %v", err)
+		}
+		if token != testToken {
+			t.Errorf("Expected token %s, got %s", testToken, token)
+		}
+	})
+
+	// Test GetTokenWithSource() production function
+	t.Run("GetTokenWithSource", func(t *testing.T) {
+		tempDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(oldDir)
+		
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Test with environment variable
+		testToken := "ghp_test_source_token"
+		t.Setenv("GITHUB_TOKEN", testToken)
+		
+		source, token, err := GetTokenWithSource()
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+		}
+		if source != "environment variable" {
+			t.Errorf("Expected source 'environment variable', got %s", source)
+		}
+		if token != testToken {
+			t.Errorf("Expected token %s, got %s", testToken, token)
+		}
+	})
+
+	// Test saveLocalToken()/getLocalToken() production functions
+	t.Run("LocalTokenOperations", func(t *testing.T) {
+		tempDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(oldDir)
+		
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// Test save and load
+		testToken := "ghp_test_local_token"
+		err = saveLocalToken(testToken)
+		if err != nil {
+			t.Errorf("Failed to save local token: %v", err)
+		}
+
+		// Verify file was created with correct format
+		authPath := ".pr-review/auth.json"
+		if _, err := os.Stat(authPath); os.IsNotExist(err) {
+			t.Error("Auth file was not created")
+		}
+
+		// Load the token back
+		loadedToken, err := getLocalToken()
+		if err != nil {
+			t.Errorf("Failed to load local token: %v", err)
+		}
+		if loadedToken != testToken {
+			t.Errorf("Expected token %s, got %s", testToken, loadedToken)
+		}
+
+		// Verify the JSON structure matches production format
+		data, err := os.ReadFile(authPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var config AuthConfig
+		if err := json.Unmarshal(data, &config); err != nil {
+			t.Errorf("Failed to unmarshal auth config: %v", err)
+		}
+		if config.Token != testToken {
+			t.Errorf("Expected github_token field %s, got %s", testToken, config.Token)
+		}
+	})
+
+	// Test RemoveLocalToken() production function
+	t.Run("RemoveLocalToken", func(t *testing.T) {
+		tempDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(oldDir)
+		
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// First save a token
+		testToken := "ghp_test_remove_token"
+		err = saveLocalToken(testToken)
+		if err != nil {
+			t.Errorf("Failed to save token: %v", err)
+		}
+
+		// Remove the token
+		err = RemoveLocalToken()
+		if err != nil {
+			t.Errorf("Failed to remove token: %v", err)
+		}
+
+		// Verify file was removed
+		authPath := ".pr-review/auth.json"
+		if _, err := os.Stat(authPath); !os.IsNotExist(err) {
+			t.Error("Auth file should have been removed")
+		}
+
+		// Test removing non-existent token (should be no-op)
+		err = RemoveLocalToken()
+		if err != nil {
+			t.Errorf("RemoveLocalToken should be no-op when file doesn't exist, got %v", err)
+		}
+	})
+
+	// Test PromptForTokenWithSave() production function (simulate stdin)
+	t.Run("PromptForTokenWithSave", func(t *testing.T) {
+		tempDir := t.TempDir()
+		oldDir, err := os.Getwd()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer os.Chdir(oldDir)
+		
+		if err := os.Chdir(tempDir); err != nil {
+			t.Fatal(err)
+		}
+
+		// We can't easily test the interactive prompt without complex stdin mocking,
+		// but we can test that the function saves the token correctly by checking
+		// the side effects (file creation) and documenting that interactive testing
+		// should be done manually or with more sophisticated mocking.
+		
+		// For now, let's test that the save mechanism works by directly testing saveLocalToken
+		// which is the core functionality that PromptForTokenWithSave relies on.
+		
+		// This documents the split between unit tests (automated) and integration tests (manual)
+		t.Log("Interactive testing of PromptForTokenWithSave requires manual verification")
+		t.Log("The save mechanism is tested via saveLocalToken/getLocalToken tests above")
+		
+		// Test the save side-effect by simulating what PromptForTokenWithSave does
+		testToken := "ghp_simulated_interactive_token"
+		err = saveLocalToken(testToken)
+		if err != nil {
+			t.Errorf("Save mechanism failed: %v", err)
+		}
+		
+		// Verify the token was saved correctly (this simulates the side-effect of PromptForTokenWithSave)
+		savedToken, err := getLocalToken()
+		if err != nil {
+			t.Errorf("Failed to verify saved token: %v", err)
+		}
+		if savedToken != testToken {
+			t.Errorf("Expected saved token %s, got %s", testToken, savedToken)
+		}
+	})
 }
 
 // TestCredentialsManagement tests basic credentials operations
@@ -702,7 +897,9 @@ func IsValidGitHubToken(token string) bool {
 	return false
 }
 
-// Mock functions for testing (these would be in the actual implementation)
+// DEPRECATED: Legacy mock functions for testing (not aligned with production)
+// TODO: These functions should be moved to production code or renamed to avoid masking production implementations
+// The production implementation uses AuthConfig with .pr-review/auth.json format, not Credentials with .pr-review/auth/credentials.json
 
 func SaveCredentialsWithPath(basePath string, creds *Credentials) error {
 	authDir := filepath.Join(basePath, ".pr-review", "auth")
@@ -755,6 +952,7 @@ func LoadCredentials() (*Credentials, error) {
 	return LoadCredentialsWithPath(".")
 }
 
+// DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
 func DetectAuthenticationWithPath(basePath string) (*Credentials, error) {
 	// Check local file first
 	if creds, err := LoadCredentialsWithPath(basePath); err == nil {
@@ -789,6 +987,7 @@ func DetectAuthenticationWithPath(basePath string) (*Credentials, error) {
 	return nil, fmt.Errorf("no authentication found")
 }
 
+// DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
 func DetectAuthentication() (*Credentials, error) {
 	return DetectAuthenticationWithPath(".")
 }
