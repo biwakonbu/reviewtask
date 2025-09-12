@@ -929,11 +929,12 @@ func testSaveCredentialsWithPath(basePath string, creds *Credentials) error {
 	return nil
 }
 
-func testSaveCredentials(creds *Credentials) error {
-	return testtestSaveCredentialsWithPath(".", creds)
+// testSaveCredentials is a helper function for tests
+func testSaveCredentials(creds *Credentials) error { //nolint:unused
+	return testSaveCredentialsWithPath(".", creds)
 }
 
-func testtestLoadCredentialsWithPath(basePath string) (*Credentials, error) {
+func testLoadCredentialsWithPath(basePath string) (*Credentials, error) {
 	credFile := filepath.Join(basePath, ".pr-review", "auth", "credentials.json")
 
 	data, err := os.ReadFile(credFile)
@@ -949,14 +950,15 @@ func testtestLoadCredentialsWithPath(basePath string) (*Credentials, error) {
 	return &creds, nil
 }
 
-func testLoadCredentials() (*Credentials, error) {
-	return testtestLoadCredentialsWithPath(".")
+// testLoadCredentials is a helper function for tests
+func testLoadCredentials() (*Credentials, error) { //nolint:unused
+	return testLoadCredentialsWithPath(".")
 }
 
 // DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
-func testtestDetectAuthenticationWithPath(basePath string) (*Credentials, error) {
+func testDetectAuthenticationWithPath(basePath string) (*Credentials, error) {
 	// Check local file first
-	if creds, err := testtestLoadCredentialsWithPath(basePath); err == nil {
+	if creds, err := testLoadCredentialsWithPath(basePath); err == nil {
 		return creds, nil
 	}
 
@@ -989,8 +991,8 @@ func testtestDetectAuthenticationWithPath(basePath string) (*Credentials, error)
 }
 
 // DEPRECATED: Legacy mock function - production uses GetGitHubToken() and GetTokenWithSource()
-func testtestDetectAuthentication() (*Credentials, error) {
-	return testtestDetectAuthenticationWithPath(".")
+func testDetectAuthentication() (*Credentials, error) {
+	return testDetectAuthenticationWithPath(".")
 }
 
 // TestAuthenticationIntegration tests full integration scenarios

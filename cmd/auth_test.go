@@ -95,9 +95,9 @@ func TestAuthLoginCommand(t *testing.T) {
 						defer close(done)
 						w.WriteString(tt.input)
 					}()
-					defer func() { 
+					defer func() {
 						<-done // Wait for goroutine to complete
-						os.Stdin = oldStdin 
+						os.Stdin = oldStdin
 					}()
 
 					return runAuthLogin(cmd, args)
@@ -516,9 +516,9 @@ func TestAuthErrorHandling(t *testing.T) {
 					defer close(done)
 					w.WriteString("test_token_12345\n")
 				}()
-				defer func() { 
+				defer func() {
 					<-done // Wait for goroutine to complete
-					os.Stdin = oldStdin 
+					os.Stdin = oldStdin
 				}()
 
 				return runAuthLogin(cmd, args)
