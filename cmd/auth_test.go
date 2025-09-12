@@ -774,7 +774,7 @@ func executeAuthCommand(t *testing.T, step authStep) {
 	// Ensure test mode is enabled
 	os.Setenv("REVIEWTASK_TEST_MODE", "true")
 	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
-	
+
 	var output bytes.Buffer
 	var cmd *cobra.Command
 
@@ -793,9 +793,9 @@ func executeAuthCommand(t *testing.T, step authStep) {
 						defer close(done)
 						w.WriteString(step.input)
 					}()
-					defer func() { 
+					defer func() {
 						<-done // Wait for goroutine to complete
-						os.Stdin = oldStdin 
+						os.Stdin = oldStdin
 					}()
 				}
 				return runAuthLogin(cmd, args)
