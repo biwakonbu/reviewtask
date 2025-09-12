@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -823,9 +824,8 @@ func executeAuthCommand(t *testing.T, step authStep) {
 	os.Stderr = oldStderr
 
 	// Read captured output
-	buf := make([]byte, 4096)
-	n, _ := r.Read(buf)
-	output.Write(buf[:n])
+	capturedOutput, _ := io.ReadAll(r)
+	output.Write(capturedOutput)
 
 	if step.expectError && err == nil {
 		t.Errorf("Expected error for command %s but got none", step.cmd)
