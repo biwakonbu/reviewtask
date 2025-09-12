@@ -89,7 +89,7 @@ func getGHToken() (string, error) {
 
 // getLocalToken reads token from local auth configuration
 func getLocalToken() (string, error) {
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	data, err := os.ReadFile(authPath)
 	if err != nil {
 		return "", err
@@ -116,7 +116,7 @@ func saveLocalToken(token string) error {
 		return err
 	}
 
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	return os.WriteFile(authPath, data, 0600) // 600 permissions for security
 }
 
@@ -133,7 +133,7 @@ func GetTokenWithSource() (string, string, error) {
 
 	// 2. Local auth configuration (higher priority than gh CLI)
 	if token, err := getLocalToken(); err == nil && token != "" {
-		return "local config (.pr-review/auth.json)", token, nil
+		return fmt.Sprintf("local config (%s)", filepath.Join(".pr-review", "auth.json")), token, nil
 	}
 
 	// 3. gh CLI configuration
@@ -174,7 +174,7 @@ func PromptForTokenWithSave() (string, error) {
 
 // RemoveLocalToken removes the locally stored token
 func RemoveLocalToken() error {
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	err := os.Remove(authPath)
 	if os.IsNotExist(err) {
 		return nil // Already removed

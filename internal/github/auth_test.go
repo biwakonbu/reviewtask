@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+	
+	"reviewtask/internal/testutil"
 )
 
 // Test struct for credentials (kept for backward compatibility with existing tests)
@@ -273,9 +275,6 @@ func TestCredentialsManagement(t *testing.T) {
 
 // TestSaveAndLoadCredentials tests credential persistence
 func TestSaveAndLoadCredentials(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping credential save/load tests on Windows due to file system differences")
-	}
 	tests := []struct {
 		name        string
 		creds       *Credentials
@@ -357,9 +356,6 @@ func TestSaveAndLoadCredentials(t *testing.T) {
 
 // TestDetectAuthentication tests auth detection from various sources
 func TestDetectAuthentication(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping auth detection tests on Windows due to environment differences")
-	}
 	scenarios := []struct {
 		name      string
 		setup     func(tempDir string) func()
@@ -481,9 +477,6 @@ func TestDetectAuthentication(t *testing.T) {
 
 // TestAuthenticationScenarios tests complete authentication workflows
 func TestAuthenticationScenarios(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping authentication scenario tests on Windows")
-	}
 	scenarios := []struct {
 		name  string
 		steps []authStep
@@ -701,9 +694,6 @@ func TestCredentialsValidation(t *testing.T) {
 
 // TestAuthenticationErrorHandling tests error handling
 func TestAuthenticationErrorHandling(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping authentication error handling tests on Windows")
-	}
 	tests := []struct {
 		name      string
 		setup     func(basePath string) func()
@@ -713,22 +703,17 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 		{
 			name: "権限のないディレクトリへの保存",
 			setup: func(basePath string) func() {
-				if runtime.GOOS == "windows" {
-					return func() {}
-				}
-
 				// Create read-only directory under basePath
 				authDir := filepath.Join(basePath, ".pr-review", "auth")
-				os.MkdirAll(authDir, 0555)
+				os.MkdirAll(authDir, 0755)
+				// Use testutil helper for cross-platform read-only setting
+				testutil.SetReadOnly(t, authDir)
 
 				return func() {
-					os.Chmod(authDir, 0755)
+					testutil.SetWritable(t, authDir)
 				}
 			},
 			operation: func(basePath string) error {
-				if runtime.GOOS == "windows" {
-					t.Skip("Skipping read-only directory test on Windows")
-				}
 				creds := &Credentials{
 					Method: "token",
 					Token:  "test",
@@ -816,6 +801,7 @@ func TestTokenPatterns(t *testing.T) {
 
 // TestConcurrentAuthOperations tests thread safety
 func TestConcurrentAuthOperations(t *testing.T) {
+	// Skip this test on Windows as it relies on Unix-specific file permissions
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping concurrent auth operations test on Windows")
 	}
