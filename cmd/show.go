@@ -43,23 +43,23 @@ func runShow(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		// No task ID provided, show current or next task
-		return showCurrentOrNextTask(storageManager, jsonOut, briefOut)
+		return showCurrentOrNextTask(cmd, storageManager, jsonOut, briefOut)
 	}
 
 	// Task ID provided, show specific task
 	taskID := args[0]
-	return showSpecificTask(storageManager, taskID, jsonOut, briefOut)
+	return showSpecificTask(cmd, storageManager, taskID, jsonOut, briefOut)
 }
 
-func showCurrentOrNextTask(storageManager *storage.Manager, jsonOut, briefOut bool) error {
+func showCurrentOrNextTask(cmd *cobra.Command, storageManager *storage.Manager, jsonOut, briefOut bool) error {
 	allTasks, err := storageManager.GetAllTasks()
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
 	}
 
 	if len(allTasks) == 0 {
-		fmt.Println("No tasks found.")
-		fmt.Println("Run 'reviewtask [PR_NUMBER]' to analyze PR reviews and generate tasks.")
+		fmt.Fprintln(cmd.OutOrStdout(), "No tasks found.")
+		fmt.Fprintln(cmd.OutOrStdout(), "Run 'reviewtask [PR_NUMBER]' to analyze PR reviews and generate tasks.")
 		return nil
 	}
 
@@ -67,10 +67,10 @@ func showCurrentOrNextTask(storageManager *storage.Manager, jsonOut, briefOut bo
 	for _, task := range allTasks {
 		if task.Status == "doing" {
 			if !jsonOut && !briefOut {
-				fmt.Println("📍 Current Task (In Progress):")
-				fmt.Println()
+				fmt.Fprintln(cmd.OutOrStdout(), "📍 Current Task (In Progress):")
+				fmt.Fprintln(cmd.OutOrStdout())
 			}
-			return displayTaskDetails(task, jsonOut, briefOut)
+			return displayTaskDetails(cmd, task, jsonOut, briefOut)
 		}
 	}
 
@@ -91,21 +91,21 @@ func showCurrentOrNextTask(storageManager *storage.Manager, jsonOut, briefOut bo
 
 	if nextTask == nil {
 		if !jsonOut && !briefOut {
-			fmt.Println("✅ No current or next tasks found.")
-			fmt.Println("All tasks may be completed, cancelled, or pending.")
-			fmt.Println("Run 'reviewtask status' to see overall task status.")
+			fmt.Fprintln(cmd.OutOrStdout(), "✅ No current or next tasks found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "All tasks may be completed, cancelled, or pending.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Run 'reviewtask status' to see overall task status.")
 		}
 		return nil
 	}
 
 	if !jsonOut && !briefOut {
-		fmt.Println("🎯 Next Task (Recommended):")
-		fmt.Println()
+		fmt.Fprintln(cmd.OutOrStdout(), "🎯 Next Task (Recommended):")
+		fmt.Fprintln(cmd.OutOrStdout())
 	}
-	return displayTaskDetails(*nextTask, jsonOut, briefOut)
+	return displayTaskDetails(cmd, *nextTask, jsonOut, briefOut)
 }
 
-func showSpecificTask(storageManager *storage.Manager, taskID string, jsonOut, briefOut bool) error {
+func showSpecificTask(cmd *cobra.Command, storageManager *storage.Manager, taskID string, jsonOut, briefOut bool) error {
 	allTasks, err := storageManager.GetAllTasks()
 	if err != nil {
 		return fmt.Errorf("failed to load tasks: %w", err)
@@ -114,22 +114,22 @@ func showSpecificTask(storageManager *storage.Manager, taskID string, jsonOut, b
 	// Find the specific task
 	for _, task := range allTasks {
 		if task.ID == taskID {
-			return displayTaskDetails(task, jsonOut, briefOut)
+			return displayTaskDetails(cmd, task, jsonOut, briefOut)
 		}
 	}
 
 	return fmt.Errorf("task with ID '%s' not found", taskID)
 }
 
-func displayTaskDetails(task storage.Task, jsonOut, briefOut bool) error {
+func displayTaskDetails(cmd *cobra.Command, task storage.Task, jsonOut, briefOut bool) error {
 	// Handle JSON output
 	if jsonOut {
-		return displayTaskAsJSON(task)
+		return displayTaskAsJSON(cmd, task)
 	}
 
 	// Handle brief output
 	if briefOut {
-		return displayTaskBrief(task)
+		return displayTaskBrief(cmd, task)
 	}
 
 	// Default detailed output
@@ -140,85 +140,86 @@ func displayTaskDetails(task storage.Task, jsonOut, briefOut bool) error {
 	priorityIndicator := getPriorityIndicator(task.Priority)
 
 	// Header
-	fmt.Printf("Task ID: %s\n", task.ID)
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "Task ID: %s\n", task.ID)
 	title := cases.Title(language.Und)
-	fmt.Printf("Status: %s %s\n", statusIndicator, title.String(task.Status))
-	fmt.Printf("Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
+	fmt.Fprintf(out, "Status: %s %s\n", statusIndicator, title.String(task.Status))
+	fmt.Fprintf(out, "Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
 
 	// Implementation and Verification Status
 	if task.ImplementationStatus != "" {
 		implIndicator := getImplementationIndicator(task.ImplementationStatus)
-		fmt.Printf("Implementation: %s %s\n", implIndicator, title.String(task.ImplementationStatus))
+		fmt.Fprintf(out, "Implementation: %s %s\n", implIndicator, title.String(task.ImplementationStatus))
 	}
 	if task.VerificationStatus != "" {
 		verifyIndicator := getVerificationIndicator(task.VerificationStatus)
-		fmt.Printf("Verification: %s %s\n", verifyIndicator, title.String(task.VerificationStatus))
+		fmt.Fprintf(out, "Verification: %s %s\n", verifyIndicator, title.String(task.VerificationStatus))
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 
 	// Task Description
-	fmt.Println("📝 Task Description:")
-	fmt.Printf("   %s\n", task.Description)
-	fmt.Println()
+	fmt.Fprintln(out, "📝 Task Description:")
+	fmt.Fprintf(out, "   %s\n", task.Description)
+	fmt.Fprintln(out)
 
 	// Original Review Comment
-	fmt.Println("💬 Original Review Comment:")
+	fmt.Fprintln(out, "💬 Original Review Comment:")
 	originLines := strings.Split(task.OriginText, "\n")
 	for _, line := range originLines {
-		fmt.Printf("   %s\n", line)
+		fmt.Fprintf(out, "   %s\n", line)
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 
 	// File and Line Information
 	if task.File != "" {
-		fmt.Println("📂 Location:")
-		fmt.Printf("   File: %s\n", task.File)
+		fmt.Fprintln(out, "📂 Location:")
+		fmt.Fprintf(out, "   File: %s\n", task.File)
 		if task.Line > 0 {
-			fmt.Printf("   Line: %d\n", task.Line)
+			fmt.Fprintf(out, "   Line: %d\n", task.Line)
 		}
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// PR and Review Information
-	fmt.Println("🔗 Source Information:")
-	fmt.Printf("   PR Number: #%d\n", task.PRNumber)
-	fmt.Printf("   Review ID: %d\n", task.SourceReviewID)
-	fmt.Printf("   Comment ID: %d\n", task.SourceCommentID)
+	fmt.Fprintln(out, "🔗 Source Information:")
+	fmt.Fprintf(out, "   PR Number: #%d\n", task.PRNumber)
+	fmt.Fprintf(out, "   Review ID: %d\n", task.SourceReviewID)
+	fmt.Fprintf(out, "   Comment ID: %d\n", task.SourceCommentID)
 	if task.TaskIndex > 0 {
-		fmt.Printf("   Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
+		fmt.Fprintf(out, "   Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 
 	// Timestamps
-	fmt.Println("🕒 Timeline:")
+	fmt.Fprintln(out, "🕒 Timeline:")
 	if task.CreatedAt != "" {
 		if createdTime, err := time.Parse("2006-01-02T15:04:05Z", task.CreatedAt); err == nil {
-			fmt.Printf("   Created: %s\n", createdTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "   Created: %s\n", createdTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Printf("   Created: %s\n", task.CreatedAt)
+			fmt.Fprintf(out, "   Created: %s\n", task.CreatedAt)
 		}
 	}
 	if task.UpdatedAt != "" && task.UpdatedAt != task.CreatedAt {
 		if updatedTime, err := time.Parse("2006-01-02T15:04:05Z", task.UpdatedAt); err == nil {
-			fmt.Printf("   Updated: %s\n", updatedTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "   Updated: %s\n", updatedTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Printf("   Updated: %s\n", task.UpdatedAt)
+			fmt.Fprintf(out, "   Updated: %s\n", task.UpdatedAt)
 		}
 	}
 
 	// Last verification timestamp
 	if task.LastVerificationAt != "" {
 		if verifyTime, err := time.Parse("2006-01-02T15:04:05Z", task.LastVerificationAt); err == nil {
-			fmt.Printf("   Last Verification: %s\n", verifyTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "   Last Verification: %s\n", verifyTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Printf("   Last Verification: %s\n", task.LastVerificationAt)
+			fmt.Fprintf(out, "   Last Verification: %s\n", task.LastVerificationAt)
 		}
 	}
-	fmt.Println()
+	fmt.Fprintln(out)
 
 	// Verification History
 	if len(task.VerificationResults) > 0 {
-		fmt.Println("🔍 Verification History:")
+		fmt.Fprintln(out, "🔍 Verification History:")
 		for i, result := range task.VerificationResults {
 			resultIndicator := "✅"
 			if !result.Success {
@@ -230,47 +231,47 @@ func displayTaskDetails(task storage.Task, jsonOut, briefOut bool) error {
 				verifyTime = parsedTime.Format("2006-01-02 15:04:05")
 			}
 
-			fmt.Printf("   %d. %s %s", i+1, resultIndicator, verifyTime)
+			fmt.Fprintf(out, "   %d. %s %s", i+1, resultIndicator, verifyTime)
 			if len(result.ChecksRun) > 0 {
-				fmt.Printf(" (checks: %s)", strings.Join(result.ChecksRun, ", "))
+				fmt.Fprintf(out, " (checks: %s)", strings.Join(result.ChecksRun, ", "))
 			}
-			fmt.Println()
+			fmt.Fprintln(out)
 
 			if result.FailureReason != "" {
-				fmt.Printf("      Reason: %s\n", result.FailureReason)
+				fmt.Fprintf(out, "      Reason: %s\n", result.FailureReason)
 			}
 		}
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// Action suggestions based on status
-	fmt.Println("💡 Suggested Actions:")
+	fmt.Fprintln(out, "💡 Suggested Actions:")
 	switch task.Status {
 	case "todo":
-		fmt.Printf("   Start working on this task:\n")
-		fmt.Printf("   reviewtask update %s doing\n", task.ID)
+		fmt.Fprintf(out, "   Start working on this task:\n")
+		fmt.Fprintf(out, "   reviewtask update %s doing\n", task.ID)
 	case "doing":
-		fmt.Printf("   Verify and complete task:\n")
-		fmt.Printf("   reviewtask complete %s\n", task.ID)
-		fmt.Printf("   \n")
-		fmt.Printf("   Or verify without completing:\n")
-		fmt.Printf("   reviewtask verify %s\n", task.ID)
-		fmt.Printf("   \n")
-		fmt.Printf("   Or mark as done directly (skip verification):\n")
-		fmt.Printf("   reviewtask update %s done\n", task.ID)
-		fmt.Printf("   \n")
-		fmt.Printf("   Or mark as pending if blocked:\n")
-		fmt.Printf("   reviewtask update %s pending\n", task.ID)
+		fmt.Fprintf(out, "   Verify and complete task:\n")
+		fmt.Fprintf(out, "   reviewtask complete %s\n", task.ID)
+		fmt.Fprintf(out, "   \n")
+		fmt.Fprintf(out, "   Or verify without completing:\n")
+		fmt.Fprintf(out, "   reviewtask verify %s\n", task.ID)
+		fmt.Fprintf(out, "   \n")
+		fmt.Fprintf(out, "   Or mark as done directly (skip verification):\n")
+		fmt.Fprintf(out, "   reviewtask update %s done\n", task.ID)
+		fmt.Fprintf(out, "   \n")
+		fmt.Fprintf(out, "   Or mark as pending if blocked:\n")
+		fmt.Fprintf(out, "   reviewtask update %s pending\n", task.ID)
 	case "pending":
-		fmt.Printf("   Resume work when unblocked:\n")
-		fmt.Printf("   reviewtask update %s doing\n", task.ID)
-		fmt.Printf("   \n")
-		fmt.Printf("   Or cancel if no longer needed:\n")
-		fmt.Printf("   reviewtask update %s cancel\n", task.ID)
+		fmt.Fprintf(out, "   Resume work when unblocked:\n")
+		fmt.Fprintf(out, "   reviewtask update %s doing\n", task.ID)
+		fmt.Fprintf(out, "   \n")
+		fmt.Fprintf(out, "   Or cancel if no longer needed:\n")
+		fmt.Fprintf(out, "   reviewtask update %s cancel\n", task.ID)
 	case "done":
-		fmt.Printf("   Task completed! ✅\n")
+		fmt.Fprintf(out, "   Task completed! ✅\n")
 	case "cancel", "cancelled":
-		fmt.Printf("   Task cancelled. ❌\n")
+		fmt.Fprintf(out, "   Task cancelled. ❌\n")
 	}
 
 	return nil
@@ -333,7 +334,7 @@ func getVerificationIndicator(status string) string {
 }
 
 // displayTaskAsJSON outputs the task in JSON format
-func displayTaskAsJSON(task storage.Task) error {
+func displayTaskAsJSON(cmd *cobra.Command, task storage.Task) error {
 	// Create a simplified JSON representation of the task
 	jsonTask := map[string]interface{}{
 		"id":                    task.ID,
@@ -360,22 +361,23 @@ func displayTaskAsJSON(task storage.Task) error {
 		return fmt.Errorf("failed to marshal task to JSON: %w", err)
 	}
 
-	fmt.Println(string(jsonData))
+	fmt.Fprintln(cmd.OutOrStdout(), string(jsonData))
 	return nil
 }
 
 // displayTaskBrief outputs the task in brief format (limited lines)
-func displayTaskBrief(task storage.Task) error {
+func displayTaskBrief(cmd *cobra.Command, task storage.Task) error {
+	out := cmd.OutOrStdout()
 	// Brief format: just essential info, max ~5 lines
-	fmt.Printf("Task: %s | %s | %s\n", task.ID, task.Status, task.Priority)
-	fmt.Printf("Description: %s\n", task.Description)
+	fmt.Fprintf(out, "Task: %s | %s | %s\n", task.ID, task.Status, task.Priority)
+	fmt.Fprintf(out, "Description: %s\n", task.Description)
 	if task.File != "" {
-		fmt.Printf("File: %s", task.File)
+		fmt.Fprintf(out, "File: %s", task.File)
 		if task.Line > 0 {
-			fmt.Printf(":%d", task.Line)
+			fmt.Fprintf(out, ":%d", task.Line)
 		}
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
-	fmt.Printf("PR: #%d | Comment: %d\n", task.PRNumber, task.SourceCommentID)
+	fmt.Fprintf(out, "PR: #%d | Comment: %d\n", task.PRNumber, task.SourceCommentID)
 	return nil
 }

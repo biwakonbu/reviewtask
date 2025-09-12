@@ -18,7 +18,7 @@ import (
 
 // TestShowCommand tests the show command functionality
 func TestShowCommand(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-show-test-*")
 	if err != nil {
@@ -104,7 +104,7 @@ func TestShowCommand(t *testing.T) {
 
 // TestShowCurrentOrNextTask tests the showCurrentOrNextTask function
 func TestShowCurrentOrNextTask(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-show-current-test-*")
 	if err != nil {
@@ -143,7 +143,7 @@ func TestShowCurrentOrNextTask(t *testing.T) {
 			cmd.SetOut(&output)
 
 			storageManager := storage.NewManager()
-			err := showCurrentOrNextTask(storageManager, false, false)
+			err := showCurrentOrNextTask(cmd, storageManager, false, false)
 
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
@@ -165,7 +165,7 @@ func TestShowCurrentOrNextTask(t *testing.T) {
 
 // TestShowSpecificTask tests the showSpecificTask function
 func TestShowSpecificTask(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-show-specific-test-*")
 	if err != nil {
@@ -218,7 +218,7 @@ func TestShowSpecificTask(t *testing.T) {
 			cmd.SetOut(&output)
 
 			storageManager := storage.NewManager()
-			err := showSpecificTask(storageManager, tt.taskID, false, false)
+			err := showSpecificTask(cmd, storageManager, tt.taskID, false, false)
 
 			if tt.expectError && err == nil {
 				t.Errorf("Expected error but got none")
@@ -288,7 +288,8 @@ func TestDisplayTaskDetails(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			displayTaskDetails(tt.task, false, false)
+			cmd := &cobra.Command{}
+			displayTaskDetails(cmd, tt.task, false, false)
 
 			// Restore stdout
 			w.Close()
@@ -412,7 +413,7 @@ func TestGetVerificationIndicator(t *testing.T) {
 
 // TestShowCommandErrorHandling tests error handling in show command
 func TestShowCommandErrorHandling(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-show-error-test-*")
 	if err != nil {
@@ -489,7 +490,7 @@ func TestShowCommandErrorHandling(t *testing.T) {
 
 // TestShowCommandWithComplexTasks tests show command with complex task data
 func TestShowCommandWithComplexTasks(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "reviewtask-show-complex-test-*")
 	if err != nil {
@@ -664,7 +665,7 @@ func setupComplexTestDataForShow(t *testing.T) {
 
 // TestShowScenarios tests complete show command workflows
 func TestShowScenarios(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	scenarios := []struct {
 		name     string
 		setup    func(t *testing.T, dir string)
@@ -880,7 +881,7 @@ func setupScenarioTasks(t *testing.T, dir string, tasks []storage.Task) {
 
 // TestShowJapaneseContent tests Japanese content display
 func TestShowJapaneseContent(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
@@ -957,7 +958,7 @@ func TestShowJapaneseContent(t *testing.T) {
 
 // TestShowPerformance tests performance with large datasets
 func TestShowPerformance(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	tempDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	os.Chdir(tempDir)
@@ -1001,7 +1002,7 @@ func TestShowPerformance(t *testing.T) {
 
 // TestShowErrorRecovery tests error recovery scenarios
 func TestShowErrorRecovery(t *testing.T) {
-	t.Skip("Skipping due to output capture issue - show command uses fmt.Print directly")
+	// Fixed: show command now uses cmd.OutOrStdout for proper test output capture
 	tests := []struct {
 		name      string
 		setup     func(t *testing.T, dir string)
