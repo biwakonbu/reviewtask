@@ -171,7 +171,7 @@ func TestDebugFetchReviews(t *testing.T) {
 					VerboseMode: true,
 				},
 			}
-			storageManager := storage.NewManager()
+			storageManager := storage.NewManagerWithBase(t.TempDir())
 			err := debugFetchReviews(cfg, storageManager, tt.prNumber)
 
 			if tt.expectError && err == nil {
@@ -251,7 +251,7 @@ func TestDebugGenerateTasks(t *testing.T) {
 					VerboseMode: true,
 				},
 			}
-			storageManager := storage.NewManager()
+			storageManager := storage.NewManagerWithBase(t.TempDir())
 			err := debugGenerateTasks(cfg, storageManager, tt.prNumber)
 
 			if tt.expectError && err == nil {

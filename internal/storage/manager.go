@@ -101,6 +101,12 @@ func NewManager() *Manager {
 	}
 }
 
+func NewManagerWithBase(baseDir string) *Manager {
+	return &Manager{
+		baseDir: baseDir,
+	}
+}
+
 func (m *Manager) ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
