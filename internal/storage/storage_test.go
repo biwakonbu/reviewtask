@@ -528,17 +528,18 @@ func TestConcurrentTaskOperations(t *testing.T) {
 
 	// Simulate concurrent reads
 	done := make(chan bool, 10)
+	errors := make(chan error, 10)
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer func() { done <- true }()
 			data, err := os.ReadFile(tasksPath)
 			if err != nil {
-				t.Logf("Failed to read: %v", err)
+				errors <- fmt.Errorf("failed to read: %v", err)
 				return
 			}
 			var tf TasksFile
 			if err := json.Unmarshal(data, &tf); err != nil {
-				t.Logf("Failed to unmarshal: %v", err)
+				errors <- fmt.Errorf("failed to unmarshal: %v", err)
 				return
 			}
 		}()
@@ -547,6 +548,12 @@ func TestConcurrentTaskOperations(t *testing.T) {
 	// Wait for all goroutines
 	for i := 0; i < 10; i++ {
 		<-done
+	}
+
+	// Check for any errors
+	close(errors)
+	for err := range errors {
+		t.Logf("Concurrent read error: %v", err)
 	}
 }
 
