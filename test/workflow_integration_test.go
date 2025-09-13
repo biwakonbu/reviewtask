@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"reviewtask/internal/storage"
-	"reviewtask/internal/testutil"
+	"reviewtask/internal/testutil/mocks"
 )
 
 // TestBranchStatisticsWorkflow tests the complete workflow with mocks
@@ -13,7 +13,7 @@ func TestBranchStatisticsWorkflow(t *testing.T) {
 	// instead of real file system operations
 
 	// Setup: Create mock storage with test data
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	mockStorage.SetCurrentBranch("feature/auth")
 	mockStorage.SetPRsForBranch("feature/auth", []int{1, 3})
 	mockStorage.SetPRsForBranch("feature/db", []int{2})
@@ -216,7 +216,7 @@ func TestCommandLineWorkflow(t *testing.T) {
 	// This test simulates how users would interact with the CLI commands
 	// using the new branch-specific functionality
 
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	mockStorage.SetCurrentBranch("feature/new-feature")
 	mockStorage.SetPRsForBranch("feature/new-feature", []int{5})
 	mockStorage.SetPRsForBranch("main", []int{6})

@@ -121,7 +121,7 @@ func (v *Verifier) CompleteTaskWithVerification(taskID string) error {
 			FailureReason: err.Error(),
 			ChecksRun:     []string{},
 		}
-		v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
+		_ = v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
 		return fmt.Errorf("verification failed: %w", err)
 	}
 
@@ -143,7 +143,7 @@ func (v *Verifier) CompleteTaskWithVerification(taskID string) error {
 			FailureReason: fmt.Sprintf("Mandatory verification checks failed: %s", strings.Join(failedChecks, ", ")),
 			ChecksRun:     allChecks,
 		}
-		v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
+		_ = v.storage.UpdateTaskVerificationStatus(taskID, "failed", failureResult)
 		return fmt.Errorf("verification failed for %s", strings.Join(failedChecks, ", "))
 	}
 

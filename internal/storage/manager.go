@@ -101,6 +101,12 @@ func NewManager() *Manager {
 	}
 }
 
+func NewManagerWithBase(baseDir string) *Manager {
+	return &Manager{
+		baseDir: baseDir,
+	}
+}
+
 func (m *Manager) ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
@@ -435,9 +441,7 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 
 	// Content is similar, preserve existing task statuses
 	// Preserve existing tasks and their statuses
-	for _, existingTask := range existing {
-		result = append(result, existingTask)
-	}
+	result = append(result, existing...)
 
 	// Add any genuinely new tasks (beyond existing count)
 	if len(new) > len(existing) {

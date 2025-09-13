@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"reviewtask/internal/testutil"
 )
 
 func TestFindClaudeCLI(t *testing.T) {
-	// Skip on Windows as shell scripts won't work
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping shell script based test on Windows")
-	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -28,18 +26,14 @@ func TestFindClaudeCLI(t *testing.T) {
 			name: "Claude in PATH",
 			pathSetup: func() (cleanup func()) {
 				// Create temporary directory with mock claude executable
-				tempDir, err := os.MkdirTemp("", "claude_test")
-				if err != nil {
-					t.Fatalf("Failed to create temp dir: %v", err)
-				}
+				tempDir := testutil.CreateTestDir(t, "claude_test")
 
-				claudePath := filepath.Join(tempDir, "claude")
-				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
-					t.Fatalf("Failed to create mock claude: %v", err)
-				}
+				// Create mock Claude CLI
+				testutil.CreateMockClaude(t, tempDir, "claude version 1.0.0")
 
 				// Add to PATH
-				os.Setenv("PATH", tempDir+":"+originalPath)
+				pathSep := string(os.PathListSeparator)
+				os.Setenv("PATH", tempDir+pathSep+originalPath)
 
 				return func() { os.RemoveAll(tempDir) }
 			},
@@ -59,10 +53,8 @@ func TestFindClaudeCLI(t *testing.T) {
 					t.Fatalf("Failed to create claude dir: %v", err)
 				}
 
-				claudePath := filepath.Join(claudeDir, "claude")
-				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'claude version 1.0.0'\n"), 0755); err != nil {
-					t.Fatalf("Failed to create mock claude: %v", err)
-				}
+				// Create mock Claude CLI
+				testutil.CreateMockClaude(t, claudeDir, "claude version 1.0.0")
 
 				return func() { os.RemoveAll(filepath.Join(homeDir, ".claude")) }
 			},

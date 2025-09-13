@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"reviewtask/internal/storage"
@@ -175,7 +176,8 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 		r, w, _ = os.Pipe()
 		os.Stdout = w
 
-		err := displayTaskDetails(task)
+		cmd := &cobra.Command{}
+		err := displayTaskDetails(cmd, task, false, false)
 		require.NoError(t, err, "displayTaskDetails should work with UUID: %s", task.ID)
 
 		w.Close()
