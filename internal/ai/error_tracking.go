@@ -10,24 +10,24 @@ import (
 
 // CommentError represents an error that occurred while processing a comment
 type CommentError struct {
-	CommentID     int64     `json:"comment_id"`
-	CommentBody   string    `json:"comment_body"`          // First 500 chars for context
-	SourceReview  int64     `json:"source_review_id"`
-	File          string    `json:"file"`
-	Line          int       `json:"line"`
-	Author        string    `json:"author"`
-	ErrorType     string    `json:"error_type"`            // "json_parse", "api_failure", "context_overflow", "timeout"
-	ErrorMessage  string    `json:"error_message"`
-	RetryCount    int       `json:"retry_count"`
-	Timestamp     time.Time `json:"timestamp"`
-	RecoveryUsed  bool      `json:"recovery_used"`         // Whether JSON recovery was attempted
-	PromptSize    int       `json:"prompt_size,omitempty"` // Size of prompt that caused the error
-	ResponseSize  int       `json:"response_size,omitempty"` // Size of response received
+	CommentID    int64     `json:"comment_id"`
+	CommentBody  string    `json:"comment_body"` // First 500 chars for context
+	SourceReview int64     `json:"source_review_id"`
+	File         string    `json:"file"`
+	Line         int       `json:"line"`
+	Author       string    `json:"author"`
+	ErrorType    string    `json:"error_type"` // "json_parse", "api_failure", "context_overflow", "timeout"
+	ErrorMessage string    `json:"error_message"`
+	RetryCount   int       `json:"retry_count"`
+	Timestamp    time.Time `json:"timestamp"`
+	RecoveryUsed bool      `json:"recovery_used"`           // Whether JSON recovery was attempted
+	PromptSize   int       `json:"prompt_size,omitempty"`   // Size of prompt that caused the error
+	ResponseSize int       `json:"response_size,omitempty"` // Size of response received
 }
 
 // ErrorTracker manages error logging for comment processing failures
 type ErrorTracker struct {
-	enabled   bool
+	enabled     bool
 	verboseMode bool
 	errorFile   string
 }

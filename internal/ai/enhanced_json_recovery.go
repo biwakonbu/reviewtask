@@ -19,7 +19,7 @@ func NewEnhancedJSONRecovery(enableRecovery bool, verboseMode bool) *EnhancedJSO
 		verboseMode: verboseMode,
 		config: &JSONRecoveryConfig{
 			EnableRecovery:        enableRecovery,
-			MaxRecoveryAttempts:   5, // Increased for enhanced recovery
+			MaxRecoveryAttempts:   5,   // Increased for enhanced recovery
 			PartialThreshold:      0.6, // Lower threshold for more aggressive recovery
 			LogTruncatedResponses: true,
 		},
@@ -133,8 +133,8 @@ func (ejr *EnhancedJSONRecovery) completeTruncatedJSON(response string, result *
 
 	// Add minimal completion to make it parseable
 	completionStrategies := []string{
-		truncatedPart + `}]`,                                    // Simple object end
-		truncatedPart + `", "priority": "medium"}]`,             // Complete common field
+		truncatedPart + `}]`,                                          // Simple object end
+		truncatedPart + `", "priority": "medium"}]`,                   // Complete common field
 		truncatedPart + `", "priority": "medium", "status": "todo"}]`, // Complete with defaults
 	}
 
