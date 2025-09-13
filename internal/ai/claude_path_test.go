@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
-	
+
 	"reviewtask/internal/testutil"
 )
 
@@ -27,7 +27,7 @@ func TestFindClaudeCLI(t *testing.T) {
 			pathSetup: func() (cleanup func()) {
 				// Create temporary directory with mock claude executable
 				tempDir := testutil.CreateTestDir(t, "claude_test")
-				
+
 				// Create mock Claude CLI
 				testutil.CreateMockClaude(t, tempDir, "claude version 1.0.0")
 

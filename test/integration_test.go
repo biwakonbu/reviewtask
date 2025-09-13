@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"reviewtask/internal/storage"
-	"reviewtask/internal/testutil"
+	"reviewtask/internal/testutil/mocks"
 )
 
 // TestBranchStatisticsIntegration tests the full branch-specific statistics workflow
@@ -28,7 +28,7 @@ func TestCurrentBranchStatistics(t *testing.T) {
 	testBranch := "feature/test"
 
 	// Mock storage manager that returns our test branch
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	mockStorage.SetCurrentBranch(testBranch)
 	mockStorage.SetPRsForBranch(testBranch, []int{1, 2})
 
@@ -70,10 +70,10 @@ func TestCurrentBranchStatistics(t *testing.T) {
 
 // TestStatisticsManager for integration tests
 type TestStatisticsManager struct {
-	storageManager *testutil.MockStorageManager
+	storageManager *mocks.MockStorageManager
 }
 
-func NewTestStatisticsManager(storageManager *testutil.MockStorageManager) *TestStatisticsManager {
+func NewTestStatisticsManager(storageManager *mocks.MockStorageManager) *TestStatisticsManager {
 	return &TestStatisticsManager{
 		storageManager: storageManager,
 	}

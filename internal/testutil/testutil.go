@@ -11,35 +11,35 @@ import (
 // CreateExecutable creates a mock executable file with proper permissions for the current platform
 func CreateExecutable(t *testing.T, dir, name, content string) string {
 	t.Helper()
-	
+
 	// Add .exe extension on Windows
 	if runtime.GOOS == "windows" {
 		if filepath.Ext(name) == "" {
 			name += ".exe"
 		}
 	}
-	
+
 	path := filepath.Join(dir, name)
-	
+
 	// Write the file
 	if err := os.WriteFile(path, []byte(content), 0755); err != nil {
 		t.Fatalf("Failed to create executable: %v", err)
 	}
-	
+
 	// On Unix, ensure executable permissions
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(path, 0755); err != nil {
 			t.Fatalf("Failed to set executable permissions: %v", err)
 		}
 	}
-	
+
 	return path
 }
 
 // CreateMockClaude creates a mock Claude CLI for testing
 func CreateMockClaude(t *testing.T, dir string, response string) string {
 	t.Helper()
-	
+
 	var content string
 	if runtime.GOOS == "windows" {
 		// Create a batch file for Windows
@@ -60,41 +60,41 @@ func NormalizePath(path string) string {
 // CreateTestDir creates a temporary test directory with proper cleanup
 func CreateTestDir(t *testing.T, name string) string {
 	t.Helper()
-	
+
 	dir, err := os.MkdirTemp("", name)
 	if err != nil {
 		t.Fatalf("Failed to create test directory: %v", err)
 	}
-	
+
 	t.Cleanup(func() {
 		os.RemoveAll(dir)
 	})
-	
+
 	return dir
 }
 
 // CreateTestFile creates a test file with the given content
 func CreateTestFile(t *testing.T, dir, name, content string) string {
 	t.Helper()
-	
+
 	path := filepath.Join(dir, name)
-	
+
 	// Ensure directory exists
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		t.Fatalf("Failed to create directory: %v", err)
 	}
-	
+
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	return path
 }
 
 // SetReadOnly sets a file or directory to read-only mode
 func SetReadOnly(t *testing.T, path string) {
 	t.Helper()
-	
+
 	if runtime.GOOS == "windows" {
 		// On Windows, use attrib command
 		cmd := exec.Command("attrib", "+R", path)
@@ -115,7 +115,7 @@ func SetReadOnly(t *testing.T, path string) {
 // SetWritable sets a file or directory to writable mode
 func SetWritable(t *testing.T, path string) {
 	t.Helper()
-	
+
 	if runtime.GOOS == "windows" {
 		// On Windows, use attrib command
 		cmd := exec.Command("attrib", "-R", path)
@@ -155,13 +155,13 @@ func IsExecutable(path string) bool {
 	if err != nil {
 		return false
 	}
-	
+
 	if runtime.GOOS == "windows" {
 		// On Windows, check file extension
 		ext := filepath.Ext(path)
 		return ext == ".exe" || ext == ".cmd" || ext == ".bat"
 	}
-	
+
 	// On Unix, check executable bit
 	return info.Mode()&0111 != 0
 }

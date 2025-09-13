@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 	"time"
-	
+
 	"reviewtask/internal/testutil"
 )
 
@@ -35,6 +35,10 @@ func TestProductionAuthAPIs(t *testing.T) {
 		if err := os.Chdir(tempDir); err != nil {
 			t.Fatal(err)
 		}
+
+		// Clear environment variables that might contain tokens
+		t.Setenv("GITHUB_TOKEN", "")
+		t.Setenv("GH_CONFIG_DIR", tempDir) // Point to empty temp dir
 
 		// Test 1: No token found
 		_, err = GetGitHubToken()
