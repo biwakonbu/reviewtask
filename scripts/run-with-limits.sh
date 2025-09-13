@@ -15,6 +15,25 @@ export GOMAXPROCS="$MAX_PROCS"
 export GOMEMLIMIT="$MEM_LIMIT"
 export GOGC="$GOGC_VALUE"
 
+# Show usage if no arguments provided
+if [ $# -eq 0 ]; then
+    echo "Usage: $0 <command> [args...]"
+    echo ""
+    echo "Run any command with conservative CPU/Memory/GC limits to avoid overloading WSL/host."
+    echo ""
+    echo "Examples:"
+    echo "  $0 golangci-lint run ./..."
+    echo "  MAX_PROCS=1 MEM_LIMIT=800MiB $0 go vet ./..."
+    echo ""
+    echo "Environment variables (with defaults):"
+    echo "  MAX_PROCS=$MAX_PROCS        - GOMAXPROCS setting"
+    echo "  MEM_LIMIT=$MEM_LIMIT       - GOMEMLIMIT setting"
+    echo "  GOGC_VALUE=$GOGC_VALUE           - GOGC setting"
+    echo "  NICENESS=$NICENESS            - nice priority level"
+    echo "  IONICENESS=$IONICENESS           - ionice priority level (if available)"
+    exit 1
+fi
+
 # Lower scheduling priority to reduce host contention
 NICENESS=${NICENESS:-10}
 IONICENESS=${IONICENESS:-7}
