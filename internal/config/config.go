@@ -106,6 +106,11 @@ func defaultConfig() *Config {
 			LowPriorityPatterns: []string{"nit:", "nits:", "minor:", "suggestion:", "consider:", "optional:", "style:"},
 			LowPriorityStatus:   "pending",
 		},
+		// AISettings defaults are applied intelligently during config loading:
+		// - Boolean fields: Only set when field is missing from JSON (not when explicitly false)
+		// - String/numeric fields: Only set when zero-valued or empty
+		// - This ensures explicit user settings (including false) are always preserved
+		// - New boolean fields added in future versions will get correct defaults for old configs
 		AISettings: AISettings{
 			UserLanguage:             "English",
 			OutputFormat:             "json",
