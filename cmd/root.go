@@ -261,8 +261,8 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	// Generate tasks using AI - always use optimized processing
 	fmt.Println("  Analyzing reviews with AI...")
 
-	// Pre-flight check: Verify Claude CLI is authenticated
-	_, err = ai.NewRealClaudeClient()
+	// Pre-flight check: Verify Claude CLI is authenticated (unless skip is configured)
+	_, err = ai.NewRealClaudeClientWithConfig(cfg)
 	if err != nil {
 		// Check if it's an authentication error
 		if strings.Contains(err.Error(), "authentication") {
@@ -281,6 +281,10 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 			fmt.Println("3. Follow the authentication prompts")
 			fmt.Println()
 			fmt.Println("4. Once authenticated, run this command again")
+			fmt.Println()
+			fmt.Println("Or if Claude Code logs out frequently, you can skip this check:")
+			fmt.Println("- Set environment variable: SKIP_CLAUDE_AUTH_CHECK=true")
+			fmt.Println("- Or in config: \"skip_claude_auth_check\": true")
 			fmt.Println()
 			return fmt.Errorf("claude CLI authentication required")
 		}

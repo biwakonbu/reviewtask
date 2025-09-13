@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reviewtask/internal/config"
 	"runtime"
 	"strings"
 )
@@ -21,6 +22,11 @@ type RealClaudeClient struct {
 
 // NewRealClaudeClient creates a new real Claude client
 func NewRealClaudeClient() (*RealClaudeClient, error) {
+	return NewRealClaudeClientWithConfig(nil)
+}
+
+// NewRealClaudeClientWithConfig creates a new real Claude client with optional config
+func NewRealClaudeClientWithConfig(cfg *config.Config) (*RealClaudeClient, error) {
 	claudePath, err := findClaudeCLI()
 	if err != nil {
 		return nil, fmt.Errorf("claude command not found: %w\n\nTo resolve this issue:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Or ensure Claude CLI is in your PATH\n3. Or create an alias 'claude' pointing to your Claude CLI installation\n4. Or place it in one of these locations:\n   - ~/.claude/local/claude\n   - ~/.npm-global/bin/claude\n   - ~/.volta/bin/claude", err)
@@ -40,9 +46,17 @@ func NewRealClaudeClient() (*RealClaudeClient, error) {
 
 	client := &RealClaudeClient{claudePath: claudePath}
 
-	// Check if Claude CLI is authenticated
-	if err := client.CheckAuthentication(); err != nil {
-		return nil, fmt.Errorf("claude CLI authentication check failed: %w\n\nTo authenticate:\n1. Run: claude (this will open the Claude interface)\n2. Use the /login command in Claude\n3. Follow the authentication prompts", err)
+	// Skip authentication check if configured or environment variable is set
+	skipAuthCheck := os.Getenv("SKIP_CLAUDE_AUTH_CHECK") == "true"
+	if cfg != nil && cfg.AISettings.SkipClaudeAuthCheck {
+		skipAuthCheck = true
+	}
+
+	if !skipAuthCheck {
+		// Check if Claude CLI is authenticated
+		if err := client.CheckAuthentication(); err != nil {
+			return nil, fmt.Errorf("claude CLI authentication check failed: %w\n\nTo authenticate:\n1. Run: claude (this will open the Claude interface)\n2. Use the /login command in Claude\n3. Follow the authentication prompts\n\nOr skip this check by setting:\n- Environment variable: SKIP_CLAUDE_AUTH_CHECK=true\n- Config file: \"skip_claude_auth_check\": true", err)
+		}
 	}
 
 	return client, nil
@@ -50,6 +64,12 @@ func NewRealClaudeClient() (*RealClaudeClient, error) {
 
 // CheckAuthentication verifies that Claude CLI is properly authenticated
 func (c *RealClaudeClient) CheckAuthentication() error {
+	// Skip authentication check if SKIP_CLAUDE_AUTH_CHECK is set
+	// This helps with Claude Code's frequent logout issues
+	if os.Getenv("SKIP_CLAUDE_AUTH_CHECK") == "true" {
+		return nil
+	}
+
 	// Try a simple test command to check authentication
 	ctx := context.Background()
 	testInput := "test"
@@ -70,6 +90,7 @@ func (c *RealClaudeClient) CheckAuthentication() error {
 	} else {
 		cmd = exec.CommandContext(ctx, c.claudePath, args...)
 	}
+
 
 	cmd.Stdin = strings.NewReader(testInput)
 

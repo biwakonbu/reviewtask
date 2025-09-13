@@ -296,6 +296,26 @@ Authentication sources (in order of preference):
 
 ## Configuration
 
+### Prompt Profiles
+
+Control the prompt style used for task generation. Default remains `legacy` for backward compatibility.
+
+```json
+{
+  "ai_settings": {
+    "prompt_profile": "v2"  // one of: legacy, v2 (alias: rich), compact, minimal
+  }
+}
+```
+
+Render the exact prompt (offline, no AI) from saved reviews for inspection or A/B comparison:
+
+```bash
+reviewtask debug fetch review 123          # Save .pr-review/PR-123/reviews.json
+reviewtask debug prompt 123 --profile v2   # Print v2 prompt to stdout
+reviewtask debug prompt 123 --profile legacy
+```
+
 ### Priority Rules
 
 Edit `.pr-review/config.json` to customize priority rules:

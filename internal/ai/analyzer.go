@@ -28,8 +28,8 @@ type Analyzer struct {
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
-	// Default to real Claude client
-	client, err := NewRealClaudeClient()
+	// Default to real Claude client with config for auth check control
+	client, err := NewRealClaudeClientWithConfig(cfg)
 	if err != nil {
 		// If Claude is not available, return analyzer without client
 		// This allows tests to inject their own mock
@@ -437,61 +437,38 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 // }
 
 func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
-	// Initialize prompt size tracker
-	a.promptSizeTracker = NewPromptSizeTracker()
+    // Switch by prompt profile; default to legacy for full backward compatibility
+    profile := strings.ToLower(strings.TrimSpace(a.config.AISettings.PromptProfile))
+    if profile == "" || profile == "legacy" {
+        return a.buildAnalysisPromptLegacy(reviews)
+    }
+    return a.buildAnalysisPromptV2(reviews, profile)
+}
 
-	var languageInstruction string
-	if a.config.AISettings.UserLanguage != "" {
-		languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
-	}
-	a.promptSizeTracker.TrackLanguagePrompt(languageInstruction)
+// buildAnalysisPromptLegacy preserves the original prompt construction
+func (a *Analyzer) buildAnalysisPromptLegacy(reviews []github.Review) string {
+    // Initialize prompt size tracker
+    a.promptSizeTracker = NewPromptSizeTracker()
 
-	priorityPrompt := a.config.GetPriorityPrompt()
-	a.promptSizeTracker.TrackPriorityPrompt(priorityPrompt)
+    var languageInstruction string
+    if a.config.AISettings.UserLanguage != "" {
+        languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+    }
+    a.promptSizeTracker.TrackLanguagePrompt(languageInstruction)
 
-	// Add nitpick handling instructions
-	nitpickInstruction := a.buildNitpickInstruction()
-	a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
+    priorityPrompt := a.config.GetPriorityPrompt()
+    a.promptSizeTracker.TrackPriorityPrompt(priorityPrompt)
 
-	// Build review data
-	var reviewsData strings.Builder
-	reviewsData.WriteString("PR Reviews to analyze:\n\n")
+    // Add nitpick handling instructions
+    nitpickInstruction := a.buildNitpickInstruction()
+    a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
 
-	for i, review := range reviews {
-		reviewsData.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
-		reviewsData.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
-		reviewsData.WriteString(fmt.Sprintf("State: %s\n", review.State))
+    // Build review data (full detail)
+    reviewsDataStr := a.renderReviewsData(reviews, "rich")
+    a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
 
-		if review.Body != "" {
-			reviewsData.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
-		}
-
-		if len(review.Comments) > 0 {
-			reviewsData.WriteString("Comments:\n")
-			for _, comment := range review.Comments {
-				reviewsData.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
-				reviewsData.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
-				reviewsData.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
-				reviewsData.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
-
-				if len(comment.Replies) > 0 {
-					reviewsData.WriteString("  Replies:\n")
-					for _, reply := range comment.Replies {
-						reviewsData.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
-					}
-				}
-				reviewsData.WriteString("\n")
-			}
-		}
-		reviewsData.WriteString("\n")
-	}
-
-	// Track review data
-	reviewsDataStr := reviewsData.String()
-	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
-
-	// Build system prompt
-	systemPrompt := `You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
+    // System prompt and schema
+    systemPrompt := `You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
 
 CRITICAL: Return response as JSON array with this EXACT format:
 [
@@ -522,15 +499,132 @@ Task Generation Guidelines:
 - Ensure each task is self-contained and actionable
 - Don't artificially combine unrelated items
 - AI deduplication will handle any redundancy later`
-	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
+    a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
 
-	prompt := fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+    return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+}
 
-	return prompt
+// buildAnalysisPromptV2 builds a profile-aware prompt with compact/rich options
+func (a *Analyzer) buildAnalysisPromptV2(reviews []github.Review, profile string) string {
+    // Initialize prompt size tracker
+    a.promptSizeTracker = NewPromptSizeTracker()
+
+    // Language
+    var languageInstruction string
+    if a.config.AISettings.UserLanguage != "" {
+        languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+    }
+    a.promptSizeTracker.TrackLanguagePrompt(languageInstruction)
+
+    // Priority
+    priorityPrompt := a.config.GetPriorityPrompt()
+    a.promptSizeTracker.TrackPriorityPrompt(priorityPrompt)
+
+    // Nitpick guidance
+    nitpickInstruction := a.buildNitpickInstruction()
+    a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
+
+    // Choose detail level based on profile
+    detail := "rich"
+    switch profile {
+    case "rich", "v2":
+        detail = "rich"
+    case "compact":
+        detail = "compact"
+    case "minimal":
+        detail = "minimal"
+    }
+
+    reviewsDataStr := a.renderReviewsData(reviews, detail)
+    a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
+
+    // Stricter schema wording, same fields as legacy to keep parser compatible
+    systemPrompt := `You are analyzing GitHub PR review comments to produce actionable developer tasks.
+
+Return ONLY a valid JSON array. Each element MUST contain exactly these fields:
+- description (string): actionable instruction in the specified language
+- origin_text (string): verbatim original review comment text
+- priority (string): one of critical|high|medium|low
+- source_review_id (number)
+- source_comment_id (number)
+- file (string): file path or empty if not applicable
+- line (number): line number or 0 if not applicable
+- task_index (number): 0-based index within the comment
+
+Rules:
+- Do NOT include any explanations outside the JSON array
+- Create separate tasks for distinct actions; skip non-actionable remarks
+- Preserve origin_text exactly; do not translate or summarize it`
+    a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
+
+    return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+}
+
+// renderReviewsData renders reviews and comments with varying detail levels
+func (a *Analyzer) renderReviewsData(reviews []github.Review, detail string) string {
+    var b strings.Builder
+    b.WriteString("PR Reviews to analyze:\n\n")
+    for i, review := range reviews {
+        b.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
+        switch detail {
+        case "rich":
+            b.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
+            b.WriteString(fmt.Sprintf("State: %s\n", review.State))
+            if review.Body != "" {
+                b.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
+            }
+            if len(review.Comments) > 0 {
+                b.WriteString("Comments:\n")
+                for _, comment := range review.Comments {
+                    b.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
+                    b.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
+                    b.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
+                    b.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
+                    if len(comment.Replies) > 0 {
+                        b.WriteString("  Replies:\n")
+                        for _, reply := range comment.Replies {
+                            b.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
+                        }
+                    }
+                    b.WriteString("\n")
+                }
+            }
+        case "compact":
+            // Keep only essential fields; omit reviewer/state; include comment summaries
+            if len(review.Comments) > 0 {
+                b.WriteString("Comments:\n")
+                for _, comment := range review.Comments {
+                    b.WriteString(fmt.Sprintf("  ID:%d File:%s:%d Author:%s\n", comment.ID, comment.File, comment.Line, comment.Author))
+                    b.WriteString(fmt.Sprintf("  Text: %s\n\n", comment.Body))
+                }
+            } else if review.Body != "" {
+                b.WriteString(fmt.Sprintf("Body: %s\n\n", review.Body))
+            }
+        case "minimal":
+            // Only IDs and raw text; smallest footprint
+            if review.Body != "" {
+                b.WriteString("Body:\n")
+                b.WriteString(review.Body)
+                b.WriteString("\n")
+            }
+            for _, comment := range review.Comments {
+                b.WriteString(fmt.Sprintf("Comment %d: %s\n", comment.ID, comment.Body))
+            }
+            b.WriteString("\n")
+        }
+        b.WriteString("\n")
+    }
+    return b.String()
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
-	return a.callClaudeCodeWithRetryStrategy(prompt, 0)
+    return a.callClaudeCodeWithRetryStrategy(prompt, 0)
+}
+
+// RenderAnalysisPrompt exposes the internal prompt builder for tooling/debug.
+// It does not perform any AI calls and is safe for local/offline usage.
+func (a *Analyzer) RenderAnalysisPrompt(reviews []github.Review) string {
+    return a.buildAnalysisPrompt(reviews)
 }
 
 // callClaudeCodeWithRetryStrategy executes Claude API call with intelligent retry logic
@@ -566,7 +660,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	client := a.claudeClient
 	if client == nil {
 		var err error
-		client, err = NewRealClaudeClient()
+		client, err = NewRealClaudeClientWithConfig(a.config)
 		if err != nil {
 			return nil, NewClaudeAPIError("client initialization failed", err)
 		}

@@ -97,6 +97,7 @@ reviewtask show                      # Find next task to work on
 # Test specific phases independently  
 reviewtask debug fetch review 123    # Fetch reviews for PR #123 only
 reviewtask debug fetch task 123      # Generate tasks from saved reviews only
+reviewtask debug prompt 123 --profile v2   # Render analysis prompt locally (no AI)
 ```
 
 **Verbose Mode for Detailed Logging:**
@@ -117,6 +118,26 @@ reviewtask debug fetch task 123      # Generate tasks from saved reviews only
 - Pattern detection for common API failure modes
 
 ### 3. Team Collaboration Rules
+
+## Golden Tests (Local-Only Snapshot Tests)
+
+- Purpose: lock down prompt outputs and CLI templates as “expected snapshots” and detect regressions.
+- Scope in this repo:
+  - Analyzer prompt profiles: legacy, v2/rich, compact, minimal
+  - CLI template: `reviewtask prompt stdout pr-review`
+
+Usage (no AI used):
+- Run focused tests: `make test-fast`
+- Update snapshots intentionally: `UPDATE_GOLDEN=1 go test -v ./internal/ai -run BuildAnalysisPrompt_Golden`
+- Update CLI template snapshot: `UPDATE_GOLDEN=1 go test -v ./cmd -run PromptStdout_PRReview_Golden`
+
+Files:
+- `internal/ai/testdata/prompts/<profile>/basic.golden`
+- `cmd/testdata/pr-review.golden`
+
+Notes:
+- Keep snapshots stable; update only when specification changes.
+- Normalize or avoid variable data in prompts used for golden tests.
 
 **For PR Authors:**
 - Run `reviewtask` immediately after receiving reviews

@@ -76,5 +76,6 @@ ENV/
 # Cache directories
 .cache/
 node_modules/
+.gocache/
 
 hhkb.xkm
