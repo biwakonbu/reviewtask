@@ -260,6 +260,33 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 
 	// Generate tasks using AI - always use optimized processing
 	fmt.Println("  Analyzing reviews with AI...")
+
+	// Pre-flight check: Verify Claude CLI is authenticated
+	_, err = ai.NewRealClaudeClient()
+	if err != nil {
+		// Check if it's an authentication error
+		if strings.Contains(err.Error(), "authentication") {
+			fmt.Println()
+			fmt.Println("❌ Claude CLI Authentication Required")
+			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+			fmt.Println()
+			fmt.Println("The Claude CLI is not authenticated. To fix this:")
+			fmt.Println()
+			fmt.Println("1. Open Claude by running:")
+			fmt.Println("   $ claude")
+			fmt.Println()
+			fmt.Println("2. In the Claude interface, use the login command:")
+			fmt.Println("   /login")
+			fmt.Println()
+			fmt.Println("3. Follow the authentication prompts")
+			fmt.Println()
+			fmt.Println("4. Once authenticated, run this command again")
+			fmt.Println()
+			return fmt.Errorf("claude CLI authentication required")
+		}
+		return fmt.Errorf("failed to initialize Claude client: %w", err)
+	}
+
 	analyzer := ai.NewAnalyzer(cfg)
 
 	// Calculate optimal batch size based on number of comments

@@ -3,6 +3,7 @@ package ai
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -37,7 +38,66 @@ func NewRealClaudeClient() (*RealClaudeClient, error) {
 		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
-	return &RealClaudeClient{claudePath: claudePath}, nil
+	client := &RealClaudeClient{claudePath: claudePath}
+
+	// Check if Claude CLI is authenticated
+	if err := client.CheckAuthentication(); err != nil {
+		return nil, fmt.Errorf("claude CLI authentication check failed: %w\n\nTo authenticate:\n1. Run: claude (this will open the Claude interface)\n2. Use the /login command in Claude\n3. Follow the authentication prompts", err)
+	}
+
+	return client, nil
+}
+
+// CheckAuthentication verifies that Claude CLI is properly authenticated
+func (c *RealClaudeClient) CheckAuthentication() error {
+	// Try a simple test command to check authentication
+	ctx := context.Background()
+	testInput := "test"
+
+	args := []string{"--output-format", "json"}
+	var cmd *exec.Cmd
+
+	// Check if claudePath contains interpreter command
+	if strings.Contains(c.claudePath, " ") {
+		parts := strings.Fields(c.claudePath)
+		if len(parts) >= 2 {
+			interpreter := parts[0]
+			scriptAndArgs := append(parts[1:], args...)
+			cmd = exec.CommandContext(ctx, interpreter, scriptAndArgs...)
+		} else {
+			cmd = exec.CommandContext(ctx, c.claudePath, args...)
+		}
+	} else {
+		cmd = exec.CommandContext(ctx, c.claudePath, args...)
+	}
+
+	cmd.Stdin = strings.NewReader(testInput)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Run the command - we expect it might fail if not authenticated
+	_ = cmd.Run() // Ignore the error, we'll check the output
+
+	// Parse the response to check for authentication error
+	var response struct {
+		IsError bool   `json:"is_error"`
+		Result  string `json:"result"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &response); err == nil {
+		// Successfully parsed response
+		if response.IsError && strings.Contains(strings.ToLower(response.Result), "api key") {
+			return fmt.Errorf("claude CLI is not authenticated: %s", response.Result)
+		}
+		if response.IsError && strings.Contains(strings.ToLower(response.Result), "login") {
+			return fmt.Errorf("claude CLI requires authentication: %s", response.Result)
+		}
+	}
+
+	// If we got here, authentication seems to be working
+	return nil
 }
 
 // findClaudeCLI implements comprehensive Claude CLI detection strategy

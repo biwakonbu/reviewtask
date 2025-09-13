@@ -639,6 +639,13 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	}
 
 	if claudeResponse.IsError {
+		// Check if this is an authentication error
+		errorMsg := strings.ToLower(claudeResponse.Result)
+		if strings.Contains(errorMsg, "api key") || strings.Contains(errorMsg, "login") {
+			return nil, NewAuthenticationError("claude",
+				fmt.Sprintf("Claude CLI is not authenticated. %s", claudeResponse.Result),
+				fmt.Errorf("to fix: run 'claude' and use the /login command"))
+		}
 		return nil, fmt.Errorf("claude returned error: %s", claudeResponse.Result)
 	}
 
