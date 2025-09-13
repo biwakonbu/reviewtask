@@ -91,7 +91,6 @@ func (c *RealClaudeClient) CheckAuthentication() error {
 		cmd = exec.CommandContext(ctx, c.claudePath, args...)
 	}
 
-
 	cmd.Stdin = strings.NewReader(testInput)
 
 	var stdout, stderr bytes.Buffer

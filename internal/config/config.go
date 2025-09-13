@@ -43,12 +43,12 @@ type TaskSettings struct {
 }
 
 type AISettings struct {
-    UserLanguage             string  `json:"user_language"`              // e.g., "Japanese", "English"
-    OutputFormat             string  `json:"output_format"`              // "json"
-    MaxRetries               int     `json:"max_retries"`                // Validation retry attempts (default: 5)
-    // Prompt configuration
-    PromptProfile            string  `json:"prompt_profile"`             // Prompt profile: legacy|v2|rich|compact|minimal
-    ValidationEnabled        *bool   `json:"validation_enabled"`         // Enable two-stage validation
+	UserLanguage string `json:"user_language"` // e.g., "Japanese", "English"
+	OutputFormat string `json:"output_format"` // "json"
+	MaxRetries   int    `json:"max_retries"`   // Validation retry attempts (default: 5)
+	// Prompt configuration
+	PromptProfile            string  `json:"prompt_profile"`             // Prompt profile: legacy|v2|rich|compact|minimal
+	ValidationEnabled        *bool   `json:"validation_enabled"`         // Enable two-stage validation
 	QualityThreshold         float64 `json:"quality_threshold"`          // Minimum score to accept (0.0-1.0)
 	VerboseMode              bool    `json:"verbose_mode"`               // Enable verbose output (detailed progress and errors)
 	ClaudePath               string  `json:"claude_path"`                // Custom path to Claude CLI (overrides default search)
@@ -89,8 +89,8 @@ type UpdateCheck struct {
 
 // Default configuration
 func defaultConfig() *Config {
-    validationTrue := true
-    return &Config{
+	validationTrue := true
+	return &Config{
 		PriorityRules: PriorityRules{
 			Critical: "Security vulnerabilities, authentication bypasses, data exposure risks",
 			High:     "Performance bottlenecks, memory leaks, database optimization issues",
@@ -114,15 +114,15 @@ func defaultConfig() *Config {
 		// - String/numeric fields: Only set when zero-valued or empty
 		// - This ensures explicit user settings (including false) are always preserved
 		// - New boolean fields added in future versions will get correct defaults for old configs
-        AISettings: AISettings{
-            UserLanguage:             "English",
-            OutputFormat:             "json",
-            MaxRetries:               5,
-            PromptProfile:            "legacy",
-            ValidationEnabled:        &validationTrue,
-            QualityThreshold:         0.8,
-            VerboseMode:              false,
-            ClaudePath:               "", // Empty means use default search paths
+		AISettings: AISettings{
+			UserLanguage:             "English",
+			OutputFormat:             "json",
+			MaxRetries:               5,
+			PromptProfile:            "legacy",
+			ValidationEnabled:        &validationTrue,
+			QualityThreshold:         0.8,
+			VerboseMode:              false,
+			ClaudePath:               "", // Empty means use default search paths
 			MaxTasksPerComment:       2,
 			DeduplicationEnabled:     true,
 			SimilarityThreshold:      0.8,
@@ -261,12 +261,12 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	if config.AISettings.OutputFormat == "" {
 		config.AISettings.OutputFormat = defaults.AISettings.OutputFormat
 	}
-    if config.AISettings.MaxRetries == 0 {
-        config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
-    }
-    if config.AISettings.PromptProfile == "" {
-        config.AISettings.PromptProfile = defaults.AISettings.PromptProfile
-    }
+	if config.AISettings.MaxRetries == 0 {
+		config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
+	}
+	if config.AISettings.PromptProfile == "" {
+		config.AISettings.PromptProfile = defaults.AISettings.PromptProfile
+	}
 	if config.AISettings.QualityThreshold == 0 {
 		config.AISettings.QualityThreshold = defaults.AISettings.QualityThreshold
 	}
