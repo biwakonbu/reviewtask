@@ -1588,13 +1588,6 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 	sorted := make([]storage.Task, len(tasks))
 	copy(sorted, tasks)
 
-	priorityOrder := map[string]int{
-		"critical": 0,
-		"high":     1,
-		"medium":   2,
-		"low":      3,
-	}
-
 	// Sort by priority, then by task index using Go's built-in sort.Slice
 	sort.Slice(sorted, func(i, j int) bool {
 		pi := a.getPriorityValue(sorted[i].Priority)
