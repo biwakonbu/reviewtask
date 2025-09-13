@@ -1597,8 +1597,8 @@ func (a *Analyzer) sortTasksByPriority(tasks []storage.Task) []storage.Task {
 
 	// Sort by priority, then by task index using Go's built-in sort.Slice
 	sort.Slice(sorted, func(i, j int) bool {
-		pi := priorityOrder[sorted[i].Priority]
-		pj := priorityOrder[sorted[j].Priority]
+		pi := a.getPriorityValue(sorted[i].Priority)
+		pj := a.getPriorityValue(sorted[j].Priority)
 
 		if pi != pj {
 			return pi < pj
