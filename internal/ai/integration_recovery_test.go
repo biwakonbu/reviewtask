@@ -142,6 +142,18 @@ func TestErrorRecoveryChain_Integration(t *testing.T) {
 				}
 			case "malformed":
 				err = errors.New("malformed JSON")
+				// Track the error if error tracking is enabled
+				if cfg.AISettings.ErrorTrackingEnabled && analyzer.errorTracker != nil {
+					analyzer.errorTracker.RecordCommentError(
+						CommentContext{Comment: tt.comment},
+						"json_parse",
+						"malformed JSON",
+						0,
+						false,
+						0,
+						0,
+					)
+				}
 			case "large_content":
 				tasks = []TaskRequest{{Description: "Summarized task", Priority: "medium", Status: "todo"}}
 			default:
