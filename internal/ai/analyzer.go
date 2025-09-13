@@ -806,7 +806,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 // Such approaches are fundamentally flawed and create collision risks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
-	now := time.Now().Format("2006-01-02T15:04:05Z")
+	now := time.Now().UTC().Format(time.RFC3339)
 
 	for _, task := range tasks {
 		// Determine initial status based on low-priority patterns
