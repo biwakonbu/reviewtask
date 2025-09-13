@@ -609,7 +609,7 @@ func setupTestAuth(t *testing.T, tempDir string) {
 		"created_at": "2023-01-01T00:00:00Z"
 	}`
 
-	authFile := tempDir + "/.pr-review/auth.json"
+	authFile := filepath.Join(tempDir, ".pr-review", "auth.json")
 	err := os.WriteFile(authFile, []byte(authContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to create test auth file: %v", err)

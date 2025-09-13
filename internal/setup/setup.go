@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -14,7 +15,7 @@ const (
 // IsInitialized checks if the repository is already initialized
 func IsInitialized() bool {
 	// Check if .pr-review directory exists and has config.json
-	configPath := PRReviewDir + "/config.json"
+	configPath := filepath.Join(PRReviewDir, "config.json")
 	_, err := os.Stat(configPath)
 	return err == nil
 }
