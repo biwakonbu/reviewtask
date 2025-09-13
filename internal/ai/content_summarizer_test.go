@@ -53,28 +53,28 @@ func TestContentSummarizer_ShouldSummarize(t *testing.T) {
 	cs := NewContentSummarizer(1000, false)
 
 	tests := []struct {
-		name           string
-		commentBody    string
+		name            string
+		commentBody     string
 		shouldSummarize bool
 	}{
 		{
-			name:           "small comment",
-			commentBody:    "This is a short comment",
+			name:            "small comment",
+			commentBody:     "This is a short comment",
 			shouldSummarize: false,
 		},
 		{
-			name:           "large comment",
-			commentBody:    strings.Repeat("This is a very long comment. ", 50), // ~1500 chars
+			name:            "large comment",
+			commentBody:     strings.Repeat("This is a very long comment. ", 50), // ~1500 chars
 			shouldSummarize: true,
 		},
 		{
-			name:           "exactly at threshold",
-			commentBody:    strings.Repeat("a", 1000),
+			name:            "exactly at threshold",
+			commentBody:     strings.Repeat("a", 1000),
 			shouldSummarize: false,
 		},
 		{
-			name:           "just over threshold",
-			commentBody:    strings.Repeat("a", 1001),
+			name:            "just over threshold",
+			commentBody:     strings.Repeat("a", 1001),
 			shouldSummarize: true,
 		},
 	}
@@ -99,18 +99,18 @@ func TestContentSummarizer_SummarizeComment(t *testing.T) {
 	cs := NewContentSummarizer(500, false) // Small threshold for testing
 
 	tests := []struct {
-		name         string
-		commentBody  string
+		name          string
+		commentBody   string
 		expectSummary bool
 	}{
 		{
-			name:         "small comment not summarized",
-			commentBody:  "Short comment that should not be summarized",
+			name:          "small comment not summarized",
+			commentBody:   "Short comment that should not be summarized",
 			expectSummary: false,
 		},
 		{
-			name:         "large comment gets summarized",
-			commentBody:  strings.Repeat("This is a long comment that needs summarization. ", 20),
+			name:          "large comment gets summarized",
+			commentBody:   strings.Repeat("This is a long comment that needs summarization. ", 20),
 			expectSummary: true,
 		},
 	}
@@ -165,9 +165,9 @@ func TestContentSummarizer_ExtractKeyInformation(t *testing.T) {
 	cs := NewContentSummarizer(20000, false)
 
 	tests := []struct {
-		name            string
-		content         string
-		expectSections  []string
+		name             string
+		content          string
+		expectSections   []string
 		unexpectSections []string
 	}{
 		{
@@ -181,19 +181,19 @@ Some regular content here.
 
 SUGGESTION: Consider using a different approach.
 			`,
-			expectSections: []string{"**Key Points:**", "**Suggestions:**"},
+			expectSections:   []string{"**Key Points:**", "**Suggestions:**"},
 			unexpectSections: []string{"**Code Examples:**"},
 		},
 		{
-			name: "code blocks",
-			content: "Here's a code example:\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n    // More code here\n    for i := 0; i < 10; i++ {\n        doSomething(i)\n    }\n}\n```\n\nAnd some explanation.",
-			expectSections: []string{"**Code Examples:**"},
+			name:             "code blocks",
+			content:          "Here's a code example:\n\n```go\nfunc main() {\n    fmt.Println(\"Hello\")\n    // More code here\n    for i := 0; i < 10; i++ {\n        doSomething(i)\n    }\n}\n```\n\nAnd some explanation.",
+			expectSections:   []string{"**Code Examples:**"},
 			unexpectSections: []string{},
 		},
 		{
-			name: "mixed content",
-			content: "# Important Review\n\nThis is a critical issue that needs attention.\n\n```python\ndef vulnerable_function():\n    # This has a security problem\n    return user_input\n```\n\nFIXME: This needs to be fixed immediately.\nTODO: Add proper validation.",
-			expectSections: []string{"**Key Points:**", "**Code Examples:**"},
+			name:             "mixed content",
+			content:          "# Important Review\n\nThis is a critical issue that needs attention.\n\n```python\ndef vulnerable_function():\n    # This has a security problem\n    return user_input\n```\n\nFIXME: This needs to be fixed immediately.\nTODO: Add proper validation.",
+			expectSections:   []string{"**Key Points:**", "**Code Examples:**"},
 			unexpectSections: []string{},
 		},
 	}
@@ -422,15 +422,15 @@ func TestContentSummarizer_SummarizeCodeBlock(t *testing.T) {
 	cs := NewContentSummarizer(20000, false)
 
 	tests := []struct {
-		name         string
-		lines        []string
-		expectShort  bool
+		name          string
+		lines         []string
+		expectShort   bool
 		expectSummary bool
 	}{
 		{
-			name:         "short code block",
-			lines:        []string{"func main() {", "  fmt.Println(\"Hello\")", "}"},
-			expectShort:  true,
+			name:          "short code block",
+			lines:         []string{"func main() {", "  fmt.Println(\"Hello\")", "}"},
+			expectShort:   true,
 			expectSummary: false,
 		},
 		{
@@ -445,7 +445,7 @@ func TestContentSummarizer_SummarizeCodeBlock(t *testing.T) {
 				"  // Line 6",
 				"}",
 			},
-			expectShort:  false,
+			expectShort:   false,
 			expectSummary: true,
 		},
 	}

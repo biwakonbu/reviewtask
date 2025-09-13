@@ -105,11 +105,11 @@ func TestEnhancedJSONRecovery_StructuralRepairs(t *testing.T) {
 	recoverer := NewEnhancedJSONRecovery(true, false)
 
 	tests := []struct {
-		name           string
-		malformedJSON  string
-		expectedTasks  int
-		shouldRecover  bool
-		description    string
+		name          string
+		malformedJSON string
+		expectedTasks int
+		shouldRecover bool
+		description   string
 	}{
 		{
 			name:          "missing comma between objects",
@@ -121,7 +121,7 @@ func TestEnhancedJSONRecovery_StructuralRepairs(t *testing.T) {
 		{
 			name:          "missing comma between arrays",
 			malformedJSON: `[{"description": "Task 1", "priority": "high"}] [{"description": "Task 2", "priority": "medium"}]`,
-			expectedTasks: 2, // The enhanced recovery can extract both valid structures
+			expectedTasks: 2,    // The enhanced recovery can extract both valid structures
 			shouldRecover: true, // Enhanced recovery is more aggressive
 			description:   "Enhanced recovery can extract valid structures even from complex malformed JSON",
 		},
@@ -327,32 +327,32 @@ func TestEnhancedJSONRecovery_IntelligentFieldCompletion(t *testing.T) {
 	recoverer := NewEnhancedJSONRecovery(true, false)
 
 	tests := []struct {
-		name          string
+		name           string
 		incompleteJSON string
-		expectedTasks int
-		shouldRecover bool
-		description   string
+		expectedTasks  int
+		shouldRecover  bool
+		description    string
 	}{
 		{
-			name:          "missing priority and status",
+			name:           "missing priority and status",
 			incompleteJSON: `{"description": "Fix critical security vulnerability"}`,
-			expectedTasks: 1,
-			shouldRecover: true,
-			description:   "Should complete missing priority and status fields",
+			expectedTasks:  1,
+			shouldRecover:  true,
+			description:    "Should complete missing priority and status fields",
 		},
 		{
-			name:          "missing status only",
+			name:           "missing status only",
 			incompleteJSON: `{"description": "Update documentation", "priority": "low"}`,
-			expectedTasks: 1,
-			shouldRecover: true,
-			description:   "Should complete missing status field",
+			expectedTasks:  1,
+			shouldRecover:  true,
+			description:    "Should complete missing status field",
 		},
 		{
-			name:          "complete task object",
+			name:           "complete task object",
 			incompleteJSON: `{"description": "Refactor code", "priority": "medium", "status": "todo"}`,
-			expectedTasks: 1,
-			shouldRecover: true,
-			description:   "Should handle complete task objects",
+			expectedTasks:  1,
+			shouldRecover:  true,
+			description:    "Should handle complete task objects",
 		},
 	}
 

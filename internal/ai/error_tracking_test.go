@@ -12,11 +12,11 @@ import (
 
 func TestNewErrorTracker(t *testing.T) {
 	tests := []struct {
-		name         string
-		enabled      bool
-		verboseMode  bool
-		storageDir   string
-		expectedDir  string
+		name        string
+		enabled     bool
+		verboseMode bool
+		storageDir  string
+		expectedDir string
 	}{
 		{
 			name:        "enabled with custom directory",

@@ -457,8 +457,8 @@ func TestStreamProcessor_ProcessCommentsStream_VerboseMode(t *testing.T) {
 // Helper function to check if a string contains a substring
 func containsString(haystack, needle string) bool {
 	return len(haystack) >= len(needle) &&
-		   haystack[len(haystack)-len(needle):] == needle ||
-		   indexOf(haystack, needle) >= 0
+		haystack[len(haystack)-len(needle):] == needle ||
+		indexOf(haystack, needle) >= 0
 }
 
 // Simple indexOf function for string searching
