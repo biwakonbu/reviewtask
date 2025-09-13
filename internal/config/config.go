@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-const (
-	ConfigFile = ".pr-review/config.json"
+var (
+	ConfigFile = filepath.Join(".pr-review", "config.json")
 )
 
 type Config struct {

@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'images/**'
       - 'README.md'
       - 'CONTRIBUTING.md'
       - 'PRD.md'
@@ -31,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
@@ -53,7 +54,7 @@ jobs:
           pip install pillow cairosvg
 
       - name: Setup Pages
-        uses: actions/configure-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Build documentation
         run: mkdocs build --clean

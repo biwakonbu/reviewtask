@@ -57,4 +57,24 @@ Thumbs.db
 # Implementation planning documents
 IMPL.md
 
+# MkDocs build output
+site/
+test-site/
+*-site/
+
+# Python virtual environment and cache files
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+ENV/
+.pytest_cache/
+
+# Cache directories
+.cache/
+node_modules/
+
 hhkb.xkm
