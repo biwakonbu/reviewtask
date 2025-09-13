@@ -167,9 +167,8 @@ func TestCIWorkflowIntegration(t *testing.T) {
 			t.Fatal("OS is not an array")
 		}
 
-		// Verify both Unix and Windows platforms are covered
+		// Verify Unix platforms are covered (Windows testing disabled)
 		hasUnix := false
-		hasWindows := false
 		for _, os := range osSlice {
 			osStr, ok := os.(string)
 			if !ok {
@@ -178,17 +177,13 @@ func TestCIWorkflowIntegration(t *testing.T) {
 			if strings.Contains(osStr, "ubuntu") || strings.Contains(osStr, "macos") {
 				hasUnix = true
 			}
-			if strings.Contains(osStr, "windows") {
-				hasWindows = true
-			}
 		}
 
 		if !hasUnix {
 			t.Error("Matrix strategy does not include Unix platforms")
 		}
-		if !hasWindows {
-			t.Error("Matrix strategy does not include Windows platforms")
-		}
+		// Windows testing has been disabled due to filesystem compatibility issues
+		// Build verification still runs on Windows to ensure cross-platform compilation
 	})
 }
 
