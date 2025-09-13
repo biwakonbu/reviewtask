@@ -37,7 +37,6 @@ func (sp *StreamProcessor) ProcessCommentsStream(comments []CommentContext, proc
 		err     error
 		index   int
 		context CommentContext
-		done    bool
 	}
 
 	results := make(chan streamResult, len(comments))
@@ -55,15 +54,13 @@ func (sp *StreamProcessor) ProcessCommentsStream(comments []CommentContext, proc
 				err:     err,
 				index:   index,
 				context: ctx,
-				done:    false,
 			}
 		}(i, commentCtx)
 	}
 
-	// Signal completion
+	// Signal completion by closing the channel after all work is done
 	go func() {
 		wg.Wait()
-		results <- streamResult{done: true}
 		close(results)
 	}()
 
@@ -74,9 +71,6 @@ func (sp *StreamProcessor) ProcessCommentsStream(comments []CommentContext, proc
 
 	processed := 0
 	for result := range results {
-		if result.done {
-			break
-		}
 
 		processed++
 
