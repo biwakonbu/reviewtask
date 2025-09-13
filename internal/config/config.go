@@ -165,13 +165,20 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
+	// First unmarshal into a map to detect which fields are present
+	var rawConfig map[string]interface{}
+	if err := json.Unmarshal(data, &rawConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Then unmarshal into the actual config struct
 	var config Config
 	if err := json.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
 	}
 
 	// Merge with defaults for any missing fields
-	mergeWithDefaults(&config)
+	mergeWithDefaults(&config, rawConfig)
 
 	return &config, nil
 }
@@ -191,7 +198,26 @@ func save(config *Config) error {
 	return os.WriteFile(ConfigFile, data, 0644)
 }
 
-func mergeWithDefaults(config *Config) {
+// Helper function to check if a nested field exists in the raw config map
+func hasField(rawConfig map[string]interface{}, path ...string) bool {
+	current := rawConfig
+	for i, key := range path {
+		if i == len(path)-1 {
+			// Last key - check if it exists
+			_, exists := current[key]
+			return exists
+		}
+		// Navigate deeper
+		next, ok := current[key].(map[string]interface{})
+		if !ok {
+			return false
+		}
+		current = next
+	}
+	return false
+}
+
+func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	defaults := defaultConfig()
 
 	// Merge priority rules
@@ -218,12 +244,6 @@ func mergeWithDefaults(config *Config) {
 	if config.TaskSettings.LowPriorityStatus == "" {
 		config.TaskSettings.LowPriorityStatus = defaults.TaskSettings.LowPriorityStatus
 	}
-
-	// Check if this is likely an old config by looking for any non-zero new fields
-	isOldConfig := config.AISettings.MaxTasksPerComment == 0 &&
-		config.AISettings.SimilarityThreshold == 0 &&
-		config.AISettings.NitpickPriority == "" &&
-		config.AISettings.MaxRecoveryAttempts == 0
 
 	// Merge AI settings
 	if config.AISettings.UserLanguage == "" {
@@ -254,31 +274,34 @@ func mergeWithDefaults(config *Config) {
 		config.AISettings.PartialResponseThreshold = defaults.AISettings.PartialResponseThreshold
 	}
 
-	// Note: Boolean fields (DeduplicationEnabled, ProcessNitpickComments, EnableJSONRecovery, LogTruncatedResponses) default to true
-	// ProcessSelfReviews defaults to false for backward compatibility
-	// Set defaults if the config appears to be missing the new fields (old or empty config)
-	if isOldConfig && !config.AISettings.DeduplicationEnabled {
+	// Boolean field handling: Only set defaults if the field is missing from the JSON
+	// This properly distinguishes between "field not present" and "field explicitly set to false"
+	// Note: These fields default to true when missing, except ProcessSelfReviews which defaults to false
+	if !hasField(rawConfig, "ai_settings", "deduplication_enabled") {
 		config.AISettings.DeduplicationEnabled = defaults.AISettings.DeduplicationEnabled
 	}
-	if isOldConfig && !config.AISettings.ProcessNitpickComments {
+	if !hasField(rawConfig, "ai_settings", "process_nitpick_comments") {
 		config.AISettings.ProcessNitpickComments = defaults.AISettings.ProcessNitpickComments
 	}
-	if isOldConfig && !config.AISettings.EnableJSONRecovery {
+	if !hasField(rawConfig, "ai_settings", "enable_json_recovery") {
 		config.AISettings.EnableJSONRecovery = defaults.AISettings.EnableJSONRecovery
 	}
-	if isOldConfig && !config.AISettings.LogTruncatedResponses {
+	if !hasField(rawConfig, "ai_settings", "log_truncated_responses") {
 		config.AISettings.LogTruncatedResponses = defaults.AISettings.LogTruncatedResponses
 	}
-	// ProcessSelfReviews is not set for old configs to maintain backward compatibility (defaults to false)
+	// ProcessSelfReviews maintains backward compatibility (defaults to false)
+	if !hasField(rawConfig, "ai_settings", "process_self_reviews") {
+		config.AISettings.ProcessSelfReviews = defaults.AISettings.ProcessSelfReviews
+	}
 
 	// Set defaults for new error tracking and stream processing settings
-	if isOldConfig && !config.AISettings.ErrorTrackingEnabled {
+	if !hasField(rawConfig, "ai_settings", "error_tracking_enabled") {
 		config.AISettings.ErrorTrackingEnabled = defaults.AISettings.ErrorTrackingEnabled
 	}
-	if isOldConfig && !config.AISettings.StreamProcessingEnabled {
+	if !hasField(rawConfig, "ai_settings", "stream_processing_enabled") {
 		config.AISettings.StreamProcessingEnabled = defaults.AISettings.StreamProcessingEnabled
 	}
-	if isOldConfig && !config.AISettings.AutoSummarizeEnabled {
+	if !hasField(rawConfig, "ai_settings", "auto_summarize_enabled") {
 		config.AISettings.AutoSummarizeEnabled = defaults.AISettings.AutoSummarizeEnabled
 	}
 

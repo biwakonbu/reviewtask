@@ -25,39 +25,37 @@ func TestDefaultConfig(t *testing.T) {
 func TestConfigMergeWithDefaults(t *testing.T) {
 	tests := []struct {
 		name             string
-		config           Config
+		configJSON       string
 		expectedNitpick  bool
 		expectedPriority string
 	}{
 		{
-			name: "empty config gets defaults",
-			config: Config{
-				AISettings: AISettings{},
-			},
+			name:             "empty config gets defaults",
+			configJSON:       `{}`, // Truly empty JSON
 			expectedNitpick:  true,
 			expectedPriority: "low",
 		},
 		{
 			name: "partial config preserves existing values",
-			config: Config{
-				AISettings: AISettings{
-					UserLanguage:           "Japanese",
-					ProcessNitpickComments: false,
-					NitpickPriority:        "medium",
-				},
-			},
+			configJSON: `{
+				"ai_settings": {
+					"user_language": "Japanese",
+					"process_nitpick_comments": false,
+					"nitpick_priority": "medium"
+				}
+			}`,
 			expectedNitpick:  false,
 			expectedPriority: "medium",
 		},
 		{
 			name: "old config without nitpick settings gets defaults",
-			config: Config{
-				AISettings: AISettings{
-					UserLanguage: "English",
-					OutputFormat: "json",
-					MaxRetries:   3,
-				},
-			},
+			configJSON: `{
+				"ai_settings": {
+					"user_language": "English",
+					"output_format": "json",
+					"max_retries": 3
+				}
+			}`,
 			expectedNitpick:  true,
 			expectedPriority: "low",
 		},
@@ -65,14 +63,23 @@ func TestConfigMergeWithDefaults(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mergeWithDefaults(&tt.config)
+			// Unmarshal from JSON string to simulate real config loading
+			var config Config
+			err := json.Unmarshal([]byte(tt.configJSON), &config)
+			require.NoError(t, err)
 
-			assert.Equal(t, tt.expectedNitpick, tt.config.AISettings.ProcessNitpickComments)
-			assert.Equal(t, tt.expectedPriority, tt.config.AISettings.NitpickPriority)
+			var rawConfig map[string]interface{}
+			err = json.Unmarshal([]byte(tt.configJSON), &rawConfig)
+			require.NoError(t, err)
+
+			mergeWithDefaults(&config, rawConfig)
+
+			assert.Equal(t, tt.expectedNitpick, config.AISettings.ProcessNitpickComments)
+			assert.Equal(t, tt.expectedPriority, config.AISettings.NitpickPriority)
 
 			// Ensure other defaults are also set
-			assert.NotEmpty(t, tt.config.AISettings.UserLanguage)
-			assert.NotEmpty(t, tt.config.AISettings.OutputFormat)
+			assert.NotEmpty(t, config.AISettings.UserLanguage)
+			assert.NotEmpty(t, config.AISettings.OutputFormat)
 		})
 	}
 }
@@ -182,8 +189,13 @@ func TestBackwardCompatibility(t *testing.T) {
 	err := json.Unmarshal([]byte(oldConfigJSON), &config)
 	require.NoError(t, err)
 
+	// Also unmarshal into raw config map for field detection
+	var rawConfig map[string]interface{}
+	err = json.Unmarshal([]byte(oldConfigJSON), &rawConfig)
+	require.NoError(t, err)
+
 	// Apply defaults
-	mergeWithDefaults(&config)
+	mergeWithDefaults(&config, rawConfig)
 
 	// Verify old settings preserved
 	assert.Equal(t, "English", config.AISettings.UserLanguage)
