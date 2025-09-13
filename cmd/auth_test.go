@@ -492,6 +492,11 @@ func TestAuthErrorHandling(t *testing.T) {
 	})
 
 	t.Run("read-only filesystem simulation", func(t *testing.T) {
+		// Skip this test on Windows as filesystem permissions work differently
+		if runtime.GOOS == "windows" {
+			t.Skip("Skipping read-only filesystem test on Windows")
+		}
+
 		// Enable test mode to avoid actual GitHub API calls
 		os.Setenv("REVIEWTASK_TEST_MODE", "true")
 		defer os.Unsetenv("REVIEWTASK_TEST_MODE")
