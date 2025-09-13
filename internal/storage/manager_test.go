@@ -372,11 +372,11 @@ func TestManager_UpdateTaskStatusByCommentAndIndex(t *testing.T) {
 }
 
 // Helper function to initialize a test git repository
-func initTestGitRepo(dir string) error {
-	// This would normally use git commands, but for testing we'll mock it
-	// In a real implementation, you might use go-git or exec commands
-	return nil
-}
+// func initTestGitRepo(dir string) error {
+//     // This would normally use git commands, but for testing we'll mock it
+//     // In a real implementation, you might use go-git or exec commands
+//     return nil
+// }
 
 // TestMergeTasksForCommentCancelStatus tests that mergeTasksForComment uses "cancel" not "cancelled"
 func TestMergeTasksForCommentCancelStatus(t *testing.T) {

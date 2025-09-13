@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"reviewtask/internal/storage"
-	"reviewtask/internal/testutil"
+	"reviewtask/internal/testutil/mocks"
 )
 
 // StorageInterface defines the interface that storage manager must implement
@@ -129,7 +129,7 @@ func (sm *TestStatisticsManager) generateStatsFromTasks(tasks []storage.Task, pr
 
 // TestStatisticsManager_GenerateTaskStatistics tests basic PR statistics generation
 func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up test tasks
@@ -224,7 +224,7 @@ func TestStatisticsManager_GenerateTaskStatistics(t *testing.T) {
 
 // TestStatisticsManager_GenerateCurrentBranchStatistics tests current branch statistics
 func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up test data
@@ -295,7 +295,7 @@ func TestStatisticsManager_GenerateCurrentBranchStatistics(t *testing.T) {
 
 // TestStatisticsManager_GenerateBranchStatistics tests specific branch statistics
 func TestStatisticsManager_GenerateBranchStatistics(t *testing.T) {
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	tests := []struct {
@@ -371,7 +371,7 @@ func TestStatisticsManager_GenerateBranchStatistics(t *testing.T) {
 
 // TestStatisticsManager_EmptyBranchStatistics tests statistics for empty branch
 func TestStatisticsManager_EmptyBranchStatistics(t *testing.T) {
-	mockStorage := testutil.NewMockStorageManager()
+	mockStorage := mocks.NewMockStorageManager()
 	statsManager := NewTestStatisticsManager(mockStorage)
 
 	// Set up empty branch

@@ -9,13 +9,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"reviewtask/internal/testutil"
 )
 
 func TestClaudePathDetectionIntegration(t *testing.T) {
-	// Skip on Windows as shell scripts won't work
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping shell script based test on Windows")
-	}
 	// Save original PATH and restore after test
 	originalPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", originalPath)
@@ -42,15 +40,13 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 					t.Fatalf("Failed to create npm dir: %v", err)
 				}
 
-				claudePath := filepath.Join(claudeDir, "claude")
-				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'Claude Code CLI version 1.0.0'\n"), 0755); err != nil {
-					t.Fatalf("Failed to create mock claude: %v", err)
-				}
+				// Create mock Claude CLI
+				testutil.CreateMockClaude(t, claudeDir, "Claude Code CLI version 1.0.0")
 
 				return func() {
 					os.RemoveAll(filepath.Join(homeDir, ".npm-global"))
 					// Cleanup potential symlinks
-					symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
+					symlinkPath := filepath.Join(homeDir, ".local", "bin", "claude")
 					os.Remove(symlinkPath)
 				}
 			},
@@ -68,15 +64,13 @@ func TestClaudePathDetectionIntegration(t *testing.T) {
 					t.Fatalf("Failed to create volta dir: %v", err)
 				}
 
-				claudePath := filepath.Join(claudeDir, "claude")
-				if err := os.WriteFile(claudePath, []byte("#!/bin/bash\necho 'anthropic-ai/claude-code version 1.2.0'\n"), 0755); err != nil {
-					t.Fatalf("Failed to create mock claude: %v", err)
-				}
+				// Create mock Claude CLI
+				testutil.CreateMockClaude(t, claudeDir, "anthropic-ai/claude-code version 1.2.0")
 
 				return func() {
 					os.RemoveAll(filepath.Join(homeDir, ".volta"))
 					// Cleanup potential symlinks
-					symlinkPath := filepath.Join(homeDir, ".local/bin", "claude")
+					symlinkPath := filepath.Join(homeDir, ".local", "bin", "claude")
 					os.Remove(symlinkPath)
 				}
 			},

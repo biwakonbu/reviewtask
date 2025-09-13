@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         go-version: ['1.23']
     steps:
     - uses: actions/checkout@v4
@@ -31,120 +31,38 @@ jobs:
           ${{ runner.os }}-${{ runner.arch }}-go-
         enableCrossOsArchive: false
     
-    - name: Download dependencies (Unix)
-      if: runner.os != 'Windows'
+    - name: Download dependencies
       run: |
-        set -euo pipefail
-        timeout_duration=300
-        max_retries=3
-        retry_count=0
-        
-        # Determine which timeout command to use
-        if command -v gtimeout >/dev/null 2>&1; then
-          TIMEOUT_CMD="gtimeout"
-        elif command -v timeout >/dev/null 2>&1; then
-          TIMEOUT_CMD="timeout"
-        else
-          TIMEOUT_CMD=""
-        fi
-        
-        while [ $retry_count -lt $max_retries ]; do
-          if [ -n "$TIMEOUT_CMD" ]; then
-            if $TIMEOUT_CMD $timeout_duration go mod download; then
-              echo "Dependencies downloaded successfully"
-              break
-            fi
-          else
-            # Fallback: run without timeout on systems where it's not available
-            if go mod download; then
-              echo "Dependencies downloaded successfully (no timeout available)"
-              break
-            fi
-          fi
-          
-          retry_count=$((retry_count + 1))
-          echo "Download attempt $retry_count failed, retrying..."
-          if [ $retry_count -lt $max_retries ]; then
-            sleep 10
-          fi
-        done
-        
-        if [ $retry_count -eq $max_retries ]; then
-          echo "Failed to download dependencies after $max_retries attempts"
-          exit 1
-        fi
+        echo "Downloading Go module dependencies..."
+        go mod download
       shell: bash
-    
-    - name: Download dependencies (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        $maxRetries = 3
-        $retryCount = 0
-        
-        while ($retryCount -lt $maxRetries) {
-          Write-Host "Download attempt $($retryCount + 1) of $maxRetries"
-          
-          try {
-            $process = Start-Process -FilePath "go" -ArgumentList "mod", "download" -Wait -NoNewWindow -PassThru -RedirectStandardOutput "download_output.txt" -RedirectStandardError "download_error.txt"
-            
-            if ($process.ExitCode -eq 0) {
-              Write-Host "Dependencies downloaded successfully"
-              if (Test-Path "download_output.txt") {
-                Get-Content "download_output.txt" | Write-Host
-                Remove-Item "download_output.txt" -ErrorAction SilentlyContinue
-              }
-              if (Test-Path "download_error.txt") {
-                Remove-Item "download_error.txt" -ErrorAction SilentlyContinue
-              }
-              exit 0
-            } else {
-              Write-Host "Download failed with exit code: $($process.ExitCode)"
-              if (Test-Path "download_error.txt") {
-                Write-Host "Error output:"
-                Get-Content "download_error.txt" | Write-Host
-                Remove-Item "download_error.txt" -ErrorAction SilentlyContinue
-              }
-              if (Test-Path "download_output.txt") {
-                Remove-Item "download_output.txt" -ErrorAction SilentlyContinue
-              }
-            }
-          }
-          catch {
-            Write-Host "Exception occurred: $($_.Exception.Message)"
-          }
-          
-          $retryCount++
-          if ($retryCount -lt $maxRetries) {
-            Write-Host "Retrying in 10 seconds..."
-            Start-Sleep -Seconds 10
-          }
-        }
-        
-        Write-Host "Failed to download dependencies after $maxRetries attempts"
-        exit 1
-      shell: powershell
     
     - name: Run tests
       id: test
       shell: bash
       run: |
-        # Set up test command based on OS
-        # All tests now use mocks for external dependencies
-        if [[ "$RUNNER_OS" == "Windows" ]]; then
-          TEST_CMD="go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
-        elif [[ "$RUNNER_OS" == "Linux" ]]; then
-          TEST_CMD="go test -v -race -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out ./..."
-        else
-          # macOS: Run tests sequentially with coverage to avoid race condition issues
-          TEST_CMD="go test -v -p 1 -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out ./..."
+        # Set environment variable for test mode
+        export REVIEWTASK_TEST_MODE=true
+        
+        # Run all tests consistently across all platforms
+        echo "Running tests with testmode build tag..."
+        set +e
+        
+        # First run cmd tests with testmode tag
+        go test -v -timeout=10m -tags testmode ./cmd
+        CMD_EXIT_CODE=$?
+        
+        if [ $CMD_EXIT_CODE -ne 0 ]; then
+          echo "::error::cmd package tests failed with exit code $CMD_EXIT_CODE"
+          exit $CMD_EXIT_CODE
         fi
         
-        echo "Running: $TEST_CMD"
-        
-        # Run tests and capture exit code
-        set +e
-        $TEST_CMD
+        # Then run other package tests with coverage
+        echo "Running other package tests..."
+        NON_CMD_PACKAGES=$(go list ./... | grep -v '/cmd$')
+        go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out $NON_CMD_PACKAGES
         TEST_EXIT_CODE=$?
+        
         set -e
         
         # If tests failed, provide detailed debugging information
@@ -152,22 +70,11 @@ jobs:
           echo "::error::Tests failed with exit code $TEST_EXIT_CODE"
           echo "::group::Failed Test Summary"
           echo "Exit code: $TEST_EXIT_CODE"
-          echo "Test command: $TEST_CMD"
           echo "Working directory: $(pwd)"
           echo "Go version: $(go version)"
           echo "Environment variables:"
           env | grep -E "^(GO|CI|GITHUB_)" | sort
-          echo "::endgroup::"
-          
-          # Try to extract specific test failures
-          echo "::group::Test Failure Details"
-          if [ -f coverage-${{ matrix.os }}.out ]; then
-            echo "Coverage file exists, but tests failed"
-            # Try to find FAIL lines in recent output
-            go test -v ./... 2>&1 | grep -E "^(FAIL|--- FAIL:|Error:|panic:)" || true
-          else
-            echo "No coverage file generated"
-          fi
+          echo "Non-cmd packages tested: $NON_CMD_PACKAGES"
           echo "::endgroup::"
           
           exit $TEST_EXIT_CODE

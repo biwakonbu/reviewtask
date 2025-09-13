@@ -1,4 +1,4 @@
-package testutil
+package mocks
 
 import "reviewtask/internal/storage"
 
