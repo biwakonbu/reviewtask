@@ -48,9 +48,10 @@ has_source_changes() {
         return 0
     fi
     
-    # Check for changes in files that affect the binary (Go source code and dependencies only)
+    # Check for changes in files that affect the binary or CI/CD infrastructure
+    # Includes Go source code, dependencies, GitHub workflows, and build scripts
     local changes
-    changes=$(git diff --name-only "$last_tag"..HEAD | grep -E '^(cmd/.*\.go$|internal/.*\.go$|main\.go$|go\.mod$|go\.sum$)' || true)
+    changes=$(git diff --name-only "$last_tag"..HEAD | grep -E '^(cmd/.*\.go$|internal/.*\.go$|main\.go$|go\.mod$|go\.sum$|\.github/workflows/.*\.yml$|scripts/.*\.sh$|Makefile$|\.gitignore$)' || true)
     
     if [[ -n "$changes" ]]; then
         return 0  # Has changes
