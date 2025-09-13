@@ -707,6 +707,11 @@ func TestAuthenticationErrorHandling(t *testing.T) {
 		{
 			name: "権限のないディレクトリへの保存",
 			setup: func(basePath string) func() {
+				// Skip on Windows as file permissions work differently
+				if runtime.GOOS == "windows" {
+					t.Skip("Skipping directory permission test on Windows")
+				}
+
 				// Create read-only directory under basePath
 				authDir := filepath.Join(basePath, ".pr-review", "auth")
 				os.MkdirAll(authDir, 0755)
