@@ -1,9 +1,35 @@
 /* Custom styles for reviewtask documentation */
 
-/* Logo adjustments */
+/* Logo adjustments - Optimized for horizontal logo (1024x512) */
 .md-header__button.md-logo img {
-    max-height: 2rem;
+    height: 2.5rem;  /* Increased height for better visibility */
     width: auto;
+    max-width: 8rem;  /* Increased to show full logo without cutting off */
+    object-fit: contain;
+    object-position: center top;  /* Align to top to prevent bottom cut-off */
+}
+
+/* Tablet responsive logo size */
+@media screen and (max-width: 76.1875em) {
+    .md-header__button.md-logo img {
+        height: 2.2rem;
+        max-width: 7rem;  /* Proportionally increased */
+    }
+}
+
+/* Small mobile devices */
+@media screen and (max-width: 600px) {
+    .md-header__button.md-logo img {
+        height: 2rem;
+        max-width: 6rem;  /* Still readable on mobile */
+    }
+}
+
+/* Ensure logo container has enough space */
+.md-header__button.md-logo {
+    padding: 0.2rem 0.4rem;
+    display: flex;
+    align-items: center;
 }
 
 /* Additional OGP meta tags styles */
@@ -27,5 +53,16 @@
 
 /* Improve logo visibility in dark mode */
 [data-md-color-scheme="slate"] .md-header__button.md-logo img {
-    filter: brightness(1.1);
+    filter: brightness(1.2) contrast(1.1);
+}
+
+/* Ensure logo doesn't get cut off */
+.md-header__inner {
+    align-items: center;
+}
+
+/* Logo hover effect */
+.md-header__button.md-logo:hover img {
+    transform: scale(1.05);
+    transition: transform 0.2s ease-in-out;
 }

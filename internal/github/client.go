@@ -60,14 +60,24 @@ type Reply struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// Injectable function variables for easier testing/mocking
+var (
+	getRepoInfoFn = getRepoInfo
+)
+
 func NewClient() (*Client, error) {
-	token, err := GetGitHubToken()
+	return NewClientWithProviders(&DefaultAuthTokenProvider{}, &DefaultRepoInfoProvider{})
+}
+
+// NewClientWithProviders creates a client with dependency injection for testing
+func NewClientWithProviders(authProvider AuthTokenProvider, repoProvider RepoInfoProvider) (*Client, error) {
+	token, err := authProvider.GetToken()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get GitHub token: %w", err)
 	}
 
-	// Get repository info from git
-	owner, repo, err := getRepoInfo()
+	// Get repository info
+	owner, repo, err := repoProvider.GetRepoInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}
@@ -124,8 +134,19 @@ func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 	// Check cache first
 	if cached, ok := c.cache.Get("GetPRInfo", c.owner, c.repo, prNumber); ok {
-		if prInfo, ok := cached.(*PRInfo); ok {
-			return prInfo, nil
+		// Handle both direct *PRInfo and map[string]interface{} from JSON
+		switch v := cached.(type) {
+		case *PRInfo:
+			return v, nil
+		default:
+			// Re-marshal and unmarshal to handle JSON-decoded cache entries
+			jsonData, err := json.Marshal(cached)
+			if err == nil {
+				var prInfo PRInfo
+				if err := json.Unmarshal(jsonData, &prInfo); err == nil {
+					return &prInfo, nil
+				}
+			}
 		}
 	}
 
@@ -145,8 +166,8 @@ func (c *Client) GetPRInfo(ctx context.Context, prNumber int) (*PRInfo, error) {
 		Branch:     pr.GetHead().GetRef(),
 	}
 
-	// Cache the result
-	c.cache.Set("GetPRInfo", c.owner, c.repo, prInfo, prNumber)
+	// Cache the result (ignore cache error)
+	_ = c.cache.Set("GetPRInfo", c.owner, c.repo, prInfo, prNumber)
 
 	return prInfo, nil
 }
@@ -190,8 +211,8 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		result = append(result, r)
 	}
 
-	// Cache the result
-	c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
+	// Cache the result (ignore cache error)
+	_ = c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
 
 	return result, nil
 }
@@ -263,18 +284,31 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	var allComments []*github.PullRequestComment
 
 	if cached, ok := c.cache.Get("ListComments", c.owner, c.repo, cacheKey); ok {
-		if comments, ok := cached.([]*github.PullRequestComment); ok {
-			allComments = comments
+		// Handle both direct []*github.PullRequestComment and []interface{} from JSON
+		switch v := cached.(type) {
+		case []*github.PullRequestComment:
+			allComments = v
+		default:
+			// Re-marshal and unmarshal to handle JSON-decoded cache entries
+			jsonData, err := json.Marshal(cached)
+			if err == nil {
+				if err := json.Unmarshal(jsonData, &allComments); err == nil {
+					// Successfully decoded from JSON cache
+				}
+			}
 		}
-	} else {
+	}
+
+	// If we don't have comments from cache, fetch them
+	if allComments == nil {
 		// Get all PR review comments
 		var err error
 		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get PR comments: %w", err)
 		}
-		// Cache the raw comments
-		c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
+		// Cache the raw comments (ignore cache error)
+		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
 
 	// Filter comments for this review and build nested structure
@@ -357,7 +391,7 @@ func getRepoInfo() (string, string, error) {
 // NewClientWithToken creates a client with a specific token
 func NewClientWithToken(token string) (*Client, error) {
 	// Get repository info from git
-	owner, repo, err := getRepoInfo()
+	owner, repo, err := getRepoInfoFn()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get repository info: %w", err)
 	}

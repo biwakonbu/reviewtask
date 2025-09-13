@@ -42,12 +42,17 @@ func GetGitHubToken() (string, error) {
 
 // getGHToken reads token from gh CLI configuration using simple parsing
 func getGHToken() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
+	// Check if GH_CONFIG_DIR is set (for testing)
+	configDir := os.Getenv("GH_CONFIG_DIR")
+	if configDir == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", err
+		}
+		configDir = filepath.Join(homeDir, ".config", "gh")
 	}
 
-	configPath := filepath.Join(homeDir, ".config", "gh", "hosts.yml")
+	configPath := filepath.Join(configDir, "hosts.yml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return "", err
@@ -84,7 +89,7 @@ func getGHToken() (string, error) {
 
 // getLocalToken reads token from local auth configuration
 func getLocalToken() (string, error) {
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	data, err := os.ReadFile(authPath)
 	if err != nil {
 		return "", err
@@ -111,49 +116,13 @@ func saveLocalToken(token string) error {
 		return err
 	}
 
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	return os.WriteFile(authPath, data, 0600) // 600 permissions for security
 }
 
 // promptForToken interactively prompts user for GitHub token
-func promptForToken() (string, error) {
-	fmt.Println("GitHub token not found. Please provide a GitHub Personal Access Token.")
-	fmt.Println("You can create one at: https://github.com/settings/tokens")
-	fmt.Println("Required scopes: repo, pull_requests")
-	fmt.Println()
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Print("Enter GitHub token: ")
-
-	// Read token (visible for simplicity in Go 1.20)
-	tokenInput, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("failed to read token: %w", err)
-	}
-
-	token := strings.TrimSpace(tokenInput)
-	if token == "" {
-		return "", fmt.Errorf("token cannot be empty")
-	}
-
-	// Ask if user wants to save locally
-	fmt.Print("Save token locally for future use? (y/N): ")
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("failed to read response: %w", err)
-	}
-
-	response = strings.TrimSpace(strings.ToLower(response))
-	if response == "y" || response == "yes" {
-		if err := saveLocalToken(token); err != nil {
-			fmt.Printf("Warning: Failed to save token locally: %v\n", err)
-		} else {
-			fmt.Println("✓ Token saved to .pr-review/auth.json")
-		}
-	}
-
-	return token, nil
-}
+// Deprecated: replaced by PromptForTokenWithSave. Kept commented to avoid unused warnings.
+// func promptForToken() (string, error) { return PromptForTokenWithSave() }
 
 // GetTokenWithSource returns both the token and its source
 func GetTokenWithSource() (string, string, error) {
@@ -164,7 +133,7 @@ func GetTokenWithSource() (string, string, error) {
 
 	// 2. Local auth configuration (higher priority than gh CLI)
 	if token, err := getLocalToken(); err == nil && token != "" {
-		return "local config (.pr-review/auth.json)", token, nil
+		return fmt.Sprintf("local config (%s)", filepath.Join(".pr-review", "auth.json")), token, nil
 	}
 
 	// 3. gh CLI configuration
@@ -205,7 +174,7 @@ func PromptForTokenWithSave() (string, error) {
 
 // RemoveLocalToken removes the locally stored token
 func RemoveLocalToken() error {
-	authPath := ".pr-review/auth.json"
+	authPath := filepath.Join(".pr-review", "auth.json")
 	err := os.Remove(authPath)
 	if os.IsNotExist(err) {
 		return nil // Already removed

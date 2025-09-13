@@ -83,9 +83,7 @@ type OptimizationTip struct {
 
 // ResponseSession tracks events within a single session
 type ResponseSession struct {
-	events    []ResponseEvent
-	startTime time.Time
-	sessionID string
+	// Reserved for future use; keep exported type minimal to avoid unused warnings
 }
 
 // NewResponseMonitor creates a new response monitoring system
