@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -96,12 +95,18 @@ func SetReadOnly(t *testing.T, path string) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
-		// On Windows, use attrib command
-		cmd := exec.Command("attrib", "+R", path)
-		if err := cmd.Run(); err != nil {
-			// Fallback to os.Chmod
-			if err := os.Chmod(path, 0444); err != nil {
-				t.Fatalf("Failed to set read-only: %v", err)
+		// On Windows, use os.Chmod directly as attrib might not be available in CI
+		// Windows permission model is different, but os.Chmod can still make files read-only
+		if err := os.Chmod(path, 0444); err != nil {
+			// On Windows, sometimes we need to handle directories differently
+			// Try with directory-specific permissions
+			if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
+				// For directories on Windows, try a different permission set
+				if err := os.Chmod(path, 0555); err != nil {
+					t.Fatalf("Failed to set directory read-only on Windows: %v", err)
+				}
+			} else {
+				t.Fatalf("Failed to set read-only on Windows: %v", err)
 			}
 		}
 	} else {
@@ -117,12 +122,22 @@ func SetWritable(t *testing.T, path string) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
-		// On Windows, use attrib command
-		cmd := exec.Command("attrib", "-R", path)
-		if err := cmd.Run(); err != nil {
-			// Fallback to os.Chmod
+		// On Windows, use os.Chmod directly as attrib might not be available in CI
+		// Check if it's a directory to apply appropriate permissions
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("Failed to stat path: %v", err)
+		}
+
+		if info.IsDir() {
+			// For directories, need execute permission too
+			if err := os.Chmod(path, 0755); err != nil {
+				t.Fatalf("Failed to set directory writable on Windows: %v", err)
+			}
+		} else {
+			// For files
 			if err := os.Chmod(path, 0644); err != nil {
-				t.Fatalf("Failed to set writable: %v", err)
+				t.Fatalf("Failed to set file writable on Windows: %v", err)
 			}
 		}
 	} else {
