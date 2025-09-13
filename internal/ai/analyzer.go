@@ -24,6 +24,7 @@ type Analyzer struct {
 	claudeClient       ClaudeClient
 	promptSizeTracker  *PromptSizeTracker
 	responseMonitor    *ResponseMonitor
+	errorTracker       *ErrorTracker
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
@@ -35,12 +36,14 @@ func NewAnalyzer(cfg *config.Config) *Analyzer {
 		return &Analyzer{
 			config:          cfg,
 			responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+			errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 		}
 	}
 	return &Analyzer{
 		config:          cfg,
 		claudeClient:    client,
 		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+		errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 	}
 }
 
@@ -50,6 +53,7 @@ func NewAnalyzerWithClient(cfg *config.Config, client ClaudeClient) *Analyzer {
 		config:          cfg,
 		claudeClient:    client,
 		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+		errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 	}
 }
 
@@ -679,6 +683,18 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 		recoveryResult := recoverer.RecoverJSON(result, err)
 		recoverer.LogRecoveryAttempt(recoveryResult)
 
+		// If standard recovery failed, try enhanced recovery
+		if !recoveryResult.IsRecovered || len(recoveryResult.Tasks) == 0 {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  🚀 Trying enhanced JSON recovery...\n")
+			}
+			enhancedRecoverer := NewEnhancedJSONRecovery(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+			recoveryResult = enhancedRecoverer.RepairAndRecover(result, err)
+		}
+
 		if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
 			if a.config.AISettings.VerboseMode {
 				fmt.Printf("  ✅ JSON recovery successful: %s\n", recoveryResult.Message)
@@ -982,9 +998,10 @@ func (a *Analyzer) clearValidationFeedback() {
 // processCommentsParallel handles common parallel processing logic
 func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
 	type commentResult struct {
-		tasks []TaskRequest
-		err   error
-		index int
+		tasks   []TaskRequest
+		err     error
+		index   int
+		context CommentContext
 	}
 
 	results := make(chan commentResult, len(comments))
@@ -998,9 +1015,10 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 
 			tasks, err := processor(ctx)
 			results <- commentResult{
-				tasks: tasks,
-				err:   err,
-				index: index,
+				tasks:   tasks,
+				err:     err,
+				index:   index,
+				context: ctx,
 			}
 		}(i, commentCtx)
 	}
@@ -1018,6 +1036,18 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 	for result := range results {
 		if result.err != nil {
 			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
+			// Record error in error tracker
+			if a.errorTracker != nil {
+				errorType := "processing_failed"
+				if strings.Contains(result.err.Error(), "json") {
+					errorType = "json_parse"
+				} else if strings.Contains(result.err.Error(), "API") || strings.Contains(result.err.Error(), "execution failed") {
+					errorType = "api_failure"
+				} else if strings.Contains(result.err.Error(), "context") || strings.Contains(result.err.Error(), "size") {
+					errorType = "context_overflow"
+				}
+				a.errorTracker.RecordCommentError(result.context, errorType, result.err.Error(), 0, false, 0, 0)
+			}
 		} else {
 			allTasks = append(allTasks, result.tasks...)
 		}
@@ -1031,7 +1061,15 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 			}
 		}
 		if len(allTasks) == 0 {
+			// Show error summary when all processing failed
+			if a.errorTracker != nil && a.config.AISettings.VerboseMode {
+				a.errorTracker.PrintErrorSummary()
+			}
 			return nil, fmt.Errorf("all comment processing failed")
+		}
+		// Show error summary when some processing failed
+		if a.errorTracker != nil && a.config.AISettings.VerboseMode {
+			a.errorTracker.PrintErrorSummary()
 		}
 	}
 
@@ -1054,6 +1092,18 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 	if a.config.AISettings.VerboseMode {
 		fmt.Printf("Processing %d comments in parallel...\n", len(comments))
 	}
+
+	// Use stream processor if enabled, otherwise use traditional parallel processing
+	if a.config.AISettings.StreamProcessingEnabled {
+		streamProcessor := NewStreamProcessor(a)
+		tasks, err := streamProcessor.ProcessCommentsStream(comments, a.processComment)
+		if err == nil && a.config.AISettings.VerboseMode {
+			fmt.Printf("✓ Generated %d tasks from %d comments (stream mode)\n", len(tasks), len(comments))
+		}
+		return tasks, err
+	}
+
+	// Traditional parallel processing
 	tasks, err := a.processCommentsParallel(comments, a.processComment)
 	if err == nil && a.config.AISettings.VerboseMode {
 		fmt.Printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
@@ -1063,10 +1113,18 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 
 // processComment handles a single comment and returns tasks for it
 func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
-	// Check if comment needs chunking
-	chunker := NewCommentChunker(20000) // 20KB chunks to leave room for prompt template
-	if chunker.ShouldChunkComment(ctx.Comment) {
-		return a.processLargeComment(ctx, chunker)
+	// Check if comment needs special handling for large size
+	const sizeThreshold = 20000 // 20KB threshold
+
+	if len(ctx.Comment.Body) > sizeThreshold {
+		if a.config.AISettings.AutoSummarizeEnabled {
+			// Use intelligent summarization for large comments
+			return a.processLargeCommentWithSummarization(ctx)
+		} else {
+			// Fall back to traditional chunking
+			chunker := NewCommentChunker(sizeThreshold)
+			return a.processLargeComment(ctx, chunker)
+		}
 	}
 
 	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
@@ -1125,6 +1183,52 @@ func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunk
 	}
 
 	return allTasks, nil
+}
+
+// processLargeCommentWithSummarization handles large comments by summarizing them
+func (a *Analyzer) processLargeCommentWithSummarization(ctx CommentContext) ([]TaskRequest, error) {
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  📝 Large comment detected (ID: %d, size: %d bytes), summarizing...\n",
+			ctx.Comment.ID, len(ctx.Comment.Body))
+	}
+
+	// Create content summarizer
+	summarizer := NewContentSummarizer(18000, a.config.AISettings.VerboseMode) // 18KB to leave room for prompt
+
+	// Summarize the comment
+	summarizedComment := summarizer.SummarizeComment(ctx.Comment)
+
+	// Create new context with summarized comment
+	summarizedCtx := CommentContext{
+		Comment:      summarizedComment,
+		SourceReview: ctx.SourceReview,
+	}
+
+	// Process the summarized comment
+	var tasks []TaskRequest
+	var err error
+
+	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+		tasks, err = a.processCommentWithValidation(summarizedCtx)
+	} else {
+		prompt := a.buildCommentPrompt(summarizedCtx)
+		tasks, err = a.callClaudeCode(prompt)
+	}
+
+	if err != nil {
+		// If summarization failed, fall back to chunking
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("    ⚠️ Summarization failed, falling back to chunking: %v\n", err)
+		}
+		chunker := NewCommentChunker(20000)
+		return a.processLargeComment(ctx, chunker)
+	}
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  ✅ Successfully processed summarized comment: %d tasks generated\n", len(tasks))
+	}
+
+	return tasks, nil
 }
 
 // processCommentWithValidation validates individual comment JSON responses
@@ -1340,6 +1444,17 @@ func (a *Analyzer) buildRepliesContext(comment github.Comment) string {
 
 // generateTasksParallelWithValidation processes comments in parallel with validation enabled
 func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
+	// Use stream processor if enabled, otherwise use traditional parallel processing
+	if a.config.AISettings.StreamProcessingEnabled {
+		streamProcessor := NewStreamProcessor(a)
+		tasks, err := streamProcessor.ProcessCommentsStream(comments, a.processCommentWithValidation)
+		if err == nil && a.config.AISettings.VerboseMode {
+			fmt.Printf("✓ Generated %d tasks from %d comments with validation (stream mode)\n", len(tasks), len(comments))
+		}
+		return tasks, err
+	}
+
+	// Traditional parallel processing
 	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
 	if err == nil {
 		// Tasks are already deduplicated in processCommentsParallel

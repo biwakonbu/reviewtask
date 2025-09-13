@@ -60,6 +60,9 @@ type AISettings struct {
 	PartialResponseThreshold float64 `json:"partial_response_threshold"` // Minimum threshold for accepting partial responses (default: 0.7)
 	LogTruncatedResponses    bool    `json:"log_truncated_responses"`    // Log truncated responses for debugging (default: true)
 	ProcessSelfReviews       bool    `json:"process_self_reviews"`       // Process self-reviews from PR author (default: false)
+	ErrorTrackingEnabled     bool    `json:"error_tracking_enabled"`     // Enable error tracking to errors.json (default: true)
+	StreamProcessingEnabled  bool    `json:"stream_processing_enabled"`  // Enable stream processing for incremental results (default: true)
+	AutoSummarizeEnabled     bool    `json:"auto_summarize_enabled"`     // Enable automatic content summarization for large comments (default: true)
 }
 
 type VerificationSettings struct {
@@ -121,6 +124,9 @@ func defaultConfig() *Config {
 			PartialResponseThreshold: 0.7,
 			LogTruncatedResponses:    true,
 			ProcessSelfReviews:       false,
+			ErrorTrackingEnabled:     true,
+			StreamProcessingEnabled:  true,
+			AutoSummarizeEnabled:     true,
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",
@@ -264,6 +270,17 @@ func mergeWithDefaults(config *Config) {
 		config.AISettings.LogTruncatedResponses = defaults.AISettings.LogTruncatedResponses
 	}
 	// ProcessSelfReviews is not set for old configs to maintain backward compatibility (defaults to false)
+
+	// Set defaults for new error tracking and stream processing settings
+	if isOldConfig && !config.AISettings.ErrorTrackingEnabled {
+		config.AISettings.ErrorTrackingEnabled = defaults.AISettings.ErrorTrackingEnabled
+	}
+	if isOldConfig && !config.AISettings.StreamProcessingEnabled {
+		config.AISettings.StreamProcessingEnabled = defaults.AISettings.StreamProcessingEnabled
+	}
+	if isOldConfig && !config.AISettings.AutoSummarizeEnabled {
+		config.AISettings.AutoSummarizeEnabled = defaults.AISettings.AutoSummarizeEnabled
+	}
 
 	// Merge boolean pointer fields
 	if config.AISettings.ValidationEnabled == nil {
