@@ -236,6 +236,20 @@ reviewtask debug fetch task 123
 - Isolates specific functionality for testing
 - Useful for troubleshooting issues
 
+#### `reviewtask debug prompt <PR> [--profile <profile>]`
+
+Render the analysis prompt locally from saved reviews (no AI calls). Useful for A/B comparisons between profiles.
+
+```bash
+# Save reviews for a PR, then render the prompt
+reviewtask debug fetch review 123
+reviewtask debug prompt 123 --profile v2
+reviewtask debug prompt 123 --profile legacy
+```
+
+**Options:**
+- `--profile` — one of: `v2` (default, alias: `rich`), `compact`, `minimal`, `legacy`
+
 ## Command Examples
 
 ### Daily Workflow

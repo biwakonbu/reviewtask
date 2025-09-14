@@ -52,3 +52,20 @@ GOMAXPROCS=1 TEST_P=1 make test
 - Auth: prefer `GITHUB_TOKEN`; local creds stored in `.pr-review/auth.json` (do not commit). 
 - Resource limits: use `scripts/run-with-limits.sh` or envs `GOMAXPROCS`, `GOMEMLIMIT`, `GOGC` for heavy commands.
 - Secrets: never embed tokens in code, tests, or docs.
+
+## Command Safety
+- One command per step: never chain with `&&`, `;`, `|`, or multi-line blocks.
+  - Bad: `git add -A && git commit -m "msg" && git push`
+  - Good (numbered steps, each in its own fence):
+    1) `git add -A`
+    2) `git commit -m "msg"`
+    3) `git push`
+- Presentation rules for docs/PRs:
+  - Use numbered lists; put exactly one command in each fenced block.
+  - State working directory and preconditions before the block (e.g., `repo root`, branch name).
+  - Mention expected effect/output briefly after the block.
+- Safety rules:
+  - Avoid destructive commands (`rm -rf`, `git reset --hard`) in inline guidance. If unavoidable, require explicit confirmation steps and provide rollback instructions.
+  - Prefer `make` targets for multi-step workflows instead of chained shell lines (e.g., `make test-fast`).
+  - Split OS-specific commands into separate blocks (Linux/macOS/Windows) — do not combine.
+- Review policy: Chained or copy-paste multi-line shell snippets should be requested for change before merging.

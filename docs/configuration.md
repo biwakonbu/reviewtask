@@ -159,9 +159,31 @@ Two-stage validation with retry logic and quality scoring.
     "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
     "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
-    "log_truncated_responses": true      // Log truncated responses for debugging
+"log_truncated_responses": true      // Log truncated responses for debugging
   }
 }
+```
+
+### Prompt Profiles (Default: v2)
+
+Select the prompt style used for task generation:
+
+```json
+{
+  "ai_settings": {
+    "prompt_profile": "v2"  // one of: v2 (alias: rich), compact, minimal, legacy
+  }
+}
+```
+
+Tips:
+- `v2` is the default and recommended for most cases.
+- Use `legacy` only to compare with previous behavior or for fallback.
+- Render prompts locally without AI to inspect differences:
+```bash
+reviewtask debug fetch review 123
+reviewtask debug prompt 123 --profile v2
+reviewtask debug prompt 123 --profile legacy
 ```
 
 ### JSON Recovery and Retry Features
