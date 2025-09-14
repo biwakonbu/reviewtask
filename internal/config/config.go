@@ -118,7 +118,7 @@ func defaultConfig() *Config {
 			UserLanguage:             "English",
 			OutputFormat:             "json",
 			MaxRetries:               5,
-            PromptProfile:            "v2",
+			PromptProfile:            "v2",
 			ValidationEnabled:        &validationTrue,
 			QualityThreshold:         0.8,
 			VerboseMode:              false,
