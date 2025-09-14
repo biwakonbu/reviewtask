@@ -279,9 +279,9 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 }
 
 func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID int64) ([]Comment, error) {
-	// Check cache for PR comments
-	cacheKey := fmt.Sprintf("prcomments-%d", prNumber)
-	var allComments []*github.PullRequestComment
+    // Check cache for PR comments
+    cacheKey := fmt.Sprintf("prcomments-%d", prNumber)
+    var allComments []*github.PullRequestComment
 
 	if cached, ok := c.cache.Get("ListComments", c.owner, c.repo, cacheKey); ok {
 		// Handle both direct []*github.PullRequestComment and []interface{} from JSON
@@ -299,42 +299,44 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 		}
 	}
 
-	// If we don't have comments from cache, fetch them
-	if allComments == nil {
-		// Get all PR review comments
-		var err error
-		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get PR comments: %w", err)
-		}
-		// Cache the raw comments (ignore cache error)
-		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
-	}
+    // If we don't have comments from cache, fetch them
+    if allComments == nil {
+        // Get all PR review comments
+        var err error
+        allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
+        if err != nil {
+            return nil, fmt.Errorf("failed to get PR comments: %w", err)
+        }
+        // Cache the raw comments (ignore cache error)
+        _ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
+    }
 
-	// Filter comments for this review and build nested structure
-	commentMap := make(map[int64]*Comment)
-	var rootComments []Comment
+    // Filter comments for this review and build flat list
+    commentMap := make(map[int64]*Comment)
+    var rootComments []Comment
 
-	for _, comment := range allComments {
-		// Skip comments not part of this review (if we can determine that)
-		// Note: GitHub API doesn't directly link comments to reviews, so we'll include all for now
+    for _, comment := range allComments {
+        // Only include comments that belong to this specific review
+        // GitHub PR comments include PullRequestReviewID when they are part of a review
+        if rid := comment.GetPullRequestReviewID(); rid != 0 && rid != reviewID {
+            continue
+        }
 
-		c := Comment{
-			ID:        comment.GetID(),
-			File:      comment.GetPath(),
-			Line:      comment.GetLine(),
-			Body:      comment.GetBody(),
-			Author:    comment.GetUser().GetLogin(),
-			CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
-			Replies:   []Reply{},
-		}
+        c := Comment{
+            ID:        comment.GetID(),
+            File:      comment.GetPath(),
+            Line:      comment.GetLine(),
+            Body:      comment.GetBody(),
+            Author:    comment.GetUser().GetLogin(),
+            CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+            Replies:   []Reply{},
+        }
 
-		commentMap[comment.GetID()] = &c
+        commentMap[comment.GetID()] = &c
 
-		// For now, treat all comments as root comments since GitHub API comment nesting is complex
-		// In a production version, you would implement proper comment thread detection
-		rootComments = append(rootComments, c)
-	}
+        // For now, treat all comments as root comments
+        rootComments = append(rootComments, c)
+    }
 
 	// Convert map back to slice for root comments
 	var result []Comment
