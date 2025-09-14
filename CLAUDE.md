@@ -122,6 +122,7 @@ reviewtask debug prompt 123 --profile v2   # Render analysis prompt locally (no 
 ## Golden Tests (Local-Only Snapshot Tests)
 
 - Purpose: lock down prompt outputs and CLI templates as “expected snapshots” and detect regressions.
+- Default profile: `v2` (aka `rich`). Use `--profile legacy` to compare with the previous behavior.
 - Scope in this repo:
   - Analyzer prompt profiles: legacy, v2/rich, compact, minimal
   - CLI template: `reviewtask prompt stdout pr-review`

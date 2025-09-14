@@ -298,12 +298,12 @@ Authentication sources (in order of preference):
 
 ### Prompt Profiles
 
-Control the prompt style used for task generation. Default remains `legacy` for backward compatibility.
+Control the prompt style used for task generation. Default is `v2`.
 
 ```json
 {
   "ai_settings": {
-    "prompt_profile": "v2"  // one of: legacy, v2 (alias: rich), compact, minimal
+    "prompt_profile": "v2"  // one of: v2 (alias: rich), compact, minimal, legacy
   }
 }
 ```

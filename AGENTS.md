@@ -36,6 +36,7 @@ GOMAXPROCS=1 TEST_P=1 make test
 
 ### Golden Tests (Local-Only)
 - Purpose: snapshot prompt outputs and CLI templates to catch regressions.
+- Default prompt profile is `v2` (rich). Use `--profile legacy` in debug to compare old behavior.
 - Run fast set: `make test-fast` (config, AI prompt, CLI prompt)
 - Update snapshots intentionally:
   - `UPDATE_GOLDEN=1 go test -v ./internal/ai -run BuildAnalysisPrompt_Golden`
