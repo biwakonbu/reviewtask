@@ -13,13 +13,14 @@ import (
 
 // IncrementalOptions contains options for incremental processing
 type IncrementalOptions struct {
-	BatchSize       int
-	Resume          bool
-	FastMode        bool
-	MaxTimeout      time.Duration
-	ShowProgress    bool
-	OnProgress      func(processed, total int)
-	OnBatchComplete func(batchTasks []storage.Task)
+	BatchSize           int
+	Resume              bool
+	FastMode            bool
+	MaxTimeout          time.Duration
+	ShowProgress        bool
+	MaxBatchesToProcess int // 0 = process all batches, >0 = limit batches per command
+	OnProgress          func(processed, total int)
+	OnBatchComplete     func(batchTasks []storage.Task)
 }
 
 // GenerateTasksIncremental processes reviews incrementally with checkpointing
@@ -59,8 +60,13 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 	defer cancel()
 
 	allTasks := append([]storage.Task{}, checkpoint.PartialTasks...)
+	processedBatches := 0
 
 	for i := 0; i < len(remainingComments); i += opts.BatchSize {
+		// Check batch limit
+		if opts.MaxBatchesToProcess > 0 && processedBatches >= opts.MaxBatchesToProcess {
+			break
+		}
 		select {
 		case <-ctx.Done():
 			// Save checkpoint before timeout
@@ -144,16 +150,32 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 			opts.OnBatchComplete(batchTasks)
 		}
 
+		// Increment batch counter
+		processedBatches++
+
 		// Add small delay to prevent API rate limiting
 		if !opts.FastMode && i+opts.BatchSize < len(remainingComments) {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}
 
-	// Delete checkpoint on successful completion
-	if err := storageManager.DeleteCheckpoint(prNumber); err != nil {
-		if a.config.AISettings.VerboseMode {
-			fmt.Printf("⚠️  Failed to delete checkpoint: %v\n", err)
+	// Check if we stopped due to batch limit
+	batchLimitReached := opts.MaxBatchesToProcess > 0 && processedBatches >= opts.MaxBatchesToProcess && checkpoint.ProcessedCount < checkpoint.TotalComments
+
+	// Only delete checkpoint on complete processing (not when batch limit reached)
+	if !batchLimitReached {
+		if err := storageManager.DeleteCheckpoint(prNumber); err != nil {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("⚠️  Failed to delete checkpoint: %v\n", err)
+			}
+		}
+	} else {
+		// Show progress and continuation message when batch limit reached
+		remaining := checkpoint.TotalComments - checkpoint.ProcessedCount
+		if opts.ShowProgress {
+			fmt.Printf("📊 Processed %d/%d comments in %d batches\n", checkpoint.ProcessedCount, checkpoint.TotalComments, processedBatches)
+			fmt.Printf("📋 Remaining: %d comments (%.1f%% remaining)\n", remaining, float64(remaining)/float64(checkpoint.TotalComments)*100)
+			fmt.Printf("🔄 Continue with: reviewtask analyze %d\n", prNumber)
 		}
 	}
 

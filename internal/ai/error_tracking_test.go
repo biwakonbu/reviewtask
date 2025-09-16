@@ -11,6 +11,9 @@ import (
 )
 
 func TestNewErrorTracker(t *testing.T) {
+	// Create temporary directory for testing
+	tempDir := t.TempDir()
+
 	tests := []struct {
 		name        string
 		enabled     bool
@@ -22,8 +25,8 @@ func TestNewErrorTracker(t *testing.T) {
 			name:        "enabled with custom directory",
 			enabled:     true,
 			verboseMode: true,
-			storageDir:  "/tmp/test-storage",
-			expectedDir: "/tmp/test-storage",
+			storageDir:  tempDir,
+			expectedDir: tempDir,
 		},
 		{
 			name:        "disabled with default directory",

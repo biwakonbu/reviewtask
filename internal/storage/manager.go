@@ -163,6 +163,21 @@ func (m *Manager) LoadReviews(prNumber int) ([]github.Review, error) {
 	return reviewsFile.Reviews, nil
 }
 
+// ReviewsExist checks if reviews file exists for the given PR
+func (m *Manager) ReviewsExist(prNumber int) (bool, error) {
+	prDir := m.getPRDir(prNumber)
+	filePath := filepath.Join(prDir, "reviews.json")
+
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (m *Manager) SaveTasks(prNumber int, tasks []Task) error {
 	prDir := m.getPRDir(prNumber)
 	if err := m.ensureDir(prDir); err != nil {

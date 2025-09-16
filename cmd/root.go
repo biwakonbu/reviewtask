@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
@@ -258,42 +257,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to save reviews: %w", err)
 	}
 
-	// Generate tasks using AI - always use optimized processing
-	fmt.Println("  Analyzing reviews with AI...")
-
-	// Pre-flight check: Verify Claude CLI is authenticated (unless skip is configured)
-	_, err = ai.NewRealClaudeClientWithConfig(cfg)
-	if err != nil {
-		// Check if it's an authentication error
-		if strings.Contains(err.Error(), "authentication") {
-			fmt.Println()
-			fmt.Println("❌ Claude CLI Authentication Required")
-			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-			fmt.Println()
-			fmt.Println("The Claude CLI is not authenticated. To fix this:")
-			fmt.Println()
-			fmt.Println("1. Open Claude by running:")
-			fmt.Println("   $ claude")
-			fmt.Println()
-			fmt.Println("2. In the Claude interface, use the login command:")
-			fmt.Println("   /login")
-			fmt.Println()
-			fmt.Println("3. Follow the authentication prompts")
-			fmt.Println()
-			fmt.Println("4. Once authenticated, run this command again")
-			fmt.Println()
-			fmt.Println("Or if Claude Code logs out frequently, you can skip this check:")
-			fmt.Println("- Set environment variable: SKIP_CLAUDE_AUTH_CHECK=true")
-			fmt.Println("- Or in config: \"skip_claude_auth_check\": true")
-			fmt.Println()
-			return fmt.Errorf("claude CLI authentication required")
-		}
-		return fmt.Errorf("failed to initialize Claude client: %w", err)
-	}
-
-	analyzer := ai.NewAnalyzer(cfg)
-
-	// Calculate optimal batch size based on number of comments
+	// Calculate total comments for information
 	totalComments := 0
 	for _, review := range reviews {
 		if review.Body != "" {
@@ -302,52 +266,21 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		totalComments += len(review.Comments)
 	}
 
-	// Show total comments count
-	if totalComments > 0 {
-		fmt.Printf("  Found %d comments to analyze\n", totalComments)
-	}
-
-	// Auto-detect batch size: smaller batches for large PRs
-	batchSize := 10 // Default for normal PRs
-	if totalComments > 50 {
-		batchSize = 20 // Larger batches for big PRs
-	} else if totalComments < 10 {
-		batchSize = totalComments // Process all at once for small PRs
-	}
-
-	// Always use incremental processing for better performance
-	incrementalOpts := ai.IncrementalOptions{
-		BatchSize:    batchSize,
-		Resume:       true, // Always support resume in case of failure
-		FastMode:     false,
-		MaxTimeout:   10 * time.Minute, // Generous timeout
-		ShowProgress: true,
-		OnProgress: func(processed, total int) {
-			// Simple progress - only show when complete
-			if processed == total {
-				fmt.Println("  AI analysis complete")
-			}
-		},
-	}
-
-	tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
-	if err != nil {
-		// Check if it's a timeout error and suggest retry
-		if strings.Contains(err.Error(), "timed out") {
-			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")
-		}
-		return fmt.Errorf("failed to generate tasks: %w", err)
-	}
-
-	// Merge tasks with existing ones (preserves task statuses)
-	if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
-		return fmt.Errorf("failed to merge tasks: %w", err)
-	}
-
 	// Show final results
 	fmt.Printf("\n✓ Saved PR info to .pr-review/PR-%d/info.json\n", prNumber)
 	fmt.Printf("✓ Saved reviews to .pr-review/PR-%d/reviews.json\n", prNumber)
-	fmt.Printf("✓ Generated %d tasks and saved to .pr-review/PR-%d/tasks.json\n", len(tasks), prNumber)
+
+	if totalComments > 0 {
+		fmt.Printf("📊 Found %d comments ready for analysis\n", totalComments)
+		fmt.Println()
+		fmt.Println("📋 Ready for task generation!")
+		fmt.Printf("🔄 Run: reviewtask analyze %d\n", prNumber)
+		fmt.Println()
+		fmt.Printf("💡 Tip: Analysis will process 5 comments at a time for better control.\n")
+		fmt.Printf("    Run the analyze command multiple times to process all comments.\n")
+	} else {
+		fmt.Printf("ℹ️  No comments found in the reviews\n")
+	}
 
 	return nil
 }
