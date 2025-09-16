@@ -570,3 +570,138 @@ func TestManager_CleanupClosedPRs_WithErrors(t *testing.T) {
 		t.Error("PR-3 directory should be removed")
 	}
 }
+
+// TestManager_SaveReviews_NullHandling tests that null reviews are properly handled
+func TestManager_SaveReviews_NullHandling(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := NewManagerWithBase(tempDir)
+	prNumber := 123
+
+	tests := []struct {
+		name     string
+		reviews  []github.Review
+		expected string
+	}{
+		{
+			name:     "nil reviews should become empty array",
+			reviews:  nil,
+			expected: `"reviews": []`,
+		},
+		{
+			name:     "empty reviews should remain empty array",
+			reviews:  []github.Review{},
+			expected: `"reviews": []`,
+		},
+		{
+			name: "reviews with empty comments should have empty array",
+			reviews: []github.Review{
+				{
+					ID:       123456,
+					Reviewer: "testuser",
+					State:    "COMMENTED",
+					Body:     "Test review",
+					Comments: []github.Comment{}, // Empty slice, not nil
+				},
+			},
+			expected: `"comments": []`,
+		},
+		{
+			name: "reviews with nil comments should become empty array",
+			reviews: []github.Review{
+				{
+					ID:       123456,
+					Reviewer: "testuser",
+					State:    "COMMENTED",
+					Body:     "Test review",
+					// Comments field will be nil by default
+				},
+			},
+			expected: `"comments": []`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save reviews
+			if err := manager.SaveReviews(prNumber, tt.reviews); err != nil {
+				t.Fatalf("Failed to save reviews: %v", err)
+			}
+
+			// Read raw JSON to verify structure
+			filePath := filepath.Join(tempDir, fmt.Sprintf("PR-%d", prNumber), "reviews.json")
+			data, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("Failed to read reviews file: %v", err)
+			}
+
+			jsonStr := string(data)
+
+			// Verify no null values
+			if strings.Contains(jsonStr, "null") {
+				t.Errorf("JSON should not contain null values. Got: %s", jsonStr)
+			}
+
+			// Verify expected structure
+			if !strings.Contains(jsonStr, tt.expected) {
+				t.Errorf("Expected JSON to contain %s, but got: %s", tt.expected, jsonStr)
+			}
+
+			// Verify it can be properly unmarshaled
+			var reviewsFile ReviewsFile
+			if err := json.Unmarshal(data, &reviewsFile); err != nil {
+				t.Fatalf("Failed to unmarshal reviews JSON: %v", err)
+			}
+
+			// Verify reviews field is never nil
+			if reviewsFile.Reviews == nil {
+				t.Error("Reviews field should never be nil after unmarshaling")
+			}
+		})
+	}
+}
+
+// TestManager_ReviewComments_NullHandling tests that review comments are properly initialized
+func TestManager_ReviewComments_NullHandling(t *testing.T) {
+	tempDir := t.TempDir()
+	manager := NewManagerWithBase(tempDir)
+	prNumber := 123
+
+	// Create a review with no comments (simulates empty review from API)
+	reviews := []github.Review{
+		{
+			ID:          123456,
+			Reviewer:    "coderabbitai[bot]",
+			State:       "COMMENTED",
+			Body:        "",
+			SubmittedAt: "2025-09-16T10:00:00Z",
+			// Comments is nil by default
+		},
+	}
+
+	// Save reviews
+	if err := manager.SaveReviews(prNumber, reviews); err != nil {
+		t.Fatalf("Failed to save reviews: %v", err)
+	}
+
+	// Load reviews back
+	loadedReviews, err := manager.LoadReviews(prNumber)
+	if err != nil {
+		t.Fatalf("Failed to load reviews: %v", err)
+	}
+
+	// Verify loaded reviews
+	if len(loadedReviews) != 1 {
+		t.Fatalf("Expected 1 review, got %d", len(loadedReviews))
+	}
+
+	review := loadedReviews[0]
+
+	// Comments should be initialized as empty slice, not nil
+	if review.Comments == nil {
+		t.Error("Review comments should be initialized as empty slice, not nil")
+	}
+
+	if len(review.Comments) != 0 {
+		t.Errorf("Review comments should be empty, got %d comments", len(review.Comments))
+	}
+}

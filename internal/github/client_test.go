@@ -6,11 +6,21 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/google/go-github/v58/github"
 )
+
+// mustParseURL is a helper function for tests
+func mustParseURL(rawURL string) *url.URL {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse URL %q: %v", rawURL, err))
+	}
+	return u
+}
 
 // MockGitHubServer creates a mock GitHub API server for testing
 func MockGitHubServer(t *testing.T) *httptest.Server {
@@ -638,5 +648,109 @@ func TestMockClient_IsPROpen(t *testing.T) {
 	_, err = mockClient.IsPROpen(ctx, 999)
 	if err == nil {
 		t.Error("Expected error for non-existent PR")
+	}
+}
+
+// TestClient_GetPRReviews_CommentsInitialization tests that review comments are properly initialized
+func TestClient_GetPRReviews_CommentsInitialization(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/test/repo/pulls/456/reviews":
+			// Return a review without comments
+			response := `[
+				{
+					"id": 123456,
+					"user": {"login": "testuser"},
+					"state": "COMMENTED",
+					"body": "Test review",
+					"submitted_at": "2025-09-16T10:00:00Z"
+				}
+			]`
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(response))
+		case "/repos/test/repo/pulls/456/comments":
+			// Return empty comments array
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("[]"))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := github.NewClient(nil)
+	client.BaseURL = mustParseURL(server.URL + "/")
+
+	testClient := &Client{
+		client: client,
+		owner:  "test",
+		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
+	}
+
+	ctx := context.Background()
+	reviews, err := testClient.GetPRReviews(ctx, 456)
+	if err != nil {
+		t.Fatalf("GetPRReviews failed: %v", err)
+	}
+
+	if len(reviews) != 1 {
+		t.Fatalf("Expected 1 review, got %d", len(reviews))
+	}
+
+	review := reviews[0]
+
+	// Comments should be initialized as empty slice, not nil
+	if review.Comments == nil {
+		t.Error("Review comments should be initialized as empty slice, not nil")
+	}
+
+	if len(review.Comments) != 0 {
+		t.Errorf("Review comments should be empty, got %d comments", len(review.Comments))
+	}
+}
+
+// TestClient_GetPRReviews_EmptyReviews tests handling of PRs with no reviews
+func TestClient_GetPRReviews_EmptyReviews(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/test/repo/pulls/789/reviews":
+			// Return empty reviews array
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte("[]"))
+		default:
+			t.Errorf("Unexpected request to %s", r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	client := github.NewClient(nil)
+	client.BaseURL = mustParseURL(server.URL + "/")
+
+	testClient := &Client{
+		client: client,
+		owner:  "test",
+		repo:   "repo",
+		cache:  NewAPICache(5 * time.Minute),
+	}
+
+	ctx := context.Background()
+	reviews, err := testClient.GetPRReviews(ctx, 789)
+	if err != nil {
+		t.Fatalf("GetPRReviews failed: %v", err)
+	}
+
+	// Should return empty slice, not nil
+	if reviews == nil {
+		t.Error("Reviews should be empty slice, not nil")
+	}
+
+	if len(reviews) != 0 {
+		t.Errorf("Reviews should be empty, got %d reviews", len(reviews))
 	}
 }

@@ -136,6 +136,18 @@ func (m *Manager) SaveReviews(prNumber int, reviews []github.Review) error {
 		return err
 	}
 
+	// Ensure reviews is never nil to avoid null in JSON
+	if reviews == nil {
+		reviews = []github.Review{}
+	}
+
+	// Ensure each review's Comments slice is never nil
+	for i := range reviews {
+		if reviews[i].Comments == nil {
+			reviews[i].Comments = []github.Comment{}
+		}
+	}
+
 	reviewsFile := ReviewsFile{Reviews: reviews}
 	filePath := filepath.Join(prDir, "reviews.json")
 	data, err := json.MarshalIndent(reviewsFile, "", "  ")
