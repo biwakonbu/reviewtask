@@ -18,6 +18,7 @@ import (
 // RealClaudeClient implements ClaudeClient using actual Claude Code CLI
 type RealClaudeClient struct {
 	claudePath string
+	model      string
 }
 
 // NewRealClaudeClient creates a new real Claude client
@@ -44,7 +45,16 @@ func NewRealClaudeClientWithConfig(cfg *config.Config) (*RealClaudeClient, error
 		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
-	client := &RealClaudeClient{claudePath: claudePath}
+	// Get model from config, default to sonnet4
+	model := "sonnet4"
+	if cfg != nil && cfg.AISettings.Model != "" {
+		model = cfg.AISettings.Model
+	}
+
+	client := &RealClaudeClient{
+		claudePath: claudePath,
+		model:      model,
+	}
 
 	// Skip authentication check if configured or environment variable is set
 	skipAuthCheck := os.Getenv("SKIP_CLAUDE_AUTH_CHECK") == "true"
@@ -74,7 +84,12 @@ func (c *RealClaudeClient) CheckAuthentication() error {
 	ctx := context.Background()
 	testInput := "test"
 
-	args := []string{"--output-format", "json"}
+	args := []string{}
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+	args = append(args, "--output-format", "json")
 	var cmd *exec.Cmd
 
 	// Check if claudePath contains interpreter command
@@ -494,6 +509,12 @@ func getNpmPrefix() string {
 // Execute runs Claude with the given input
 func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	args := []string{}
+
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+
 	if outputFormat != "" {
 		args = append(args, "--output-format", outputFormat)
 	}

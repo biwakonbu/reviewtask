@@ -163,9 +163,14 @@ Ensure every task ID appears exactly once in either unique_task_ids or as a prim
 		return nil, fmt.Errorf("failed to find Claude: %w", err)
 	}
 
-	cmd := exec.Command(claudeCmd,
-		"--output-format", "json",
-		prompt)
+	args := []string{}
+	// Add model parameter if specified in config
+	if d.config.AISettings.Model != "" {
+		args = append(args, "--model", d.config.AISettings.Model)
+	}
+	args = append(args, "--output-format", "json", prompt)
+
+	cmd := exec.Command(claudeCmd, args...)
 
 	// Set environment for Claude command
 	cmd.Env = append(cmd.Environ(), "TERM=dumb", "NO_COLOR=1")

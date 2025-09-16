@@ -205,7 +205,14 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 		return nil, fmt.Errorf("claude command not found")
 	}
 
-	cmd := exec.Command(claudePath, "--output-format", "json")
+	args := []string{}
+	// Add model parameter if specified in config
+	if tv.config != nil && tv.config.AISettings.Model != "" {
+		args = append(args, "--model", tv.config.AISettings.Model)
+	}
+	args = append(args, "--output-format", "json")
+
+	cmd := exec.Command(claudePath, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 	// Ensure the command inherits the current environment including PATH
 	cmd.Env = os.Environ()

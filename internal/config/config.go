@@ -46,6 +46,8 @@ type AISettings struct {
 	UserLanguage string `json:"user_language"` // e.g., "Japanese", "English"
 	OutputFormat string `json:"output_format"` // "json"
 	MaxRetries   int    `json:"max_retries"`   // Validation retry attempts (default: 5)
+	// Model configuration
+	Model string `json:"model"` // Model to use: sonnet4|opus|haiku (default: sonnet4 for ClaudeCode)
 	// Prompt configuration
 	PromptProfile            string  `json:"prompt_profile"`             // Prompt profile: legacy|v2|rich|compact|minimal
 	ValidationEnabled        *bool   `json:"validation_enabled"`         // Enable two-stage validation
@@ -118,6 +120,7 @@ func defaultConfig() *Config {
 			UserLanguage:             "English",
 			OutputFormat:             "json",
 			MaxRetries:               5,
+			Model:                    "sonnet4",
 			PromptProfile:            "v2",
 			ValidationEnabled:        &validationTrue,
 			QualityThreshold:         0.8,
@@ -263,6 +266,9 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	}
 	if config.AISettings.MaxRetries == 0 {
 		config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
+	}
+	if config.AISettings.Model == "" {
+		config.AISettings.Model = defaults.AISettings.Model
 	}
 	if config.AISettings.PromptProfile == "" {
 		config.AISettings.PromptProfile = defaults.AISettings.PromptProfile
