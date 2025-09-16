@@ -84,11 +84,11 @@ var (
 	fingerprintRegex = regexp.MustCompile(`(?s)(?:\\u003c!--|<!)-- fingerprinting:.*? --(?:\\u003e|>)`)
 
 	// CodeRabbit detailed review sections (aggressive cleanup)
-	cautionSectionRegex = regexp.MustCompile(`(?s)(?:\\u003e|>) \[!CAUTION\].*`)
-	nitpickSectionRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧹 Nitpick comments.*`)
-	reviewDetailsRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)📜 Review details.*`)
-	codeGraphRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧬 Code graph analysis.*`)
-	learningsRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧠 Learnings.*`)
+	cautionSectionRegex    = regexp.MustCompile(`(?s)(?:\\u003e|>) \[!CAUTION\].*`)
+	nitpickSectionRegex    = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧹 Nitpick comments.*`)
+	reviewDetailsRegex     = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)📜 Review details.*`)
+	codeGraphRegex         = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧬 Code graph analysis.*`)
+	learningsRegex         = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧠 Learnings.*`)
 	additionalContextRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧰 Additional context used.*`)
 )
 
@@ -289,7 +289,6 @@ func processAIPromptAndSuggestions(text string) string {
 	// Then, unescape standard HTML entities
 	text = html.UnescapeString(text)
 
-
 	// Remove verbose suggestion blocks but keep AI Prompt blocks intact
 	text = regexp.MustCompile(`(?s)<!-- suggestion_start -->.*?<!-- suggestion_end -->`).ReplaceAllString(text, "")
 	text = regexp.MustCompile(`(?s)<details>\s*<summary>📝 Committable suggestion</summary>.*?</details>`).ReplaceAllString(text, "")
@@ -302,7 +301,6 @@ func processAIPromptAndSuggestions(text string) string {
 
 	return strings.TrimSpace(text)
 }
-
 
 // Injectable function variables for easier testing/mocking
 var (
@@ -445,7 +443,7 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 
 		// For CodeRabbit actionable comments, remove the summary body but keep individual comments
 		if review.GetUser().GetLogin() == "coderabbitai[bot]" &&
-		   strings.HasPrefix(reviewBody, "**Actionable comments posted:") {
+			strings.HasPrefix(reviewBody, "**Actionable comments posted:") {
 			reviewBody = "" // Clear the body but keep the review for its comments
 		} else {
 			reviewBody = removeCodeBlocks(reviewBody)

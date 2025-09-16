@@ -470,9 +470,9 @@ Thanks!`
 // Test AI Prompt preservation functionality
 func TestRemoveCodeBlocks_AIPromptPreservation(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		shouldContainPrompt bool
+		name                    string
+		input                   string
+		shouldContainPrompt     bool
 		shouldRemoveSuggestions bool
 	}{
 		{
@@ -493,7 +493,7 @@ In internal/ai/analyzer.go around lines 1036 to 1051, fix the error handling.
 \u003c/details\u003e
 
 \u003c!-- This is an auto-generated comment by CodeRabbit --\u003e`,
-			shouldContainPrompt: true,
+			shouldContainPrompt:     true,
 			shouldRemoveSuggestions: false,
 		},
 		{
@@ -512,7 +512,7 @@ In internal/ai/analyzer.go around lines 1036 to 1051, fix the error handling.
 </details>
 
 <!-- This is an auto-generated comment by CodeRabbit -->`,
-			shouldContainPrompt: true,
+			shouldContainPrompt:     true,
 			shouldRemoveSuggestions: false,
 		},
 		{
@@ -545,7 +545,7 @@ Fix the error handling here.
 ` + "```" + `
 
 </details>`,
-			shouldContainPrompt: true,
+			shouldContainPrompt:     true,
 			shouldRemoveSuggestions: true,
 		},
 		{
@@ -564,7 +564,7 @@ new code
 
 </details>
 <!-- suggestion_end -->`,
-			shouldContainPrompt: false,
+			shouldContainPrompt:     false,
 			shouldRemoveSuggestions: true,
 		},
 	}
