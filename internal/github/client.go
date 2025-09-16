@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -50,6 +51,7 @@ type Comment struct {
 	Body      string  `json:"body"`
 	Author    string  `json:"author"`
 	CreatedAt string  `json:"created_at"`
+	URL       string  `json:"url"` // GitHub comment URL for reference
 	Replies   []Reply `json:"replies"`
 }
 
@@ -58,6 +60,42 @@ type Reply struct {
 	Body      string `json:"body"`
 	Author    string `json:"author"`
 	CreatedAt string `json:"created_at"`
+	URL       string `json:"url"` // GitHub comment URL for reference
+}
+
+// Regular expressions for code block removal
+var (
+	// Matches fenced code blocks (```...```) including language specifiers
+	fencedCodeBlockRegex = regexp.MustCompile(`(?s)` + "`" + `{3}[^` + "`" + `\n]*\n.*?\n` + "`" + `{3}`)
+	// Matches inline code (`...`)
+	inlineCodeRegex = regexp.MustCompile("`[^`\n]+`")
+	// Matches indented code blocks (consecutive lines with 4+ spaces/tabs at start)
+	indentedCodeBlockRegex = regexp.MustCompile(`(?m)^( {4,}|\t+).*(\n( {4,}|\t+).*)*`)
+)
+
+// removeCodeBlocks removes all code blocks and inline code from markdown text
+// while preserving other formatting and content structure
+func removeCodeBlocks(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// Remove fenced code blocks first (```...```)
+	text = fencedCodeBlockRegex.ReplaceAllString(text, "[code block removed]")
+
+	// Remove inline code (`...`)
+	text = inlineCodeRegex.ReplaceAllString(text, "[code removed]")
+
+	// Remove indented code blocks (lines starting with 4+ spaces or tabs)
+	text = indentedCodeBlockRegex.ReplaceAllString(text, "[code block removed]")
+
+	// Clean up multiple consecutive newlines
+	text = regexp.MustCompile(`\n{3,}`).ReplaceAllString(text, "\n\n")
+
+	// Clean up multiple consecutive [code removed] markers
+	text = regexp.MustCompile(`(\[code (?:block )?removed\]\s*){2,}`).ReplaceAllString(text, "[code removed] ")
+
+	return strings.TrimSpace(text)
 }
 
 // Injectable function variables for easier testing/mocking
@@ -240,9 +278,10 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
-				Body:      comment.GetBody(),
+				Body:      removeCodeBlocks(comment.GetBody()),
 				Author:    prAuthor,
 				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				URL:       comment.GetHTMLURL(),
 				// Issue comments don't have file/line info
 				File: "",
 				Line: 0,
@@ -261,9 +300,10 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
-				Body:      comment.GetBody(),
+				Body:      removeCodeBlocks(comment.GetBody()),
 				Author:    prAuthor,
 				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				URL:       comment.GetHTMLURL(),
 				File:      comment.GetPath(),
 				Line:      comment.GetLine(),
 			})
@@ -326,9 +366,10 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 			ID:        comment.GetID(),
 			File:      comment.GetPath(),
 			Line:      comment.GetLine(),
-			Body:      comment.GetBody(),
+			Body:      removeCodeBlocks(comment.GetBody()),
 			Author:    comment.GetUser().GetLogin(),
 			CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+			URL:       comment.GetHTMLURL(),
 			Replies:   []Reply{},
 		}
 
