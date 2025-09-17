@@ -1,10 +1,12 @@
 package ai
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -12,6 +14,7 @@ import (
 	"reviewtask/internal/config"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // BaseCLIClient provides common CLI functionality for AI providers
@@ -128,6 +131,115 @@ func (c *BaseCLIClient) CheckAuthentication() error {
 	return nil
 }
 
+// executeCursorWithTimeout executes cursor-agent with automatic termination when JSON response is complete
+func (c *BaseCLIClient) executeCursorWithTimeout(cmd *exec.Cmd, stdout, stderr *bytes.Buffer, timeoutSeconds int) error {
+	// Create pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	// Start the process
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start cursor-agent: %w", err)
+	}
+
+	// Create channels for monitoring output and completion
+	done := make(chan error, 1)
+	outputReady := make(chan bool, 1)
+
+	// Monitor stdout for JSON response completion
+	go func() {
+		scanner := bufio.NewScanner(stdoutPipe)
+		accumulatedOutput := ""
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			stdout.WriteString(line + "\n")
+			accumulatedOutput += line
+
+			// Check if we received a complete JSON response
+			if c.isCompleteJSONResponse(accumulatedOutput) {
+				outputReady <- true
+				return
+			}
+		}
+	}()
+
+	// Monitor stderr separately
+	go func() {
+		io.Copy(stderr, stderrPipe)
+	}()
+
+	// Wait for completion with timeout
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	timeout := time.Duration(timeoutSeconds) * time.Second
+	select {
+	case <-outputReady:
+		// Got complete JSON response, terminate the process
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		// Wait a moment for graceful shutdown
+		time.Sleep(100 * time.Millisecond)
+		return nil
+	case err := <-done:
+		// Process finished naturally
+		return err
+	case <-time.After(timeout):
+		// Timeout reached, kill the process
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		return fmt.Errorf("cursor-agent execution timed out after %d seconds", timeoutSeconds)
+	}
+}
+
+// isCompleteJSONResponse checks if the accumulated output contains a complete JSON response
+func (c *BaseCLIClient) isCompleteJSONResponse(output string) bool {
+	// First check for cursor-agent specific response patterns
+	if strings.Contains(output, `"type":"result"`) {
+		// Look for complete JSON structure
+		openBraces := strings.Count(output, "{")
+		closeBraces := strings.Count(output, "}")
+
+		// Must have at least one complete JSON object
+		if openBraces > 0 && closeBraces >= openBraces {
+			// Try to parse as JSON to verify completeness
+			var response map[string]interface{}
+			if err := json.Unmarshal([]byte(output), &response); err == nil {
+				// Check if it has the expected result field
+				if result, exists := response["result"]; exists && result != nil {
+					return true
+				}
+			}
+		}
+	}
+
+	// Also check for simple JSON array responses (for task generation)
+	if strings.HasPrefix(strings.TrimSpace(output), "[") {
+		openBrackets := strings.Count(output, "[")
+		closeBrackets := strings.Count(output, "]")
+
+		if openBrackets > 0 && closeBrackets >= openBrackets {
+			var jsonArray []interface{}
+			if err := json.Unmarshal([]byte(output), &jsonArray); err == nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 // Execute runs the CLI with the given input
 func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	args := []string{}
@@ -137,8 +249,8 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 		// cursor-agent: use -p option for prompt input
 		args = append(args, "-p", input)
 
-		// Add model parameter if specified
-		if c.model != "" {
+		// Add model parameter if specified and not "auto" (cursor-agent uses auto by default)
+		if c.model != "" && c.model != "auto" {
 			args = append(args, "--model", c.model)
 		}
 
@@ -180,9 +292,22 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "))
 	}
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
-			c.providerConf.CommandName, err, stderr.String(), stdout.String())
+	// Handle cursor-agent specific execution (doesn't auto-terminate)
+	if c.providerConf.Name == "cursor" {
+		// Reset stdout/stderr for cursor execution
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		err := c.executeCursorWithTimeout(cmd, &stdout, &stderr, 30) // 30 second timeout
+		if err != nil {
+			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
+				c.providerConf.CommandName, err, stderr.String(), stdout.String())
+		}
+	} else {
+		// Standard execution for other providers
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
+				c.providerConf.CommandName, err, stderr.String(), stdout.String())
+		}
 	}
 
 	output := stdout.String()

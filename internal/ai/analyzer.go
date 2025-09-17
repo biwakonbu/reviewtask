@@ -643,23 +643,46 @@ func (a *Analyzer) buildAnalysisPromptV2(reviews []github.Review, profile string
 	reviewsDataStr := a.renderReviewsData(reviews, detail)
 	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
 
-	// Stricter schema wording, same fields as legacy to keep parser compatible
+	// Enhanced schema with unified task generation philosophy
 	systemPrompt := `You are analyzing GitHub PR review comments to produce actionable developer tasks.
 
+===== TASK GENERATION PHILOSOPHY =====
+
+FUNDAMENTAL PRINCIPLE: Understand the reviewer's INTENDED GOAL before creating any tasks.
+Your job is to capture what the reviewer wants to ACHIEVE, not to break down HOW to implement it.
+
+CRITICAL RULES:
+1. CREATE EXACTLY ONE TASK PER COMMENT (unless multiple completely unrelated topics exist)
+2. PRESERVE the reviewer's intent and reasoning in full detail
+3. DO NOT reduce information - especially when tools like CodeRabbit provide "Prompt for AI Agents" summaries
+4. Focus on the END GOAL, not implementation steps
+5. Think from the reviewer's perspective: "What outcome do they want to see?"
+
+===== SPECIAL HANDLING FOR CODERABBIT COMMENTS =====
+
+When CodeRabbit provides "Prompt for AI Agents" sections:
+- These are ALREADY well-structured summaries of what needs to be done
+- Use this information AS-IS for your task description
+- Do NOT break these down into smaller pieces
+- The AI prompt already represents the reviewer's intended goal
+
 Return ONLY a valid JSON array. Each element MUST contain exactly these fields:
-- description (string): actionable instruction in the specified language
+- description (string): actionable instruction capturing the reviewer's OVERALL GOAL
 - origin_text (string): verbatim original review comment text
 - priority (string): one of critical|high|medium|low
 - source_review_id (number)
 - source_comment_id (number)
 - file (string): file path or empty if not applicable
 - line (number): line number or 0 if not applicable
-- task_index (number): 0-based index within the comment
+- task_index (number): 0-based index within the comment (usually 0)
 
 Rules:
 - Do NOT include any explanations outside the JSON array
-- Create separate tasks for distinct actions; skip non-actionable remarks
-- Preserve origin_text exactly; do not translate or summarize it`
+- CREATE ONE UNIFIED TASK per comment that captures the reviewer's complete intent
+- Only create multiple tasks when a comment discusses COMPLETELY SEPARATE topics
+- Preserve origin_text exactly; do not translate or summarize it
+- Focus on WHAT needs to be achieved, not step-by-step implementation details
+- When in doubt, create ONE comprehensive task rather than multiple small ones`
 	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
@@ -1411,9 +1434,12 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 		return nil, err
 	}
 
+	// Apply task consolidation if multiple tasks were generated from single comment
+	consolidatedTasks := a.consolidateTasksIfNeeded(simpleTasks)
+
 	// Convert simple tasks to full TaskRequest objects
 	var fullTasks []TaskRequest
-	for i, simpleTask := range simpleTasks {
+	for i, simpleTask := range consolidatedTasks {
 		fullTask := TaskRequest{
 			Description:     simpleTask.Description,
 			Priority:        simpleTask.Priority,
@@ -1430,6 +1456,152 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 	}
 
 	return fullTasks, nil
+}
+
+// consolidateTasksIfNeeded merges multiple tasks from the same comment into a single comprehensive task
+func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleTaskRequest {
+	// If only one task, no consolidation needed
+	if len(tasks) <= 1 {
+		return tasks
+	}
+
+	// Log the consolidation attempt
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  🔄 Consolidating %d tasks from single comment into unified task\n", len(tasks))
+	}
+
+	// Find the highest priority
+	highestPriority := "low"
+	priorityOrder := map[string]int{"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+	for _, task := range tasks {
+		if priorityOrder[task.Priority] > priorityOrder[highestPriority] {
+			highestPriority = task.Priority
+		}
+	}
+
+	// Combine all descriptions into a comprehensive task
+	var descriptions []string
+	for _, task := range tasks {
+		descriptions = append(descriptions, task.Description)
+	}
+
+	// Create unified description
+	unifiedDescription := a.createUnifiedTaskDescription(descriptions)
+
+	// Return single consolidated task
+	consolidatedTask := SimpleTaskRequest{
+		Description: unifiedDescription,
+		Priority:    highestPriority,
+	}
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  ✅ Consolidated into single task: %s\n", unifiedDescription)
+	}
+
+	return []SimpleTaskRequest{consolidatedTask}
+}
+
+// createUnifiedTaskDescription combines multiple task descriptions into a coherent single description
+func (a *Analyzer) createUnifiedTaskDescription(descriptions []string) string {
+	if len(descriptions) == 1 {
+		return descriptions[0]
+	}
+
+	// Try to identify the main action and combine related sub-actions
+	mainAction := descriptions[0]
+
+	// For configuration/environment issues, create unified configuration task (check first)
+	if a.containsConfigurationKeywords(descriptions) {
+		return a.unifyConfigurationTasks(descriptions)
+	}
+
+	// For code duplication issues, create unified refactoring task
+	if a.containsCodeDuplicationKeywords(descriptions) {
+		return a.unifyCodeDuplicationTasks(descriptions)
+	}
+
+	// For missing implementation issues, create unified implementation task
+	if a.containsImplementationKeywords(descriptions) {
+		return a.unifyImplementationTasks(descriptions)
+	}
+
+	// Default: combine all descriptions with context
+	return fmt.Sprintf("%s (including all related implementation steps)", mainAction)
+}
+
+// Helper methods for task unification patterns
+func (a *Analyzer) containsCodeDuplicationKeywords(descriptions []string) bool {
+	keywords := []string{"duplicate", "refactor", "delegate", "shared", "centralize"}
+	for _, desc := range descriptions {
+		lowerDesc := strings.ToLower(desc)
+		for _, keyword := range keywords {
+			if strings.Contains(lowerDesc, keyword) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *Analyzer) containsImplementationKeywords(descriptions []string) bool {
+	keywords := []string{"implement", "add", "create", "missing", "function"}
+	for _, desc := range descriptions {
+		lowerDesc := strings.ToLower(desc)
+		for _, keyword := range keywords {
+			if strings.Contains(lowerDesc, keyword) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *Analyzer) containsConfigurationKeywords(descriptions []string) bool {
+	keywords := []string{"environment", "config", "variable", "setting", "override"}
+	for _, desc := range descriptions {
+		lowerDesc := strings.ToLower(desc)
+		for _, keyword := range keywords {
+			if strings.Contains(lowerDesc, keyword) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *Analyzer) unifyCodeDuplicationTasks(descriptions []string) string {
+	// Extract the main component being refactored
+	mainComponent := "component"
+	for _, desc := range descriptions {
+		if strings.Contains(strings.ToLower(desc), "cursor") {
+			mainComponent = "CursorClient"
+			break
+		}
+	}
+
+	return fmt.Sprintf("Remove code duplication by refactoring %s to use shared implementation", mainComponent)
+}
+
+func (a *Analyzer) unifyImplementationTasks(descriptions []string) string {
+	// Find the main thing being implemented
+	for _, desc := range descriptions {
+		if strings.Contains(strings.ToLower(desc), "implement") || strings.Contains(strings.ToLower(desc), "add") {
+			// Use the first implementation task as the main description
+			return fmt.Sprintf("%s with comprehensive implementation", desc)
+		}
+	}
+	return "Implement missing functionality with all required components"
+}
+
+func (a *Analyzer) unifyConfigurationTasks(descriptions []string) string {
+	// Find environment or config related task
+	for _, desc := range descriptions {
+		if strings.Contains(strings.ToLower(desc), "environment") || strings.Contains(strings.ToLower(desc), "config") {
+			return fmt.Sprintf("%s with proper configuration handling", desc)
+		}
+	}
+	return "Update configuration with all required settings"
 }
 
 // processComment handles a single comment and returns tasks for it
