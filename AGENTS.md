@@ -1,5 +1,34 @@
 # Repository Guidelines
 
+## Documentation Management Rules
+
+### Public Documentation Standards
+- **User documentation must only describe implemented, production-ready features**
+- **Never include future plans, roadmaps, or "coming soon" features in user guides**
+- **Internal development documents must not appear in public documentation site**
+- **Maintain strict separation between user-facing and developer-internal content**
+
+### Documentation Site Configuration (mkdocs.yml)
+- **User Guide**: Include only features available in current release
+- **Developer Guide**: Include architecture, setup, testing, contributing (public-appropriate)
+- **Exclude from Navigation**:
+  - Product Requirements Documents (prd.md)
+  - Implementation progress tracking (implementation-progress.md)
+  - Internal prompt templates documentation
+  - Any documents with "Future", "Planned", or "TODO" sections
+
+### Documentation Content Rules
+- **Write about what EXISTS, not what is PLANNED**
+- **Remove all "Future Enhancements" sections from user documentation**
+- **Keep implementation details and roadmaps in separate internal docs**
+- **Verify all documented features are actually implemented before publishing**
+
+### When Adding Documentation
+1. Check if feature is fully implemented and tested
+2. Place in appropriate section (user-guide vs developer-guide)
+3. Exclude internal planning documents from mkdocs.yml
+4. Review for any future-tense promises or unimplemented features
+
 ## Project Structure & Modules
 - `cmd/`: Cobra CLI entrypoints and subcommands.
 - `internal/`: Core packages (GitHub client, AI processing, task logic).

@@ -140,9 +140,6 @@ nav:
     - Testing: developer-guide/testing.md
     - Contributing: developer-guide/contributing.md
     - Versioning: developer-guide/versioning.md
-    - Project Vision: developer-guide/prd.md
-    - Progress: developer-guide/implementation-progress.md
-  - Prompt Templates: prompts/README.md
 
 extra:
   version:

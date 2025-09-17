@@ -526,26 +526,3 @@ bash -x <(curl -fsSL https://raw.githubusercontent.com/biwakonbu/reviewtask/main
 $VerbosePreference = "Continue"
 iwr -useb https://raw.githubusercontent.com/biwakonbu/reviewtask/main/scripts/install/install.ps1 | iex
 ```
-
-## Future Enhancements
-
-### Planned Features
-
-1. **Package Manager Integration**: Homebrew, Chocolatey, apt/yum repositories
-2. **Auto-Update Mechanism**: Built-in update checking and installation
-3. **Configuration Profiles**: Pre-configured installation profiles
-4. **Offline Installation**: Support for air-gapped environments
-5. **Digital Signatures**: Code signing for enhanced security
-
-### Extensibility
-
-The installation system is designed to be extensible:
-
-- **Additional Platforms**: Easy to add new platform support
-- **Custom Sources**: Support for custom binary repositories
-- **Plugin Architecture**: Modular verification and installation plugins
-- **Configuration Management**: Enhanced configuration file support
-
----
-
-This documentation provides comprehensive coverage of the reviewtask installation system. For the latest updates and additional information, refer to the project's GitHub repository and release notes.

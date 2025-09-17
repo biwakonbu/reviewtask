@@ -3,6 +3,29 @@
 - Memories and documents should be written in English
 - Conversations should be conducted in the language specified by the user
 
+## Documentation Rules
+
+### Public Documentation Standards
+- **User-facing documentation must only describe implemented features**
+- **Never include future plans, roadmaps, or unimplemented features in user guides**
+- **Internal development documents (PRD, implementation progress) must not appear in public docs**
+- **Clear separation between user guide and developer guide content**
+
+### Documentation Site Structure
+- **User Guide**: Only production-ready features and actual capabilities
+- **Developer Guide**: Architecture, setup, testing, contributing guidelines
+- **Excluded from Public Site**:
+  - Product Requirements Documents (PRD)
+  - Implementation progress tracking
+  - Future enhancement plans
+  - Internal prompt templates documentation
+
+### Content Guidelines
+- **Focus on what IS, not what WILL BE**
+- **Remove sections like "Future Enhancements" or "Planned Features" from user docs**
+- **Keep developer-centric discussions in internal documents only**
+- **Ensure all documented features are actually available to users**
+
 # AI-Powered PR Review Management Tool
 
 ## Project Vision
