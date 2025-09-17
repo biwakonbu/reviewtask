@@ -479,7 +479,8 @@ func TestStreamProcessor_Integration_WithAnalyzer(t *testing.T) {
 		AISettings: config.AISettings{
 			StreamProcessingEnabled: true,
 			VerboseMode:             false,
-			DeduplicationEnabled:    true,
+			DeduplicationEnabled:    false, // Disable AI deduplication for test
+			SimilarityThreshold:     0.8,
 		},
 	}
 
@@ -490,7 +491,7 @@ func TestStreamProcessor_Integration_WithAnalyzer(t *testing.T) {
 		{
 			Comment: github.Comment{
 				ID:   1,
-				Body: "Fix authentication bug",
+				Body: "Fix authentication bug in login handler",
 				File: "auth.go",
 				Line: 42,
 			},
@@ -498,33 +499,37 @@ func TestStreamProcessor_Integration_WithAnalyzer(t *testing.T) {
 		{
 			Comment: github.Comment{
 				ID:   2,
-				Body: "Fix authentication bug", // Duplicate task
+				Body: "Update error handling in logout function",
 				File: "auth.go",
 				Line: 45,
 			},
 		},
 	}
 
-	duplicateTaskProcessor := func(ctx CommentContext) ([]TaskRequest, error) {
+	taskProcessor := func(ctx CommentContext) ([]TaskRequest, error) {
 		return []TaskRequest{
 			{
-				Description: "Fix authentication bug", // Same description for both
-				Priority:    "high",
-				Status:      "todo",
+				Description:     ctx.Comment.Body, // Different descriptions
+				Priority:        "high",
+				Status:          "todo",
+				SourceCommentID: ctx.Comment.ID,
+				SourceReviewID:  ctx.SourceReview.ID,
+				File:            ctx.Comment.File,
+				Line:            ctx.Comment.Line,
+				OriginText:      ctx.Comment.Body,
 			},
 		}, nil
 	}
 
-	tasks, err := processor.ProcessCommentsStream(comments, duplicateTaskProcessor)
+	tasks, err := processor.ProcessCommentsStream(comments, taskProcessor)
 
 	if err != nil {
 		t.Errorf("Expected no error in integration test, got: %v", err)
 	}
 
-	// With deduplication enabled, should have only 1 unique task
-	// (This depends on the deduplication implementation in the analyzer)
-	if len(tasks) == 0 {
-		t.Error("Expected at least some tasks from integration test")
+	// Should have 2 tasks with different descriptions
+	if len(tasks) != 2 {
+		t.Errorf("Expected 2 unique tasks from integration test, got %d", len(tasks))
 	}
 
 	// Verify tasks are properly converted to storage.Task format
