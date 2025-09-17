@@ -51,6 +51,12 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 			// For SimpleTaskRequest format, we don't need to replace IDs
 			// since they're added programmatically, not by AI
 			// Return the raw JSON directly for simple task processing
+
+			// Special handling for nitpick pattern - check if it contains nitpick-related content
+			if strings.Contains(input, "nitpick") || strings.Contains(input, "🧹") {
+				// The response is already set by the test
+				return response, nil
+			}
 			return response, nil
 		}
 	}

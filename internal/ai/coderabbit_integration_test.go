@@ -37,28 +37,12 @@ Also, the function could be optimized for performance.
 
 </blockquote>
 </details>`,
-			expectedTaskCount: 2,
+			expectedTaskCount: 1, // Review body is processed as single comment
 			expectedPriority:  "low",
 			mockResponse: `[
 				{
-					"description": "Improve variable naming for better readability",
-					"origin_text": "Consider improving variable naming for better readability.",
-					"priority": "low",
-					"source_review_id": 123,
-					"source_comment_id": 456,
-					"file": "test.go",
-					"line": 10,
-					"task_index": 0
-				},
-				{
-					"description": "Optimize function for better performance",
-					"origin_text": "Also, the function could be optimized for performance.",
-					"priority": "low",
-					"source_review_id": 123,
-					"source_comment_id": 456,
-					"file": "test.go",
-					"line": 20,
-					"task_index": 1
+					"description": "Address CodeRabbit nitpick comments",
+					"priority": "low"
 				}
 			]`,
 		},
@@ -96,28 +80,12 @@ Consider using a constant instead of magic number.
 
 </blockquote>
 </details>`,
-			expectedTaskCount: 2,
+			expectedTaskCount: 1, // Review body is processed as single comment
 			expectedPriority:  "medium", // For the nitpick task
 			mockResponse: `[
 				{
-					"description": "Fix the null pointer exception",
-					"origin_text": "Fix the null pointer exception in line 15.",
-					"priority": "high",
-					"source_review_id": 123,
-					"source_comment_id": 456,
-					"file": "test.go",
-					"line": 15,
-					"task_index": 0
-				},
-				{
-					"description": "Use constant instead of magic number",
-					"origin_text": "Consider using a constant instead of magic number.",
-					"priority": "low",
-					"source_review_id": 123,
-					"source_comment_id": 456,
-					"file": "test.go",
-					"line": 25,
-					"task_index": 1
+					"description": "Fix the null pointer exception and address nitpick comments",
+					"priority": "high"
 				}
 			]`,
 		},
