@@ -31,10 +31,48 @@ type Analyzer struct {
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
-	// Default to real Claude client with config for auth check control
-	client, err := NewRealClaudeClientWithConfig(cfg)
+	// Select AI client based on configuration
+	var client ClaudeClient
+	var err error
+
+	aiProvider := cfg.AISettings.AIProvider
+	if aiProvider == "" {
+		aiProvider = "auto"
+	}
+
+	switch aiProvider {
+	case "cursor":
+		// Try Cursor only
+		client, err = NewRealCursorClientWithConfig(cfg)
+		if err != nil && cfg.AISettings.VerboseMode {
+			fmt.Printf("⚠️  Cursor client initialization failed: %v\n", err)
+		}
+	case "claude":
+		// Try Claude only
+		client, err = NewRealClaudeClientWithConfig(cfg)
+		if err != nil && cfg.AISettings.VerboseMode {
+			fmt.Printf("⚠️  Claude client initialization failed: %v\n", err)
+		}
+	case "auto":
+		// Try Cursor first, then Claude
+		client, err = NewRealCursorClientWithConfig(cfg)
+		if err != nil {
+			if cfg.AISettings.VerboseMode {
+				fmt.Printf("ℹ️  Cursor not available, trying Claude...\n")
+			}
+			client, err = NewRealClaudeClientWithConfig(cfg)
+			if err != nil && cfg.AISettings.VerboseMode {
+				fmt.Printf("⚠️  Claude client initialization also failed: %v\n", err)
+			}
+		} else if cfg.AISettings.VerboseMode {
+			fmt.Printf("✓ Using Cursor CLI for AI analysis\n")
+		}
+	default:
+		err = fmt.Errorf("unknown AI provider: %s", aiProvider)
+	}
+
 	if err != nil {
-		// If Claude is not available, return analyzer without client
+		// If no AI client is available, return analyzer without client
 		// This allows tests to inject their own mock
 		return &Analyzer{
 			config:          cfg,
@@ -42,6 +80,7 @@ func NewAnalyzer(cfg *config.Config) *Analyzer {
 			errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 		}
 	}
+
 	return &Analyzer{
 		config:          cfg,
 		claudeClient:    client,
