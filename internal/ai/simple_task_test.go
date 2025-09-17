@@ -35,12 +35,11 @@ func TestProcessCommentSimple(t *testing.T) {
 
 	// Create a mock Claude client
 	mockClient := &MockClaudeClient{
-		ExecuteFunc: func(input, format string) (string, error) {
-			// Return a simple JSON response
-			return `[
+		Responses: map[string]string{
+			"default": `[
 				{"description": "Fix nil check in function", "priority": "high"},
 				{"description": "Add error logging", "priority": "medium"}
-			]`, nil
+			]`,
 		},
 	}
 

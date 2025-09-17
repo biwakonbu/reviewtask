@@ -1689,35 +1689,35 @@ func (a *Analyzer) buildSimpleCommentPrompt(ctx CommentContext) string {
 		languageInstruction = fmt.Sprintf("Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
 	}
 
-	prompt := fmt.Sprintf("You are a GitHub PR review assistant that extracts actionable tasks from comments.\n\n" +
-		"%sGenerate 0 to N tasks from the following comment. Return empty array if no action is needed.\n\n" +
-		"## Examples:\n\n" +
-		"Comment: \"This function lacks error handling. Add nil check and error logging.\"\n" +
-		"Response:\n" +
-		"```json\n" +
-		"[\n" +
-		"  {\"description\": \"Add nil check to function\", \"priority\": \"high\"},\n" +
-		"  {\"description\": \"Implement error logging\", \"priority\": \"medium\"}\n" +
-		"]\n" +
-		"```\n\n" +
-		"Comment: \"LGTM! Great implementation.\"\n" +
-		"Response:\n" +
-		"```json\n" +
-		"[]\n" +
-		"```\n\n" +
-		"Comment: \"Missing timeout handling. Add 30 second timeout. URGENT.\"\n" +
-		"Response:\n" +
-		"```json\n" +
-		"[\n" +
-		"  {\"description\": \"Implement 30 second timeout handling\", \"priority\": \"critical\"}\n" +
-		"]\n" +
-		"```\n\n" +
-		"Priority levels: critical (security/data loss), high (bugs/performance), medium (improvements), low (style/naming)\n\n" +
-		"## Now analyze this comment:\n\n" +
-		"File: %s:%d\n" +
-		"Author: %s\n" +
-		"Comment:\n%s\n\n" +
-		"## Your response:\n" +
+	prompt := fmt.Sprintf("You are a GitHub PR review assistant that extracts actionable tasks from comments.\n\n"+
+		"%sGenerate 0 to N tasks from the following comment. Return empty array if no action is needed.\n\n"+
+		"## Examples:\n\n"+
+		"Comment: \"This function lacks error handling. Add nil check and error logging.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[\n"+
+		"  {\"description\": \"Add nil check to function\", \"priority\": \"high\"},\n"+
+		"  {\"description\": \"Implement error logging\", \"priority\": \"medium\"}\n"+
+		"]\n"+
+		"```\n\n"+
+		"Comment: \"LGTM! Great implementation.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[]\n"+
+		"```\n\n"+
+		"Comment: \"Missing timeout handling. Add 30 second timeout. URGENT.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[\n"+
+		"  {\"description\": \"Implement 30 second timeout handling\", \"priority\": \"critical\"}\n"+
+		"]\n"+
+		"```\n\n"+
+		"Priority levels: critical (security/data loss), high (bugs/performance), medium (improvements), low (style/naming)\n\n"+
+		"## Now analyze this comment:\n\n"+
+		"File: %s:%d\n"+
+		"Author: %s\n"+
+		"Comment:\n%s\n\n"+
+		"## Your response:\n"+
 		"Return ONLY the JSON array below. No explanations, no markdown wrapper, just the raw JSON:\n",
 		languageInstruction, ctx.Comment.File, ctx.Comment.Line, ctx.Comment.Author, ctx.Comment.Body)
 

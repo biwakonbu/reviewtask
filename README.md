@@ -711,6 +711,27 @@ Required GitHub API permissions:
 
 Use `reviewtask auth check` for comprehensive permission validation.
 
+## Documentation
+
+### 📚 For Users
+Start here if you want to use reviewtask to manage PR reviews:
+- [Installation Guide](docs/user-guide/installation.md)
+- [Quick Start Tutorial](docs/user-guide/quick-start.md)
+- [Authentication Setup](docs/user-guide/authentication.md)
+- [Command Reference](docs/user-guide/commands.md)
+- [Configuration Guide](docs/user-guide/configuration.md)
+- [Workflow Guide](docs/user-guide/workflow.md)
+- [Troubleshooting](docs/user-guide/troubleshooting.md)
+
+### 🔧 For Developers
+Start here if you want to contribute or extend reviewtask:
+- [Architecture Overview](docs/developer-guide/architecture.md)
+- [Development Setup](docs/developer-guide/development-setup.md)
+- [Project Structure](docs/developer-guide/project-structure.md)
+- [Testing Strategy](docs/developer-guide/testing.md)
+- [Contributing Guidelines](docs/developer-guide/contributing.md)
+- [Versioning & Releases](docs/developer-guide/versioning.md)
+
 ## Contributing
 
 Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on:
