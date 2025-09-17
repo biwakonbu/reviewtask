@@ -1,0 +1,290 @@
+package ai
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"reviewtask/internal/config"
+	"runtime"
+	"strings"
+)
+
+// BaseCLIClient provides common CLI functionality for AI providers
+type BaseCLIClient struct {
+	cliPath      string
+	model        string
+	providerConf ProviderConfig
+}
+
+// NewBaseCLIClient creates a new base CLI client with the given provider configuration
+func NewBaseCLIClient(cfg *config.Config, providerConf ProviderConfig) (*BaseCLIClient, error) {
+	// Find CLI path
+	cliPath, err := findCLI(providerConf)
+	if err != nil {
+		return nil, fmt.Errorf("%s command not found: %w\n\nTo resolve this issue:\n1. Install %s CLI: npm install -g %s\n2. Or ensure %s is in your PATH\n3. Or create an alias '%s' pointing to your %s CLI installation",
+			providerConf.CommandName, err, providerConf.Name, providerConf.CommandName,
+			providerConf.CommandName, providerConf.CommandName, providerConf.Name)
+	}
+
+	// Check if CLI is in PATH, create symlink if needed
+	if _, pathErr := exec.LookPath(providerConf.CommandName); pathErr != nil {
+		log.Printf("ℹ️  %s CLI found at %s but not in PATH", providerConf.Name, cliPath)
+		if err := ensureCLIAvailable(cliPath, providerConf.CommandName); err != nil {
+			return nil, fmt.Errorf("failed to ensure %s availability: %w", providerConf.CommandName, err)
+		}
+		log.Printf("✓ Created symlink at ~/.local/bin/%s for reviewtask compatibility", providerConf.CommandName)
+	}
+
+	// Get model from config or use provider default
+	model := providerConf.DefaultModel
+	if cfg != nil && cfg.AISettings.Model != "" {
+		model = cfg.AISettings.Model
+	}
+
+	client := &BaseCLIClient{
+		cliPath:      cliPath,
+		model:        model,
+		providerConf: providerConf,
+	}
+
+	// Check authentication unless skipped
+	skipAuthCheck := os.Getenv(providerConf.AuthEnvVar) == "true"
+	if cfg != nil && cfg.AISettings.SkipClaudeAuthCheck {
+		skipAuthCheck = true
+	}
+
+	if !skipAuthCheck {
+		if err := client.CheckAuthentication(); err != nil {
+			return nil, fmt.Errorf("%s CLI authentication check failed: %w\n\nTo authenticate:\n1. Run: %s\n2. Follow the authentication prompts\n\nOr skip this check by setting:\n- Environment variable: %s=true\n- Config file: \"skip_claude_auth_check\": true",
+				providerConf.Name, err, providerConf.LoginCommand, providerConf.AuthEnvVar)
+		}
+	}
+
+	return client, nil
+}
+
+// CheckAuthentication verifies that the CLI is properly authenticated
+func (c *BaseCLIClient) CheckAuthentication() error {
+	// Skip if environment variable is set
+	if os.Getenv(c.providerConf.AuthEnvVar) == "true" {
+		return nil
+	}
+
+	ctx := context.Background()
+	testInput := "test"
+
+	// Build command
+	args := []string{}
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+	args = append(args, "--print", "--output-format", "json")
+
+	cmd := c.buildCommand(ctx, args)
+	cmd.Stdin = strings.NewReader(testInput)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Run the command - we expect it might fail if not authenticated
+	_ = cmd.Run() // Ignore the error, we'll check the output
+
+	// Parse the response to check for authentication error
+	var response struct {
+		IsError bool   `json:"is_error"`
+		Result  string `json:"result"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &response); err == nil {
+		if response.IsError && (strings.Contains(strings.ToLower(response.Result), "api key") ||
+			strings.Contains(strings.ToLower(response.Result), "login") ||
+			strings.Contains(strings.ToLower(response.Result), "logged")) {
+			return fmt.Errorf("%s CLI is not authenticated: %s", c.providerConf.Name, response.Result)
+		}
+	}
+
+	// Special case for cursor-agent status command
+	if c.providerConf.Name == "cursor" {
+		cmd = exec.CommandContext(ctx, c.cliPath, "status")
+		output, err := cmd.CombinedOutput()
+		outputStr := strings.ToLower(string(output))
+		if err != nil || !strings.Contains(outputStr, "logged in") {
+			return fmt.Errorf("%s is not authenticated. Please run: %s",
+				c.providerConf.CommandName, c.providerConf.LoginCommand)
+		}
+	}
+
+	return nil
+}
+
+// Execute runs the CLI with the given input
+func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
+	args := []string{}
+
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+
+	// Add print flag and output format for JSON mode
+	if outputFormat == "json" {
+		args = append(args, "--print", "--output-format", outputFormat)
+	} else if outputFormat != "" {
+		args = append(args, "--output-format", outputFormat)
+	}
+
+	cmd := c.buildCommand(ctx, args)
+	cmd.Stdin = strings.NewReader(input)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Debug logging
+	if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "DEBUG: Executing %s command: %s %s\n",
+			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "))
+	}
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
+			c.providerConf.CommandName, err, stderr.String(), stdout.String())
+	}
+
+	output := stdout.String()
+
+	// If output format is JSON, extract the result field
+	if outputFormat == "json" {
+		var response struct {
+			Type    string `json:"type"`
+			IsError bool   `json:"is_error"`
+			Result  string `json:"result"`
+			Error   string `json:"error,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(output), &response); err != nil {
+			// If unmarshaling fails, return the raw output (backward compatibility)
+			return output, nil
+		}
+
+		if response.IsError {
+			return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, response.Error)
+		}
+
+		return response.Result, nil
+	}
+
+	return output, nil
+}
+
+// buildCommand creates an exec.Cmd with the appropriate setup
+func (c *BaseCLIClient) buildCommand(ctx context.Context, args []string) *exec.Cmd {
+	// Handle interpreter-based commands (e.g., "node /path/to/cli.js")
+	if strings.Contains(c.cliPath, " ") {
+		parts := strings.Fields(c.cliPath)
+		if len(parts) >= 2 {
+			interpreter := parts[0]
+			scriptAndArgs := append(parts[1:], args...)
+			return exec.CommandContext(ctx, interpreter, scriptAndArgs...)
+		}
+	}
+	return exec.CommandContext(ctx, c.cliPath, args...)
+}
+
+// findCLI searches for the CLI executable in common locations
+func findCLI(providerConf ProviderConfig) (string, error) {
+	// Try standard PATH first
+	if path, err := exec.LookPath(providerConf.CommandName); err == nil {
+		return path, nil
+	}
+
+	// Try common installation locations
+	for _, path := range providerConf.CommonPaths {
+		if _, err := os.Stat(path); err == nil {
+			// Verify it's executable by running version check
+			if isValidCLI(path, providerConf.Name) {
+				return path, nil
+			}
+		}
+	}
+
+	// Add npm global prefix bin directory
+	if npmPrefix := getNpmPrefix(); npmPrefix != "" {
+		if runtime.GOOS == "windows" {
+			// On Windows, npm installs .cmd files
+			npmPaths := []string{
+				filepath.Join(npmPrefix, providerConf.CommandName+".cmd"),
+				filepath.Join(npmPrefix, providerConf.CommandName+".exe"),
+			}
+			for _, path := range npmPaths {
+				if _, err := os.Stat(path); err == nil && isValidCLI(path, providerConf.Name) {
+					return path, nil
+				}
+			}
+		} else {
+			npmPath := filepath.Join(npmPrefix, "bin", providerConf.CommandName)
+			if _, err := os.Stat(npmPath); err == nil && isValidCLI(npmPath, providerConf.Name) {
+				return npmPath, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("%s CLI not found in PATH or common installation locations", providerConf.CommandName)
+}
+
+// isValidCLI verifies that the found executable is actually the expected CLI
+func isValidCLI(path string, providerName string) bool {
+	cmd := exec.Command(path, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false
+	}
+	outputStr := strings.ToLower(string(output))
+	// Check if output contains expected patterns
+	return strings.Contains(outputStr, strings.ToLower(providerName)) ||
+	       strings.Contains(outputStr, "anthropic") ||
+	       strings.Contains(outputStr, "20") // Version date pattern
+}
+
+// ensureCLIAvailable creates symlink if CLI is not in PATH
+func ensureCLIAvailable(cliPath string, commandName string) error {
+	// Check if already available in PATH
+	if _, err := exec.LookPath(commandName); err == nil {
+		return nil
+	}
+
+	// Skip symlink creation on Windows as it requires admin privileges
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+
+	// Create symlink in ~/.local/bin (which is commonly in PATH)
+	homeDir := getHomeDir()
+	localBin := filepath.Join(homeDir, ".local/bin")
+	if err := os.MkdirAll(localBin, 0755); err != nil {
+		return fmt.Errorf("failed to create ~/.local/bin directory: %w", err)
+	}
+
+	symlinkPath := filepath.Join(localBin, commandName)
+
+	// Remove existing symlink if it exists
+	if _, err := os.Lstat(symlinkPath); err == nil {
+		if err := os.Remove(symlinkPath); err != nil {
+			return fmt.Errorf("failed to remove existing symlink: %w", err)
+		}
+	}
+
+	// Create new symlink
+	if err := os.Symlink(cliPath, symlinkPath); err != nil {
+		return fmt.Errorf("failed to create symlink: %w", err)
+	}
+
+	return nil
+}
+

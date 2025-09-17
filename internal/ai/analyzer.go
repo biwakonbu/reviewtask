@@ -31,49 +31,15 @@ type Analyzer struct {
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
-	// Select AI client based on configuration
-	var client ClaudeClient
-	var err error
-
-	aiProvider := cfg.AISettings.AIProvider
-	if aiProvider == "" {
-		aiProvider = "auto"
-	}
-
-	switch aiProvider {
-	case "cursor":
-		// Try Cursor only
-		client, err = NewRealCursorClientWithConfig(cfg)
-		if err != nil && cfg.AISettings.VerboseMode {
-			fmt.Printf("⚠️  Cursor client initialization failed: %v\n", err)
-		}
-	case "claude":
-		// Try Claude only
-		client, err = NewRealClaudeClientWithConfig(cfg)
-		if err != nil && cfg.AISettings.VerboseMode {
-			fmt.Printf("⚠️  Claude client initialization failed: %v\n", err)
-		}
-	case "auto":
-		// Try Cursor first, then Claude
-		client, err = NewRealCursorClientWithConfig(cfg)
-		if err != nil {
-			if cfg.AISettings.VerboseMode {
-				fmt.Printf("ℹ️  Cursor not available, trying Claude...\n")
-			}
-			client, err = NewRealClaudeClientWithConfig(cfg)
-			if err != nil && cfg.AISettings.VerboseMode {
-				fmt.Printf("⚠️  Claude client initialization also failed: %v\n", err)
-			}
-		} else if cfg.AISettings.VerboseMode {
-			fmt.Printf("✓ Using Cursor CLI for AI analysis\n")
-		}
-	default:
-		err = fmt.Errorf("unknown AI provider: %s", aiProvider)
-	}
+	// Use factory to create AI provider
+	client, err := NewAIProvider(cfg)
 
 	if err != nil {
 		// If no AI client is available, return analyzer without client
 		// This allows tests to inject their own mock
+		if cfg.AISettings.VerboseMode {
+			fmt.Printf("⚠️  AI provider initialization failed: %v\n", err)
+		}
 		return &Analyzer{
 			config:          cfg,
 			responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
