@@ -762,12 +762,61 @@ func (a *Analyzer) callClaudeForSimpleTasks(prompt string) ([]SimpleTaskRequest,
 	// Parse the simple tasks
 	var simpleTasks []SimpleTaskRequest
 	if err := json.Unmarshal([]byte(result), &simpleTasks); err != nil {
+		// Try JSON recovery if enabled
+		if a.config.AISettings.EnableJSONRecovery {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  🔧 Attempting JSON recovery for simple tasks (error: %v)\n", err)
+			}
+
+			// Try to recover truncated JSON arrays
+			recoverer := NewJSONRecoverer(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+
+			// Convert to TaskRequest format for recovery
+			recoveryResult := recoverer.RecoverJSON(result, err)
+			if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+				// Convert recovered TaskRequest back to SimpleTaskRequest
+				for _, task := range recoveryResult.Tasks {
+					simpleTasks = append(simpleTasks, SimpleTaskRequest{
+						Description: task.Description,
+						Priority:    task.Priority,
+					})
+				}
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("  ✅ Recovered %d simple tasks from truncated response\n", len(simpleTasks))
+				}
+				return simpleTasks, nil
+			}
+
+			// Try enhanced recovery
+			enhancedRecoverer := NewEnhancedJSONRecovery(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+			recoveryResult = enhancedRecoverer.RepairAndRecover(result, err)
+			if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+				// Convert recovered TaskRequest back to SimpleTaskRequest
+				for _, task := range recoveryResult.Tasks {
+					simpleTasks = append(simpleTasks, SimpleTaskRequest{
+						Description: task.Description,
+						Priority:    task.Priority,
+					})
+				}
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("  ✅ Enhanced recovery: recovered %d simple tasks\n", len(simpleTasks))
+				}
+				return simpleTasks, nil
+			}
+		}
+
 		// Log for debugging
 		if a.config.AISettings.VerboseMode {
 			fmt.Printf("  ❌ Failed to parse simple tasks: %v\n", err)
 			fmt.Printf("  🐛 Raw output: %.500s\n", result)
 		}
-		return []SimpleTaskRequest{}, nil // Return empty array on parse error
+		return []SimpleTaskRequest{}, nil // Return empty array if all recovery attempts fail
 	}
 
 	return simpleTasks, nil

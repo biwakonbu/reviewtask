@@ -228,12 +228,10 @@ func (m *MockClaudeClientForIntegration) Execute(ctx context.Context, prompt str
 	}
 	m.mu.Unlock()
 
-	// Return successful response in Claude CLI format
-	if outputFormat == "json" {
-		response := `{"type": "text", "subtype": "assistant_response", "is_error": false, "result": "[{\"description\": \"Test task\", \"origin_text\": \"Test comment\", \"priority\": \"medium\", \"source_review_id\": 1, \"source_comment_id\": 1, \"file\": \"test.go\", \"line\": 1, \"task_index\": 0}]"}`
-		return response, nil
-	}
-	return "[{\"description\": \"Test task\", \"origin_text\": \"Test comment\", \"priority\": \"medium\", \"source_review_id\": 1, \"source_comment_id\": 1, \"file\": \"test.go\", \"line\": 1, \"task_index\": 0}]", nil
+	// Return successful response in SimpleTaskRequest format (what the analyzer expects)
+	// The RealClaudeClient unwraps the JSON response and returns just the result field
+	// So our mock should return the same unwrapped format
+	return "[{\"description\": \"Test task\", \"priority\": \"medium\"}]", nil
 }
 
 // createLargeReviewForTesting creates a review with many comments for testing large PR scenarios
