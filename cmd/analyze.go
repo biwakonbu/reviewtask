@@ -124,23 +124,31 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 	// Initialize AI analyzer
 	analyzer := ai.NewAnalyzer(cfg)
 
-	// Set up incremental processing options
-	incrementalOpts := ai.IncrementalOptions{
-		BatchSize:           batchSize,
-		MaxBatchesToProcess: maxBatches,
-		Resume:              true,
-		FastMode:            false,
-		MaxTimeout:          10 * time.Minute,
-		ShowProgress:        true,
-		OnProgress: func(processed, total int) {
-			if processed > 0 && processed%batchSize == 0 {
-				fmt.Printf("  📝 Processed %d/%d comments...\n", processed, total)
-			}
-		},
-	}
+	var tasks []storage.Task
 
-	// Generate tasks incrementally
-	tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
+	// Check if real-time saving is enabled
+	if cfg.AISettings.RealtimeSavingEnabled {
+		// Use real-time saving for immediate task persistence
+		tasks, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
+	} else {
+		// Set up incremental processing options
+		incrementalOpts := ai.IncrementalOptions{
+			BatchSize:           batchSize,
+			MaxBatchesToProcess: maxBatches,
+			Resume:              true,
+			FastMode:            false,
+			MaxTimeout:          10 * time.Minute,
+			ShowProgress:        true,
+			OnProgress: func(processed, total int) {
+				if processed > 0 && processed%batchSize == 0 {
+					fmt.Printf("  📝 Processed %d/%d comments...\n", processed, total)
+				}
+			},
+		}
+
+		// Generate tasks incrementally
+		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "timed out") {
 			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")

@@ -45,8 +45,8 @@ func NewRealClaudeClientWithConfig(cfg *config.Config) (*RealClaudeClient, error
 		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
-	// Get model from config, default to sonnet4
-	model := "sonnet4"
+	// Get model from config, default to sonnet
+	model := "sonnet"
 	if cfg != nil && cfg.AISettings.Model != "" {
 		model = cfg.AISettings.Model
 	}
@@ -89,7 +89,8 @@ func (c *RealClaudeClient) CheckAuthentication() error {
 	if c.model != "" {
 		args = append(args, "--model", c.model)
 	}
-	args = append(args, "--output-format", "json")
+	// Use --print with --output-format for JSON output
+	args = append(args, "--print", "--output-format", "json")
 	var cmd *exec.Cmd
 
 	// Check if claudePath contains interpreter command
@@ -515,7 +516,10 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 		args = append(args, "--model", c.model)
 	}
 
-	if outputFormat != "" {
+	// Add print flag and output format for JSON mode
+	if outputFormat == "json" {
+		args = append(args, "--print", "--output-format", outputFormat)
+	} else if outputFormat != "" {
 		args = append(args, "--output-format", outputFormat)
 	}
 
@@ -545,11 +549,39 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("claude execution failed: %w, stderr: %s", err, stderr.String())
+	// Debug: log the command being executed (only in verbose mode)
+	if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "DEBUG: Executing claude command: %s %s\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 	}
 
-	return stdout.String(), nil
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("claude execution failed: %w, stderr: %s, stdout: %.200s", err, stderr.String(), stdout.String())
+	}
+
+	output := stdout.String()
+
+	// If output format is JSON, extract the result field
+	if outputFormat == "json" {
+		var response struct {
+			Type    string `json:"type"`
+			IsError bool   `json:"is_error"`
+			Result  string `json:"result"`
+			Error   string `json:"error,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(output), &response); err != nil {
+			// If unmarshaling fails, return the raw output (backward compatibility)
+			return output, nil
+		}
+
+		if response.IsError {
+			return "", fmt.Errorf("claude API error: %s", response.Error)
+		}
+
+		return response.Result, nil
+	}
+
+	return output, nil
 }
 
 // RealCommandExecutor implements CommandExecutor using os/exec

@@ -44,6 +44,7 @@ type Task struct {
 	UpdatedAt            string               `json:"updated_at"`
 	PRNumber             int                  `json:"pr_number"`
 	CommentHash          string               `json:"comment_hash"` // MD5 hash of comment content for change detection
+	URL                  string               `json:"url"`          // GitHub comment URL for direct navigation
 }
 
 // VerificationResult represents the result of a task verification attempt

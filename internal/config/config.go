@@ -47,7 +47,7 @@ type AISettings struct {
 	OutputFormat string `json:"output_format"` // "json"
 	MaxRetries   int    `json:"max_retries"`   // Validation retry attempts (default: 5)
 	// Model configuration
-	Model string `json:"model"` // Model to use: sonnet4|opus|haiku (default: sonnet4 for ClaudeCode)
+	Model string `json:"model"` // Model to use: sonnet|opus|haiku (default: sonnet for ClaudeCode)
 	// Prompt configuration
 	PromptProfile            string  `json:"prompt_profile"`             // Prompt profile: legacy|v2|rich|compact|minimal
 	ValidationEnabled        *bool   `json:"validation_enabled"`         // Enable two-stage validation
@@ -67,6 +67,7 @@ type AISettings struct {
 	ErrorTrackingEnabled     bool    `json:"error_tracking_enabled"`     // Enable error tracking to errors.json (default: true)
 	StreamProcessingEnabled  bool    `json:"stream_processing_enabled"`  // Enable stream processing for incremental results (default: true)
 	AutoSummarizeEnabled     bool    `json:"auto_summarize_enabled"`     // Enable automatic content summarization for large comments (default: true)
+	RealtimeSavingEnabled    bool    `json:"realtime_saving_enabled"`    // Enable real-time saving of tasks as they are processed (default: true)
 	SkipClaudeAuthCheck      bool    `json:"skip_claude_auth_check"`     // Skip Claude CLI authentication check (helps with frequent logout issues) (default: false)
 }
 
@@ -120,7 +121,7 @@ func defaultConfig() *Config {
 			UserLanguage:             "English",
 			OutputFormat:             "json",
 			MaxRetries:               5,
-			Model:                    "sonnet4",
+			Model:                    "sonnet", // Default to sonnet model for ClaudeCode
 			PromptProfile:            "v2",
 			ValidationEnabled:        &validationTrue,
 			QualityThreshold:         0.8,
@@ -139,6 +140,7 @@ func defaultConfig() *Config {
 			ErrorTrackingEnabled:     true,
 			StreamProcessingEnabled:  true,
 			AutoSummarizeEnabled:     true,
+			RealtimeSavingEnabled:    true,
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",
@@ -321,6 +323,9 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	}
 	if !hasField(rawConfig, "ai_settings", "auto_summarize_enabled") {
 		config.AISettings.AutoSummarizeEnabled = defaults.AISettings.AutoSummarizeEnabled
+	}
+	if !hasField(rawConfig, "ai_settings", "realtime_saving_enabled") {
+		config.AISettings.RealtimeSavingEnabled = defaults.AISettings.RealtimeSavingEnabled
 	}
 
 	// Merge boolean pointer fields
