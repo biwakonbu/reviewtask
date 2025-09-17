@@ -45,9 +45,13 @@ func TestGenerateTasksIncremental(t *testing.T) {
 		"description": "Add unit tests",
 		"priority": "medium"
 	}]`
-	mockClient.Responses["Please review the following"] = `[{
+	mockClient.Responses["Please review the following:"] = `[{
 		"description": "Review code structure",
 		"priority": "low"
+	}]`
+	mockClient.Responses["Add more tests"] = `[{
+		"description": "Add more test coverage",
+		"priority": "medium"
 	}]`
 	mockClient.Responses["default"] = `[{
 		"description": "Generic task",
@@ -150,8 +154,8 @@ func TestGenerateTasksIncremental(t *testing.T) {
 
 		tasks, err := analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, opts)
 		assert.NoError(t, err)
-		// Should have 4 tasks: 1 from checkpoint + 3 new (review body was not processed before)
-		assert.Len(t, tasks, 4)
+		// Should have 3 tasks: 1 from checkpoint + 2 new (review body + one unprocessed comment)
+		assert.Len(t, tasks, 3)
 
 		// Verify first task is from checkpoint
 		assert.Equal(t, "task-1", tasks[0].ID)
@@ -251,7 +255,7 @@ func TestGenerateTasksIncremental(t *testing.T) {
 		opts := IncrementalOptions{
 			BatchSize:    1,
 			Resume:       false,
-			FastMode:     true, // Enable fast mode for testing
+			FastMode:     true,            // Enable fast mode for testing
 			MaxTimeout:   1 * time.Second, // Very short timeout
 			ShowProgress: false,
 		}

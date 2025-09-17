@@ -200,22 +200,29 @@ func (a *Analyzer) extractComments(reviews []github.Review) []CommentContext {
 	for _, review := range reviews {
 		// Process review body as a comment if it exists
 		if review.Body != "" {
-			reviewBodyComment := github.Comment{
-				ID:        review.ID,
-				File:      "",
-				Line:      0,
-				Body:      review.Body,
-				Author:    review.Reviewer,
-				CreatedAt: review.SubmittedAt,
-			}
-
-			if !a.isCommentResolved(reviewBodyComment) {
-				allComments = append(allComments, CommentContext{
-					Comment:      reviewBodyComment,
-					SourceReview: review,
-				})
+			// Skip nitpick-only reviews when nitpick processing is disabled
+			if !a.config.AISettings.ProcessNitpickComments && a.isNitpickOnlyReview(review.Body) {
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("🧹 Skipping nitpick-only review body %d (nitpick processing disabled)\n", review.ID)
+				}
 			} else {
-				resolvedCommentCount++
+				reviewBodyComment := github.Comment{
+					ID:        review.ID,
+					File:      "",
+					Line:      0,
+					Body:      review.Body,
+					Author:    review.Reviewer,
+					CreatedAt: review.SubmittedAt,
+				}
+
+				if !a.isCommentResolved(reviewBodyComment) {
+					allComments = append(allComments, CommentContext{
+						Comment:      reviewBodyComment,
+						SourceReview: review,
+					})
+				} else {
+					resolvedCommentCount++
+				}
 			}
 		}
 

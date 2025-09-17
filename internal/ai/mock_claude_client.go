@@ -45,20 +45,23 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 	// Currently we don't need to extract these since SimpleTaskRequest
 	// doesn't include the IDs - they're added programmatically later
 
-	// Look for a matching response pattern
+	// Look for a matching response pattern (excluding default)
 	for pattern, response := range m.Responses {
-		if pattern == "default" || strings.Contains(input, pattern) {
-			// For SimpleTaskRequest format, we don't need to replace IDs
-			// since they're added programmatically, not by AI
-			// Return the raw JSON directly for simple task processing
-
+		if pattern != "default" && strings.Contains(input, pattern) {
 			// Special handling for nitpick pattern - check if it contains nitpick-related content
-			if strings.Contains(input, "nitpick") || strings.Contains(input, "🧹") {
-				// The response is already set by the test
-				return response, nil
+			if (pattern == "nitpick" || strings.Contains(pattern, "🧹")) &&
+				strings.Contains(input, "Skip nitpick comments and suggestions") &&
+				strings.Contains(input, "Actionable comments posted: 0") {
+				// Return empty array for nitpick-only content when disabled
+				return "[]", nil
 			}
 			return response, nil
 		}
+	}
+
+	// Fall back to default response if no specific pattern matched
+	if defaultResp, ok := m.Responses["default"]; ok {
+		return defaultResp, nil
 	}
 
 	// Default response based on input content - using SimpleTaskRequest format

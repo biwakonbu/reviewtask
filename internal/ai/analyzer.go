@@ -122,27 +122,34 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	for _, review := range reviews {
 		// Process review body as a comment if it exists and contains content
 		if review.Body != "" {
-			// Create a pseudo-comment from the review body
-			reviewBodyComment := github.Comment{
-				ID:        review.ID, // Use review ID
-				File:      "",        // Review body is not file-specific
-				Line:      0,         // Review body is not line-specific
-				Body:      review.Body,
-				Author:    review.Reviewer,
-				CreatedAt: review.SubmittedAt,
-				URL:       "", // Review bodies don't have direct URLs
-			}
-
-			// Skip if this review body comment has been marked as resolved
-			if !a.isCommentResolved(reviewBodyComment) {
-				allComments = append(allComments, CommentContext{
-					Comment:      reviewBodyComment,
-					SourceReview: review,
-				})
-			} else {
-				resolvedCommentCount++
+			// Skip nitpick-only reviews when nitpick processing is disabled
+			if !a.config.AISettings.ProcessNitpickComments && a.isNitpickOnlyReview(review.Body) {
 				if a.config.AISettings.VerboseMode {
-					fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					fmt.Printf("🧹 Skipping nitpick-only review body %d (nitpick processing disabled)\n", review.ID)
+				}
+			} else {
+				// Create a pseudo-comment from the review body
+				reviewBodyComment := github.Comment{
+					ID:        review.ID, // Use review ID
+					File:      "",        // Review body is not file-specific
+					Line:      0,         // Review body is not line-specific
+					Body:      review.Body,
+					Author:    review.Reviewer,
+					CreatedAt: review.SubmittedAt,
+					URL:       "", // Review bodies don't have direct URLs
+				}
+
+				// Skip if this review body comment has been marked as resolved
+				if !a.isCommentResolved(reviewBodyComment) {
+					allComments = append(allComments, CommentContext{
+						Comment:      reviewBodyComment,
+						SourceReview: review,
+					})
+				} else {
+					resolvedCommentCount++
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					}
 				}
 			}
 		}
@@ -203,27 +210,34 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 	for _, review := range reviews {
 		// Process review body as a comment if it exists and contains content
 		if review.Body != "" {
-			// Create a pseudo-comment from the review body
-			reviewBodyComment := github.Comment{
-				ID:        review.ID, // Use review ID
-				File:      "",        // Review body is not file-specific
-				Line:      0,         // Review body is not line-specific
-				Body:      review.Body,
-				Author:    review.Reviewer,
-				CreatedAt: review.SubmittedAt,
-				URL:       "", // Review bodies don't have direct URLs
-			}
-
-			// Skip if this review body comment has been marked as resolved
-			if !a.isCommentResolved(reviewBodyComment) {
-				allComments = append(allComments, CommentContext{
-					Comment:      reviewBodyComment,
-					SourceReview: review,
-				})
-			} else {
-				resolvedCommentCount++
+			// Skip nitpick-only reviews when nitpick processing is disabled
+			if !a.config.AISettings.ProcessNitpickComments && a.isNitpickOnlyReview(review.Body) {
 				if a.config.AISettings.VerboseMode {
-					fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					fmt.Printf("🧹 Skipping nitpick-only review body %d (nitpick processing disabled)\n", review.ID)
+				}
+			} else {
+				// Create a pseudo-comment from the review body
+				reviewBodyComment := github.Comment{
+					ID:        review.ID, // Use review ID
+					File:      "",        // Review body is not file-specific
+					Line:      0,         // Review body is not line-specific
+					Body:      review.Body,
+					Author:    review.Reviewer,
+					CreatedAt: review.SubmittedAt,
+					URL:       "", // Review bodies don't have direct URLs
+				}
+
+				// Skip if this review body comment has been marked as resolved
+				if !a.isCommentResolved(reviewBodyComment) {
+					allComments = append(allComments, CommentContext{
+						Comment:      reviewBodyComment,
+						SourceReview: review,
+					})
+				} else {
+					resolvedCommentCount++
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					}
 				}
 			}
 		}
@@ -2009,6 +2023,31 @@ func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
 
 	// If we find multiple indicators of CodeRabbit nitpick responses, it's likely a nitpick-only comment
 	return nitpickCount >= 1
+}
+
+// isNitpickOnlyReview checks if a review body only contains nitpick content and no actionable tasks
+func (a *Analyzer) isNitpickOnlyReview(body string) bool {
+	lowerBody := strings.ToLower(body)
+
+	// Check for CodeRabbit nitpick-only pattern
+	hasActionableZero := strings.Contains(lowerBody, "actionable comments posted: 0")
+	hasNitpickSection := strings.Contains(lowerBody, "nitpick comments") ||
+		strings.Contains(lowerBody, "🧹")
+
+	// If it has "Actionable comments posted: 0" and nitpick sections, it's likely nitpick-only
+	if hasActionableZero && hasNitpickSection {
+		// Check if there's any other significant content outside nitpick sections
+		// Remove the nitpick section to see if there's other content
+		beforeNitpick := strings.Split(body, "<details>")[0]
+		// Remove the "Actionable comments posted: 0" line
+		beforeNitpick = strings.ReplaceAll(beforeNitpick, "**Actionable comments posted: 0**", "")
+		beforeNitpick = strings.TrimSpace(beforeNitpick)
+
+		// If there's no other content, it's nitpick-only
+		return beforeNitpick == ""
+	}
+
+	return false
 }
 
 // buildNitpickInstruction generates nitpick processing instructions based on configuration
