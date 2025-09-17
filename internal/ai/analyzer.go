@@ -1677,7 +1677,8 @@ func (a *Analyzer) loadPromptTemplate(filename string, data interface{}) (string
 	possiblePaths := []string{
 		fmt.Sprintf("prompts/%s", filename),
 		fmt.Sprintf("./prompts/%s", filename),
-		fmt.Sprintf("/home/biwakonbu/github/reviewtask/prompts/%s", filename), // Fallback to absolute path
+		fmt.Sprintf("../../prompts/%s", filename), // For tests running from subdirectories
+		fmt.Sprintf("../prompts/%s", filename),    // Alternative relative path
 	}
 
 	var templateContent []byte
