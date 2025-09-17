@@ -3,12 +3,14 @@ package ai
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reviewtask/internal/config"
 	"runtime"
 	"strings"
 )
@@ -16,10 +18,16 @@ import (
 // RealClaudeClient implements ClaudeClient using actual Claude Code CLI
 type RealClaudeClient struct {
 	claudePath string
+	model      string
 }
 
 // NewRealClaudeClient creates a new real Claude client
 func NewRealClaudeClient() (*RealClaudeClient, error) {
+	return NewRealClaudeClientWithConfig(nil)
+}
+
+// NewRealClaudeClientWithConfig creates a new real Claude client with optional config
+func NewRealClaudeClientWithConfig(cfg *config.Config) (*RealClaudeClient, error) {
 	claudePath, err := findClaudeCLI()
 	if err != nil {
 		return nil, fmt.Errorf("claude command not found: %w\n\nTo resolve this issue:\n1. Install Claude CLI: npm install -g @anthropic-ai/claude-code\n2. Or ensure Claude CLI is in your PATH\n3. Or create an alias 'claude' pointing to your Claude CLI installation\n4. Or place it in one of these locations:\n   - ~/.claude/local/claude\n   - ~/.npm-global/bin/claude\n   - ~/.volta/bin/claude", err)
@@ -37,7 +45,95 @@ func NewRealClaudeClient() (*RealClaudeClient, error) {
 		log.Printf("✓ Created symlink at ~/.local/bin/claude for reviewtask compatibility")
 	}
 
-	return &RealClaudeClient{claudePath: claudePath}, nil
+	// Get model from config, default to sonnet
+	model := "sonnet"
+	if cfg != nil && cfg.AISettings.Model != "" {
+		model = cfg.AISettings.Model
+	}
+
+	client := &RealClaudeClient{
+		claudePath: claudePath,
+		model:      model,
+	}
+
+	// Skip authentication check if configured or environment variable is set
+	skipAuthCheck := os.Getenv("SKIP_CLAUDE_AUTH_CHECK") == "true"
+	if cfg != nil && cfg.AISettings.SkipClaudeAuthCheck {
+		skipAuthCheck = true
+	}
+
+	if !skipAuthCheck {
+		// Check if Claude CLI is authenticated
+		if err := client.CheckAuthentication(); err != nil {
+			return nil, fmt.Errorf("claude CLI authentication check failed: %w\n\nTo authenticate:\n1. Run: claude (this will open the Claude interface)\n2. Use the /login command in Claude\n3. Follow the authentication prompts\n\nOr skip this check by setting:\n- Environment variable: SKIP_CLAUDE_AUTH_CHECK=true\n- Config file: \"skip_claude_auth_check\": true", err)
+		}
+	}
+
+	return client, nil
+}
+
+// CheckAuthentication verifies that Claude CLI is properly authenticated
+func (c *RealClaudeClient) CheckAuthentication() error {
+	// Skip authentication check if SKIP_CLAUDE_AUTH_CHECK is set
+	// This helps with Claude Code's frequent logout issues
+	if os.Getenv("SKIP_CLAUDE_AUTH_CHECK") == "true" {
+		return nil
+	}
+
+	// Try a simple test command to check authentication
+	ctx := context.Background()
+	testInput := "test"
+
+	args := []string{}
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+	// Use --print with --output-format for JSON output
+	args = append(args, "--print", "--output-format", "json")
+	var cmd *exec.Cmd
+
+	// Check if claudePath contains interpreter command
+	if strings.Contains(c.claudePath, " ") {
+		parts := strings.Fields(c.claudePath)
+		if len(parts) >= 2 {
+			interpreter := parts[0]
+			scriptAndArgs := append(parts[1:], args...)
+			cmd = exec.CommandContext(ctx, interpreter, scriptAndArgs...)
+		} else {
+			cmd = exec.CommandContext(ctx, c.claudePath, args...)
+		}
+	} else {
+		cmd = exec.CommandContext(ctx, c.claudePath, args...)
+	}
+
+	cmd.Stdin = strings.NewReader(testInput)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	// Run the command - we expect it might fail if not authenticated
+	_ = cmd.Run() // Ignore the error, we'll check the output
+
+	// Parse the response to check for authentication error
+	var response struct {
+		IsError bool   `json:"is_error"`
+		Result  string `json:"result"`
+	}
+
+	if err := json.Unmarshal(stdout.Bytes(), &response); err == nil {
+		// Successfully parsed response
+		if response.IsError && strings.Contains(strings.ToLower(response.Result), "api key") {
+			return fmt.Errorf("claude CLI is not authenticated: %s", response.Result)
+		}
+		if response.IsError && strings.Contains(strings.ToLower(response.Result), "login") {
+			return fmt.Errorf("claude CLI requires authentication: %s", response.Result)
+		}
+	}
+
+	// If we got here, authentication seems to be working
+	return nil
 }
 
 // findClaudeCLI implements comprehensive Claude CLI detection strategy
@@ -414,7 +510,16 @@ func getNpmPrefix() string {
 // Execute runs Claude with the given input
 func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	args := []string{}
-	if outputFormat != "" {
+
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+
+	// Add print flag and output format for JSON mode
+	if outputFormat == "json" {
+		args = append(args, "--print", "--output-format", outputFormat)
+	} else if outputFormat != "" {
 		args = append(args, "--output-format", outputFormat)
 	}
 
@@ -444,11 +549,39 @@ func (c *RealClaudeClient) Execute(ctx context.Context, input string, outputForm
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("claude execution failed: %w, stderr: %s", err, stderr.String())
+	// Debug: log the command being executed (only in verbose mode)
+	if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+		fmt.Fprintf(os.Stderr, "DEBUG: Executing claude command: %s %s\n", cmd.Path, strings.Join(cmd.Args[1:], " "))
 	}
 
-	return stdout.String(), nil
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("claude execution failed: %w, stderr: %s, stdout: %.200s", err, stderr.String(), stdout.String())
+	}
+
+	output := stdout.String()
+
+	// If output format is JSON, extract the result field
+	if outputFormat == "json" {
+		var response struct {
+			Type    string `json:"type"`
+			IsError bool   `json:"is_error"`
+			Result  string `json:"result"`
+			Error   string `json:"error,omitempty"`
+		}
+
+		if err := json.Unmarshal([]byte(output), &response); err != nil {
+			// If unmarshaling fails, return the raw output (backward compatibility)
+			return output, nil
+		}
+
+		if response.IsError {
+			return "", fmt.Errorf("claude API error: %s", response.Error)
+		}
+
+		return response.Result, nil
+	}
+
+	return output, nil
 }
 
 // RealCommandExecutor implements CommandExecutor using os/exec

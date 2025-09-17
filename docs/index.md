@@ -1,76 +1,58 @@
-# reviewtask - AI-Powered PR Review Management Tool
+# reviewtask Documentation
 
-[![Latest Release](https://img.shields.io/github/v/release/biwakonbu/reviewtask)](https://github.com/biwakonbu/reviewtask/releases/latest)
-[![CI](https://github.com/biwakonbu/reviewtask/workflows/CI/badge.svg)](https://github.com/biwakonbu/reviewtask/actions)
-[![codecov](https://codecov.io/gh/biwakonbu/reviewtask/branch/main/graph/badge.svg)](https://codecov.io/gh/biwakonbu/reviewtask)
-[![Go Report Card](https://goreportcard.com/badge/github.com/biwakonbu/reviewtask)](https://goreportcard.com/report/github.com/biwakonbu/reviewtask)
-[![GoDoc](https://godoc.org/github.com/biwakonbu/reviewtask?status.svg)](https://godoc.org/github.com/biwakonbu/reviewtask)
+Welcome to the reviewtask documentation! This documentation is organized into two main sections to help you quickly find what you need.
 
-A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers to address feedback systematically.
+## 📚 User Guide
 
-## Features
+**For developers using reviewtask to manage PR reviews**
 
-- **🔍 PR Review Fetching**: Automatically retrieves reviews from GitHub API with nested comment structure
-- **🤖 AI Analysis**: Supports multiple AI providers for generating structured, actionable tasks from review content
-- **💾 Local Storage**: Stores data in structured JSON format under `.pr-review/` directory
-- **📋 Task Management**: Full lifecycle management with status tracking (todo/doing/done/pending/cancel)
-- **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
-- **🔒 Authentication**: Multi-source token detection with interactive setup
-- **🎯 Priority-based Analysis**: Customizable priority rules for task generation
-- **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
-- **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
-- **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
-- **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
-- **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
-- **💨 API Caching**: Reduces redundant GitHub API calls automatically
-- **📊 Auto-Resume**: Seamlessly continues from where it left off if interrupted
-- **🔧 Debug Commands**: Test specific phases independently for troubleshooting
-- **📏 Prompt Size Optimization**: Automatic chunking for large comments (>20KB) and pre-validation size checks
-- **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
-- **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
-- **🔄 Smart Deduplication**: AI-powered task deduplication with similarity threshold control
-- **🛡️ JSON Recovery**: Automatic recovery from incomplete Claude API responses with partial task extraction
-- **🔁 Intelligent Retry**: Smart retry strategies with pattern detection and prompt size adjustment
-- **📊 Response Monitoring**: Performance analytics and optimization recommendations for API usage
+The [User Guide](user-guide/README.md) covers everything you need to know to use reviewtask effectively:
 
-## Quick Start
+- [Installation](user-guide/installation.md) - Installing reviewtask on your system
+- [Quick Start](user-guide/quick-start.md) - Get up and running in 5 minutes
+- [Authentication](user-guide/authentication.md) - Setting up GitHub access
+- [Commands Reference](user-guide/commands.md) - All CLI commands and options
+- [Workflow Guide](user-guide/workflow.md) - Best practices for daily use
+- [Configuration](user-guide/configuration.md) - Customizing reviewtask behavior
+- [Troubleshooting](user-guide/troubleshooting.md) - Solving common problems
 
-Get started with reviewtask in just a few steps:
+## 🔧 Developer Guide
 
-1. **[Install](installation.md)** the tool using our one-liner installation script
-2. **[Initialize](quick-start.md#initialization)** your repository with `reviewtask init`
-3. **[Authenticate](authentication.md)** with GitHub using `reviewtask auth login`
-4. **[Analyze](quick-start.md#analyzing-pr-reviews)** your PR reviews with `reviewtask`
+**For contributors and developers extending reviewtask**
 
-## Core Workflow
+The [Developer Guide](developer-guide/README.md) provides in-depth technical documentation:
 
-```bash
-# Initialize repository
-reviewtask init
+- [Architecture Overview](developer-guide/architecture.md) - System design and components
+- [Development Setup](developer-guide/development-setup.md) - Setting up your dev environment
+- [Project Structure](developer-guide/project-structure.md) - Code organization
+- [Testing Strategy](developer-guide/testing.md) - Testing approach and guidelines
+- [Contributing](developer-guide/contributing.md) - How to contribute
+- [Versioning](developer-guide/versioning.md) - Release management process
 
-# Set up authentication
-reviewtask auth login
+## 🚀 Quick Links
 
-# Analyze current branch's PR
-reviewtask
+- **Repository**: [github.com/biwakonbu/reviewtask](https://github.com/biwakonbu/reviewtask)
+- **Latest Release**: [Download](https://github.com/biwakonbu/reviewtask/releases/latest)
+- **Report Issues**: [GitHub Issues](https://github.com/biwakonbu/reviewtask/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/biwakonbu/reviewtask/discussions)
 
-# View and manage tasks
-reviewtask status
-reviewtask show
-reviewtask update <task-id> doing
-```
+## 🌟 Key Features
 
-## Why reviewtask?
+- **🔍 PR Review Analysis** - Convert GitHub reviews into actionable tasks
+- **🤖 AI-Powered** - Intelligent task generation using Claude
+- **⚡ Parallel Processing** - Fast analysis of multiple comments
+- **📋 Task Management** - Full lifecycle tracking (todo/doing/done)
+- **🔄 State Preservation** - Never lose work progress
+- **🎯 Smart Prioritization** - Customizable priority rules
+- **🔌 Extensible** - Plugin architecture for AI providers
 
-Transform your GitHub Pull Request reviews into a structured, trackable workflow:
+## 📖 Choose Your Path
 
-- **Zero Feedback Loss**: Every actionable review comment is captured and tracked
-- **State Preservation**: Your work progress is never lost due to tool operations
-- **AI-Assisted**: Intelligent task generation and prioritization
-- **Developer-Controlled**: You maintain full control over task status and workflow
+### I want to use reviewtask
+→ Start with the [User Guide](user-guide/README.md)
 
-## Getting Started
+### I want to contribute to reviewtask
+→ Start with the [Developer Guide](developer-guide/README.md)
 
-Ready to transform your PR review workflow? Start with our [Installation Guide](installation.md) and follow the [Quick Start Guide](quick-start.md) to get up and running in minutes.
-
-For detailed information about commands, configuration, and advanced features, explore the documentation sections using the navigation menu.
+### I need help
+→ Check [Troubleshooting](user-guide/troubleshooting.md) or [open an issue](https://github.com/biwakonbu/reviewtask/issues)

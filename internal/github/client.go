@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/google/go-github/v58/github"
+	htmlparser "golang.org/x/net/html"
 	"golang.org/x/oauth2"
 )
 
@@ -50,6 +53,7 @@ type Comment struct {
 	Body      string  `json:"body"`
 	Author    string  `json:"author"`
 	CreatedAt string  `json:"created_at"`
+	URL       string  `json:"url"` // GitHub comment URL for reference
 	Replies   []Reply `json:"replies"`
 }
 
@@ -58,6 +62,244 @@ type Reply struct {
 	Body      string `json:"body"`
 	Author    string `json:"author"`
 	CreatedAt string `json:"created_at"`
+	URL       string `json:"url"` // GitHub comment URL for reference
+}
+
+// Regular expressions for code block removal and GitHub PR features
+var (
+	// Matches fenced code blocks (```...```) including language specifiers
+	fencedCodeBlockRegex = regexp.MustCompile(`(?s)` + "`" + `{3}[^` + "`" + `\n]*\n.*?\n` + "`" + `{3}`)
+	// Matches inline code (`...`)
+	inlineCodeRegex = regexp.MustCompile("`[^`\n]+`")
+	// Matches indented code blocks (consecutive lines with 4+ spaces/tabs at start)
+	indentedCodeBlockRegex = regexp.MustCompile(`(?m)^( {4,}|\t+).*(\n( {4,}|\t+).*)*`)
+
+	// GitHub PR suggestion blocks (with HTML escaping)
+	suggestionBlockRegex = regexp.MustCompile(`(?s)(?:\\u003c!--|<!)-- suggestion_start --(?:\\u003e|>).*?(?:\\u003c!--|<!)-- suggestion_end --(?:\\u003e|>)`)
+	// GitHub committable suggestions (detailed collapsible sections)
+	committableSuggestionRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)📝 Committable suggestion(?:\\u003c|<)/summary(?:\\u003e|>).*?(?:\\u003c|<)/details(?:\\u003e|>)`)
+	// GitHub prompt sections for AI agents
+	promptSectionRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🤖 Prompt for AI Agents(?:\\u003c|<)/summary(?:\\u003e|>).*?(?:\\u003c|<)/details(?:\\u003e|>)`)
+	// GitHub fingerprinting comments
+	fingerprintRegex = regexp.MustCompile(`(?s)(?:\\u003c!--|<!)-- fingerprinting:.*? --(?:\\u003e|>)`)
+
+	// CodeRabbit detailed review sections (aggressive cleanup)
+	cautionSectionRegex    = regexp.MustCompile(`(?s)(?:\\u003e|>) \[!CAUTION\].*`)
+	nitpickSectionRegex    = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧹 Nitpick comments.*`)
+	reviewDetailsRegex     = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)📜 Review details.*`)
+	codeGraphRegex         = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧬 Code graph analysis.*`)
+	learningsRegex         = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧠 Learnings.*`)
+	additionalContextRegex = regexp.MustCompile(`(?s)(?:\\u003c|<)details(?:\\u003e|>)\s*(?:\\u003c|<)summary(?:\\u003e|>)🧰 Additional context used.*`)
+)
+
+// removeHTMLElements removes specified HTML elements from text using proper HTML parsing
+func removeHTMLElements(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// First unescape HTML entities (\u003c -> <, etc.)
+	unescaped := html.UnescapeString(text)
+
+	// Parse HTML
+	doc, err := htmlparser.Parse(strings.NewReader("<div>" + unescaped + "</div>"))
+	if err != nil {
+		// Fallback to original text if parsing fails
+		return text
+	}
+
+	// Remove unwanted elements
+	removeElementsRecursive(doc, shouldRemoveElement)
+
+	// Convert back to text
+	var result strings.Builder
+	renderHTMLText(doc, &result)
+
+	cleaned := strings.TrimSpace(result.String())
+
+	// Clean up multiple consecutive newlines
+	cleaned = regexp.MustCompile(`\n{3,}`).ReplaceAllString(cleaned, "\n\n")
+
+	return cleaned
+}
+
+// shouldRemoveElement determines if an HTML element should be removed
+func shouldRemoveElement(n *htmlparser.Node) (bool, string) {
+	if n.Type != htmlparser.ElementNode {
+		return false, ""
+	}
+
+	switch n.Data {
+	case "details":
+		// Check if it's a CodeRabbit section
+		if summary := findChildElement(n, "summary"); summary != nil {
+			summaryText := getTextContent(summary)
+			if strings.Contains(summaryText, "🧹 Nitpick comments") {
+				return true, "[nitpick comments removed]"
+			}
+			if strings.Contains(summaryText, "📜 Review details") {
+				return true, "[review metadata removed]"
+			}
+			if strings.Contains(summaryText, "🧬 Code graph analysis") {
+				return true, "[code graph analysis removed]"
+			}
+			if strings.Contains(summaryText, "🧠 Learnings") {
+				return true, "[AI learnings removed]"
+			}
+			if strings.Contains(summaryText, "🧰 Additional context used") {
+				return true, "[additional context removed]"
+			}
+			if strings.Contains(summaryText, "📝 Committable suggestion") {
+				return true, "[committable suggestion removed]"
+			}
+			if strings.Contains(summaryText, "🤖 Prompt for AI Agents") {
+				// Extract AI prompt content instead of removing it
+				promptContent := extractAIPromptContent(n)
+				if promptContent != "" {
+					return true, "AI Task: " + promptContent
+				}
+				return true, "[AI prompt removed]"
+			}
+			// Remove outside diff range comments sections
+			if strings.Contains(summaryText, "Outside diff range comments") {
+				return true, "[outside diff comments removed]"
+			}
+		}
+	case "blockquote":
+		// Remove large blockquotes (likely review content)
+		textContent := getTextContent(n)
+		if len(textContent) > 2000 {
+			return true, "[detailed review sections removed]"
+		}
+	}
+
+	return false, ""
+}
+
+// extractAIPromptContent extracts meaningful content from AI prompt sections
+func extractAIPromptContent(n *htmlparser.Node) string {
+	content := getTextContent(n)
+
+	// Clean up the content
+	content = strings.ReplaceAll(content, "🤖 Prompt for AI Agents", "")
+	content = strings.TrimSpace(content)
+
+	// Limit length to avoid bloat
+	if len(content) > 500 {
+		content = content[:497] + "..."
+	}
+
+	return content
+}
+
+// removeElementsRecursive removes elements based on the shouldRemove function
+func removeElementsRecursive(n *htmlparser.Node, shouldRemove func(*htmlparser.Node) (bool, string)) {
+	var next *htmlparser.Node
+	for child := n.FirstChild; child != nil; child = next {
+		next = child.NextSibling
+
+		if remove, replacement := shouldRemove(child); remove {
+			// Replace with text node
+			if replacement != "" {
+				textNode := &htmlparser.Node{
+					Type: htmlparser.TextNode,
+					Data: replacement,
+				}
+				n.InsertBefore(textNode, child)
+			}
+			n.RemoveChild(child)
+		} else {
+			removeElementsRecursive(child, shouldRemove)
+		}
+	}
+}
+
+// findChildElement finds the first child element with the given tag name
+func findChildElement(n *htmlparser.Node, tagName string) *htmlparser.Node {
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		if child.Type == htmlparser.ElementNode && child.Data == tagName {
+			return child
+		}
+	}
+	return nil
+}
+
+// getTextContent extracts all text content from an HTML node
+func getTextContent(n *htmlparser.Node) string {
+	var result strings.Builder
+	var extract func(*htmlparser.Node)
+	extract = func(node *htmlparser.Node) {
+		if node.Type == htmlparser.TextNode {
+			result.WriteString(node.Data)
+		}
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			extract(child)
+		}
+	}
+	extract(n)
+	return result.String()
+}
+
+// renderHTMLText converts HTML node back to text, preserving structure
+func renderHTMLText(n *htmlparser.Node, result *strings.Builder) {
+	for child := n.FirstChild; child != nil; child = child.NextSibling {
+		switch child.Type {
+		case htmlparser.TextNode:
+			result.WriteString(child.Data)
+		case htmlparser.ElementNode:
+			// Add newlines for block elements
+			switch child.Data {
+			case "p", "div", "details", "blockquote":
+				result.WriteString("\n")
+				renderHTMLText(child, result)
+				result.WriteString("\n")
+			default:
+				renderHTMLText(child, result)
+			}
+		default:
+			renderHTMLText(child, result)
+		}
+	}
+}
+
+// removeCodeBlocks removes all code blocks, inline code, and GitHub PR features from markdown text
+// while preserving other formatting and content structure
+func removeCodeBlocks(text string) string {
+	if text == "" {
+		return text
+	}
+
+	// Remove CodeRabbit actionable comments header but keep the actual content
+	actionableHeaderRegex := regexp.MustCompile(`^\*\*Actionable comments posted: \d+\*\*\s*\n\n?`)
+	text = actionableHeaderRegex.ReplaceAllString(text, "")
+
+	// Extract AI Prompt content and remove other suggestion blocks (including HTML processing and fingerprints)
+	text = processAIPromptAndSuggestions(text)
+
+	return strings.TrimSpace(text)
+}
+
+// processAIPromptAndSuggestions extracts AI Prompt content and removes other suggestion blocks
+func processAIPromptAndSuggestions(text string) string {
+
+	// First, unescape Unicode HTML entities
+	text = strings.ReplaceAll(text, `\u003c`, `<`)
+	text = strings.ReplaceAll(text, `\u003e`, `>`)
+
+	// Then, unescape standard HTML entities
+	text = html.UnescapeString(text)
+
+	// Remove verbose suggestion blocks but keep AI Prompt blocks intact
+	text = regexp.MustCompile(`(?s)<!-- suggestion_start -->.*?<!-- suggestion_end -->`).ReplaceAllString(text, "")
+	text = regexp.MustCompile(`(?s)<details>\s*<summary>📝 Committable suggestion</summary>.*?</details>`).ReplaceAllString(text, "")
+
+	// Remove GitHub fingerprinting comments (these are truly not useful)
+	text = fingerprintRegex.ReplaceAllString(text, "")
+
+	// Clean up multiple consecutive newlines
+	text = regexp.MustCompile(`\n{3,}`).ReplaceAllString(text, "\n\n")
+
+	return strings.TrimSpace(text)
 }
 
 // Injectable function variables for easier testing/mocking
@@ -178,8 +420,12 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		// JSON-marshal the generic interface{} and unmarshal into []Review
 		raw, err := json.Marshal(cached)
 		if err == nil {
-			var reviews []Review
+			reviews := []Review{}
 			if err := json.Unmarshal(raw, &reviews); err == nil {
+				// Ensure we never return nil slice
+				if reviews == nil {
+					reviews = []Review{}
+				}
 				return reviews, nil
 			}
 		}
@@ -191,22 +437,35 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		return nil, fmt.Errorf("failed to get reviews: %w", err)
 	}
 
-	var result []Review
+	result := []Review{}
 	for _, review := range reviews {
+		reviewBody := review.GetBody()
+
+		// For CodeRabbit actionable comments, remove the summary body but keep individual comments
+		if review.GetUser().GetLogin() == "coderabbitai[bot]" &&
+			strings.HasPrefix(reviewBody, "**Actionable comments posted:") {
+			reviewBody = "" // Clear the body but keep the review for its comments
+		} else {
+			reviewBody = removeCodeBlocks(reviewBody)
+		}
+
 		r := Review{
 			ID:          review.GetID(),
 			Reviewer:    review.GetUser().GetLogin(),
 			State:       review.GetState(),
-			Body:        review.GetBody(),
+			Body:        reviewBody,
 			SubmittedAt: review.GetSubmittedAt().Format("2006-01-02T15:04:05Z"),
+			Comments:    []Comment{}, // Initialize with empty slice to avoid null
 		}
 
-		// Get review comments
+		// Get review comments (these are the important individual comments)
 		comments, err := c.getReviewComments(ctx, prNumber, review.GetID())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get comments for review %d: %w", review.GetID(), err)
 		}
-		r.Comments = comments
+		if comments != nil {
+			r.Comments = comments
+		}
 
 		result = append(result, r)
 	}
@@ -240,9 +499,10 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
-				Body:      comment.GetBody(),
+				Body:      removeCodeBlocks(comment.GetBody()),
 				Author:    prAuthor,
 				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				URL:       comment.GetHTMLURL(),
 				// Issue comments don't have file/line info
 				File: "",
 				Line: 0,
@@ -261,9 +521,10 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
-				Body:      comment.GetBody(),
+				Body:      removeCodeBlocks(comment.GetBody()),
 				Author:    prAuthor,
 				CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+				URL:       comment.GetHTMLURL(),
 				File:      comment.GetPath(),
 				Line:      comment.GetLine(),
 			})
@@ -311,33 +572,36 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
 
-	// Filter comments for this review and build nested structure
+	// Filter comments for this review and build flat list
 	commentMap := make(map[int64]*Comment)
 	var rootComments []Comment
 
 	for _, comment := range allComments {
-		// Skip comments not part of this review (if we can determine that)
-		// Note: GitHub API doesn't directly link comments to reviews, so we'll include all for now
+		// Only include comments that belong to this specific review
+		// GitHub PR comments include PullRequestReviewID when they are part of a review
+		if rid := comment.GetPullRequestReviewID(); rid != 0 && rid != reviewID {
+			continue
+		}
 
 		c := Comment{
 			ID:        comment.GetID(),
 			File:      comment.GetPath(),
 			Line:      comment.GetLine(),
-			Body:      comment.GetBody(),
+			Body:      removeCodeBlocks(comment.GetBody()),
 			Author:    comment.GetUser().GetLogin(),
 			CreatedAt: comment.GetCreatedAt().Format("2006-01-02T15:04:05Z"),
+			URL:       comment.GetHTMLURL(),
 			Replies:   []Reply{},
 		}
 
 		commentMap[comment.GetID()] = &c
 
-		// For now, treat all comments as root comments since GitHub API comment nesting is complex
-		// In a production version, you would implement proper comment thread detection
+		// For now, treat all comments as root comments
 		rootComments = append(rootComments, c)
 	}
 
 	// Convert map back to slice for root comments
-	var result []Comment
+	result := make([]Comment, 0, len(rootComments)) // Initialize with capacity to avoid null
 	for _, comment := range rootComments {
 		if c, exists := commentMap[comment.ID]; exists {
 			result = append(result, *c)

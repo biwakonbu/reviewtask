@@ -36,6 +36,7 @@ Examples:
 
 func init() {
 	debugCmd.AddCommand(debugFetchCmd)
+	debugCmd.AddCommand(debugPromptCmd)
 }
 
 // Injectable factory for GitHub client (for tests)
@@ -246,4 +247,55 @@ func debugGenerateTasks(cfg *config.Config, storageManager *storage.Manager, prN
 // IsValidDebugPhase validates if the provided phase is a valid debug phase
 func IsValidDebugPhase(phase string) bool {
 	return phase == "review" || phase == "task"
+}
+
+// ---- prompt subcommand ----
+
+var promptProfile string
+
+var debugPromptCmd = &cobra.Command{
+	Use:   "prompt [PR_NUMBER]",
+	Short: "Render the analysis prompt from saved reviews (no AI)",
+	Long: `Load .pr-review/PR-<number>/reviews.json and render the analysis prompt
+using the configured or specified prompt profile. This performs no AI calls and
+is safe to run offline for A/B comparison.`,
+	Args: cobra.ExactArgs(1),
+	RunE: runDebugPrompt,
+}
+
+func init() {
+	debugPromptCmd.Flags().StringVar(&promptProfile, "profile", "legacy", "Prompt profile: legacy|v2|rich|compact|minimal")
+}
+
+func runDebugPrompt(cmd *cobra.Command, args []string) error {
+	pr, err := strconv.Atoi(args[0])
+	if err != nil {
+		return fmt.Errorf("invalid PR number: %s", args[0])
+	}
+
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+	// Override profile when provided
+	if promptProfile != "" {
+		cfg.AISettings.PromptProfile = promptProfile
+	}
+
+	// Load saved reviews
+	storageManager := storage.NewManager()
+	reviews, err := storageManager.LoadReviews(pr)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("no saved reviews found for PR #%d. Run 'reviewtask debug fetch review %d' first", pr, pr)
+		}
+		return fmt.Errorf("failed to load reviews: %w", err)
+	}
+
+	// Build prompt locally (no AI invocation)
+	analyzer := ai.NewAnalyzerWithClient(cfg, nil)
+	prompt := analyzer.RenderAnalysisPrompt(reviews)
+	fmt.Fprint(cmd.OutOrStdout(), prompt)
+	return nil
 }

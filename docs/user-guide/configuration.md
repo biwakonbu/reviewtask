@@ -125,6 +125,24 @@ Set the language for AI-generated content:
 
 Supported languages include English, Japanese, and others based on AI provider capabilities.
 
+### Model Configuration
+Specify the AI model to use:
+```json
+"model": "sonnet"
+```
+
+Supported models depend on your AI provider (Claude CLI, etc.)
+
+### Real-time Processing
+Enable real-time task saving and streaming:
+```json
+"realtime_saving_enabled": true,
+"stream_processing_enabled": true
+```
+
+- **realtime_saving_enabled**: Save tasks immediately as they're generated
+- **stream_processing_enabled**: Process comments in parallel with streaming results
+
 ### Processing Modes
 
 #### Standard Mode (Default)
@@ -159,9 +177,67 @@ Two-stage validation with retry logic and quality scoring.
     "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
     "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
-    "log_truncated_responses": true      // Log truncated responses for debugging
+"log_truncated_responses": true      // Log truncated responses for debugging
   }
 }
+```
+
+### Prompt Profiles (Default: v2)
+
+Select the prompt style used for task generation:
+
+```json
+{
+  "ai_settings": {
+    "prompt_profile": "v2"  // one of: v2 (alias: rich), compact, minimal, legacy
+  }
+}
+```
+
+Tips:
+- `v2` is the default and recommended for most cases.
+- Use `legacy` only to compare with previous behavior or for fallback.
+
+## Prompt Templates
+
+reviewtask uses customizable prompt templates for AI task generation. Templates are stored in the `prompts/` directory.
+
+### Template Structure
+
+Templates use Go template syntax with the following variables:
+
+- `{{.LanguageInstruction}}` - Language-specific instructions
+- `{{.File}}` - The file path of the comment
+- `{{.Line}}` - The line number of the comment
+- `{{.Author}}` - The comment author
+- `{{.Comment}}` - The comment body text
+
+### Customizing Templates
+
+1. Edit the template file in `prompts/simple_task_generation.md`
+2. No recompilation needed - changes take effect immediately
+3. Use markdown format for better readability
+
+### Example Template
+
+```markdown
+# Task Extraction Assistant
+
+{{.LanguageInstruction}}Generate tasks from the following comment.
+
+## Comment Details
+**File:** {{.File}}:{{.Line}}
+**Author:** {{.Author}}
+**Comment:** {{.Comment}}
+
+## Response Format
+Return a JSON array with tasks...
+```
+- Render prompts locally without AI to inspect differences:
+```bash
+reviewtask debug fetch review 123
+reviewtask debug prompt 123 --profile v2
+reviewtask debug prompt 123 --profile legacy
 ```
 
 ### JSON Recovery and Retry Features

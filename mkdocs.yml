@@ -70,10 +70,6 @@ plugins:
   - social:
       cards: true
       cards_dir: assets/images/social
-      cards_color:
-        fill: "#1e88e5"
-        text: "#FFFFFF"
-      cards_layout: default/variant
       cards_layout_options:
         background_color: "#1e88e5"
         color: "#FFFFFF"
@@ -127,23 +123,26 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
-    - Installation: installation.md
-    - Quick Start: quick-start.md
-    - Authentication: authentication.md
   - User Guide:
-    - Commands: commands.md
-    - Configuration: configuration.md
-    - Workflow: workflow.md
-    - Troubleshooting: troubleshooting.md
-  - Development:
-    - Contributing: contributing.md
-    - Architecture: architecture.md
-    - Versioning: versioning.md
-    - Project Vision: prd.md
-  - Implementation Details:
-    - Progress: implementation-progress.md
-    - Issue #140: issue-140-implementation.md
+    - Overview: user-guide/README.md
+    - Installation: user-guide/installation.md
+    - Quick Start: user-guide/quick-start.md
+    - Authentication: user-guide/authentication.md
+    - Commands: user-guide/commands.md
+    - Configuration: user-guide/configuration.md
+    - Workflow: user-guide/workflow.md
+    - Troubleshooting: user-guide/troubleshooting.md
+  - Developer Guide:
+    - Overview: developer-guide/README.md
+    - Architecture: developer-guide/architecture.md
+    - Development Setup: developer-guide/development-setup.md
+    - Project Structure: developer-guide/project-structure.md
+    - Testing: developer-guide/testing.md
+    - Contributing: developer-guide/contributing.md
+    - Versioning: developer-guide/versioning.md
+    - Project Vision: developer-guide/prd.md
+    - Progress: developer-guide/implementation-progress.md
+  - Prompt Templates: prompts/README.md
 
 extra:
   version:

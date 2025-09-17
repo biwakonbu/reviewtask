@@ -1,3 +1,5 @@
+hhkb.xkm
+
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -76,5 +78,6 @@ ENV/
 # Cache directories
 .cache/
 node_modules/
+.gocache/
 
 hhkb.xkm

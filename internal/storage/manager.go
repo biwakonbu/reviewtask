@@ -44,6 +44,7 @@ type Task struct {
 	UpdatedAt            string               `json:"updated_at"`
 	PRNumber             int                  `json:"pr_number"`
 	CommentHash          string               `json:"comment_hash"` // MD5 hash of comment content for change detection
+	URL                  string               `json:"url"`          // GitHub comment URL for direct navigation
 }
 
 // VerificationResult represents the result of a task verification attempt
@@ -136,6 +137,18 @@ func (m *Manager) SaveReviews(prNumber int, reviews []github.Review) error {
 		return err
 	}
 
+	// Ensure reviews is never nil to avoid null in JSON
+	if reviews == nil {
+		reviews = []github.Review{}
+	}
+
+	// Ensure each review's Comments slice is never nil
+	for i := range reviews {
+		if reviews[i].Comments == nil {
+			reviews[i].Comments = []github.Comment{}
+		}
+	}
+
 	reviewsFile := ReviewsFile{Reviews: reviews}
 	filePath := filepath.Join(prDir, "reviews.json")
 	data, err := json.MarshalIndent(reviewsFile, "", "  ")
@@ -161,6 +174,21 @@ func (m *Manager) LoadReviews(prNumber int) ([]github.Review, error) {
 	}
 
 	return reviewsFile.Reviews, nil
+}
+
+// ReviewsExist checks if reviews file exists for the given PR
+func (m *Manager) ReviewsExist(prNumber int) (bool, error) {
+	prDir := m.getPRDir(prNumber)
+	filePath := filepath.Join(prDir, "reviews.json")
+
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (m *Manager) SaveTasks(prNumber int, tasks []Task) error {

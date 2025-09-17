@@ -188,6 +188,9 @@ func displayTaskDetails(cmd *cobra.Command, task storage.Task, jsonOut, briefOut
 	if task.TaskIndex > 0 {
 		fmt.Fprintf(out, "   Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
 	}
+	if task.URL != "" {
+		fmt.Fprintf(out, "   URL: %s\n", task.URL)
+	}
 	fmt.Fprintln(out)
 
 	// Timestamps
@@ -354,6 +357,7 @@ func displayTaskAsJSON(cmd *cobra.Command, task storage.Task) error {
 		"verification_status":   task.VerificationStatus,
 		"last_verification_at":  task.LastVerificationAt,
 		"verification_results":  task.VerificationResults,
+		"url":                   task.URL,
 	}
 
 	jsonData, err := json.MarshalIndent(jsonTask, "", "  ")

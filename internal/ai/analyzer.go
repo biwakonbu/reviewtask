@@ -1,14 +1,17 @@
 package ai
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"reviewtask/internal/config"
@@ -24,23 +27,26 @@ type Analyzer struct {
 	claudeClient       ClaudeClient
 	promptSizeTracker  *PromptSizeTracker
 	responseMonitor    *ResponseMonitor
+	errorTracker       *ErrorTracker
 }
 
 func NewAnalyzer(cfg *config.Config) *Analyzer {
-	// Default to real Claude client
-	client, err := NewRealClaudeClient()
+	// Default to real Claude client with config for auth check control
+	client, err := NewRealClaudeClientWithConfig(cfg)
 	if err != nil {
 		// If Claude is not available, return analyzer without client
 		// This allows tests to inject their own mock
 		return &Analyzer{
 			config:          cfg,
 			responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+			errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 		}
 	}
 	return &Analyzer{
 		config:          cfg,
 		claudeClient:    client,
 		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+		errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 	}
 }
 
@@ -50,9 +56,17 @@ func NewAnalyzerWithClient(cfg *config.Config, client ClaudeClient) *Analyzer {
 		config:          cfg,
 		claudeClient:    client,
 		responseMonitor: NewResponseMonitor(cfg.AISettings.VerboseMode),
+		errorTracker:    NewErrorTracker(cfg.AISettings.ErrorTrackingEnabled, cfg.AISettings.VerboseMode, ".pr-review"),
 	}
 }
 
+// SimpleTaskRequest is what AI generates - minimal fields only
+type SimpleTaskRequest struct {
+	Description string `json:"description"` // AI-generated task description (user language)
+	Priority    string `json:"priority"`    // critical|high|medium|low
+}
+
+// TaskRequest is the full task structure with all fields
 type TaskRequest struct {
 	Description     string `json:"description"` // AI-generated task description (user language)
 	OriginText      string `json:"origin_text"` // Original review comment text
@@ -63,6 +77,7 @@ type TaskRequest struct {
 	Line            int    `json:"line"`
 	Status          string `json:"status"`
 	TaskIndex       int    `json:"task_index"` // New: index within comment (0, 1, 2...)
+	URL             string `json:"url"`        // GitHub comment URL for direct navigation
 }
 
 type ValidationResult struct {
@@ -107,26 +122,34 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	for _, review := range reviews {
 		// Process review body as a comment if it exists and contains content
 		if review.Body != "" {
-			// Create a pseudo-comment from the review body
-			reviewBodyComment := github.Comment{
-				ID:        review.ID, // Use review ID
-				File:      "",        // Review body is not file-specific
-				Line:      0,         // Review body is not line-specific
-				Body:      review.Body,
-				Author:    review.Reviewer,
-				CreatedAt: review.SubmittedAt,
-			}
-
-			// Skip if this review body comment has been marked as resolved
-			if !a.isCommentResolved(reviewBodyComment) {
-				allComments = append(allComments, CommentContext{
-					Comment:      reviewBodyComment,
-					SourceReview: review,
-				})
-			} else {
-				resolvedCommentCount++
+			// Skip nitpick-only reviews when nitpick processing is disabled
+			if !a.config.AISettings.ProcessNitpickComments && a.isNitpickOnlyReview(review.Body) {
 				if a.config.AISettings.VerboseMode {
-					fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					fmt.Printf("🧹 Skipping nitpick-only review body %d (nitpick processing disabled)\n", review.ID)
+				}
+			} else {
+				// Create a pseudo-comment from the review body
+				reviewBodyComment := github.Comment{
+					ID:        review.ID, // Use review ID
+					File:      "",        // Review body is not file-specific
+					Line:      0,         // Review body is not line-specific
+					Body:      review.Body,
+					Author:    review.Reviewer,
+					CreatedAt: review.SubmittedAt,
+					URL:       "", // Review bodies don't have direct URLs
+				}
+
+				// Skip if this review body comment has been marked as resolved
+				if !a.isCommentResolved(reviewBodyComment) {
+					allComments = append(allComments, CommentContext{
+						Comment:      reviewBodyComment,
+						SourceReview: review,
+					})
+				} else {
+					resolvedCommentCount++
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					}
 				}
 			}
 		}
@@ -169,6 +192,87 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 	}
 
 	return a.generateTasksParallel(allComments)
+}
+
+// GenerateTasksWithRealtimeSaving processes reviews with real-time task saving
+func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
+	// Clear validation feedback to ensure clean state for each PR analysis
+	a.clearValidationFeedback()
+
+	if len(reviews) == 0 {
+		return []storage.Task{}, nil
+	}
+
+	// Extract all comments from all reviews, filtering out resolved comments
+	var allComments []CommentContext
+	resolvedCommentCount := 0
+
+	for _, review := range reviews {
+		// Process review body as a comment if it exists and contains content
+		if review.Body != "" {
+			// Skip nitpick-only reviews when nitpick processing is disabled
+			if !a.config.AISettings.ProcessNitpickComments && a.isNitpickOnlyReview(review.Body) {
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("🧹 Skipping nitpick-only review body %d (nitpick processing disabled)\n", review.ID)
+				}
+			} else {
+				// Create a pseudo-comment from the review body
+				reviewBodyComment := github.Comment{
+					ID:        review.ID, // Use review ID
+					File:      "",        // Review body is not file-specific
+					Line:      0,         // Review body is not line-specific
+					Body:      review.Body,
+					Author:    review.Reviewer,
+					CreatedAt: review.SubmittedAt,
+					URL:       "", // Review bodies don't have direct URLs
+				}
+
+				// Skip if this review body comment has been marked as resolved
+				if !a.isCommentResolved(reviewBodyComment) {
+					allComments = append(allComments, CommentContext{
+						Comment:      reviewBodyComment,
+						SourceReview: review,
+					})
+				} else {
+					resolvedCommentCount++
+					if a.config.AISettings.VerboseMode {
+						fmt.Printf("✅ Skipping resolved review body %d: %.50s...\n", review.ID, review.Body)
+					}
+				}
+			}
+		}
+
+		// Process individual inline comments
+		for _, comment := range review.Comments {
+			// Skip comments that have been marked as addressed/resolved
+			if a.isCommentResolved(comment) {
+				resolvedCommentCount++
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("✅ Skipping resolved comment %d: %.50s...\n", comment.ID, comment.Body)
+				}
+				continue
+			}
+
+			allComments = append(allComments, CommentContext{
+				Comment:      comment,
+				SourceReview: review,
+			})
+		}
+	}
+
+	if resolvedCommentCount > 0 {
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("📝 Filtered out %d resolved comments\n", resolvedCommentCount)
+		}
+	}
+
+	if len(allComments) == 0 {
+		return []storage.Task{}, nil
+	}
+
+	// Use stream processor with real-time saving
+	streamProcessor := NewStreamProcessor(a)
+	return streamProcessor.ProcessCommentsWithRealtimeSaving(allComments, storageManager, prNumber)
 }
 
 // GenerateTasksWithCache generates tasks with MD5-based change detection using existing data
@@ -433,6 +537,16 @@ func (a *Analyzer) GenerateTasksWithValidation(reviews []github.Review) ([]stora
 // }
 
 func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
+	// Switch by prompt profile; default to legacy for full backward compatibility
+	profile := strings.ToLower(strings.TrimSpace(a.config.AISettings.PromptProfile))
+	if profile == "" || profile == "legacy" {
+		return a.buildAnalysisPromptLegacy(reviews)
+	}
+	return a.buildAnalysisPromptV2(reviews, profile)
+}
+
+// buildAnalysisPromptLegacy preserves the original prompt construction
+func (a *Analyzer) buildAnalysisPromptLegacy(reviews []github.Review) string {
 	// Initialize prompt size tracker
 	a.promptSizeTracker = NewPromptSizeTracker()
 
@@ -449,44 +563,11 @@ func (a *Analyzer) buildAnalysisPrompt(reviews []github.Review) string {
 	nitpickInstruction := a.buildNitpickInstruction()
 	a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
 
-	// Build review data
-	var reviewsData strings.Builder
-	reviewsData.WriteString("PR Reviews to analyze:\n\n")
-
-	for i, review := range reviews {
-		reviewsData.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
-		reviewsData.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
-		reviewsData.WriteString(fmt.Sprintf("State: %s\n", review.State))
-
-		if review.Body != "" {
-			reviewsData.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
-		}
-
-		if len(review.Comments) > 0 {
-			reviewsData.WriteString("Comments:\n")
-			for _, comment := range review.Comments {
-				reviewsData.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
-				reviewsData.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
-				reviewsData.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
-				reviewsData.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
-
-				if len(comment.Replies) > 0 {
-					reviewsData.WriteString("  Replies:\n")
-					for _, reply := range comment.Replies {
-						reviewsData.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
-					}
-				}
-				reviewsData.WriteString("\n")
-			}
-		}
-		reviewsData.WriteString("\n")
-	}
-
-	// Track review data
-	reviewsDataStr := reviewsData.String()
+	// Build review data (full detail)
+	reviewsDataStr := a.renderReviewsData(reviews, "rich")
 	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
 
-	// Build system prompt
+	// System prompt and schema
 	systemPrompt := `You are an AI assistant helping to analyze GitHub PR reviews and generate actionable tasks.
 
 CRITICAL: Return response as JSON array with this EXACT format:
@@ -520,13 +601,235 @@ Task Generation Guidelines:
 - AI deduplication will handle any redundancy later`
 	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
 
-	prompt := fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+}
 
-	return prompt
+// buildAnalysisPromptV2 builds a profile-aware prompt with compact/rich options
+func (a *Analyzer) buildAnalysisPromptV2(reviews []github.Review, profile string) string {
+	// Initialize prompt size tracker
+	a.promptSizeTracker = NewPromptSizeTracker()
+
+	// Language
+	var languageInstruction string
+	if a.config.AISettings.UserLanguage != "" {
+		languageInstruction = fmt.Sprintf("IMPORTANT: Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+	}
+	a.promptSizeTracker.TrackLanguagePrompt(languageInstruction)
+
+	// Priority
+	priorityPrompt := a.config.GetPriorityPrompt()
+	a.promptSizeTracker.TrackPriorityPrompt(priorityPrompt)
+
+	// Nitpick guidance
+	nitpickInstruction := a.buildNitpickInstruction()
+	a.promptSizeTracker.TrackNitpickPrompt(nitpickInstruction)
+
+	// Choose detail level based on profile
+	detail := "rich"
+	switch profile {
+	case "rich", "v2":
+		detail = "rich"
+	case "compact":
+		detail = "compact"
+	case "minimal":
+		detail = "minimal"
+	}
+
+	reviewsDataStr := a.renderReviewsData(reviews, detail)
+	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
+
+	// Stricter schema wording, same fields as legacy to keep parser compatible
+	systemPrompt := `You are analyzing GitHub PR review comments to produce actionable developer tasks.
+
+Return ONLY a valid JSON array. Each element MUST contain exactly these fields:
+- description (string): actionable instruction in the specified language
+- origin_text (string): verbatim original review comment text
+- priority (string): one of critical|high|medium|low
+- source_review_id (number)
+- source_comment_id (number)
+- file (string): file path or empty if not applicable
+- line (number): line number or 0 if not applicable
+- task_index (number): 0-based index within the comment
+
+Rules:
+- Do NOT include any explanations outside the JSON array
+- Create separate tasks for distinct actions; skip non-actionable remarks
+- Preserve origin_text exactly; do not translate or summarize it`
+	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
+
+	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
+}
+
+// renderReviewsData renders reviews and comments with varying detail levels
+func (a *Analyzer) renderReviewsData(reviews []github.Review, detail string) string {
+	var b strings.Builder
+	b.WriteString("PR Reviews to analyze:\n\n")
+	for i, review := range reviews {
+		b.WriteString(fmt.Sprintf("Review %d (ID: %d):\n", i+1, review.ID))
+		switch detail {
+		case "rich":
+			b.WriteString(fmt.Sprintf("Reviewer: %s\n", review.Reviewer))
+			b.WriteString(fmt.Sprintf("State: %s\n", review.State))
+			if review.Body != "" {
+				b.WriteString(fmt.Sprintf("Review Body: %s\n", review.Body))
+			}
+			if len(review.Comments) > 0 {
+				b.WriteString("Comments:\n")
+				for _, comment := range review.Comments {
+					b.WriteString(fmt.Sprintf("  Comment ID: %d\n", comment.ID))
+					b.WriteString(fmt.Sprintf("  File: %s:%d\n", comment.File, comment.Line))
+					b.WriteString(fmt.Sprintf("  Author: %s\n", comment.Author))
+					b.WriteString(fmt.Sprintf("  Text: %s\n", comment.Body))
+					if len(comment.Replies) > 0 {
+						b.WriteString("  Replies:\n")
+						for _, reply := range comment.Replies {
+							b.WriteString(fmt.Sprintf("    - %s: %s\n", reply.Author, reply.Body))
+						}
+					}
+					b.WriteString("\n")
+				}
+			}
+		case "compact":
+			// Keep only essential fields; omit reviewer/state; include comment summaries
+			if len(review.Comments) > 0 {
+				b.WriteString("Comments:\n")
+				for _, comment := range review.Comments {
+					b.WriteString(fmt.Sprintf("  ID:%d File:%s:%d Author:%s\n", comment.ID, comment.File, comment.Line, comment.Author))
+					b.WriteString(fmt.Sprintf("  Text: %s\n\n", comment.Body))
+				}
+			} else if review.Body != "" {
+				b.WriteString(fmt.Sprintf("Body: %s\n\n", review.Body))
+			}
+		case "minimal":
+			// Only IDs and raw text; smallest footprint
+			if review.Body != "" {
+				b.WriteString("Body:\n")
+				b.WriteString(review.Body)
+				b.WriteString("\n")
+			}
+			for _, comment := range review.Comments {
+				b.WriteString(fmt.Sprintf("Comment %d: %s\n", comment.ID, comment.Body))
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// callClaudeForSimpleTasks calls Claude and returns simple task objects
+func (a *Analyzer) callClaudeForSimpleTasks(prompt string) ([]SimpleTaskRequest, error) {
+	// Use existing client infrastructure
+	client := a.claudeClient
+	if client == nil {
+		var err error
+		client, err = NewRealClaudeClientWithConfig(a.config)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	ctx := context.Background()
+	output, err := client.Execute(ctx, prompt, "json")
+	if err != nil {
+		return nil, err
+	}
+
+	// The output should be a simple JSON array
+	result := strings.TrimSpace(output)
+
+	// Try to extract JSON from various wrapper formats
+	// 1. Check for <response> tags
+	if strings.Contains(result, "<response>") {
+		start := strings.Index(result, "<response>") + len("<response>")
+		end := strings.Index(result, "</response>")
+		if end > start {
+			result = strings.TrimSpace(result[start:end])
+		}
+	}
+	// 2. Check for code blocks
+	if strings.Contains(result, "```") {
+		result = a.extractJSON(result)
+	}
+	// 3. Find JSON array even with prefix text
+	if !strings.HasPrefix(result, "[") {
+		idx := strings.Index(result, "[")
+		if idx > 0 {
+			result = result[idx:]
+		}
+	}
+
+	// Parse the simple tasks
+	var simpleTasks []SimpleTaskRequest
+	if err := json.Unmarshal([]byte(result), &simpleTasks); err != nil {
+		// Try JSON recovery if enabled
+		if a.config.AISettings.EnableJSONRecovery {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  🔧 Attempting JSON recovery for simple tasks (error: %v)\n", err)
+			}
+
+			// Try to recover truncated JSON arrays
+			recoverer := NewJSONRecoverer(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+
+			// Convert to TaskRequest format for recovery
+			recoveryResult := recoverer.RecoverJSON(result, err)
+			if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+				// Convert recovered TaskRequest back to SimpleTaskRequest
+				for _, task := range recoveryResult.Tasks {
+					simpleTasks = append(simpleTasks, SimpleTaskRequest{
+						Description: task.Description,
+						Priority:    task.Priority,
+					})
+				}
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("  ✅ Recovered %d simple tasks from truncated response\n", len(simpleTasks))
+				}
+				return simpleTasks, nil
+			}
+
+			// Try enhanced recovery
+			enhancedRecoverer := NewEnhancedJSONRecovery(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+			recoveryResult = enhancedRecoverer.RepairAndRecover(result, err)
+			if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
+				// Convert recovered TaskRequest back to SimpleTaskRequest
+				for _, task := range recoveryResult.Tasks {
+					simpleTasks = append(simpleTasks, SimpleTaskRequest{
+						Description: task.Description,
+						Priority:    task.Priority,
+					})
+				}
+				if a.config.AISettings.VerboseMode {
+					fmt.Printf("  ✅ Enhanced recovery: recovered %d simple tasks\n", len(simpleTasks))
+				}
+				return simpleTasks, nil
+			}
+		}
+
+		// Log for debugging
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("  ❌ Failed to parse simple tasks: %v\n", err)
+			fmt.Printf("  🐛 Raw output: %.500s\n", result)
+		}
+		return []SimpleTaskRequest{}, nil // Return empty array if all recovery attempts fail
+	}
+
+	return simpleTasks, nil
 }
 
 func (a *Analyzer) callClaudeCode(prompt string) ([]TaskRequest, error) {
 	return a.callClaudeCodeWithRetryStrategy(prompt, 0)
+}
+
+// RenderAnalysisPrompt exposes the internal prompt builder for tooling/debug.
+// It does not perform any AI calls and is safe for local/offline usage.
+func (a *Analyzer) RenderAnalysisPrompt(reviews []github.Review) string {
+	return a.buildAnalysisPrompt(reviews)
 }
 
 // callClaudeCodeWithRetryStrategy executes Claude API call with intelligent retry logic
@@ -562,7 +865,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	client := a.claudeClient
 	if client == nil {
 		var err error
-		client, err = NewRealClaudeClient()
+		client, err = NewRealClaudeClientWithConfig(a.config)
 		if err != nil {
 			return nil, NewClaudeAPIError("client initialization failed", err)
 		}
@@ -622,25 +925,9 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 		return nil, NewClaudeAPIError("execution failed", err)
 	}
 
-	// Parse Claude Code CLI response wrapper
-	var claudeResponse struct {
-		Type    string `json:"type"`
-		Subtype string `json:"subtype"`
-		IsError bool   `json:"is_error"`
-		Result  string `json:"result"`
-	}
-
-	if err := json.Unmarshal([]byte(output), &claudeResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse claude wrapper response: %w", err)
-	}
-
-	if claudeResponse.IsError {
-		return nil, fmt.Errorf("claude returned error: %s", claudeResponse.Result)
-	}
-
-	// Extract JSON from result (may be wrapped in markdown code block or text)
-	result := claudeResponse.Result
-	result = strings.TrimSpace(result)
+	// The claude_client.Execute already extracts the result field when outputFormat is "json"
+	// So 'output' here is already the raw result string, not the wrapper
+	result := strings.TrimSpace(output)
 
 	// Debug: log first part of response if debug mode is enabled
 	if a.config.AISettings.VerboseMode {
@@ -655,10 +942,10 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	result = a.extractJSON(result)
 	if result == "" {
 		if a.config.AISettings.VerboseMode {
-			fmt.Printf("  🐛 Full Claude response: %s\n", claudeResponse.Result)
+			fmt.Printf("  🐛 Full Claude response: %s\n", output)
 		}
 		// For CodeRabbit nitpick comments, return empty array instead of error
-		if a.config.AISettings.ProcessNitpickComments && a.isCodeRabbitNitpickResponse(claudeResponse.Result) {
+		if a.config.AISettings.ProcessNitpickComments && a.isCodeRabbitNitpickResponse(output) {
 			if a.config.AISettings.VerboseMode {
 				fmt.Printf("  🔄 CodeRabbit nitpick detected with no actionable tasks - returning empty array\n")
 			}
@@ -678,6 +965,18 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 
 		recoveryResult := recoverer.RecoverJSON(result, err)
 		recoverer.LogRecoveryAttempt(recoveryResult)
+
+		// If standard recovery failed, try enhanced recovery
+		if !recoveryResult.IsRecovered || len(recoveryResult.Tasks) == 0 {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("  🚀 Trying enhanced JSON recovery...\n")
+			}
+			enhancedRecoverer := NewEnhancedJSONRecovery(
+				a.config.AISettings.EnableJSONRecovery,
+				a.config.AISettings.VerboseMode,
+			)
+			recoveryResult = enhancedRecoverer.RepairAndRecover(result, err)
+		}
 
 		if recoveryResult.IsRecovered && len(recoveryResult.Tasks) > 0 {
 			if a.config.AISettings.VerboseMode {
@@ -790,7 +1089,7 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 // Such approaches are fundamentally flawed and create collision risks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
-	now := time.Now().Format("2006-01-02T15:04:05Z")
+	now := time.Now().UTC().Format(time.RFC3339)
 
 	for _, task := range tasks {
 		// Determine initial status based on low-priority patterns
@@ -819,6 +1118,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 			Status:          status,
 			CreatedAt:       now,
 			UpdatedAt:       now,
+			URL:             task.URL,
 		}
 		result = append(result, storageTask)
 	}
@@ -982,9 +1282,10 @@ func (a *Analyzer) clearValidationFeedback() {
 // processCommentsParallel handles common parallel processing logic
 func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor func(CommentContext) ([]TaskRequest, error)) ([]storage.Task, error) {
 	type commentResult struct {
-		tasks []TaskRequest
-		err   error
-		index int
+		tasks   []TaskRequest
+		err     error
+		index   int
+		context CommentContext
 	}
 
 	results := make(chan commentResult, len(comments))
@@ -998,9 +1299,10 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 
 			tasks, err := processor(ctx)
 			results <- commentResult{
-				tasks: tasks,
-				err:   err,
-				index: index,
+				tasks:   tasks,
+				err:     err,
+				index:   index,
+				context: ctx,
 			}
 		}(i, commentCtx)
 	}
@@ -1018,6 +1320,18 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 	for result := range results {
 		if result.err != nil {
 			errors = append(errors, fmt.Errorf("comment %d: %w", result.index, result.err))
+			// Record error in error tracker
+			if a.errorTracker != nil {
+				errorType := "processing_failed"
+				if strings.Contains(result.err.Error(), "json") {
+					errorType = "json_parse"
+				} else if strings.Contains(result.err.Error(), "API") || strings.Contains(result.err.Error(), "execution failed") {
+					errorType = "api_failure"
+				} else if strings.Contains(result.err.Error(), "context") || strings.Contains(result.err.Error(), "size") {
+					errorType = "context_overflow"
+				}
+				a.errorTracker.RecordCommentError(result.context, errorType, result.err.Error(), 0, false, 0, 0)
+			}
 		} else {
 			allTasks = append(allTasks, result.tasks...)
 		}
@@ -1031,7 +1345,15 @@ func (a *Analyzer) processCommentsParallel(comments []CommentContext, processor 
 			}
 		}
 		if len(allTasks) == 0 {
+			// Show error summary when all processing failed
+			if a.errorTracker != nil && a.config.AISettings.VerboseMode {
+				a.errorTracker.PrintErrorSummary()
+			}
 			return nil, fmt.Errorf("all comment processing failed")
+		}
+		// Show error summary when some processing failed
+		if a.errorTracker != nil && a.config.AISettings.VerboseMode {
+			a.errorTracker.PrintErrorSummary()
 		}
 	}
 
@@ -1054,6 +1376,18 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 	if a.config.AISettings.VerboseMode {
 		fmt.Printf("Processing %d comments in parallel...\n", len(comments))
 	}
+
+	// Use stream processor if enabled, otherwise use traditional parallel processing
+	if a.config.AISettings.StreamProcessingEnabled {
+		streamProcessor := NewStreamProcessor(a)
+		tasks, err := streamProcessor.ProcessCommentsStream(comments, a.processComment)
+		if err == nil && a.config.AISettings.VerboseMode {
+			fmt.Printf("✓ Generated %d tasks from %d comments (stream mode)\n", len(tasks), len(comments))
+		}
+		return tasks, err
+	}
+
+	// Traditional parallel processing
 	tasks, err := a.processCommentsParallel(comments, a.processComment)
 	if err == nil && a.config.AISettings.VerboseMode {
 		fmt.Printf("✓ Generated %d tasks from %d comments\n", len(tasks), len(comments))
@@ -1061,20 +1395,42 @@ func (a *Analyzer) generateTasksParallel(comments []CommentContext) ([]storage.T
 	return tasks, err
 }
 
+// processCommentSimple uses simplified AI prompts for better reliability
+func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, error) {
+	// Try template-based prompt first, fall back to hardcoded if needed
+	prompt := a.buildSimpleCommentPromptFromTemplate(ctx)
+
+	// Call AI with simple prompt
+	simpleTasks, err := a.callClaudeForSimpleTasks(prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert simple tasks to full TaskRequest objects
+	var fullTasks []TaskRequest
+	for i, simpleTask := range simpleTasks {
+		fullTask := TaskRequest{
+			Description:     simpleTask.Description,
+			Priority:        simpleTask.Priority,
+			OriginText:      ctx.Comment.Body, // Preserve original comment
+			SourceReviewID:  ctx.SourceReview.ID,
+			SourceCommentID: ctx.Comment.ID,
+			File:            ctx.Comment.File,
+			Line:            ctx.Comment.Line,
+			Status:          "todo",
+			TaskIndex:       i,
+			URL:             ctx.Comment.URL,
+		}
+		fullTasks = append(fullTasks, fullTask)
+	}
+
+	return fullTasks, nil
+}
+
 // processComment handles a single comment and returns tasks for it
 func (a *Analyzer) processComment(ctx CommentContext) ([]TaskRequest, error) {
-	// Check if comment needs chunking
-	chunker := NewCommentChunker(20000) // 20KB chunks to leave room for prompt template
-	if chunker.ShouldChunkComment(ctx.Comment) {
-		return a.processLargeComment(ctx, chunker)
-	}
-
-	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
-		return a.processCommentWithValidation(ctx)
-	}
-
-	prompt := a.buildCommentPrompt(ctx)
-	return a.callClaudeCode(prompt)
+	// Use simplified processing for better reliability
+	return a.processCommentSimple(ctx)
 }
 
 // processLargeComment handles comments that exceed size limits by chunking
@@ -1125,6 +1481,52 @@ func (a *Analyzer) processLargeComment(ctx CommentContext, chunker *CommentChunk
 	}
 
 	return allTasks, nil
+}
+
+// processLargeCommentWithSummarization handles large comments by summarizing them
+func (a *Analyzer) processLargeCommentWithSummarization(ctx CommentContext) ([]TaskRequest, error) {
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  📝 Large comment detected (ID: %d, size: %d bytes), summarizing...\n",
+			ctx.Comment.ID, len(ctx.Comment.Body))
+	}
+
+	// Create content summarizer
+	summarizer := NewContentSummarizer(18000, a.config.AISettings.VerboseMode) // 18KB to leave room for prompt
+
+	// Summarize the comment
+	summarizedComment := summarizer.SummarizeComment(ctx.Comment)
+
+	// Create new context with summarized comment
+	summarizedCtx := CommentContext{
+		Comment:      summarizedComment,
+		SourceReview: ctx.SourceReview,
+	}
+
+	// Process the summarized comment
+	var tasks []TaskRequest
+	var err error
+
+	if a.config.AISettings.ValidationEnabled != nil && *a.config.AISettings.ValidationEnabled {
+		tasks, err = a.processCommentWithValidation(summarizedCtx)
+	} else {
+		prompt := a.buildCommentPrompt(summarizedCtx)
+		tasks, err = a.callClaudeCode(prompt)
+	}
+
+	if err != nil {
+		// If summarization failed, fall back to chunking
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("    ⚠️ Summarization failed, falling back to chunking: %v\n", err)
+		}
+		chunker := NewCommentChunker(20000)
+		return a.processLargeComment(ctx, chunker)
+	}
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("  ✅ Successfully processed summarized comment: %d tasks generated\n", len(tasks))
+	}
+
+	return tasks, nil
 }
 
 // processCommentWithValidation validates individual comment JSON responses
@@ -1220,6 +1622,172 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 	return nil, fmt.Errorf("comment %d validation failed after %d attempts", ctx.Comment.ID, validator.maxRetries)
 }
 
+// buildSimpleCommentPromptWithTags creates a prompt using XML tags for clearer response format
+func (a *Analyzer) buildSimpleCommentPromptWithTags(ctx CommentContext) string {
+	var languageInstruction string
+	if a.config.AISettings.UserLanguage != "" && a.config.AISettings.UserLanguage != "English" {
+		languageInstruction = fmt.Sprintf("Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+	}
+
+	prompt := fmt.Sprintf(`You are a GitHub PR review assistant that extracts actionable tasks from comments.
+
+%sGenerate 0 to N tasks from the following comment. Return empty array if no action is needed.
+
+## Examples:
+
+Comment: "This function lacks error handling. Add nil check and error logging."
+<response>
+[
+  {"description": "Add nil check to function", "priority": "high"},
+  {"description": "Implement error logging", "priority": "medium"}
+]
+</response>
+
+Comment: "LGTM! Great implementation."
+<response>
+[]
+</response>
+
+Comment: "Missing timeout handling. Add 30 second timeout. URGENT."
+<response>
+[
+  {"description": "Implement 30 second timeout handling", "priority": "critical"}
+]
+</response>
+
+Priority levels: critical (security/data loss), high (bugs/performance), medium (improvements), low (style/naming)
+
+## Now analyze this comment:
+
+File: %s:%d
+Author: %s
+Comment:
+%s
+
+Provide your response in <response> tags. Include ONLY the JSON array:
+<response>
+`, languageInstruction, ctx.Comment.File, ctx.Comment.Line, ctx.Comment.Author, ctx.Comment.Body)
+
+	return prompt
+}
+
+// loadPromptTemplate loads a prompt template from the prompts directory
+func (a *Analyzer) loadPromptTemplate(filename string, data interface{}) (string, error) {
+	// Try multiple locations for the prompt file
+	possiblePaths := []string{
+		fmt.Sprintf("prompts/%s", filename),
+		fmt.Sprintf("./prompts/%s", filename),
+		fmt.Sprintf("../../prompts/%s", filename), // For tests running from subdirectories
+		fmt.Sprintf("../prompts/%s", filename),    // Alternative relative path
+	}
+
+	var templateContent []byte
+	var err error
+	var foundPath string
+
+	for _, path := range possiblePaths {
+		templateContent, err = os.ReadFile(path)
+		if err == nil {
+			foundPath = path
+			break
+		}
+	}
+
+	if templateContent == nil {
+		return "", fmt.Errorf("prompt template %s not found in any location", filename)
+	}
+
+	// Parse and execute the template
+	tmpl, err := template.New(filepath.Base(foundPath)).Parse(string(templateContent))
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+// buildSimpleCommentPromptFromTemplate builds prompt using external template file
+func (a *Analyzer) buildSimpleCommentPromptFromTemplate(ctx CommentContext) string {
+	var languageInstruction string
+	if a.config.AISettings.UserLanguage != "" && a.config.AISettings.UserLanguage != "English" {
+		languageInstruction = fmt.Sprintf("Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+	}
+
+	// Prepare template data
+	data := struct {
+		LanguageInstruction string
+		File                string
+		Line                int
+		Author              string
+		Comment             string
+	}{
+		LanguageInstruction: languageInstruction,
+		File:                ctx.Comment.File,
+		Line:                ctx.Comment.Line,
+		Author:              ctx.Comment.Author,
+		Comment:             ctx.Comment.Body,
+	}
+
+	// Try to load from template file
+	prompt, err := a.loadPromptTemplate("simple_task_generation.md", data)
+	if err != nil {
+		// Fall back to hardcoded prompt if template not found
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("  ⚠️  Failed to load prompt template: %v, using fallback\n", err)
+		}
+		return a.buildSimpleCommentPrompt(ctx)
+	}
+
+	return prompt
+}
+
+// buildSimpleCommentPrompt creates a minimal prompt for AI to generate only description and priority
+func (a *Analyzer) buildSimpleCommentPrompt(ctx CommentContext) string {
+	var languageInstruction string
+	if a.config.AISettings.UserLanguage != "" && a.config.AISettings.UserLanguage != "English" {
+		languageInstruction = fmt.Sprintf("Generate task descriptions in %s language.\n", a.config.AISettings.UserLanguage)
+	}
+
+	prompt := fmt.Sprintf("You are a GitHub PR review assistant that extracts actionable tasks from comments.\n\n"+
+		"%sGenerate 0 to N tasks from the following comment. Return empty array if no action is needed.\n\n"+
+		"## Examples:\n\n"+
+		"Comment: \"This function lacks error handling. Add nil check and error logging.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[\n"+
+		"  {\"description\": \"Add nil check to function\", \"priority\": \"high\"},\n"+
+		"  {\"description\": \"Implement error logging\", \"priority\": \"medium\"}\n"+
+		"]\n"+
+		"```\n\n"+
+		"Comment: \"LGTM! Great implementation.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[]\n"+
+		"```\n\n"+
+		"Comment: \"Missing timeout handling. Add 30 second timeout. URGENT.\"\n"+
+		"Response:\n"+
+		"```json\n"+
+		"[\n"+
+		"  {\"description\": \"Implement 30 second timeout handling\", \"priority\": \"critical\"}\n"+
+		"]\n"+
+		"```\n\n"+
+		"Priority levels: critical (security/data loss), high (bugs/performance), medium (improvements), low (style/naming)\n\n"+
+		"## Now analyze this comment:\n\n"+
+		"File: %s:%d\n"+
+		"Author: %s\n"+
+		"Comment:\n%s\n\n"+
+		"## Your response:\n"+
+		"Return ONLY the JSON array below. No explanations, no markdown wrapper, just the raw JSON:\n",
+		languageInstruction, ctx.Comment.File, ctx.Comment.Line, ctx.Comment.Author, ctx.Comment.Body)
+
+	return prompt
+}
+
 // buildCommentPrompt creates a focused prompt for analyzing a single comment
 func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 	var languageInstruction string
@@ -1242,6 +1810,7 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
 		"file":              ctx.Comment.File,
 		"line":              ctx.Comment.Line,
 		"task_index":        0,
+		"url":               ctx.Comment.URL,
 	}
 
 	exampleJSON, err := json.MarshalIndent([]interface{}{exampleTask}, "", "  ")
@@ -1256,9 +1825,10 @@ func (a *Analyzer) buildCommentPrompt(ctx CommentContext) string {
     "source_comment_id": %d,
     "file": "%s",
     "line": %d,
-    "task_index": 0
+    "task_index": 0,
+    "url": "%s"
   }
-]`, ctx.SourceReview.ID, ctx.Comment.ID, ctx.Comment.File, ctx.Comment.Line))
+]`, ctx.SourceReview.ID, ctx.Comment.ID, ctx.Comment.File, ctx.Comment.Line, ctx.Comment.URL))
 	}
 
 	prompt := fmt.Sprintf(`You are an AI assistant helping to analyze GitHub PR review comments and generate actionable tasks.
@@ -1284,6 +1854,9 @@ Comment Details:
 
 CRITICAL: Return response as JSON array with this EXACT format:
 %s
+
+IMPORTANT: You MUST return ONLY a JSON array with NO markdown formatting, NO code blocks, NO backticks.
+Return ONLY the raw JSON array, nothing else.
 
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
@@ -1340,6 +1913,17 @@ func (a *Analyzer) buildRepliesContext(comment github.Comment) string {
 
 // generateTasksParallelWithValidation processes comments in parallel with validation enabled
 func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext) ([]storage.Task, error) {
+	// Use stream processor if enabled, otherwise use traditional parallel processing
+	if a.config.AISettings.StreamProcessingEnabled {
+		streamProcessor := NewStreamProcessor(a)
+		tasks, err := streamProcessor.ProcessCommentsStream(comments, a.processCommentWithValidation)
+		if err == nil && a.config.AISettings.VerboseMode {
+			fmt.Printf("✓ Generated %d tasks from %d comments with validation (stream mode)\n", len(tasks), len(comments))
+		}
+		return tasks, err
+	}
+
+	// Traditional parallel processing
 	tasks, err := a.processCommentsParallel(comments, a.processCommentWithValidation)
 	if err == nil {
 		// Tasks are already deduplicated in processCommentsParallel
@@ -1489,6 +2073,31 @@ func (a *Analyzer) isCodeRabbitNitpickResponse(response string) bool {
 
 	// If we find multiple indicators of CodeRabbit nitpick responses, it's likely a nitpick-only comment
 	return nitpickCount >= 1
+}
+
+// isNitpickOnlyReview checks if a review body only contains nitpick content and no actionable tasks
+func (a *Analyzer) isNitpickOnlyReview(body string) bool {
+	lowerBody := strings.ToLower(body)
+
+	// Check for CodeRabbit nitpick-only pattern
+	hasActionableZero := strings.Contains(lowerBody, "actionable comments posted: 0")
+	hasNitpickSection := strings.Contains(lowerBody, "nitpick comments") ||
+		strings.Contains(lowerBody, "🧹")
+
+	// If it has "Actionable comments posted: 0" and nitpick sections, it's likely nitpick-only
+	if hasActionableZero && hasNitpickSection {
+		// Check if there's any other significant content outside nitpick sections
+		// Remove the nitpick section to see if there's other content
+		beforeNitpick := strings.Split(body, "<details>")[0]
+		// Remove the "Actionable comments posted: 0" line
+		beforeNitpick = strings.ReplaceAll(beforeNitpick, "**Actionable comments posted: 0**", "")
+		beforeNitpick = strings.TrimSpace(beforeNitpick)
+
+		// If there's no other content, it's nitpick-only
+		return beforeNitpick == ""
+	}
+
+	return false
 }
 
 // buildNitpickInstruction generates nitpick processing instructions based on configuration

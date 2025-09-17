@@ -64,6 +64,20 @@ func (m *Manager) LoadCheckpoint(prNumber int) (*CheckpointState, error) {
 	return &checkpoint, nil
 }
 
+// CheckpointExists checks if a checkpoint file exists for the given PR
+func (m *Manager) CheckpointExists(prNumber int) (bool, error) {
+	checkpointPath := filepath.Join(m.getPRDir(prNumber), "checkpoint.json")
+
+	_, err := os.Stat(checkpointPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // DeleteCheckpoint removes the checkpoint file after successful completion
 func (m *Manager) DeleteCheckpoint(prNumber int) error {
 	checkpointPath := filepath.Join(m.getPRDir(prNumber), "checkpoint.json")

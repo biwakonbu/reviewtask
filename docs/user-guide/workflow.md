@@ -261,6 +261,10 @@ reviewtask auth login
 reviewtask debug fetch review 123    # Fetch reviews only
 reviewtask debug fetch task 123      # Generate tasks only
 
+# Render analysis prompt locally (no AI) for inspection/A/B comparison
+reviewtask debug prompt 123 --profile v2
+reviewtask debug prompt 123 --profile legacy
+
 # Enable verbose mode in .pr-review/config.json
 {
   "ai_settings": {

@@ -34,14 +34,14 @@ func TestGenerateTasksWithReviewBody(t *testing.T) {
 			Body: `**Actionable comments posted: 0**
 
 <details>
-<summary>🧹 Nitpick comments (1)</summary><blockquote>
+<summary>Review comments (1)</summary><blockquote>
 
 <details>
 <summary>internal/ai/analyzer.go (1)</summary><blockquote>
 
-` + "`618-657`: **Consider improving HTML parsing robustness.**" + `
+` + "`618-657`: **Improve HTML parsing robustness.**" + `
 
-While the method correctly identifies structured nitpick content for CodeRabbit comments, the HTML parsing logic could be more robust:
+The method correctly identifies structured content for CodeRabbit comments, but the HTML parsing logic could be more robust:
 
 1. The ` + "`+20`" + ` buffer in ` + "`summaryContent := lowerBody[summaryStart : summaryStart+summaryEnd+20]`" + ` is arbitrary and could cause index out of bounds errors
 2. The fallback logic for missing ` + "`</summary>`" + ` tags is fragile

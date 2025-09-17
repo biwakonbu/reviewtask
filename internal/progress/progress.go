@@ -2,14 +2,14 @@ package progress
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/mattn/go-isatty"
-	"os"
+	isatty "github.com/mattn/go-isatty"
 )
 
 // Stage represents a single stage in the fetch process

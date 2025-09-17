@@ -157,6 +157,36 @@ type CommentProcessor struct {
 - Quality validation with retry logic
 
 #### Task Generation
+
+##### Simplified Task Request Structure
+```go
+// AI generates only essential fields
+type SimpleTaskRequest struct {
+    Description string `json:"description"`  // Task description in user's language
+    Priority    string `json:"priority"`     // critical|high|medium|low
+}
+
+// Full task structure with all fields
+type TaskRequest struct {
+    Description     string // From AI
+    Priority        string // From AI
+    OriginText      string // From comment body
+    SourceReviewID  int64  // From review metadata
+    SourceCommentID int64  // From comment metadata
+    File            string // From comment location
+    Line            int    // From comment location
+    Status          string // Default: "todo"
+    TaskIndex       int    // Order within comment
+    URL             string // GitHub comment URL
+}
+```
+
+**Benefits:**
+- Minimal AI response size (less prone to errors)
+- Mechanical fields populated programmatically
+- Complete origin text preservation
+
+#### Task Generation
 ```go
 type Task struct {
     ID          string    `json:"id"`
@@ -221,6 +251,33 @@ type Client struct {
 - Multi-source authentication
 
 ### Storage System
+
+#### Write Worker for Concurrent Task Saving
+```go
+type WriteWorker struct {
+    manager      *Manager
+    taskQueue    chan Task
+    errorQueue   chan WriteError
+    wg           sync.WaitGroup
+    mu           sync.Mutex
+    isRunning    bool
+    shutdownChan chan struct{}
+}
+```
+
+**Features:**
+- Queue-based concurrent writes
+- Thread-safe file operations with mutex
+- Real-time task persistence
+- PR-specific directory management
+- Error tracking and recovery
+
+**Operation Flow:**
+1. Tasks queued as they're generated
+2. Worker processes queue continuously
+3. Each task written to PR-specific `tasks.json`
+4. Mutex ensures file consistency
+5. Errors collected for reporting
 
 #### File Structure
 ```
@@ -360,6 +417,35 @@ type AIProvider interface {
 - OpenAI API
 - Local models (Ollama)
 - Custom providers
+
+### Prompt Template System
+
+```go
+type PromptTemplate struct {
+    Path     string
+    Content  string
+    Variables map[string]interface{}
+}
+```
+
+**Features:**
+- External markdown templates in `prompts/` directory
+- Go template syntax for variable substitution
+- Hot-reloadable without recompilation
+- Language-specific customization support
+
+**Template Variables:**
+- `{{.LanguageInstruction}}` - User's language preference
+- `{{.File}}` - Source file path
+- `{{.Line}}` - Line number in file
+- `{{.Author}}` - Comment author
+- `{{.Comment}}` - Comment body text
+
+**Benefits:**
+- Easy prompt iteration without code changes
+- Version control friendly markdown format
+- Customizable per-project through config
+- Testable with golden tests
 
 ### Plugin Architecture
 ```go

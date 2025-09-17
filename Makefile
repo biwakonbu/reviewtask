@@ -1,5 +1,6 @@
 # Cross-platform build system for reviewtask
 .PHONY: build build-all clean test version help lint vet ci
+ .PHONY: test-fast test-short
 
 # Build variables
 BINARY_NAME=reviewtask
@@ -77,6 +78,16 @@ clean:
 # Run tests
 test:
 	GOMAXPROCS=$(GOMAXPROCS) GOMEMLIMIT=$(GOMEMLIMIT) GOGC=$(GOGC) go test -v -p $(TEST_P) ./...
+
+# Faster, focused test run for prompt/config changes
+test-fast:
+	@echo "Running focused tests for config, AI prompt, and prompt commands..."
+	GOMAXPROCS=$(GOMAXPROCS) GOMEMLIMIT=$(GOMEMLIMIT) GOGC=$(GOGC) go test -v ./internal/config ./internal/ai ./cmd -run '(BuildAnalysisPrompt_Golden|PromptStdout|claude|Config)'
+
+# Short mode across all packages
+test-short:
+	@echo "Running tests in short mode..."
+	GOMAXPROCS=$(GOMAXPROCS) GOMEMLIMIT=$(GOMEMLIMIT) GOGC=$(GOGC) go test -short ./...
 
 # Run linter with resource limits
 lint:

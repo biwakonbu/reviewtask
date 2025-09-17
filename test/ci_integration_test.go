@@ -1,11 +1,12 @@
 package test
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	yaml "gopkg.in/yaml.v3"
 )
 
 // CIWorkflow represents the structure of a GitHub Actions workflow

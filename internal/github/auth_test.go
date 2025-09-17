@@ -910,7 +910,8 @@ func testSaveCredentialsWithPath(basePath string, creds *Credentials) error {
 
 	credFile := filepath.Join(authDir, "credentials.json")
 	// Write to temp file first, then rename atomically
-	tempFile := credFile + ".tmp"
+	// Use unique temp file name to avoid concurrent write conflicts
+	tempFile := fmt.Sprintf("%s.%d.tmp", credFile, time.Now().UnixNano())
 	if err := os.WriteFile(tempFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write credentials: %w", err)
 	}

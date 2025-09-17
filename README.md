@@ -32,6 +32,9 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🛡️ JSON Recovery**: Automatic recovery from incomplete Claude API responses with partial task extraction
 - **🔁 Intelligent Retry**: Smart retry strategies with pattern detection and prompt size adjustment
 - **📊 Response Monitoring**: Performance analytics and optimization recommendations for API usage
+- **🧠 AI Prompt Preservation**: Preserves "🤖 Prompt for AI Agents" blocks from CodeRabbit while removing verbose metadata
+- **📦 File Size Optimization**: Achieves up to 66% reduction in reviews.json size (200KB → 67KB) while maintaining essential content
+- **🔤 HTML Entity Processing**: Properly handles Unicode HTML entities and GitHub API response variations
 
 ## Installation
 
@@ -296,6 +299,26 @@ Authentication sources (in order of preference):
 
 ## Configuration
 
+### Prompt Profiles
+
+Control the prompt style used for task generation. Default is `v2`.
+
+```json
+{
+  "ai_settings": {
+    "prompt_profile": "v2"  // one of: v2 (alias: rich), compact, minimal, legacy
+  }
+}
+```
+
+Render the exact prompt (offline, no AI) from saved reviews for inspection or A/B comparison:
+
+```bash
+reviewtask debug fetch review 123          # Save .pr-review/PR-123/reviews.json
+reviewtask debug prompt 123 --profile v2   # Print v2 prompt to stdout
+reviewtask debug prompt 123 --profile legacy
+```
+
 ### Priority Rules
 
 Edit `.pr-review/config.json` to customize priority rules:
@@ -354,10 +377,44 @@ Configure advanced processing features in `.pr-review/config.json`:
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
     "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
     "log_truncated_responses": true,     // Log truncated responses for debugging
+    "preserve_ai_prompts": true,         // Preserve "🤖 Prompt for AI Agents" blocks from CodeRabbit
+    "optimize_file_size": true,          // Enable file size optimization (removes verbose metadata)
+    "html_entity_processing": true       // Process HTML entities in GitHub API responses
     "process_self_reviews": false        // Process self-review comments from PR author
   }
 }
 ```
+
+### AI Prompt Preservation & File Size Optimization
+
+The tool intelligently optimizes review data storage while preserving essential AI guidance:
+
+#### AI Prompt Preservation
+- **Preserves CodeRabbit AI Prompts**: Keeps "🤖 Prompt for AI Agents" blocks intact for enhanced task generation
+- **Smart Content Filtering**: Removes verbose GitHub suggestion blocks and metadata while maintaining review essence
+- **HTML Entity Support**: Properly processes both HTML-escaped (`\u003c`, `\u003e`) and normal HTML content
+
+#### File Size Optimization
+- **Significant Size Reduction**: Achieves up to 66% reduction in `reviews.json` file size (e.g., 200KB → 67KB)
+- **Intelligent Metadata Removal**: Strips GitHub suggestion blocks, committable suggestions, and fingerprinting comments
+- **Content Structure Preservation**: Maintains markdown formatting, code references, and essential feedback
+
+#### Configuration Options
+```json
+{
+  "ai_settings": {
+    "preserve_ai_prompts": true,         // Keep AI prompt blocks from CodeRabbit
+    "optimize_file_size": true,          // Enable comprehensive size optimization
+    "html_entity_processing": true       // Handle HTML entity variations
+  }
+}
+```
+
+#### Benefits
+- **💾 Reduced Storage**: Smaller JSON files for faster processing and reduced disk usage
+- **🧠 Enhanced AI Analysis**: Preserved AI prompts provide better context for task generation
+- **⚡ Improved Performance**: Smaller data files lead to faster processing and analysis
+- **🔧 Better Compatibility**: Handles various GitHub API response formats consistently
 
 ### Self-Review Processing
 
@@ -653,6 +710,27 @@ Required GitHub API permissions:
 - `read:org` (for organization repositories)
 
 Use `reviewtask auth check` for comprehensive permission validation.
+
+## Documentation
+
+### 📚 For Users
+Start here if you want to use reviewtask to manage PR reviews:
+- [Installation Guide](docs/user-guide/installation.md)
+- [Quick Start Tutorial](docs/user-guide/quick-start.md)
+- [Authentication Setup](docs/user-guide/authentication.md)
+- [Command Reference](docs/user-guide/commands.md)
+- [Configuration Guide](docs/user-guide/configuration.md)
+- [Workflow Guide](docs/user-guide/workflow.md)
+- [Troubleshooting](docs/user-guide/troubleshooting.md)
+
+### 🔧 For Developers
+Start here if you want to contribute or extend reviewtask:
+- [Architecture Overview](docs/developer-guide/architecture.md)
+- [Development Setup](docs/developer-guide/development-setup.md)
+- [Project Structure](docs/developer-guide/project-structure.md)
+- [Testing Strategy](docs/developer-guide/testing.md)
+- [Contributing Guidelines](docs/developer-guide/contributing.md)
+- [Versioning & Releases](docs/developer-guide/versioning.md)
 
 ## Contributing
 

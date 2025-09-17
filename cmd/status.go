@@ -124,6 +124,14 @@ func runAIMode(storageManager *storage.Manager) error {
 
 // displayAIModeEmpty shows empty state in AI mode format
 func displayAIModeEmpty() error {
+	storageManager := storage.NewManager()
+
+	// Check for incomplete analysis before showing empty state
+	if err := displayIncompleteAnalysis(storageManager); err != nil {
+		// Non-fatal error, continue with empty display
+		fmt.Printf("⚠️  Warning: Failed to check for incomplete analysis: %v\n\n", err)
+	}
+
 	fmt.Println("ReviewTask Status - 0% Complete")
 	fmt.Println()
 	emptyBar := strings.Repeat("░", 80)
@@ -144,6 +152,14 @@ func displayAIModeEmpty() error {
 
 // displayAIModeContent shows tasks in AI mode format
 func displayAIModeContent(allTasks []storage.Task, contextDescription string) error {
+	storageManager := storage.NewManager()
+
+	// Check for incomplete analysis before showing task content
+	if err := displayIncompleteAnalysis(storageManager); err != nil {
+		// Non-fatal error, continue with task display
+		fmt.Printf("⚠️  Warning: Failed to check for incomplete analysis: %v\n\n", err)
+	}
+
 	stats := tasks.CalculateTaskStats(allTasks)
 	total := len(allTasks)
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
@@ -216,6 +232,71 @@ func runHumanMode(storageManager *storage.Manager) error {
 	}
 
 	return nil
+}
+
+// displayIncompleteAnalysis checks and displays any PRs with incomplete analysis
+func displayIncompleteAnalysis(storageManager *storage.Manager) error {
+	// Get all PR numbers
+	allPRs, err := storageManager.GetAllPRNumbers()
+	if err != nil {
+		return fmt.Errorf("failed to get PR numbers: %w", err)
+	}
+
+	var incompletePRs []incompleteAnalysisInfo
+	for _, prNumber := range allPRs {
+		// Check if reviews exist
+		reviewsExist, err := storageManager.ReviewsExist(prNumber)
+		if err != nil {
+			continue // Skip on error
+		}
+		if !reviewsExist {
+			continue // No reviews, skip
+		}
+
+		// Check if checkpoint exists (indicating incomplete analysis)
+		checkpointExists, err := storageManager.CheckpointExists(prNumber)
+		if err != nil {
+			continue // Skip on error
+		}
+		if !checkpointExists {
+			continue // No checkpoint, analysis is complete or not started
+		}
+
+		// Load checkpoint to get progress info
+		checkpoint, err := storageManager.LoadCheckpoint(prNumber)
+		if err != nil || checkpoint == nil {
+			continue // Skip on error
+		}
+
+		incompletePRs = append(incompletePRs, incompleteAnalysisInfo{
+			PRNumber:        prNumber,
+			ProcessedCount:  checkpoint.ProcessedCount,
+			TotalComments:   checkpoint.TotalComments,
+			LastProcessedAt: checkpoint.LastProcessedAt,
+		})
+	}
+
+	if len(incompletePRs) > 0 {
+		fmt.Println("📊 Incomplete Analysis:")
+		for _, info := range incompletePRs {
+			remaining := info.TotalComments - info.ProcessedCount
+			percentage := float64(remaining) / float64(info.TotalComments) * 100
+			fmt.Printf("  PR #%d: %d/%d comments processed, %d remaining (%.1f%% pending)\n",
+				info.PRNumber, info.ProcessedCount, info.TotalComments, remaining, percentage)
+			fmt.Printf("    🔄 Continue with: reviewtask analyze %d\n", info.PRNumber)
+		}
+		fmt.Println()
+	}
+
+	return nil
+}
+
+// incompleteAnalysisInfo holds information about a PR with incomplete analysis
+type incompleteAnalysisInfo struct {
+	PRNumber        int
+	ProcessedCount  int
+	TotalComments   int
+	LastProcessedAt time.Time
 }
 
 func init() {

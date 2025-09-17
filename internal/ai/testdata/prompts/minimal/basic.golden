@@ -1,0 +1,48 @@
+You are analyzing GitHub PR review comments to produce actionable developer tasks.
+
+Return ONLY a valid JSON array. Each element MUST contain exactly these fields:
+- description (string): actionable instruction in the specified language
+- origin_text (string): verbatim original review comment text
+- priority (string): one of critical|high|medium|low
+- source_review_id (number)
+- source_comment_id (number)
+- file (string): file path or empty if not applicable
+- line (number): line number or 0 if not applicable
+- task_index (number): 0-based index within the comment
+
+Rules:
+- Do NOT include any explanations outside the JSON array
+- Create separate tasks for distinct actions; skip non-actionable remarks
+- Preserve origin_text exactly; do not translate or summarize it
+
+IMPORTANT: Generate task descriptions in English language.
+
+Priority Guidelines for Task Generation:
+
+CRITICAL: Security vulnerabilities, authentication bypasses, data exposure risks
+
+HIGH: Performance bottlenecks, memory leaks, database optimization issues
+
+MEDIUM: Functional bugs, logic improvements, error handling
+
+LOW: Code style, naming conventions, comment improvements
+
+
+IMPORTANT: Nitpick Comment Processing Instructions:
+- Process nitpick comments from review bots (like CodeRabbit) even when marked with "Actionable comments posted: 0"
+- Ignore "Actionable comments posted: 0" headers when nitpick content is present
+- Extract actionable tasks from nitpick sections and collapsible details
+- Set priority to "low" for tasks generated from nitpick comments
+- Look for nitpick content in <details> blocks, summaries, and structured formats
+- Do not skip comments containing valuable improvement suggestions just because they're labeled as nitpicks
+
+
+
+PR Reviews to analyze:
+
+Review 1 (ID: 1):
+Body:
+Looks good overall.
+Comment 101: Please validate input length.
+
+
