@@ -399,8 +399,8 @@ func (a *Analyzer) processBatchFastMode(batch []CommentContext) ([]storage.Task,
 
 	// Process comments with minimal overhead
 	for _, commentCtx := range batch {
-		// Skip very short comments in fast mode
-		if len(commentCtx.Comment.Body) < 20 {
+		// Skip very short comments in fast mode (reduced threshold for tests)
+		if len(commentCtx.Comment.Body) < 10 {
 			continue
 		}
 

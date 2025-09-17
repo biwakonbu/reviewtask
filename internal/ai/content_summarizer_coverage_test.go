@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"reviewtask/internal/github"
 )
@@ -416,7 +415,7 @@ func TestContentSummarizer_SummarizeCodeBlock_EdgeCases(t *testing.T) {
 func TestContentSummarizer_MultibyteCharacterBoundary(t *testing.T) {
 	// Create content that would be cut in the middle of a multibyte character
 	unicodeStr := "这是中文测试内容"
-	_ = utf8.RuneCountInString(unicodeStr) // Just for reference, not used in tests
+	_ = len([]rune(unicodeStr)) // Just for reference, not used in tests
 
 	tests := []struct {
 		name        string
@@ -455,14 +454,14 @@ func TestContentSummarizer_MultibyteCharacterBoundary(t *testing.T) {
 
 			result := cs.SummarizeComment(comment)
 
-			// Verify result is valid UTF-8
-			if !utf8.ValidString(result.Body) {
+			// Verify result is valid UTF-8 (strings.ToValidUTF8 would change invalid strings)
+			if result.Body != strings.ToValidUTF8(result.Body, "") {
 				t.Errorf("Invalid UTF-8 in result for case '%s'", tt.description)
 			}
 
 			// Verify we didn't lose too much content
-			originalRunes := utf8.RuneCountInString(tt.content)
-			resultRunes := utf8.RuneCountInString(result.Body)
+			originalRunes := len([]rune(tt.content))
+			resultRunes := len([]rune(result.Body))
 
 			t.Logf("Case '%s': Original %d runes, Result %d runes",
 				tt.description, originalRunes, resultRunes)

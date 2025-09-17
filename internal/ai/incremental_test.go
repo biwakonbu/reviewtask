@@ -122,9 +122,9 @@ func TestGenerateTasksIncremental(t *testing.T) {
 		checkpoint := &storage.CheckpointState{
 			PRNumber: prNumber,
 			ProcessedComments: map[int64]string{
-				200: "somehash", // First comment already processed
+				200: "14c0577e1ca626e051a5639e6be59b36", // Hash for "Error handling needs improvement"
 			},
-			TotalComments:  2,
+			TotalComments:  3, // Total should be 3 (review body + 2 comments)
 			ProcessedCount: 1,
 			BatchSize:      1,
 			StartedAt:      time.Now().Add(-5 * time.Minute),
