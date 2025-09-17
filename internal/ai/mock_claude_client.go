@@ -3,7 +3,6 @@ package ai
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -42,101 +41,43 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 		return "", m.Error
 	}
 
-	// Extract comment ID, file, and line from the prompt
-	var commentID int64
-	var reviewID int64
-	var file string
-	var lineNum int
-	lines := strings.Split(input, "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "- Comment ID: ") {
-			_, _ = fmt.Sscanf(line, "- Comment ID: %d", &commentID)
-		} else if strings.HasPrefix(line, "- Review ID: ") {
-			_, _ = fmt.Sscanf(line, "- Review ID: %d", &reviewID)
-		} else if strings.HasPrefix(line, "- File: ") {
-			parts := strings.Split(line, ":")
-			if len(parts) >= 2 {
-				file = strings.TrimPrefix(parts[0], "- File: ")
-				_, _ = fmt.Sscanf(parts[1], "%d", &lineNum)
-			}
-		}
-	}
+	// Extract comment ID from the prompt (if needed for future use)
+	// Currently we don't need to extract these since SimpleTaskRequest
+	// doesn't include the IDs - they're added programmatically later
 
 	// Look for a matching response pattern
 	for pattern, response := range m.Responses {
-		if strings.Contains(input, pattern) {
-			// Replace dynamic values in response
-			if commentID > 0 {
-				response = strings.ReplaceAll(response, `"source_comment_id": 0`, fmt.Sprintf(`"source_comment_id": %d`, commentID))
-			}
-			if reviewID > 0 {
-				response = strings.ReplaceAll(response, `"source_review_id": 0`, fmt.Sprintf(`"source_review_id": %d`, reviewID))
-			}
-			if file != "" {
-				response = strings.ReplaceAll(response, `"file": ""`, fmt.Sprintf(`"file": "%s"`, file))
-			}
-			if lineNum > 0 {
-				response = strings.ReplaceAll(response, `"line": 0`, fmt.Sprintf(`"line": %d`, lineNum))
-			}
-
-			// Wrap response in Claude CLI format
-			if outputFormat == "json" {
-				wrapped := map[string]interface{}{
-					"type":     "text",
-					"subtype":  "assistant_response",
-					"is_error": false,
-					"result":   response,
-				}
-				data, _ := json.Marshal(wrapped)
-				return string(data), nil
-			}
+		if pattern == "default" || strings.Contains(input, pattern) {
+			// For SimpleTaskRequest format, we don't need to replace IDs
+			// since they're added programmatically, not by AI
+			// Return the raw JSON directly for simple task processing
 			return response, nil
 		}
 	}
 
-	// Default response based on input content
-	var task TaskRequest
+	// Default response based on input content - using SimpleTaskRequest format
+	var tasks []SimpleTaskRequest
 	if strings.Contains(input, "nit:") || strings.Contains(input, "minor:") {
 		// Generate a task with low priority
-		task = TaskRequest{
-			Description:     "Fix minor issue",
-			OriginText:      extractCommentText(input),
-			Priority:        "low",
-			SourceReviewID:  reviewID,
-			SourceCommentID: commentID,
-			File:            file,
-			Line:            lineNum,
-			Status:          "pending",
-			TaskIndex:       0,
+		tasks = []SimpleTaskRequest{
+			{
+				Description: "Fix minor issue",
+				Priority:    "low",
+			},
 		}
 	} else {
 		// Default task generation
-		task = TaskRequest{
-			Description:     "Fix the issue mentioned in the comment",
-			OriginText:      extractCommentText(input),
-			Priority:        "medium",
-			SourceReviewID:  reviewID,
-			SourceCommentID: commentID,
-			File:            file,
-			Line:            lineNum,
-			Status:          "todo",
-			TaskIndex:       0,
+		tasks = []SimpleTaskRequest{
+			{
+				Description: "Fix the issue mentioned in the comment",
+				Priority:    "medium",
+			},
 		}
 	}
 
-	if outputFormat == "json" {
-		data, _ := json.Marshal([]TaskRequest{task})
-		wrapped := map[string]interface{}{
-			"type":     "text",
-			"subtype":  "assistant_response",
-			"is_error": false,
-			"result":   string(data),
-		}
-		wrapData, _ := json.Marshal(wrapped)
-		return string(wrapData), nil
-	}
-
-	return "Generated 1 task", nil
+	// Always return JSON for SimpleTaskRequest processing
+	data, _ := json.Marshal(tasks)
+	return string(data), nil
 }
 
 // extractCommentText extracts the comment text from the prompt
