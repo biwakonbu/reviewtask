@@ -60,4 +60,3 @@ func outputCursorPRReviewCommands() error {
 
 	return nil
 }
-

@@ -248,8 +248,8 @@ func isValidCLI(path string, providerName string) bool {
 	outputStr := strings.ToLower(string(output))
 	// Check if output contains expected patterns
 	return strings.Contains(outputStr, strings.ToLower(providerName)) ||
-	       strings.Contains(outputStr, "anthropic") ||
-	       strings.Contains(outputStr, "20") // Version date pattern
+		strings.Contains(outputStr, "anthropic") ||
+		strings.Contains(outputStr, "20") // Version date pattern
 }
 
 // ensureCLIAvailable creates symlink if CLI is not in PATH
@@ -287,4 +287,3 @@ func ensureCLIAvailable(cliPath string, commandName string) error {
 
 	return nil
 }
-
