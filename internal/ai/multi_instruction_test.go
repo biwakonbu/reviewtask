@@ -17,7 +17,8 @@ import (
 // - Not run in CI/automated environments
 //
 // Usage:
-//   UPDATE_GOLDEN=1 SKIP_CURSOR_AUTH_CHECK=true go test -v ./internal/ai -run TestMultiInstructionCommentProcessing
+//
+//	UPDATE_GOLDEN=1 SKIP_CURSOR_AUTH_CHECK=true go test -v ./internal/ai -run TestMultiInstructionCommentProcessing
 func TestMultiInstructionCommentProcessing(t *testing.T) {
 	// Skip by default - only run when UPDATE_GOLDEN=1 like other golden tests
 	if os.Getenv("UPDATE_GOLDEN") != "1" {

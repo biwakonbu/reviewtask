@@ -26,8 +26,8 @@ func TestConsolidateTasksIfNeeded(t *testing.T) {
 			expected: 1,
 		},
 		{
-			name: "Empty input",
-			input: []SimpleTaskRequest{},
+			name:     "Empty input",
+			input:    []SimpleTaskRequest{},
 			expected: 0,
 		},
 		{
@@ -172,15 +172,15 @@ func TestCreateUnifiedTaskDescription(t *testing.T) {
 // Helper function for case-insensitive substring check
 func containsIgnoreCase(s, substr string) bool {
 	return len(s) >= len(substr) &&
-		   len(substr) > 0 &&
-		   findIgnoreCase(s, substr) >= 0
+		len(substr) > 0 &&
+		findIgnoreCase(s, substr) >= 0
 }
 
 func findIgnoreCase(s, substr string) int {
 	s_lower := toLower(s)
 	substr_lower := toLower(substr)
 
-	for i := 0; i <= len(s_lower) - len(substr_lower); i++ {
+	for i := 0; i <= len(s_lower)-len(substr_lower); i++ {
 		if s_lower[i:i+len(substr_lower)] == substr_lower {
 			return i
 		}
