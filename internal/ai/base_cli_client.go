@@ -43,7 +43,12 @@ func NewBaseCLIClient(cfg *config.Config, providerConf ProviderConfig) (*BaseCLI
 	// Get model from config or use provider default
 	model := providerConf.DefaultModel
 	if cfg != nil && cfg.AISettings.Model != "" {
-		model = cfg.AISettings.Model
+		if cfg.AISettings.Model == "auto" {
+			// For "auto", use provider's default model
+			model = providerConf.DefaultModel
+		} else {
+			model = cfg.AISettings.Model
+		}
 	}
 
 	client := &BaseCLIClient{
@@ -127,20 +132,43 @@ func (c *BaseCLIClient) CheckAuthentication() error {
 func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
 	args := []string{}
 
-	// Add model parameter if specified
-	if c.model != "" {
-		args = append(args, "--model", c.model)
-	}
+	// Provider-specific command building
+	if c.providerConf.Name == "cursor" {
+		// cursor-agent: use -p option for prompt input
+		args = append(args, "-p", input)
 
-	// Add print flag and output format for JSON mode
-	if outputFormat == "json" {
-		args = append(args, "--print", "--output-format", outputFormat)
-	} else if outputFormat != "" {
-		args = append(args, "--output-format", outputFormat)
+		// Add model parameter if specified
+		if c.model != "" {
+			args = append(args, "--model", c.model)
+		}
+
+		// Always use JSON format for cursor-agent to ensure clean termination
+		if outputFormat == "json" || outputFormat == "" {
+			args = append(args, "--output-format", "json")
+		} else {
+			args = append(args, "--output-format", outputFormat)
+		}
+	} else {
+		// claude: use traditional stdin approach
+		// Add model parameter if specified
+		if c.model != "" {
+			args = append(args, "--model", c.model)
+		}
+
+		// Add print flag and output format for JSON mode
+		if outputFormat == "json" {
+			args = append(args, "--print", "--output-format", outputFormat)
+		} else if outputFormat != "" {
+			args = append(args, "--output-format", outputFormat)
+		}
 	}
 
 	cmd := c.buildCommand(ctx, args)
-	cmd.Stdin = strings.NewReader(input)
+
+	// Set stdin only for claude provider
+	if c.providerConf.Name != "cursor" {
+		cmd.Stdin = strings.NewReader(input)
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -160,24 +188,51 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 	output := stdout.String()
 
 	// If output format is JSON, extract the result field
-	if outputFormat == "json" {
-		var response struct {
-			Type    string `json:"type"`
-			IsError bool   `json:"is_error"`
-			Result  string `json:"result"`
-			Error   string `json:"error,omitempty"`
-		}
+	if outputFormat == "json" || (c.providerConf.Name == "cursor" && outputFormat == "") {
+		// Handle cursor-agent specific response format
+		if c.providerConf.Name == "cursor" {
+			var cursorResponse struct {
+				Type    string `json:"type"`
+				Subtype string `json:"subtype"`
+				IsError bool   `json:"is_error"`
+				Result  string `json:"result"`
+				Error   string `json:"error,omitempty"`
+			}
 
-		if err := json.Unmarshal([]byte(output), &response); err != nil {
-			// If unmarshaling fails, return the raw output (backward compatibility)
-			return output, nil
-		}
+			if err := json.Unmarshal([]byte(output), &cursorResponse); err != nil {
+				// If unmarshaling fails, return the raw output (backward compatibility)
+				return output, nil
+			}
 
-		if response.IsError {
-			return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, response.Error)
-		}
+			if cursorResponse.IsError {
+				errorMsg := cursorResponse.Error
+				if errorMsg == "" {
+					errorMsg = cursorResponse.Result
+				}
+				return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, errorMsg)
+			}
 
-		return response.Result, nil
+			return cursorResponse.Result, nil
+		} else {
+			// Handle claude response format
+			var response struct {
+				Type    string `json:"type"`
+				IsError bool   `json:"is_error"`
+				Result  string `json:"result"`
+				Error   string `json:"error,omitempty"`
+			}
+
+			if err := json.Unmarshal([]byte(output), &response); err != nil {
+				// If unmarshaling fails, return the raw output (backward compatibility)
+				return output, nil
+			}
+
+			if response.IsError {
+				return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, response.Error)
+			}
+
+			return response.Result, nil
+		}
 	}
 
 	return output, nil

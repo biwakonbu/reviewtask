@@ -2,7 +2,9 @@ package ai
 
 import (
 	"fmt"
+	"os"
 	"reviewtask/internal/config"
+	"strings"
 )
 
 // AIProvider is the common interface for AI providers
@@ -11,7 +13,11 @@ type AIProvider = ClaudeClient
 
 // NewAIProvider creates an AI provider based on configuration
 func NewAIProvider(cfg *config.Config) (AIProvider, error) {
+	// Environment variable override takes precedence
 	aiProvider := cfg.AISettings.AIProvider
+	if envProvider := strings.TrimSpace(os.Getenv("REVIEWTASK_AI_PROVIDER")); envProvider != "" {
+		aiProvider = strings.ToLower(envProvider)
+	}
 	if aiProvider == "" {
 		aiProvider = "auto"
 	}
