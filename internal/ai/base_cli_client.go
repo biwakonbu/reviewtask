@@ -365,15 +365,6 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 
 // buildCommand creates an exec.Cmd with the appropriate setup
 func (c *BaseCLIClient) buildCommand(ctx context.Context, args []string) *exec.Cmd {
-	// Handle interpreter-based commands (e.g., "node /path/to/cli.js")
-	if strings.Contains(c.cliPath, " ") {
-		parts := strings.Fields(c.cliPath)
-		if len(parts) >= 2 {
-			interpreter := parts[0]
-			scriptAndArgs := append(parts[1:], args...)
-			return exec.CommandContext(ctx, interpreter, scriptAndArgs...)
-		}
-	}
 	return exec.CommandContext(ctx, c.cliPath, args...)
 }
 
