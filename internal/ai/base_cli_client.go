@@ -156,6 +156,8 @@ func (c *BaseCLIClient) executeCursorWithTimeout(cmd *exec.Cmd, stdout, stderr *
 	// Monitor stdout for JSON response completion
 	go func() {
 		scanner := bufio.NewScanner(stdoutPipe)
+		// Allow up to 10MB JSON lines to handle large/minified JSON
+		scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
 		accumulatedOutput := ""
 
 		for scanner.Scan() {
