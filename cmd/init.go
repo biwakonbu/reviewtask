@@ -78,6 +78,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		if provider == "" {
 			provider = "auto"
 		}
+		// Validate provider input
+		switch provider {
+		case "cursor", "claude", "auto":
+			// Valid input
+		default:
+			fmt.Printf("Unrecognized provider '%s'; defaulting to 'auto'.\n", provider)
+			provider = "auto"
+		}
 	} else if cursorAvailable {
 		fmt.Println("Found: Cursor CLI")
 		fmt.Print("Use Cursor CLI as AI provider? [Y/n]: ")
