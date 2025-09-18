@@ -363,10 +363,10 @@ func CreateSimplifiedConfig(simplified *SimplifiedConfig) error {
 // ValidateConfig checks the current configuration for issues
 func ValidateConfig() (*ValidationReport, error) {
 	report := &ValidationReport{
-		IsValid: true,
+		IsValid:     true,
 		Suggestions: []string{},
-		Warnings: []string{},
-		Errors: []string{},
+		Warnings:    []string{},
+		Errors:      []string{},
 	}
 
 	// Load current config
@@ -428,9 +428,9 @@ func MigrateToSimplified(config *Config) (*SimplifiedConfig, error) {
 
 	// Only add priorities if customized
 	if config.ProjectSpecific.Critical != "" ||
-	   config.ProjectSpecific.High != "" ||
-	   config.ProjectSpecific.Medium != "" ||
-	   config.ProjectSpecific.Low != "" {
+		config.ProjectSpecific.High != "" ||
+		config.ProjectSpecific.Medium != "" ||
+		config.ProjectSpecific.Low != "" {
 		simplified.Priorities = map[string]interface{}{
 			"project_specific": map[string]interface{}{},
 		}
