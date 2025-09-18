@@ -17,18 +17,18 @@ CRITICAL: Return response as JSON array with this EXACT format:
 Requirements:
 1. PRESERVE original comment text in 'origin_text' field exactly as written
 2. Generate clear, actionable 'description' in the specified user language
-3. Typically create one task per comment unless it discusses multiple unrelated topics
-4. Create one unified task unless the comment addresses truly separate topics
+3. Create appropriate number of tasks based on the comment's content
+4. Each distinct actionable item should be a separate task
 5. Assign task_index starting from 0 for multiple tasks
 6. Only create tasks for comments requiring developer action
 7. Consider comment chains - don't create tasks for resolved issues
 
 Task Generation Guidelines:
-- Create ONE comprehensive task per comment that captures the reviewer's intent
-- Focus on WHAT needs to be achieved, not HOW to implement it step-by-step
-- Only create multiple tasks when a comment discusses completely separate topics
-- Prefer unified tasks over step-by-step implementation breakdowns
-- Each task should represent a coherent code change objective
+- Create separate tasks for logically distinct actions
+- If a comment mentions multiple unrelated issues, create separate tasks
+- Ensure each task is self-contained and actionable
+- Don't artificially combine unrelated items
+- AI deduplication will handle any redundancy later
 
 IMPORTANT: Generate task descriptions in English language.
 

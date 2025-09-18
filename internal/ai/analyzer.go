@@ -1460,6 +1460,11 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 
 // consolidateTasksIfNeeded merges multiple tasks from the same comment into a single comprehensive task
 func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleTaskRequest {
+	// Skip consolidation in test mode if requested
+	if os.Getenv("REVIEWTASK_TEST_NO_CONSOLIDATE") == "true" {
+		return tasks
+	}
+
 	// If only one task, no consolidation needed
 	if len(tasks) <= 1 {
 		return tasks

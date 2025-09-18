@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ['1.24']
+        go-version: ['1.23']
     steps:
     - uses: actions/checkout@v5
     
@@ -144,7 +144,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version: '1.23'
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v6
@@ -162,7 +162,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version: '1.23'
     
     - name: Check formatting
       run: |
@@ -197,7 +197,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version: '1.23'
     
     - name: Run go vet
       run: |
@@ -253,7 +253,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.24'
+        go-version: '1.23'
     
     - name: Build binary
       id: build
