@@ -42,7 +42,6 @@ linters:
     - unconvert
     - unparam
     - whitespace
-    - goanalysis_metalinter
 
 run:
   timeout: 5m
