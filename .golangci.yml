@@ -42,6 +42,7 @@ linters:
     - unconvert
     - unparam
     - whitespace
+    - goanalysis_metalinter
 
 run:
   concurrency: 1
