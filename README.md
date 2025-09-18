@@ -20,6 +20,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
+- **👁️ AI Provider Transparency**: Displays current AI provider and model at the start of every command
 - **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
 - **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
 - **💨 API Caching**: Reduces redundant GitHub API calls automatically
