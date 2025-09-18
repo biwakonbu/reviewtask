@@ -45,8 +45,8 @@ func init() {
 }
 
 func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
-	// Load configuration
-	cfg, err := config.Load()
+	// Display AI provider info and load configuration
+	cfg, err := DisplayAIProviderIfNeeded()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}

@@ -35,6 +35,12 @@ func init() {
 }
 
 func runShow(cmd *cobra.Command, args []string) error {
+	// Display AI provider info
+	_, err := DisplayAIProviderIfNeeded()
+	if err != nil {
+		// Continue without config - show can work without it
+	}
+
 	// Read flags to determine output format
 	jsonOut, _ := cmd.Flags().GetBool("json")
 	briefOut, _ := cmd.Flags().GetBool("brief")

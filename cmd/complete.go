@@ -38,6 +38,12 @@ func init() {
 }
 
 func runComplete(cmd *cobra.Command, args []string) error {
+	// Display AI provider info
+	_, err := DisplayAIProviderIfNeeded()
+	if err != nil {
+		// Continue without config - complete can work without it
+	}
+
 	taskID := args[0]
 
 	// Skip verification takes precedence

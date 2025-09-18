@@ -33,6 +33,12 @@ func init() {
 }
 
 func runVerify(cmd *cobra.Command, args []string) error {
+	// Display AI provider info
+	_, err := DisplayAIProviderIfNeeded()
+	if err != nil {
+		// Continue without config - verify can work without it
+	}
+
 	taskID := args[0]
 
 	verifier, err := verification.NewVerifier()
