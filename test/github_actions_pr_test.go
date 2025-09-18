@@ -88,6 +88,7 @@ func TestPRReleaseTestWorkflowStructure(t *testing.T) {
 	expectedSteps := []string{
 		"Checkout code",
 		"Setup Go",
+		"Verify go.mod",
 		"Test cross-platform builds",
 		"Test version embedding",
 		"Simulate release preparation",
