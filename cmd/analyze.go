@@ -92,12 +92,17 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load reviews: %w", err)
 	}
 
-	// Pre-flight check: Verify Claude CLI is authenticated (unless skip is configured)
-	_, err = ai.NewRealClaudeClientWithConfig(cfg)
+	// Display AI provider information
+	providerDisplay := config.GetProviderDisplayName(cfg.AISettings.AIProvider, cfg.AISettings.Model)
+	fmt.Printf("🤖 Using AI Provider: %s\n", providerDisplay)
+	fmt.Println()
+
+	// Pre-flight check: Verify AI provider is available
+	_, err = ai.NewAIProvider(cfg)
 	if err != nil {
 		if strings.Contains(err.Error(), "authentication") {
 			fmt.Println()
-			fmt.Println("❌ Claude CLI Authentication Required")
+			fmt.Println("❌ AI Provider Authentication Required")
 			fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 			fmt.Println()
 			fmt.Println("The Claude CLI is not authenticated. To fix this:")
