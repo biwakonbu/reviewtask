@@ -35,7 +35,9 @@ jobs:
       run: |
         echo "Fixing Go version requirement..."
         go mod edit -go=1.23
-        sed -i '/^toolchain/d' go.mod
+        go mod edit -droprequire=golang.org/x/net
+        go get golang.org/x/net@v0.30.0
+        go mod tidy
         echo "Downloading Go module dependencies..."
         go mod download
       shell: bash
@@ -152,12 +154,14 @@ jobs:
     - name: Fix go.mod for CI
       run: |
         go mod edit -go=1.23
-        sed -i '/^toolchain/d' go.mod
+        go mod edit -droprequire=golang.org/x/net
+        go get golang.org/x/net@v0.30.0
+        go mod tidy
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v5
       with:
-        version: latest
+        version: v1.56.2
         args: --timeout=5m
 
   format:
@@ -175,7 +179,9 @@ jobs:
     - name: Fix go.mod for CI
       run: |
         go mod edit -go=1.23
-        sed -i '/^toolchain/d' go.mod
+        go mod edit -droprequire=golang.org/x/net
+        go get golang.org/x/net@v0.30.0
+        go mod tidy
 
     - name: Check formatting
       run: |
@@ -215,7 +221,9 @@ jobs:
     - name: Fix go.mod for CI
       run: |
         go mod edit -go=1.23
-        sed -i '/^toolchain/d' go.mod
+        go mod edit -droprequire=golang.org/x/net
+        go get golang.org/x/net@v0.30.0
+        go mod tidy
 
     - name: Run go vet
       run: |
@@ -276,7 +284,9 @@ jobs:
     - name: Fix go.mod for CI
       run: |
         go mod edit -go=1.23
-        sed -i '/^toolchain/d' go.mod
+        go mod edit -droprequire=golang.org/x/net
+        go get golang.org/x/net@v0.30.0
+        go mod tidy
 
     - name: Build binary
       id: build

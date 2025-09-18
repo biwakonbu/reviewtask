@@ -23,7 +23,9 @@ jobs:
       - name: Fix go.mod for CI
         run: |
           go mod edit -go=1.23
-          sed -i '/^toolchain/d' go.mod
+          go mod edit -droprequire=golang.org/x/net
+          go get golang.org/x/net@v0.30.0
+          go mod tidy
 
       - name: Test cross-platform builds
         run: ./scripts/build.sh test
