@@ -180,15 +180,26 @@ reviewtask version
 ### 1. Initialize Repository
 
 ```bash
-# Initialize the tool in your repository
+# Interactive setup wizard
 ./reviewtask init
 ```
 
-This will:
-- Create `.pr-review/` directory structure
-- Generate default configuration files
+The wizard will:
+- Ask for your preferred language (English/Japanese)
+- Auto-detect available AI providers (Cursor CLI, Claude Code)
+- Create a minimal 2-line configuration
 - Set up `.gitignore` entries
-- Check repository permissions
+- Check GitHub authentication
+
+**Example session:**
+```
+Welcome to reviewtask setup!
+What language do you prefer? [English/Japanese]: English
+Detecting AI providers...
+Found: Cursor CLI
+Use Cursor CLI as AI provider? [Y/n]: Y
+✓ Minimal configuration created at .pr-review/config.json
+```
 
 ### 2. Authentication Setup
 
@@ -299,6 +310,67 @@ Authentication sources (in order of preference):
 - Debug commands automatically enable verbose mode for detailed logging
 
 ## Configuration
+
+### 🚀 Quick Configuration (NEW!)
+
+**Start with just 2 lines of configuration:**
+
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+That's it! The tool will automatically:
+- Detect your project type (Go, Node.js, Rust, Python, etc.)
+- Configure appropriate build/test/lint commands
+- Find and use available AI providers (Cursor CLI or Claude Code)
+- Apply sensible defaults for all other settings
+
+### Configuration Management Commands
+
+```bash
+# Interactive setup wizard
+reviewtask init
+
+# Validate your configuration
+reviewtask config validate
+
+# Migrate existing config to simplified format
+reviewtask config migrate
+
+# Show current configuration
+reviewtask config show
+```
+
+### Configuration Levels
+
+#### Level 1: Minimal (90% of users)
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+#### Level 2: Basic Customization
+```json
+{
+  "language": "English",
+  "ai_provider": "cursor",
+  "model": "grok",
+  "priorities": {
+    "project_specific": {
+      "critical": "Authentication vulnerabilities",
+      "high": "Payment processing errors"
+    }
+  }
+}
+```
+
+#### Level 3: Advanced (Power Users)
+See [Configuration Reference](docs/CONFIG_REFERENCE.md) for all available parameters.
 
 ### Prompt Profiles
 
