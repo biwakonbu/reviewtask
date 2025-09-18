@@ -33,6 +33,9 @@ jobs:
     
     - name: Download dependencies
       run: |
+        echo "Fixing Go version requirement..."
+        go mod edit -go=1.23
+        sed -i '/^toolchain/d' go.mod
         echo "Downloading Go module dependencies..."
         go mod download
       shell: bash
@@ -146,8 +149,13 @@ jobs:
       with:
         go-version: '1.23'
 
+    - name: Fix go.mod for CI
+      run: |
+        go mod edit -go=1.23
+        sed -i '/^toolchain/d' go.mod
+
     - name: golangci-lint
-      uses: golangci/golangci-lint-action@v6
+      uses: golangci/golangci-lint-action@v5
       with:
         version: latest
         args: --timeout=5m
@@ -164,6 +172,11 @@ jobs:
       with:
         go-version: '1.23'
     
+    - name: Fix go.mod for CI
+      run: |
+        go mod edit -go=1.23
+        sed -i '/^toolchain/d' go.mod
+
     - name: Check formatting
       run: |
         echo "Checking code formatting..."
@@ -199,6 +212,11 @@ jobs:
       with:
         go-version: '1.23'
     
+    - name: Fix go.mod for CI
+      run: |
+        go mod edit -go=1.23
+        sed -i '/^toolchain/d' go.mod
+
     - name: Run go vet
       run: |
         echo "Running go vet..."
@@ -255,6 +273,11 @@ jobs:
       with:
         go-version: '1.23'
     
+    - name: Fix go.mod for CI
+      run: |
+        go mod edit -go=1.23
+        sed -i '/^toolchain/d' go.mod
+
     - name: Build binary
       id: build
       shell: bash

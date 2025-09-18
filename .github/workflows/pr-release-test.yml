@@ -19,7 +19,12 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.23'
-      
+
+      - name: Fix go.mod for CI
+        run: |
+          go mod edit -go=1.23
+          sed -i '/^toolchain/d' go.mod
+
       - name: Test cross-platform builds
         run: ./scripts/build.sh test
       
