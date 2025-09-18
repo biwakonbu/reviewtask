@@ -33,6 +33,9 @@ func TestConfigValidateCommand(t *testing.T) {
 				"ai_settings": {
 					"user_language": "English",
 					"ai_provider": "cursor"
+				},
+				"verification_settings": {
+					"enabled": true
 				}
 			}`,
 			expectedOutput: []string{"✓ Configuration is valid"},
@@ -68,12 +71,24 @@ func TestConfigValidateCommand(t *testing.T) {
 			cmd.SetErr(output)
 			cmd.SetArgs([]string{"config", "validate"})
 
+			// Redirect fmt output to our buffer
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
 			err = cmd.Execute()
+
+			w.Close()
+			os.Stdout = oldStdout
+
+			// Read captured output
+			var buf bytes.Buffer
+			buf.ReadFrom(r)
+			outputStr := buf.String() + output.String()
+
 			if err != nil {
 				t.Errorf("Command failed: %v", err)
 			}
-
-			outputStr := output.String()
 
 			// Check expected output
 			for _, expected := range tt.expectedOutput {
@@ -149,13 +164,24 @@ func TestConfigMigrateCommand(t *testing.T) {
 	cmd.SetErr(output)
 	cmd.SetArgs([]string{"config", "migrate"})
 
+	// Redirect fmt output to our buffer
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
 	err = cmd.Execute()
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	// Read captured output
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	outputStr := buf.String() + output.String()
+
 	if err != nil {
 		t.Errorf("Command failed: %v", err)
 	}
-
-	// Check output
-	outputStr := output.String()
 	if !strings.Contains(outputStr, "✓ Created backup") {
 		t.Errorf("Expected backup creation message, got: %s", outputStr)
 	}

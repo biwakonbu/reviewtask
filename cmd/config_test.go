@@ -22,7 +22,7 @@ func TestConfigCommand(t *testing.T) {
 
 	// Test that subcommands are added
 	subcommands := cmd.Commands()
-	expectedSubcommands := []string{"set-verifier", "get-verifier", "list-verifiers", "show"}
+	expectedSubcommands := []string{"set-verifier", "get-verifier", "list-verifiers", "show", "validate", "migrate"}
 
 	if len(subcommands) != len(expectedSubcommands) {
 		t.Errorf("Expected %d subcommands, got %d", len(expectedSubcommands), len(subcommands))
