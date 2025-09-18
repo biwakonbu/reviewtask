@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ['1.22']
+        go-version: ['1.23']
     steps:
     - uses: actions/checkout@v5
     
@@ -125,7 +125,7 @@ jobs:
         retention-days: 7
 
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -144,7 +144,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.22'
+        go-version: '1.23'
 
     - name: Verify go.mod
       run: |
@@ -166,7 +166,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.22'
+        go-version: '1.23'
     
     - name: Verify go.mod
       run: |
@@ -205,7 +205,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.22'
+        go-version: '1.23'
     
     - name: Verify go.mod
       run: |
@@ -265,7 +265,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.22'
+        go-version: '1.23'
     
     - name: Verify go.mod
       run: |

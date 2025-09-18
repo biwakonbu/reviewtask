@@ -1181,11 +1181,7 @@ func (a *Analyzer) isLowPriorityComment(commentBody string) bool {
 	}
 
 	// Check for CodeRabbit structured patterns
-	if a.isCodeRabbitNitpickComment(lowerBody) {
-		return true
-	}
-
-	return false
+	return a.isCodeRabbitNitpickComment(lowerBody)
 }
 
 // isCodeRabbitNitpickComment detects CodeRabbit nitpick comments in structured format
@@ -1208,11 +1204,7 @@ func (a *Analyzer) isCodeRabbitNitpickComment(lowerBody string) bool {
 	}
 
 	// Check for structured HTML content that might contain nitpicks
-	if a.hasStructuredNitpickContent(lowerBody) {
-		return true
-	}
-
-	return false
+	return a.hasStructuredNitpickContent(lowerBody)
 }
 
 // hasStructuredNitpickContent checks for structured HTML content with nitpick indicators
