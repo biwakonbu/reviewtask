@@ -267,3 +267,4 @@ func TestInitCommandWithSimplifiedConfig(t *testing.T) {
 		}
 	}
 }
+
