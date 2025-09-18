@@ -1,0 +1,43 @@
+{
+  "reviews": [
+    {
+      "id": 99999990,
+      "reviewer": "test-reviewer",
+      "state": "COMMENTED",
+      "body": "",
+      "submitted_at": "2025-09-18T10:00:00Z",
+      "comments": [
+        {
+          "id": 99999001,
+          "file": "auth/login.go",
+          "line": 42,
+          "body": "**Multiple completely unrelated issues that should be separate tasks:**\n\n1. **Security Critical**: Password validation vulnerability - missing input sanitization allows SQL injection attacks\n\n2. **Performance Bug**: Memory leak in user session management causing server crashes\n\n3. **Documentation**: API documentation is completely missing for all authentication endpoints\n\n4. **Infrastructure**: Database migration scripts are broken and need complete rewrite\n\nThese are completely separate problems requiring different expertise and cannot be addressed together.",
+          "author": "test-reviewer",
+          "created_at": "2025-09-18T10:00:00Z",
+          "url": "https://example.com/comment/99999001",
+          "replies": []
+        },
+        {
+          "id": 99999002,
+          "file": "utils/helpers.go",
+          "line": 15,
+          "body": "Multiple distinct issues requiring separate fixes:\n\n• **Critical Security Bug**: Authentication bypass vulnerability in validateToken()\n• **Feature Addition**: Need to implement rate limiting middleware\n• **Architecture Change**: Migrate from REST to GraphQL API\n• **Testing Infrastructure**: Setup automated integration test pipeline\n• **Dependency Management**: Upgrade all dependencies for security patches\n\nEach requires different team members and timelines.",
+          "author": "test-reviewer",
+          "created_at": "2025-09-18T10:00:00Z",
+          "url": "https://example.com/comment/99999002",
+          "replies": []
+        },
+        {
+          "id": 99999003,
+          "file": "config/settings.go",
+          "line": 88,
+          "body": "Single focused issue: The timeout configuration should be configurable via environment variables instead of being hardcoded.",
+          "author": "test-reviewer",
+          "created_at": "2025-09-18T10:00:00Z",
+          "url": "https://example.com/comment/99999003",
+          "replies": []
+        }
+      ]
+    }
+  ]
+}

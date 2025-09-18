@@ -73,6 +73,7 @@ Examples:
 	cmd.AddCommand(debugCmd)
 	cmd.AddCommand(initCmd)
 	cmd.AddCommand(claudeCmd)
+	cmd.AddCommand(cursorCmd)
 	cmd.AddCommand(promptCmd)
 
 	return cmd
@@ -109,6 +110,7 @@ func init() {
 	rootCmd.AddCommand(claudeCmd)
 	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(cursorCmd)
 	rootCmd.AddCommand(debugCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(promptCmd)

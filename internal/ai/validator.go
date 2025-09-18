@@ -206,8 +206,8 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 	}
 
 	args := []string{}
-	// Add model parameter if specified in config
-	if tv.config != nil && tv.config.AISettings.Model != "" {
+	// Add model parameter if specified in config (skip "auto" as it's not valid for Claude CLI)
+	if tv.config != nil && tv.config.AISettings.Model != "" && tv.config.AISettings.Model != "auto" {
 		args = append(args, "--model", tv.config.AISettings.Model)
 	}
 	args = append(args, "--output-format", "json")

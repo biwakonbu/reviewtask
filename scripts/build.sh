@@ -169,11 +169,16 @@ generate_checksums() {
 # Test cross-compilation
 test_cross_compile() {
     log_info "Testing cross-compilation capabilities..."
-    
+
     # In CI environment, only test the current platform to save time
     if [ "$CI" = "true" ] || [ -n "$GITHUB_ACTIONS" ]; then
         log_info "CI environment detected - testing only current platform"
-        
+
+        # Ensure go.mod compatibility
+        if [ -f "go.mod" ]; then
+            go mod verify 2>/dev/null || true
+        fi
+
         # Test native build
         if go build -o /dev/null . 2>/dev/null; then
             log_success "Native compilation test passed"
