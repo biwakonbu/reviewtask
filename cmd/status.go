@@ -48,6 +48,12 @@ Examples:
 }
 
 func runStatus(cmd *cobra.Command, args []string) error {
+	// Display AI provider info
+	_, err := DisplayAIProviderIfNeeded()
+	if err != nil {
+		// Continue without config - status can work without it
+	}
+
 	storageManager := storage.NewManager()
 
 	// Check for watch mode

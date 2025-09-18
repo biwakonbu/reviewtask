@@ -2,6 +2,19 @@
 
 This comprehensive guide covers all reviewtask commands, their options, and usage examples.
 
+## AI Provider Transparency
+
+All major commands now display the active AI provider and model at startup:
+
+```
+🤖 AI Provider: Cursor CLI (grok)
+```
+
+This feature ensures you always know:
+- Which AI tool is being used
+- What model is active
+- Whether configuration is working correctly
+
 ## Core Commands
 
 ### Main Command
@@ -120,17 +133,42 @@ reviewtask stats --branch feature/new-feature
 
 #### `reviewtask init`
 
-Initialize repository with reviewtask configuration.
+Interactive setup wizard that initializes repository with reviewtask configuration.
 
 ```bash
 reviewtask init
 ```
 
-**What it creates:**
-- `.pr-review/` directory structure
-- Default configuration files
-- Appropriate `.gitignore` entries
-- Repository permission checks
+**Features:**
+- Interactive language selection
+- Automatic AI provider detection (Cursor CLI, Claude Code)
+- Creates minimal 2-line configuration
+- Sets up `.pr-review/` directory structure
+- Adds appropriate `.gitignore` entries
+- Verifies GitHub authentication
+
+### Configuration Management
+
+#### `reviewtask config <command>`
+
+Manage and optimize configuration settings.
+
+```bash
+# Show current configuration
+reviewtask config show
+
+# Validate configuration and suggest improvements
+reviewtask config validate
+
+# Migrate to simplified format (46+ lines → 2-8 lines)
+reviewtask config migrate
+```
+
+**Benefits of simplified configuration:**
+- Auto-detects project type (Go, Node.js, Rust, Python, etc.)
+- Applies smart defaults for build/test commands
+- Reduces configuration complexity by 90%
+- Maintains full backward compatibility
 
 ### Authentication
 

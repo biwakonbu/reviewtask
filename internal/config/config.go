@@ -170,15 +170,23 @@ func defaultConfig() *Config {
 func Load() (*Config, error) {
 	// Check if config file exists
 	if _, err := os.Stat(ConfigFile); os.IsNotExist(err) {
-		// Create default config file
+		// Create default config file with smart defaults
 		config := defaultConfig()
+		ApplySmartDefaults(config)
 		if err := save(config); err != nil {
 			return nil, fmt.Errorf("failed to create default config: %w", err)
 		}
 		return config, nil
 	}
 
-	// Load existing config
+	// Try simplified config loading first
+	if config, err := tryLoadSimplifiedConfig(); err == nil && config != nil {
+		// Apply smart defaults to the converted config
+		ApplySmartDefaults(config)
+		return config, nil
+	}
+
+	// Load existing config using standard format
 	data, err := os.ReadFile(ConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -198,6 +206,9 @@ func Load() (*Config, error) {
 
 	// Merge with defaults for any missing fields
 	mergeWithDefaults(&config, rawConfig)
+
+	// Apply smart defaults for auto-detection
+	ApplySmartDefaults(&config)
 
 	return &config, nil
 }

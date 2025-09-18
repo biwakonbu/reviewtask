@@ -152,11 +152,12 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Load configuration
+	// Load configuration and display AI provider
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	DisplayAIProvider(cfg)
 
 	// Check for updates if enabled and needed
 	checkForUpdatesAsync(cfg)
