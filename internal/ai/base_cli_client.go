@@ -413,16 +413,21 @@ func findCLI(providerConf ProviderConfig) (string, error) {
 
 // isValidCLI verifies that the found executable is actually the expected CLI
 func isValidCLI(path string, providerName string) bool {
+	// Validate provider name is not empty
+	if providerName == "" {
+		return false
+	}
+
 	cmd := exec.Command(path, "--version")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return false
 	}
+
 	outputStr := strings.ToLower(string(output))
-	// Check if output contains expected patterns
+	// Only check if output contains the provider name or command name
 	return strings.Contains(outputStr, strings.ToLower(providerName)) ||
-		strings.Contains(outputStr, "anthropic") ||
-		strings.Contains(outputStr, "20") // Version date pattern
+		strings.Contains(outputStr, strings.ToLower(filepath.Base(path)))
 }
 
 // ensureCLIAvailable creates symlink if CLI is not in PATH
