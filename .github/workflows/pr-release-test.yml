@@ -18,14 +18,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.23'
+          go-version: '1.22'
 
-      - name: Fix go.mod for CI
+      - name: Verify go.mod
         run: |
-          go mod edit -go=1.23
-          go mod edit -droprequire=golang.org/x/net
-          go get golang.org/x/net@v0.30.0
-          go mod tidy
+          go mod verify
 
       - name: Test cross-platform builds
         run: ./scripts/build.sh test

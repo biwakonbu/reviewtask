@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        go-version: ['1.23']
+        go-version: ['1.22']
     steps:
     - uses: actions/checkout@v5
     
@@ -33,11 +33,6 @@ jobs:
     
     - name: Download dependencies
       run: |
-        echo "Fixing Go version requirement..."
-        go mod edit -go=1.23
-        go mod edit -droprequire=golang.org/x/net
-        go get golang.org/x/net@v0.30.0
-        go mod tidy
         echo "Downloading Go module dependencies..."
         go mod download
       shell: bash
@@ -130,7 +125,7 @@ jobs:
         retention-days: 7
 
     - name: Upload coverage to Codecov
-      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.23'
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
@@ -149,14 +144,11 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version: '1.22'
 
-    - name: Fix go.mod for CI
+    - name: Verify go.mod
       run: |
-        go mod edit -go=1.23
-        go mod edit -droprequire=golang.org/x/net
-        go get golang.org/x/net@v0.30.0
-        go mod tidy
+        go mod verify
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v5
@@ -174,14 +166,11 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version: '1.22'
     
-    - name: Fix go.mod for CI
+    - name: Verify go.mod
       run: |
-        go mod edit -go=1.23
-        go mod edit -droprequire=golang.org/x/net
-        go get golang.org/x/net@v0.30.0
-        go mod tidy
+        go mod verify
 
     - name: Check formatting
       run: |
@@ -216,14 +205,11 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version: '1.22'
     
-    - name: Fix go.mod for CI
+    - name: Verify go.mod
       run: |
-        go mod edit -go=1.23
-        go mod edit -droprequire=golang.org/x/net
-        go get golang.org/x/net@v0.30.0
-        go mod tidy
+        go mod verify
 
     - name: Run go vet
       run: |
@@ -279,14 +265,11 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.23'
+        go-version: '1.22'
     
-    - name: Fix go.mod for CI
+    - name: Verify go.mod
       run: |
-        go mod edit -go=1.23
-        go mod edit -droprequire=golang.org/x/net
-        go get golang.org/x/net@v0.30.0
-        go mod tidy
+        go mod verify
 
     - name: Build binary
       id: build

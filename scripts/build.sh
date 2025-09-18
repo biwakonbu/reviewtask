@@ -174,10 +174,9 @@ test_cross_compile() {
     if [ "$CI" = "true" ] || [ -n "$GITHUB_ACTIONS" ]; then
         log_info "CI environment detected - testing only current platform"
 
-        # Fix go.mod for CI if needed
+        # Ensure go.mod compatibility
         if [ -f "go.mod" ]; then
-            go mod edit -go=1.23 2>/dev/null || true
-            go mod edit -toolchain=none 2>/dev/null || true
+            go mod verify 2>/dev/null || true
         fi
 
         # Test native build
