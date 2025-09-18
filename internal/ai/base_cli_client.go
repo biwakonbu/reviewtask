@@ -454,7 +454,11 @@ func ensureCLIAvailable(cliPath string, commandName string) error {
 	symlinkPath := filepath.Join(localBin, commandName)
 
 	// Remove existing symlink if it exists
-	if _, err := os.Lstat(symlinkPath); err == nil {
+	if fi, err := os.Lstat(symlinkPath); err == nil {
+		// Only remove if it's a symlink, not a regular file or directory
+		if fi.Mode()&os.ModeSymlink == 0 {
+			return fmt.Errorf("refusing to overwrite non-symlink path: %s", symlinkPath)
+		}
 		if err := os.Remove(symlinkPath); err != nil {
 			return fmt.Errorf("failed to remove existing symlink: %w", err)
 		}
