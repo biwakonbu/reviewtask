@@ -53,15 +53,7 @@ func outputCursorPRReviewCommands() error {
 		return fmt.Errorf("failed to write workflow template: %w", err)
 	}
 
-	// Also write .cursorrules for Cursor IDE integration
-	rulesPath := ".cursorrules"
-	rulesTemplate := getCursorRulesTemplate()
-	if err := os.WriteFile(rulesPath, []byte(rulesTemplate), 0644); err != nil {
-		return fmt.Errorf("failed to write .cursorrules: %w", err)
-	}
-
 	fmt.Printf("✓ Created Cursor IDE command template at %s\n", workflowPath)
-	fmt.Printf("✓ Created Cursor rules at %s\n", rulesPath)
 	fmt.Println()
 	fmt.Println("Cursor IDE commands have been organized in .cursor/commands/pr-review/")
 	fmt.Println("You can now use the /review-task-workflow command in Cursor IDE.")
