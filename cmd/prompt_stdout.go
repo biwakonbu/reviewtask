@@ -50,6 +50,78 @@ func outputPRReviewPromptToStdout(cmd *cobra.Command) error {
 
 // getPRReviewPromptTemplate returns the PR review workflow prompt template
 // This is shared between claude.go and prompt_stdout.go to maintain consistency
+func getCursorRulesTemplate() string {
+	// Cursor rules for PR review workflow
+	template := `# ReviewTask PR Review Rules
+
+## Core Workflow Rules
+
+When working with PR reviews, always use the reviewtask tool systematically:
+
+1. **Initial Setup**: Run 'reviewtask' to fetch latest reviews and generate tasks
+2. **Task Management**: Work through tasks by priority (critical → high → medium → low)
+3. **Status Updates**: Always update task status (todo → doing → done)
+4. **Verification**: Use 'reviewtask verify' before completing tasks
+5. **Commit Messages**: Include task details and comment references in commits
+
+## Task Priority Guidelines
+
+- **Critical**: Security issues, data loss risks, breaking changes
+- **High**: Important functionality issues, major improvements
+- **Medium**: Moderate improvements, refactoring suggestions
+- **Low**: Minor improvements, style suggestions
+
+## Commit Message Format
+
+When completing a task, use this commit message format:
+
+§§§
+fix: [Clear, concise description]
+
+**Feedback:** [Summary of review feedback]
+The original review comment pointed out [issue]. This occurred because [reason].
+
+**Solution:** [What was implemented]
+Implemented the following changes:
+- [Change 1 with file/location]
+- [Change 2 with file/location]
+
+**Rationale:** [Why this approach]
+This solution was selected because [primary benefit]. Additionally, it [secondary benefits].
+
+Comment ID: [source_comment_id]
+Review Comment: [URL to comment]
+§§§
+
+## Task Classification
+
+- **Cancel**: Duplicates, already implemented features, obsolete suggestions
+- **Pending**: Ambiguous requirements, low-priority improvements, external dependencies
+- **Todo**: New requirements, critical fixes, clear improvements
+
+## Verification Requirements
+
+Always verify task completion with:
+- Build verification (go build ./...)
+- Test execution (go test ./...)
+- Code quality checks (golangci-lint, gofmt)
+- Custom project-specific checks
+
+## Important Notes
+
+- Work only in the current branch
+- Verify status changes before proceeding
+- Process tasks by priority level
+- Continue until all actionable tasks are completed
+`
+
+	// Replace § with backticks
+	template = strings.ReplaceAll(template, "§§§", "```")
+	template = strings.ReplaceAll(template, "§", "`")
+
+	return template
+}
+
 func getPRReviewPromptTemplate() string {
 	// Use § as placeholder for backticks to enable true heredoc format
 	template := `---
