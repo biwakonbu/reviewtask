@@ -180,15 +180,15 @@ For power users who need fine control, you can use advanced settings:
   "language": "English",
   "ai_provider": "cursor",
   "model": "grok",
-  "ai": {
-    "verbose": true,
-    "validation": false,
-    "prompt_profile": "compact"
-  },
-  "advanced": {
-    "max_retries": 3,
-    "timeout_seconds": 180,
-    "deduplication_threshold": 0.7
+  "ai_settings": {
+    "verbose_mode": true,
+    "validation_enabled": false,
+    "prompt_profile": "compact",
+    "advanced": {
+      "max_retries": 3,
+      "timeout_seconds": 180,
+      "deduplication_threshold": 0.7
+    }
   }
 }
 ```
@@ -232,8 +232,10 @@ See [Configuration Reference](CONFIG_REFERENCE.md) for all parameters.
 {
   "language": "English",
   "ai_provider": "auto",
-  "advanced": {
-    "deduplication_threshold": 0.6
+  "ai_settings": {
+    "advanced": {
+      "deduplication_threshold": 0.6
+    }
   }
 }
 ```
@@ -246,8 +248,8 @@ See [Configuration Reference](CONFIG_REFERENCE.md) for all parameters.
 {
   "language": "English",
   "ai_provider": "auto",
-  "ai": {
-    "verbose": true
+  "ai_settings": {
+    "verbose_mode": true
   }
 }
 ```

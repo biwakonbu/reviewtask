@@ -1,26 +1,40 @@
-# Configuration Simplification Plan
+# Configuration Simplification (v1.11.0)
 
-This document tracks the implementation progress for Issue #164: Simplify configuration system with smart defaults and progressive disclosure.
+This document describes the simplified configuration system introduced in reviewtask v1.11.0, featuring smart defaults and progressive disclosure.
 
-## Implementation Phases
+## Overview
 
-### Phase 1: Internal Simplification (No Breaking Changes)
-- [ ] Implement smart default values
-- [ ] Add automatic project type detection
-- [ ] Hide unnecessary settings internally (keep for backward compatibility)
-- [ ] Improve error messages with suggested fixes
+The configuration system has been redesigned to minimize setup complexity while maintaining flexibility for advanced users. Most users can now get started with just 2 configuration settings.
 
-### Phase 2: New Configuration Format Support
-- [ ] Accept simplified configuration format
-- [ ] Implement automatic migration from old to new format
-- [ ] Add interactive setup wizard (`reviewtask init`)
-- [ ] Create configuration validation command (`reviewtask config validate`)
+## Available Tools
 
-### Phase 3: User Experience Enhancement
-- [ ] Implement `reviewtask init` for interactive setup
-- [ ] Add `reviewtask config validate` for configuration health check
-- [ ] Create `reviewtask config migrate` for explicit migration
-- [ ] Update documentation with migration guide
+### Interactive Setup
+```bash
+reviewtask init
+```
+Creates a minimal configuration file through an interactive wizard that:
+- Detects available AI providers (Cursor CLI, Claude Code)
+- Sets your preferred language for task descriptions
+- Automatically configures smart defaults
+
+### Configuration Validation
+```bash
+reviewtask config validate
+```
+Checks your current configuration for:
+- Syntax errors
+- Missing required fields
+- Compatibility issues
+- Provides helpful suggestions for fixes
+
+### Configuration Migration
+```bash
+reviewtask config migrate
+```
+Automatically migrates older configuration formats to the new simplified format:
+- Creates a backup of your existing configuration
+- Converts to the minimal format
+- Preserves all custom settings
 
 ## Configuration Levels
 
