@@ -164,8 +164,8 @@ Ensure every task ID appears exactly once in either unique_task_ids or as a prim
 	}
 
 	args := []string{}
-	// Add model parameter if specified in config
-	if d.config.AISettings.Model != "" {
+	// Add model parameter if specified in config (skip "auto" as it's not valid for Claude CLI)
+	if d.config.AISettings.Model != "" && d.config.AISettings.Model != "auto" {
 		args = append(args, "--model", d.config.AISettings.Model)
 	}
 	args = append(args, "--output-format", "json", prompt)

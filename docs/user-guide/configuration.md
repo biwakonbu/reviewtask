@@ -1,11 +1,48 @@
 # Configuration Guide
 
-reviewtask uses a flexible configuration system that allows customization of priority rules, AI processing, and task management behavior.
+reviewtask uses a flexible configuration system with progressive disclosure - start simple and add complexity only when needed.
 
-## Configuration File
+## 🚀 Quick Start (NEW!)
 
-Configuration is stored in `.pr-review/config.json` in your repository:
+For 90% of users, this is all you need:
 
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+That's it! The tool automatically:
+- Detects your project type (Go, Node.js, Rust, Python, etc.)
+- Finds available AI providers (Cursor CLI or Claude Code)
+- Applies smart defaults for all settings
+- Shows which AI provider is being used at the start of every command
+
+## Configuration Levels
+
+### Level 1: Minimal (Recommended)
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+### Level 2: Basic Customization
+```json
+{
+  "language": "English",
+  "ai_provider": "cursor",
+  "model": "grok",
+  "priorities": {
+    "critical": "Security issues, data loss risks",
+    "high": "Performance problems, crashes"
+  }
+}
+```
+
+### Level 3: Advanced (Full Control)
 ```json
 {
   "priority_rules": {
@@ -27,6 +64,37 @@ Configuration is stored in `.pr-review/config.json` in your repository:
   }
 }
 ```
+
+## Configuration Management
+
+### Commands
+
+```bash
+# Interactive setup wizard
+reviewtask init
+
+# Validate your configuration
+reviewtask config validate
+
+# Migrate to simplified format (reduces ~46 lines to ~2-8 lines)
+reviewtask config migrate
+
+# Show current configuration
+reviewtask config show
+```
+
+### AI Provider Display
+
+Every command now shows which AI provider is being used:
+
+```
+🤖 AI Provider: Cursor CLI (grok)
+```
+
+This helps you understand:
+- Which AI tool is active
+- What model is being used
+- If configuration is working correctly
 
 ## Priority Rules
 

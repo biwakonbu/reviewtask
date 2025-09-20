@@ -28,6 +28,12 @@ Examples:
 }
 
 func runUpdate(cmd *cobra.Command, args []string) error {
+	// Display AI provider info
+	_, err := DisplayAIProviderIfNeeded()
+	if err != nil {
+		// Continue without config - update can work without it
+	}
+
 	taskID := args[0]
 	newStatus := args[1]
 
@@ -47,7 +53,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	storageManager := storage.NewManager()
 
 	// Update task status
-	err := storageManager.UpdateTaskStatus(taskID, newStatus)
+	err = storageManager.UpdateTaskStatus(taskID, newStatus)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
 			return fmt.Errorf("task '%s' not found", taskID)

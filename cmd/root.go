@@ -73,6 +73,7 @@ Examples:
 	cmd.AddCommand(debugCmd)
 	cmd.AddCommand(initCmd)
 	cmd.AddCommand(claudeCmd)
+	cmd.AddCommand(cursorCmd)
 	cmd.AddCommand(promptCmd)
 
 	return cmd
@@ -109,6 +110,7 @@ func init() {
 	rootCmd.AddCommand(claudeCmd)
 	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(cursorCmd)
 	rootCmd.AddCommand(debugCmd)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(promptCmd)
@@ -150,11 +152,12 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Load configuration
+	// Load configuration and display AI provider
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	DisplayAIProvider(cfg)
 
 	// Check for updates if enabled and needed
 	checkForUpdatesAsync(cfg)

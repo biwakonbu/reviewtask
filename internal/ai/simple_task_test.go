@@ -26,6 +26,10 @@ func TestSimpleTaskRequest_Structure(t *testing.T) {
 }
 
 func TestProcessCommentSimple(t *testing.T) {
+	// Set environment to disable consolidation for tests
+	os.Setenv("REVIEWTASK_TEST_NO_CONSOLIDATE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_NO_CONSOLIDATE")
+
 	cfg := &config.Config{
 		AISettings: config.AISettings{
 			UserLanguage: "English",

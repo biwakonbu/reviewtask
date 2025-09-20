@@ -19,7 +19,11 @@ jobs:
         uses: actions/setup-go@v6.0.0
         with:
           go-version-file: 'go.mod'
-      
+
+      - name: Verify go.mod
+        run: |
+          go mod verify
+
       - name: Test cross-platform builds
         run: ./scripts/build.sh test
       

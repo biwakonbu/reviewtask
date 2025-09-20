@@ -53,7 +53,7 @@ jobs:
         # Then run other package tests with coverage
         echo "Running other package tests..."
         NON_CMD_PACKAGES=$(go list ./... | grep -v '/cmd$')
-        go test -v -timeout=10m -coverprofile=coverage-${{ matrix.os }}.out $NON_CMD_PACKAGES
+        go test -v -timeout=15m -coverprofile=coverage-${{ matrix.os }}.out $NON_CMD_PACKAGES
         TEST_EXIT_CODE=$?
         
         set -e
@@ -127,23 +127,27 @@ jobs:
         name: codecov-umbrella
         fail_ci_if_error: false
 
-  # lint:
-  #   name: Lint
-  #   runs-on: ubuntu-latest
-  #   
-  #   steps:
-  #   - uses: actions/checkout@v5
-  #   
-  #   - name: Set up Go
-  #     uses: actions/setup-go@v4
-  #     with:
-  #       go-version: '1.22'
-  #   
-  #   - name: golangci-lint
-  #     uses: golangci/golangci-lint-action@v3
-  #     with:
-  #       version: latest
-  #       args: --timeout=5m
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.23'
+
+    - name: Verify go.mod
+      run: |
+        go mod verify
+
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.61.0
+        args: --timeout=5m
 
   format:
     name: Format Check
@@ -157,6 +161,10 @@ jobs:
       with:
         go-version-file: 'go.mod'
     
+    - name: Verify go.mod
+      run: |
+        go mod verify
+
     - name: Check formatting
       run: |
         echo "Checking code formatting..."
@@ -192,6 +200,10 @@ jobs:
       with:
         go-version-file: 'go.mod'
     
+    - name: Verify go.mod
+      run: |
+        go mod verify
+
     - name: Run go vet
       run: |
         echo "Running go vet..."
@@ -248,6 +260,10 @@ jobs:
       with:
         go-version-file: 'go.mod'
     
+    - name: Verify go.mod
+      run: |
+        go mod verify
+
     - name: Build binary
       id: build
       shell: bash

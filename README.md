@@ -11,7 +11,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 ## Features
 
 - **🔍 PR Review Fetching**: Automatically retrieves reviews from GitHub API with nested comment structure
-- **🤖 AI Analysis**: Supports multiple AI providers for generating structured, actionable tasks from review content
+- **🤖 AI Analysis**: Supports multiple AI providers (Claude Code, Cursor CLI) for generating structured, actionable tasks
 - **💾 Local Storage**: Stores data in structured JSON format under `.pr-review/` directory
 - **📋 Task Management**: Full lifecycle management with status tracking (todo/doing/done/pending/cancel)
 - **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
@@ -20,6 +20,7 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
 - **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
+- **👁️ AI Provider Transparency**: Displays current AI provider and model at the start of every command
 - **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
 - **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
 - **💨 API Caching**: Reduces redundant GitHub API calls automatically
@@ -180,15 +181,26 @@ reviewtask version
 ### 1. Initialize Repository
 
 ```bash
-# Initialize the tool in your repository
+# Interactive setup wizard
 ./reviewtask init
 ```
 
-This will:
-- Create `.pr-review/` directory structure
-- Generate default configuration files
+The wizard will:
+- Ask for your preferred language (English/Japanese)
+- Auto-detect available AI providers (Cursor CLI, Claude Code)
+- Create a minimal 2-line configuration
 - Set up `.gitignore` entries
-- Check repository permissions
+- Check GitHub authentication
+
+**Example session:**
+```
+Welcome to reviewtask setup!
+What language do you prefer? [English/Japanese]: English
+Detecting AI providers...
+Found: Cursor CLI
+Use Cursor CLI as AI provider? [Y/n]: Y
+✓ Minimal configuration created at .pr-review/config.json
+```
 
 ### 2. Authentication Setup
 
@@ -289,6 +301,7 @@ Authentication sources (in order of preference):
 
 #### AI Provider Integration
 - `reviewtask prompt claude pr-review` - Generate PR review workflow template for Claude Code
+- `reviewtask cursor pr-review` - Generate Cursor IDE integration files (.cursorrules and custom commands)
 - `reviewtask prompt stdout <target>` - Output prompts to stdout for redirection or piping
 - `reviewtask prompt <provider> <target>` - Generate templates for various AI providers (extensible)
 
@@ -298,6 +311,67 @@ Authentication sources (in order of preference):
 - Debug commands automatically enable verbose mode for detailed logging
 
 ## Configuration
+
+### 🚀 Quick Configuration (NEW!)
+
+**Start with just 2 lines of configuration:**
+
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+That's it! The tool will automatically:
+- Detect your project type (Go, Node.js, Rust, Python, etc.)
+- Configure appropriate build/test/lint commands
+- Find and use available AI providers (Cursor CLI or Claude Code)
+- Apply sensible defaults for all other settings
+
+### Configuration Management Commands
+
+```bash
+# Interactive setup wizard
+reviewtask init
+
+# Validate your configuration
+reviewtask config validate
+
+# Migrate existing config to simplified format
+reviewtask config migrate
+
+# Show current configuration
+reviewtask config show
+```
+
+### Configuration Levels
+
+#### Level 1: Minimal (90% of users)
+```json
+{
+  "language": "English",
+  "ai_provider": "auto"
+}
+```
+
+#### Level 2: Basic Customization
+```json
+{
+  "language": "English",
+  "ai_provider": "cursor",
+  "model": "grok",
+  "priorities": {
+    "project_specific": {
+      "critical": "Authentication vulnerabilities",
+      "high": "Payment processing errors"
+    }
+  }
+}
+```
+
+#### Level 3: Advanced (Power Users)
+See [Configuration Reference](docs/CONFIG_REFERENCE.md) for all available parameters.
 
 ### Prompt Profiles
 
@@ -357,6 +431,26 @@ The tool can automatically detect and handle low-priority comments (such as "nit
   - Low-priority tasks can be addressed later or promoted to active status
 
 Example: A comment like "nit: Consider using const instead of let" will create a task with `"pending"` status instead of `"todo"`.
+
+### AI Provider Configuration
+
+Configure AI provider and model settings:
+
+```json
+{
+  "ai_settings": {
+    "ai_provider": "auto",                // Options: "claude", "cursor", "auto" (tries cursor then claude)
+    "model": "auto",                      // Model selection (auto lets provider choose best model)
+    "cursor_path": "",                    // Optional custom path to cursor-agent CLI
+    "claude_path": ""                     // Optional custom path to Claude CLI
+  }
+}
+```
+
+**Supported AI Providers:**
+- **Claude Code CLI**: The original Claude AI provider (`npm install -g @anthropic-ai/claude-code`)
+- **Cursor CLI**: Cursor's AI with automatic model selection (`npm install -g cursor-agent`)
+- **Auto**: Automatically tries Cursor first, falls back to Claude if unavailable
 
 ### Advanced AI Settings
 
@@ -488,6 +582,37 @@ The tool now includes advanced recovery mechanisms for handling incomplete Claud
 3. **Execution**: Developers update status as they work (todo → doing → done)
 4. **Preservation**: Subsequent runs preserve existing task statuses
 5. **Cancellation**: Outdated tasks are automatically cancelled when comments change
+
+## IDE Integration
+
+### Cursor IDE Integration
+
+Generate Cursor-specific integration files for enhanced development experience:
+
+```bash
+# Generate Cursor IDE integration files
+reviewtask cursor pr-review
+```
+
+This creates:
+- **`.cursorrules`**: AI context rules that help Cursor understand your reviewtask workflow
+- **`.cursor/commands/pr-review/`**: Custom command templates for common operations
+
+After running this command, Cursor IDE will:
+- Understand reviewtask commands and suggest appropriate usage
+- Provide context-aware assistance for PR review workflows
+- Support custom commands through the command palette
+
+### Claude Code Integration
+
+Generate Claude Code command templates:
+
+```bash
+# Generate Claude Code workflow template
+reviewtask prompt claude pr-review
+```
+
+This creates workflow templates in `.claude/commands/` for streamlined PR review management.
 
 ## Advanced Features
 

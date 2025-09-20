@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,7 +27,10 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	fmt.Println("🚀 Initializing reviewtask for this repository...")
+	reader := bufio.NewReader(cmd.InOrStdin())
+
+	// Interactive setup wizard
+	fmt.Println("Welcome to reviewtask setup!")
 	fmt.Println()
 
 	// 1. Check if already initialized
@@ -36,7 +38,6 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println("✓ Repository is already initialized")
 		fmt.Println()
 
-		reader := bufio.NewReader(os.Stdin)
 		fmt.Print("Reinitialize? This will recreate configuration files (y/N): ")
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(strings.ToLower(response))
@@ -48,6 +49,70 @@ func runInit(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 	}
 
+	// Start interactive setup
+	fmt.Println("Let's configure reviewtask with minimal settings.")
+	fmt.Println("You can customize more settings later if needed.")
+	fmt.Println()
+
+	// Ask for language preference
+	fmt.Print("What language do you prefer for task descriptions? [English/Japanese] (default: English): ")
+	langInput, _ := reader.ReadString('\n')
+	langInput = strings.TrimSpace(langInput)
+	if langInput == "" {
+		langInput = "English"
+	}
+
+	// Detect available AI providers
+	fmt.Println()
+	fmt.Println("Detecting AI providers...")
+
+	cursorAvailable := config.CheckCursorAvailable()
+	claudeAvailable := config.CheckClaudeAvailable()
+
+	var provider string
+	if cursorAvailable && claudeAvailable {
+		fmt.Println("Found: Cursor CLI and Claude Code")
+		fmt.Print("Which AI provider would you like to use? [cursor/claude/auto] (default: auto): ")
+		providerInput, _ := reader.ReadString('\n')
+		provider = strings.TrimSpace(strings.ToLower(providerInput))
+		if provider == "" {
+			provider = "auto"
+		}
+		// Validate provider input
+		switch provider {
+		case "cursor", "claude", "auto":
+			// Valid input
+		default:
+			fmt.Printf("Unrecognized provider '%s'; defaulting to 'auto'.\n", provider)
+			provider = "auto"
+		}
+	} else if cursorAvailable {
+		fmt.Println("Found: Cursor CLI")
+		fmt.Print("Use Cursor CLI as AI provider? [Y/n]: ")
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "n" || response == "no" {
+			provider = "auto"
+		} else {
+			provider = "cursor"
+		}
+	} else if claudeAvailable {
+		fmt.Println("Found: Claude Code")
+		fmt.Print("Use Claude Code as AI provider? [Y/n]: ")
+		response, _ := reader.ReadString('\n')
+		response = strings.TrimSpace(strings.ToLower(response))
+		if response == "n" || response == "no" {
+			provider = "auto"
+		} else {
+			provider = "claude"
+		}
+	} else {
+		fmt.Println("No AI providers detected. Will use auto-detection mode.")
+		provider = "auto"
+	}
+
+	fmt.Println()
+
 	// 2. Create .pr-review directory
 	fmt.Println("📁 Creating .pr-review directory...")
 	if err := setup.CreateDirectory(); err != nil {
@@ -55,12 +120,19 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Println("✓ .pr-review directory created")
 
-	// 3. Generate default configuration
-	fmt.Println("⚙️  Generating default configuration...")
-	if err := config.CreateDefault(); err != nil {
-		return fmt.Errorf("failed to create default configuration: %w", err)
+	// 3. Generate minimal configuration
+	fmt.Println("⚙️  Generating minimal configuration...")
+
+	// Create simplified config
+	simplifiedConfig := config.SimplifiedConfig{
+		Language:   langInput,
+		AIProvider: provider,
 	}
-	fmt.Println("✓ Default configuration created at .pr-review/config.json")
+
+	if err := config.CreateSimplifiedConfig(&simplifiedConfig); err != nil {
+		return fmt.Errorf("failed to create configuration: %w", err)
+	}
+	fmt.Println("✓ Minimal configuration created at .pr-review/config.json")
 
 	// 4. Add to .gitignore
 	fmt.Println("📝 Adding .pr-review to .gitignore...")
