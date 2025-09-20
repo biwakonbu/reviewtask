@@ -80,4 +80,9 @@ ENV/
 node_modules/
 .gocache/
 
+# Cursor IDE generated files (except commands and rules which should be tracked)
+.cursor/*
+!.cursor/commands/
+!.cursor/rules/
+
 hhkb.xkm
