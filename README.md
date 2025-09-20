@@ -301,7 +301,12 @@ Authentication sources (in order of preference):
 
 #### AI Provider Integration
 - `reviewtask prompt claude pr-review` - Generate PR review workflow template for Claude Code
-- `reviewtask cursor pr-review` - Generate Cursor IDE integration files (.cursorrules and custom commands)
+- `reviewtask cursor [TARGET]` - Generate Cursor IDE integration templates
+  - `reviewtask cursor pr-review` - Generate PR review workflow template
+  - `reviewtask cursor issue-to-pr` - Generate issue-to-PR workflow template
+  - `reviewtask cursor label-issues` - Generate label issues workflow template
+  - `reviewtask cursor --all` - Generate all available templates
+  - `reviewtask cursor [TARGET] --stdout` - Output to stdout for CI/CD integration
 - `reviewtask prompt stdout <target>` - Output prompts to stdout for redirection or piping
 - `reviewtask prompt <provider> <target>` - Generate templates for various AI providers (extensible)
 
@@ -591,12 +596,20 @@ Generate Cursor-specific integration files for enhanced development experience:
 
 ```bash
 # Generate Cursor IDE integration files
+# Generate specific template
 reviewtask cursor pr-review
+
+# Generate all templates at once
+reviewtask cursor --all
+
+# Output to stdout for custom integration
+reviewtask cursor pr-review --stdout > my-workflow.md
 ```
 
-This creates:
-- **`.cursorrules`**: AI context rules that help Cursor understand your reviewtask workflow
-- **`.cursor/commands/pr-review/`**: Custom command templates for common operations
+This creates organized templates in:
+- **`.cursor/commands/pr-review/`**: PR review workflow automation
+- **`.cursor/commands/issue-to-pr/`**: Issue-to-PR development workflow
+- **`.cursor/commands/label-issues/`**: Automatic issue labeling workflow
 
 After running this command, Cursor IDE will:
 - Understand reviewtask commands and suggest appropriate usage
