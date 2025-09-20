@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -161,14 +162,16 @@ Examples:
 
 			// Check files
 			for _, file := range tt.expectFiles {
-				if _, err := os.Stat(file); os.IsNotExist(err) {
+				p := filepath.FromSlash(file)
+				if _, err := os.Stat(p); os.IsNotExist(err) {
 					t.Errorf("Expected file %s to be created, but it wasn't", file)
 				}
 			}
 
 			// Check file contents
 			for file, expectedContents := range tt.expectFileContents {
-				content, err := os.ReadFile(file)
+				p := filepath.FromSlash(file)
+				content, err := os.ReadFile(p)
 				if err != nil {
 					t.Errorf("Failed to read file %s: %v", file, err)
 					continue
@@ -243,7 +246,8 @@ func TestCursorCommandEndToEnd(t *testing.T) {
 	}
 
 	for file, expectedContent := range templateFiles {
-		content, err := os.ReadFile(file)
+		p := filepath.FromSlash(file)
+		content, err := os.ReadFile(p)
 		if err != nil {
 			t.Errorf("Failed to read template file %s: %v", file, err)
 			continue
@@ -254,24 +258,31 @@ func TestCursorCommandEndToEnd(t *testing.T) {
 		}
 
 		// Verify the file is valid markdown
-		if !strings.HasSuffix(file, ".md") {
+		if !strings.HasSuffix(p, ".md") {
 			t.Errorf("Template file %s should have .md extension", file)
 		}
 
 		// Verify file has reasonable size (not empty, not too large)
-		fileInfo, _ := os.Stat(file)
-		if fileInfo.Size() < 100 {
-			t.Errorf("Template file %s seems too small (%d bytes)", file, fileInfo.Size())
+		fileInfo, err := os.Stat(p)
+		if err != nil {
+			t.Errorf("Failed to stat file %s: %v", file, err)
+			continue
 		}
-		if fileInfo.Size() > 1024*1024 { // 1MB
-			t.Errorf("Template file %s seems too large (%d bytes)", file, fileInfo.Size())
+		size := fileInfo.Size()
+		if size < 100 {
+			t.Errorf("Template file %s seems too small (%d bytes)", file, size)
+		}
+		if size > 1024*1024 { // 1MB
+			t.Errorf("Template file %s seems too large (%d bytes)", file, size)
 		}
 	}
 
 	// Step 3: Test regeneration (should overwrite existing files)
 	// Modify a file and regenerate to ensure it gets overwritten
-	testFile := ".cursor/commands/pr-review/review-task-workflow.md"
-	os.WriteFile(testFile, []byte("MODIFIED CONTENT"), 0644)
+	testFile := filepath.FromSlash(".cursor/commands/pr-review/review-task-workflow.md")
+	if err := os.WriteFile(testFile, []byte("MODIFIED CONTENT"), 0644); err != nil {
+		t.Fatalf("Failed to modify %s: %v", testFile, err)
+	}
 
 	// Regenerate
 	rootCmd.SetArgs([]string{"cursor", "pr-review"})
@@ -284,7 +295,10 @@ func TestCursorCommandEndToEnd(t *testing.T) {
 	}
 
 	// Verify file was overwritten
-	content, _ := os.ReadFile(testFile)
+	content, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", testFile, err)
+	}
 	if strings.Contains(string(content), "MODIFIED CONTENT") {
 		t.Errorf("Template file was not overwritten during regeneration")
 	}
@@ -337,8 +351,8 @@ func TestCursorCommandWithTemplateFiles(t *testing.T) {
 	}
 
 	// Verify the generated file matches source
-	sourceContent, _ := os.ReadFile(".claude/commands/issue-to-pr.md")
-	generatedContent, _ := os.ReadFile(".cursor/commands/issue-to-pr/issue-to-pr.md")
+	sourceContent, _ := os.ReadFile(filepath.FromSlash(".claude/commands/issue-to-pr.md"))
+	generatedContent, _ := os.ReadFile(filepath.FromSlash(".cursor/commands/issue-to-pr/issue-to-pr.md"))
 
 	if string(sourceContent) != string(generatedContent) {
 		t.Errorf("Generated issue-to-pr template doesn't match source template")
@@ -354,8 +368,8 @@ func TestCursorCommandWithTemplateFiles(t *testing.T) {
 	}
 
 	// Verify the generated file matches source
-	sourceContent, _ = os.ReadFile(".claude/commands/label-issues.md")
-	generatedContent, _ = os.ReadFile(".cursor/commands/label-issues/label-issues.md")
+	sourceContent, _ = os.ReadFile(filepath.FromSlash(".claude/commands/label-issues.md"))
+	generatedContent, _ = os.ReadFile(filepath.FromSlash(".cursor/commands/label-issues/label-issues.md"))
 
 	if string(sourceContent) != string(generatedContent) {
 		t.Errorf("Generated label-issues template doesn't match source template")
