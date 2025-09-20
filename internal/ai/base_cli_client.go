@@ -244,51 +244,80 @@ func (c *BaseCLIClient) isCompleteJSONResponse(output string) bool {
 
 // Execute runs the CLI with the given input
 func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
-	args := []string{}
-
-	// Provider-specific command building
+	// Special handling for cursor-agent via bash wrapper
 	if c.providerConf.Name == "cursor" {
-		// cursor-agent: add --print flag for script mode
-		args = append(args, "--print")
+		// Build arguments for cursor-agent
+		cursorArgs := []string{"-p"}
 
 		// Add model parameter if specified and not "auto" (cursor-agent uses auto by default)
 		if c.model != "" && c.model != "auto" {
-			args = append(args, "--model", c.model)
+			cursorArgs = append(cursorArgs, "--model", c.model)
 		}
 
 		// Use JSON format for cursor-agent
 		if outputFormat == "json" || outputFormat == "" {
-			args = append(args, "--output-format", "json")
+			cursorArgs = append(cursorArgs, "--output-format", "json")
 		} else {
-			args = append(args, "--output-format", outputFormat)
-		}
-		// Don't add prompt as argument - cursor-agent reads from stdin
-	} else {
-		// claude: use traditional stdin approach
-		// Add model parameter if specified
-		if c.model != "" {
-			args = append(args, "--model", c.model)
+			cursorArgs = append(cursorArgs, "--output-format", outputFormat)
 		}
 
-		// Add print flag and output format for JSON mode
-		if outputFormat == "json" {
-			args = append(args, "--print", "--output-format", outputFormat)
-		} else if outputFormat != "" {
-			args = append(args, "--output-format", outputFormat)
+		// Use printf with %q for safe shell escaping
+		// This handles all special characters including newlines
+		bashCmd := fmt.Sprintf(`printf %%s %q | %s %s`, input, c.cliPath, strings.Join(cursorArgs, " "))
+
+		// Use bash -c to execute
+		cmd := exec.CommandContext(ctx, "bash", "-c", bashCmd)
+
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		// Debug logging
+		if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+			preview := bashCmd
+			if len(bashCmd) > 200 {
+				preview = bashCmd[:200] + "..."
+			}
+			fmt.Fprintf(os.Stderr, "DEBUG: Executing cursor via bash: %s (input length: %d)\n", preview, len(input))
 		}
+
+		// Execute
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
+				c.providerConf.CommandName, err, stderr.String(), stdout.String())
+		}
+
+		return stdout.String(), nil
+	}
+
+	// Standard execution for claude and other providers
+	args := []string{}
+
+	// Add model parameter if specified
+	if c.model != "" {
+		args = append(args, "--model", c.model)
+	}
+
+	// Add print flag and output format for JSON mode
+	if outputFormat == "json" {
+		args = append(args, "--print", "--output-format", outputFormat)
+	} else if outputFormat != "" {
+		args = append(args, "--output-format", outputFormat)
 	}
 
 	cmd := c.buildCommand(ctx, args)
 
-	// Set stdin for both providers
-	cmd.Stdin = strings.NewReader(input)
+	// Set stdin for non-cursor providers
+	if c.providerConf.Name != "cursor" {
+		cmd.Stdin = strings.NewReader(input)
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	// Debug logging
-	if os.Getenv("REVIEWTASK_DEBUG") == "true" || c.providerConf.Name == "cursor" {
+	if os.Getenv("REVIEWTASK_DEBUG") == "true" {
 		fmt.Fprintf(os.Stderr, "DEBUG: Executing %s command: %s %s (input length: %d)\n",
 			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "), len(input))
 	}
