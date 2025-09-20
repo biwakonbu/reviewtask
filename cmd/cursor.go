@@ -62,17 +62,17 @@ func runCursor(cmd *cobra.Command, args []string) error {
 	// Default: output to files
 	switch target {
 	case "pr-review":
-		return outputCursorPRReviewCommands()
+		return outputCursorPRReviewCommands(cmd.OutOrStdout())
 	case "issue-to-pr":
-		return outputCursorIssueToPRCommands()
+		return outputCursorIssueToPRCommands(cmd.OutOrStdout())
 	case "label-issues":
-		return outputCursorLabelIssuesCommands()
+		return outputCursorLabelIssuesCommands(cmd.OutOrStdout())
 	default:
 		return fmt.Errorf("unknown target: %s\n\nAvailable targets:\n  pr-review      Output PR review workflow command template\n  issue-to-pr    Output Issue-to-PR workflow command template\n  label-issues   Output Label Issues workflow command template", target)
 	}
 }
 
-func outputCursorPRReviewCommands() error {
+func outputCursorPRReviewCommands(out io.Writer) error {
 	// Create the output directory
 	outputDir := ".cursor/commands/pr-review"
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -88,15 +88,15 @@ func outputCursorPRReviewCommands() error {
 		return fmt.Errorf("failed to write workflow template: %w", err)
 	}
 
-	fmt.Printf("✓ Created Cursor IDE command template at %s\n", workflowPath)
-	fmt.Println()
-	fmt.Println("Cursor IDE commands have been organized in .cursor/commands/pr-review/")
-	fmt.Println("You can now use the /review-task-workflow command in Cursor IDE.")
+	fmt.Fprintf(out, "✓ Created Cursor IDE command template at %s\n", workflowPath)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Cursor IDE commands have been organized in .cursor/commands/pr-review/")
+	fmt.Fprintln(out, "You can now use the /review-task-workflow command in Cursor IDE.")
 
 	return nil
 }
 
-func outputCursorIssueToPRCommands() error {
+func outputCursorIssueToPRCommands(out io.Writer) error {
 	// Create the output directory
 	outputDir := ".cursor/commands/issue-to-pr"
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -112,15 +112,15 @@ func outputCursorIssueToPRCommands() error {
 		return fmt.Errorf("failed to write workflow template: %w", err)
 	}
 
-	fmt.Printf("✓ Created Cursor IDE command template at %s\n", workflowPath)
-	fmt.Println()
-	fmt.Println("Cursor IDE commands have been organized in .cursor/commands/issue-to-pr/")
-	fmt.Println("You can now use the /issue-to-pr command in Cursor IDE.")
+	fmt.Fprintf(out, "✓ Created Cursor IDE command template at %s\n", workflowPath)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Cursor IDE commands have been organized in .cursor/commands/issue-to-pr/")
+	fmt.Fprintln(out, "You can now use the /issue-to-pr command in Cursor IDE.")
 
 	return nil
 }
 
-func outputCursorLabelIssuesCommands() error {
+func outputCursorLabelIssuesCommands(out io.Writer) error {
 	// Create the output directory
 	outputDir := ".cursor/commands/label-issues"
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -136,10 +136,10 @@ func outputCursorLabelIssuesCommands() error {
 		return fmt.Errorf("failed to write workflow template: %w", err)
 	}
 
-	fmt.Printf("✓ Created Cursor IDE command template at %s\n", workflowPath)
-	fmt.Println()
-	fmt.Println("Cursor IDE commands have been organized in .cursor/commands/label-issues/")
-	fmt.Println("You can now use the /label-issues command in Cursor IDE.")
+	fmt.Fprintf(out, "✓ Created Cursor IDE command template at %s\n", workflowPath)
+	fmt.Fprintln(out)
+	fmt.Fprintln(out, "Cursor IDE commands have been organized in .cursor/commands/label-issues/")
+	fmt.Fprintln(out, "You can now use the /label-issues command in Cursor IDE.")
 
 	return nil
 }
@@ -158,17 +158,17 @@ func outputAllCursorCommands(out io.Writer) error {
 	}
 
 	// Generate all command templates to files
-	if err := outputCursorPRReviewCommands(); err != nil {
+	if err := outputCursorPRReviewCommands(out); err != nil {
 		return err
 	}
-	if err := outputCursorIssueToPRCommands(); err != nil {
+	if err := outputCursorIssueToPRCommands(out); err != nil {
 		return err
 	}
-	if err := outputCursorLabelIssuesCommands(); err != nil {
+	if err := outputCursorLabelIssuesCommands(out); err != nil {
 		return err
 	}
 
-	fmt.Println("\n✅ All Cursor IDE command templates have been generated successfully!")
+	fmt.Fprintln(out, "\n✅ All Cursor IDE command templates have been generated successfully!")
 	return nil
 }
 
