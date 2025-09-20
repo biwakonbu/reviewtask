@@ -256,9 +256,10 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			args = append(args, "--model", c.model)
 		}
 
-		// Always use JSON format for cursor-agent to ensure clean termination
+		// Use text format for cursor-agent to avoid streaming issues
+		// JSON format causes the process to hang waiting for stream termination
 		if outputFormat == "json" || outputFormat == "" {
-			args = append(args, "--output-format", "json")
+			args = append(args, "--output-format", "text")
 		} else {
 			args = append(args, "--output-format", outputFormat)
 		}
@@ -294,13 +295,11 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "))
 	}
 
-	// Handle cursor-agent specific execution (doesn't auto-terminate)
-	if c.providerConf.Name == "cursor" {
-		// Reset stdout/stderr for cursor execution
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-		err := c.executeCursorWithTimeout(cmd, &stdout, &stderr, 30) // 30 second timeout
-		if err != nil {
+	// Handle cursor-agent specific execution (doesn't auto-terminate with JSON)
+	if c.providerConf.Name == "cursor" && outputFormat == "json" {
+		// For cursor with JSON output (which we changed to text), use standard execution
+		// since we're now using text format to avoid streaming issues
+		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
 				c.providerConf.CommandName, err, stderr.String(), stdout.String())
 		}
@@ -318,28 +317,9 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 	if outputFormat == "json" || (c.providerConf.Name == "cursor" && outputFormat == "") {
 		// Handle cursor-agent specific response format
 		if c.providerConf.Name == "cursor" {
-			var cursorResponse struct {
-				Type    string `json:"type"`
-				Subtype string `json:"subtype"`
-				IsError bool   `json:"is_error"`
-				Result  string `json:"result"`
-				Error   string `json:"error,omitempty"`
-			}
-
-			if err := json.Unmarshal([]byte(output), &cursorResponse); err != nil {
-				// If unmarshaling fails, return the raw output (backward compatibility)
-				return output, nil
-			}
-
-			if cursorResponse.IsError {
-				errorMsg := cursorResponse.Error
-				if errorMsg == "" {
-					errorMsg = cursorResponse.Result
-				}
-				return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, errorMsg)
-			}
-
-			return cursorResponse.Result, nil
+			// Since we're using text format for cursor to avoid hanging,
+			// return the text output directly
+			return output, nil
 		} else {
 			// Handle claude response format
 			var response struct {
