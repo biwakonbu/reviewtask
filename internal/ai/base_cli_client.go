@@ -248,8 +248,8 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 
 	// Provider-specific command building
 	if c.providerConf.Name == "cursor" {
-		// cursor-agent: use -p option for prompt input
-		args = append(args, "-p", input)
+		// cursor-agent: add --print flag for script mode
+		args = append(args, "--print")
 
 		// Add model parameter if specified and not "auto" (cursor-agent uses auto by default)
 		if c.model != "" && c.model != "auto" {
@@ -263,6 +263,9 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 		} else {
 			args = append(args, "--output-format", outputFormat)
 		}
+
+		// Add the prompt as the last argument
+		args = append(args, input)
 	} else {
 		// claude: use traditional stdin approach
 		// Add model parameter if specified
@@ -295,13 +298,17 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "))
 	}
 
-	// Handle cursor-agent specific execution (doesn't auto-terminate with JSON)
-	if c.providerConf.Name == "cursor" && outputFormat == "json" {
-		// For cursor with JSON output (which we changed to text), use standard execution
-		// since we're now using text format to avoid streaming issues
+	// Handle cursor-agent specific execution
+	if c.providerConf.Name == "cursor" {
+		// cursor-agent outputs to stderr when using --print with text format
 		if err := cmd.Run(); err != nil {
 			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
 				c.providerConf.CommandName, err, stderr.String(), stdout.String())
+		}
+		// For cursor-agent with text output, the response is in stderr
+		if outputFormat == "json" || outputFormat == "" {
+			// We requested JSON but used text format, return stderr content
+			return stderr.String(), nil
 		}
 	} else {
 		// Standard execution for other providers
