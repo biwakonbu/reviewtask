@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -50,6 +51,30 @@ func outputPRReviewPromptToStdout(cmd *cobra.Command) error {
 
 // getPRReviewPromptTemplate returns the PR review workflow prompt template
 // This is shared between claude.go and prompt_stdout.go to maintain consistency
+func getIssueToPRTemplate() string {
+	// Read the issue-to-pr template content
+	templatePath := ".claude/commands/issue-to-pr.md"
+	if content, err := os.ReadFile(templatePath); err == nil {
+		return string(content)
+	}
+	// Return a fallback template if file not found
+	return `# Issue to PR Workflow
+
+Template file not found at .claude/commands/issue-to-pr.md`
+}
+
+func getLabelIssuesTemplate() string {
+	// Read the label-issues template content
+	templatePath := ".claude/commands/label-issues.md"
+	if content, err := os.ReadFile(templatePath); err == nil {
+		return string(content)
+	}
+	// Return a fallback template if file not found
+	return `# Label Issues
+
+Template file not found at .claude/commands/label-issues.md`
+}
+
 func getPRReviewPromptTemplate() string {
 	// Use § as placeholder for backticks to enable true heredoc format
 	template := `---
