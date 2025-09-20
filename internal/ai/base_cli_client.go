@@ -256,16 +256,13 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			args = append(args, "--model", c.model)
 		}
 
-		// Use text format for cursor-agent to avoid streaming issues
-		// JSON format causes the process to hang waiting for stream termination
+		// Use JSON format for cursor-agent
 		if outputFormat == "json" || outputFormat == "" {
-			args = append(args, "--output-format", "text")
+			args = append(args, "--output-format", "json")
 		} else {
 			args = append(args, "--output-format", outputFormat)
 		}
-
-		// Add the prompt as the last argument
-		args = append(args, input)
+		// Don't add prompt as argument - cursor-agent reads from stdin
 	} else {
 		// claude: use traditional stdin approach
 		// Add model parameter if specified
@@ -283,39 +280,23 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 
 	cmd := c.buildCommand(ctx, args)
 
-	// Set stdin only for claude provider
-	if c.providerConf.Name != "cursor" {
-		cmd.Stdin = strings.NewReader(input)
-	}
+	// Set stdin for both providers
+	cmd.Stdin = strings.NewReader(input)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	// Debug logging
-	if os.Getenv("REVIEWTASK_DEBUG") == "true" {
-		fmt.Fprintf(os.Stderr, "DEBUG: Executing %s command: %s %s\n",
-			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "))
+	if os.Getenv("REVIEWTASK_DEBUG") == "true" || c.providerConf.Name == "cursor" {
+		fmt.Fprintf(os.Stderr, "DEBUG: Executing %s command: %s %s (input length: %d)\n",
+			c.providerConf.Name, cmd.Path, strings.Join(cmd.Args[1:], " "), len(input))
 	}
 
-	// Handle cursor-agent specific execution
-	if c.providerConf.Name == "cursor" {
-		// cursor-agent outputs to stderr when using --print with text format
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
-				c.providerConf.CommandName, err, stderr.String(), stdout.String())
-		}
-		// For cursor-agent with text output, the response is in stderr
-		if outputFormat == "json" || outputFormat == "" {
-			// We requested JSON but used text format, return stderr content
-			return stderr.String(), nil
-		}
-	} else {
-		// Standard execution for other providers
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
-				c.providerConf.CommandName, err, stderr.String(), stdout.String())
-		}
+	// Standard execution for all providers
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
+			c.providerConf.CommandName, err, stderr.String(), stdout.String())
 	}
 
 	output := stdout.String()
@@ -324,9 +305,28 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 	if outputFormat == "json" || (c.providerConf.Name == "cursor" && outputFormat == "") {
 		// Handle cursor-agent specific response format
 		if c.providerConf.Name == "cursor" {
-			// Since we're using text format for cursor to avoid hanging,
-			// return the text output directly
-			return output, nil
+			var cursorResponse struct {
+				Type    string `json:"type"`
+				Subtype string `json:"subtype"`
+				IsError bool   `json:"is_error"`
+				Result  string `json:"result"`
+				Error   string `json:"error,omitempty"`
+			}
+
+			if err := json.Unmarshal([]byte(output), &cursorResponse); err != nil {
+				// If unmarshaling fails, return the raw output (backward compatibility)
+				return output, nil
+			}
+
+			if cursorResponse.IsError {
+				errorMsg := cursorResponse.Error
+				if errorMsg == "" {
+					errorMsg = cursorResponse.Result
+				}
+				return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, errorMsg)
+			}
+
+			return cursorResponse.Result, nil
 		} else {
 			// Handle claude response format
 			var response struct {
