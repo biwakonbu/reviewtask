@@ -145,7 +145,8 @@ Examples:
 			}
 
 			// Check output
-			output := buf.String()
+			// Normalize path separators for cross-platform compatibility
+			output := strings.ReplaceAll(buf.String(), "\\", "/")
 			for _, expected := range tt.expectInOutput {
 				if !strings.Contains(output, expected) {
 					t.Errorf("Expected output to contain %q, but it didn't.\nOutput: %s", expected, output)
