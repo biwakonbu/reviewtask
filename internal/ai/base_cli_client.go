@@ -473,10 +473,12 @@ func (c *BaseCLIClient) validateCursorAgent() error {
 		return fmt.Errorf("cursor-agent binary not found at %s: %w", c.cliPath, err)
 	}
 
-	// Check if binary is executable
-	if info, err := os.Stat(c.cliPath); err != nil {
+	// Check if binary is executable (skip on Windows where executables don't have exec bits)
+	info, err := os.Stat(c.cliPath)
+	if err != nil {
 		return fmt.Errorf("cannot stat cursor-agent binary: %w", err)
-	} else if info.Mode().Perm()&0111 == 0 {
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0111 == 0 {
 		return fmt.Errorf("cursor-agent binary is not executable: %s", c.cliPath)
 	}
 

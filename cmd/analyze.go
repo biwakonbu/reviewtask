@@ -132,32 +132,6 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 	// Initialize AI analyzer
 	analyzer := ai.NewAnalyzer(cfg)
 
-	var tasks []storage.Task
-
-	// Check if real-time saving is enabled
-	if cfg.AISettings.RealtimeSavingEnabled {
-		// Use real-time saving for immediate task persistence
-		tasks, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
-	} else {
-		// Set up incremental processing options
-		incrementalOpts := ai.IncrementalOptions{
-			BatchSize:           batchSize,
-			MaxBatchesToProcess: maxBatches,
-			Resume:              true,
-			FastMode:            false,
-			MaxTimeout:          10 * time.Minute,
-			ShowProgress:        true,
-			OnProgress: func(processed, total int) {
-				if processed > 0 && processed%batchSize == 0 {
-					fmt.Printf("  📝 Processed %d/%d comments...\n", processed, total)
-				}
-			},
-		}
-
-		// Generate tasks incrementally
-		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
-	}
-
 	if async {
 		// Run analysis in background
 		go func() {
@@ -166,6 +140,33 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 					fmt.Printf("Background analysis failed: %v\n", r)
 				}
 			}()
+
+			var tasks []storage.Task
+			var err error
+
+			// Check if real-time saving is enabled
+			if cfg.AISettings.RealtimeSavingEnabled {
+				// Use real-time saving for immediate task persistence
+				tasks, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
+			} else {
+				// Set up incremental processing options
+				incrementalOpts := ai.IncrementalOptions{
+					BatchSize:           batchSize,
+					MaxBatchesToProcess: maxBatches,
+					Resume:              true,
+					FastMode:            false,
+					MaxTimeout:          10 * time.Minute,
+					ShowProgress:        true,
+					OnProgress: func(processed, total int) {
+						if processed > 0 && processed%batchSize == 0 {
+							fmt.Printf("  📝 Processed %d/%d comments...\n", processed, total)
+						}
+					},
+				}
+
+				// Generate tasks incrementally
+				tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
+			}
 
 			if err != nil {
 				if strings.Contains(err.Error(), "timed out") {
@@ -190,6 +191,32 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("🔄 Analysis started in background. Check progress with: reviewtask status\n")
 		return nil
+	}
+
+	var tasks []storage.Task
+
+	// Check if real-time saving is enabled
+	if cfg.AISettings.RealtimeSavingEnabled {
+		// Use real-time saving for immediate task persistence
+		tasks, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
+	} else {
+		// Set up incremental processing options
+		incrementalOpts := ai.IncrementalOptions{
+			BatchSize:           batchSize,
+			MaxBatchesToProcess: maxBatches,
+			Resume:              true,
+			FastMode:            false,
+			MaxTimeout:          10 * time.Minute,
+			ShowProgress:        true,
+			OnProgress: func(processed, total int) {
+				if processed > 0 && processed%batchSize == 0 {
+					fmt.Printf("  📝 Processed %d/%d comments...\n", processed, total)
+				}
+			},
+		}
+
+		// Generate tasks incrementally
+		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 	}
 
 	if err != nil {
