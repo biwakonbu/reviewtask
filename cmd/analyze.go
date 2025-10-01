@@ -7,16 +7,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
+
+	"github.com/spf13/cobra"
 )
 
 var (
 	batchSize  int
 	maxBatches int
+	async      bool
 )
 
 var analyzeCmd = &cobra.Command{
@@ -39,8 +41,9 @@ Examples:
 }
 
 func init() {
-	analyzeCmd.Flags().IntVar(&batchSize, "batch-size", 5, "Number of comments to process per batch")
+	analyzeCmd.Flags().IntVar(&batchSize, "batch-size", 1, "Number of comments to process per batch (recommended: 1 for stability)")
 	analyzeCmd.Flags().IntVar(&maxBatches, "max-batches", 1, "Maximum number of batches to process per command")
+	analyzeCmd.Flags().BoolVar(&async, "async", false, "Run analysis in background (check status later with 'reviewtask status')")
 	rootCmd.AddCommand(analyzeCmd)
 }
 
@@ -154,6 +157,41 @@ func runAnalyzeCommand(cmd *cobra.Command, args []string) error {
 		// Generate tasks incrementally
 		tasks, err = analyzer.GenerateTasksIncremental(reviews, prNumber, storageManager, incrementalOpts)
 	}
+
+	if async {
+		// Run analysis in background
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					fmt.Printf("Background analysis failed: %v\n", r)
+				}
+			}()
+
+			if err != nil {
+				if strings.Contains(err.Error(), "timed out") {
+					fmt.Println("\n⚠️  Background processing timed out. Run the command again to resume from where it left off.")
+				} else {
+					fmt.Printf("Background analysis failed: %v\n", err)
+				}
+				return
+			}
+
+			// Merge tasks with existing ones (preserves task statuses)
+			if err := storageManager.MergeTasks(prNumber, tasks); err != nil {
+				fmt.Printf("Failed to save tasks: %v\n", err)
+				return
+			}
+
+			// Show results
+			if len(tasks) > 0 {
+				fmt.Printf("✅ Background analysis completed: generated %d tasks\n", len(tasks))
+			}
+		}()
+
+		fmt.Printf("🔄 Analysis started in background. Check progress with: reviewtask status\n")
+		return nil
+	}
+
 	if err != nil {
 		if strings.Contains(err.Error(), "timed out") {
 			fmt.Println("\n⚠️  Processing timed out. Run the command again to resume from where it left off.")

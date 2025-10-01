@@ -152,6 +152,7 @@ func (sp *StreamProcessor) ProcessCommentsStream(comments []CommentContext, proc
 
 // ProcessCommentsWithRealtimeSaving processes comments in parallel with real-time task saving
 func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentContext, storageManager *storage.Manager, prNumber int) ([]storage.Task, error) {
+	fmt.Printf("DEBUG: ProcessCommentsWithRealtimeSaving started with %d comments\n", len(comments))
 	if sp.analyzer.config.AISettings.VerboseMode {
 		fmt.Printf("Processing %d comments in parallel with real-time saving...\n", len(comments))
 	}
@@ -180,7 +181,13 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		go func(ctx CommentContext) {
 			defer wg.Done()
 
+			fmt.Printf("DEBUG: Starting processing of comment ID %d\n", ctx.Comment.ID)
 			tasks, err := sp.analyzer.processComment(ctx)
+			if err != nil {
+				fmt.Printf("DEBUG: Finished processing comment ID %d with error: %v\n", ctx.Comment.ID, err)
+			} else {
+				fmt.Printf("DEBUG: Finished processing comment ID %d successfully, generated %d tasks\n", ctx.Comment.ID, len(tasks))
+			}
 			results <- result{
 				tasks:   tasks,
 				err:     err,
@@ -199,7 +206,9 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	var allTasks []storage.Task
 	failedComments := make([]storage.FailedComment, 0)
 
+	fmt.Printf("DEBUG: Starting to collect results from %d comments\n", len(comments))
 	for res := range results {
+		fmt.Printf("DEBUG: Processing result for comment ID %d\n", res.context.Comment.ID)
 		if res.err != nil {
 			// Track failed comment
 			failedComment := storage.FailedComment{

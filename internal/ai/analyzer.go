@@ -201,10 +201,12 @@ func (a *Analyzer) GenerateTasks(reviews []github.Review) ([]storage.Task, error
 
 // GenerateTasksWithRealtimeSaving processes reviews with real-time task saving
 func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNumber int, storageManager *storage.Manager) ([]storage.Task, error) {
+	fmt.Printf("DEBUG: GenerateTasksWithRealtimeSaving called with %d reviews\n", len(reviews))
 	// Clear validation feedback to ensure clean state for each PR analysis
 	a.clearValidationFeedback()
 
 	if len(reviews) == 0 {
+		fmt.Printf("DEBUG: No reviews to process, returning empty tasks\n")
 		return []storage.Task{}, nil
 	}
 
@@ -212,6 +214,7 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 	var allComments []CommentContext
 	resolvedCommentCount := 0
 
+	fmt.Printf("DEBUG: Extracting comments from %d reviews\n", len(reviews))
 	for _, review := range reviews {
 		// Process review body as a comment if it exists and contains content
 		if review.Body != "" {
@@ -272,9 +275,11 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 	}
 
 	if len(allComments) == 0 {
+		fmt.Printf("DEBUG: No comments to process after filtering, returning empty tasks\n")
 		return []storage.Task{}, nil
 	}
 
+	fmt.Printf("DEBUG: Processing %d comments with real-time saving\n", len(allComments))
 	// Use stream processor with real-time saving
 	streamProcessor := NewStreamProcessor(a)
 	return streamProcessor.ProcessCommentsWithRealtimeSaving(allComments, storageManager, prNumber)

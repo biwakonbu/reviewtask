@@ -1,12 +1,10 @@
 package ai
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -131,120 +129,9 @@ func (c *BaseCLIClient) CheckAuthentication() error {
 	return nil
 }
 
-// executeCursorWithTimeout executes cursor-agent with automatic termination when JSON response is complete
-func (c *BaseCLIClient) executeCursorWithTimeout(cmd *exec.Cmd, stdout, stderr *bytes.Buffer, timeoutSeconds int) error {
-	// Create pipes for stdout and stderr
-	stdoutPipe, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
-	}
-
-	stderrPipe, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
-	}
-
-	// Start the process
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start cursor-agent: %w", err)
-	}
-
-	// Create channels for monitoring output and completion
-	done := make(chan error, 1)
-	outputReady := make(chan bool, 1)
-
-	// Monitor stdout for JSON response completion
-	go func() {
-		scanner := bufio.NewScanner(stdoutPipe)
-		// Allow up to 10MB JSON lines to handle large/minified JSON
-		scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
-		accumulatedOutput := ""
-
-		for scanner.Scan() {
-			line := scanner.Text()
-			stdout.WriteString(line + "\n")
-			accumulatedOutput += line
-
-			// Check if we received a complete JSON response
-			if c.isCompleteJSONResponse(accumulatedOutput) {
-				outputReady <- true
-				return
-			}
-		}
-	}()
-
-	// Monitor stderr separately
-	go func() {
-		io.Copy(stderr, stderrPipe)
-	}()
-
-	// Wait for completion with timeout
-	go func() {
-		done <- cmd.Wait()
-	}()
-
-	timeout := time.Duration(timeoutSeconds) * time.Second
-	select {
-	case <-outputReady:
-		// Got complete JSON response, terminate the process
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		// Wait a moment for graceful shutdown
-		time.Sleep(100 * time.Millisecond)
-		return nil
-	case err := <-done:
-		// Process finished naturally
-		return err
-	case <-time.After(timeout):
-		// Timeout reached, kill the process
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
-		return fmt.Errorf("cursor-agent execution timed out after %d seconds", timeoutSeconds)
-	}
-}
-
-// isCompleteJSONResponse checks if the accumulated output contains a complete JSON response
-func (c *BaseCLIClient) isCompleteJSONResponse(output string) bool {
-	// First check for cursor-agent specific response patterns
-	if strings.Contains(output, `"type":"result"`) {
-		// Look for complete JSON structure
-		openBraces := strings.Count(output, "{")
-		closeBraces := strings.Count(output, "}")
-
-		// Must have at least one complete JSON object
-		if openBraces > 0 && closeBraces >= openBraces {
-			// Try to parse as JSON to verify completeness
-			var response map[string]interface{}
-			if err := json.Unmarshal([]byte(output), &response); err == nil {
-				// Check if it has the expected result field
-				if result, exists := response["result"]; exists && result != nil {
-					return true
-				}
-			}
-		}
-	}
-
-	// Also check for simple JSON array responses (for task generation)
-	if strings.HasPrefix(strings.TrimSpace(output), "[") {
-		openBrackets := strings.Count(output, "[")
-		closeBrackets := strings.Count(output, "]")
-
-		if openBrackets > 0 && closeBrackets >= openBrackets {
-			var jsonArray []interface{}
-			if err := json.Unmarshal([]byte(output), &jsonArray); err == nil {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 // Execute runs the CLI with the given input
 func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat string) (string, error) {
-	// Special handling for cursor-agent via bash wrapper
+	// Special handling for cursor-agent - optimized for single JSON response
 	if c.providerConf.Name == "cursor" {
 		// Build arguments for cursor-agent
 		cursorArgs := []string{"-p"}
@@ -261,33 +148,91 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			cursorArgs = append(cursorArgs, "--output-format", outputFormat)
 		}
 
-		// Use printf with %q for safe shell escaping
-		// This handles all special characters including newlines
-		bashCmd := fmt.Sprintf(`printf %%s %q | %s %s`, input, c.cliPath, strings.Join(cursorArgs, " "))
+		// Validate cursor-agent binary before execution
+		if err := c.validateCursorAgent(); err != nil {
+			return "", fmt.Errorf("cursor-agent validation failed: %w", err)
+		}
 
-		// Use bash -c to execute
-		cmd := exec.CommandContext(ctx, "bash", "-c", bashCmd)
+		// Execute cursor-agent with reasonable timeout
+		// cursor-agent outputs single JSON response, so shorter timeout is fine
+		timeoutSeconds := 120 // 2 minutes - sufficient for single API call
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutSeconds)*time.Second)
+		defer cancel()
+
+		cmd := exec.CommandContext(timeoutCtx, c.cliPath, cursorArgs...)
+		cmd.Stdin = strings.NewReader(input)
 
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
 
-		// Debug logging
+		// Debug logging (only when REVIEWTASK_DEBUG=true)
 		if os.Getenv("REVIEWTASK_DEBUG") == "true" {
-			preview := bashCmd
-			if len(bashCmd) > 200 {
-				preview = bashCmd[:200] + "..."
+			fmt.Fprintf(os.Stderr, "DEBUG: Executing cursor-agent (input: %d bytes, timeout: %d seconds)\n", len(input), timeoutSeconds)
+		}
+
+		// Execute and wait for completion
+		err := cmd.Run()
+
+		// Check if this was a timeout
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "DEBUG: Command timed out, force killing process\n")
 			}
-			fmt.Fprintf(os.Stderr, "DEBUG: Executing cursor via bash: %s (input length: %d)\n", preview, len(input))
+			if cmd.Process != nil {
+				// Process is still running, kill it
+				cmd.Process.Kill()
+			}
+			return "", fmt.Errorf("%s execution timed out after %d seconds (input length: %d bytes)",
+				c.providerConf.CommandName, timeoutSeconds, len(input))
 		}
 
-		// Execute
-		if err := cmd.Run(); err != nil {
-			return "", fmt.Errorf("%s execution failed: %w, stderr: %s, stdout: %.200s",
-				c.providerConf.CommandName, err, stderr.String(), stdout.String())
+		if err != nil {
+			// Analyze the error for better error messages
+			stderrStr := stderr.String()
+			stdoutStr := stdout.String()
+
+			if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+				fmt.Fprintf(os.Stderr, "DEBUG: Command failed - stdout: %s, stderr: %s\n", stdoutStr, stderrStr)
+			}
+
+			// Check for common cursor-agent errors
+			if c.providerConf.Name == "cursor" {
+				if strings.Contains(stderrStr, "API key") || strings.Contains(stderrStr, "authentication") {
+					return "", fmt.Errorf("%s authentication failed: please run 'cursor-agent login' and try again", c.providerConf.CommandName)
+				}
+				if strings.Contains(stderrStr, "network") || strings.Contains(stderrStr, "connection") {
+					return "", fmt.Errorf("%s network error: please check your internet connection and try again", c.providerConf.CommandName)
+				}
+				if strings.Contains(stderrStr, "rate limit") {
+					return "", fmt.Errorf("%s rate limit exceeded: please wait a moment and try again", c.providerConf.CommandName)
+				}
+			}
+
+			return "", fmt.Errorf("%s execution failed: %w\nstdout: %.200s\nstderr: %.200s",
+				c.providerConf.CommandName, err, stdoutStr, stderrStr)
 		}
 
-		return stdout.String(), nil
+		outputStr := stdout.String()
+		if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+			fmt.Fprintf(os.Stderr, "DEBUG: cursor-agent completed successfully (output length: %d bytes)\n", len(outputStr))
+			fmt.Fprintf(os.Stderr, "DEBUG: AI Response: %s\n", outputStr)
+		}
+
+		// For cursor-agent, extract the actual result from the JSON response
+		if outputFormat == "json" || outputFormat == "" {
+			var response map[string]interface{}
+			if err := json.Unmarshal([]byte(outputStr), &response); err == nil {
+				if result, exists := response["result"]; exists && result != nil {
+					// Return the result field content directly
+					if resultStr, ok := result.(string); ok {
+						return resultStr, nil
+					}
+				}
+			}
+		}
+
+		return outputStr, nil
 	}
 
 	// Standard execution for claude and other providers
@@ -343,8 +288,30 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			}
 
 			if err := json.Unmarshal([]byte(output), &cursorResponse); err != nil {
-				// If unmarshaling fails, return the raw output (backward compatibility)
-				return output, nil
+				if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+					fmt.Fprintf(os.Stderr, "DEBUG: Failed to parse cursor-agent JSON response: %v\n", err)
+					fmt.Fprintf(os.Stderr, "DEBUG: Raw response: %.500s\n", output)
+				}
+				// If unmarshaling fails, try to extract result from partial JSON
+				if strings.Contains(output, `"result"`) {
+					// Try to extract result field manually
+					resultStart := strings.Index(output, `"result"`)
+					if resultStart != -1 {
+						resultStart = strings.Index(output[resultStart:], `"`) + resultStart
+						if resultStart != -1 {
+							resultEnd := strings.Index(output[resultStart+1:], `"`)
+							if resultEnd != -1 {
+								resultEnd += resultStart + 1
+								extractedResult := output[resultStart+1 : resultEnd]
+								if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+									fmt.Fprintf(os.Stderr, "DEBUG: Extracted result from malformed JSON: %s\n", extractedResult)
+								}
+								return extractedResult, nil
+							}
+						}
+					}
+				}
+				return "", fmt.Errorf("cursor-agent returned invalid JSON response: %w\nResponse: %.500s", err, output)
 			}
 
 			if cursorResponse.IsError {
@@ -481,6 +448,35 @@ func ensureCLIAvailable(cliPath string, commandName string) error {
 	// Create new symlink
 	if err := os.Symlink(cliPath, symlinkPath); err != nil {
 		return fmt.Errorf("failed to create symlink: %w", err)
+	}
+
+	return nil
+}
+
+// validateCursorAgent validates that cursor-agent binary exists and is executable
+func (c *BaseCLIClient) validateCursorAgent() error {
+	if c.providerConf.Name != "cursor" {
+		return nil // Skip validation for non-cursor providers
+	}
+
+	// Check if binary exists
+	if _, err := os.Stat(c.cliPath); os.IsNotExist(err) {
+		return fmt.Errorf("cursor-agent binary not found at %s: %w", c.cliPath, err)
+	}
+
+	// Check if binary is executable
+	if info, err := os.Stat(c.cliPath); err != nil {
+		return fmt.Errorf("cannot stat cursor-agent binary: %w", err)
+	} else if info.Mode().Perm()&0111 == 0 {
+		return fmt.Errorf("cursor-agent binary is not executable: %s", c.cliPath)
+	}
+
+	// Try to run cursor-agent --version to verify it's working
+	testCmd := exec.Command(c.cliPath, "--version")
+	testCmd.Stdout = nil
+	testCmd.Stderr = nil
+	if err := testCmd.Run(); err != nil {
+		return fmt.Errorf("cursor-agent --version failed: %w (binary may be corrupted or incompatible)", err)
 	}
 
 	return nil
