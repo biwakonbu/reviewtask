@@ -81,6 +81,11 @@ func (c *BaseCLIClient) CheckAuthentication() error {
 		return nil
 	}
 
+	// Additional skip check for cursor-agent (backward compatibility)
+	if c.providerConf.Name == "cursor" && os.Getenv("SKIP_CURSOR_AUTH_CHECK") == "true" {
+		return nil
+	}
+
 	ctx := context.Background()
 	testInput := "test"
 
@@ -117,7 +122,11 @@ func (c *BaseCLIClient) CheckAuthentication() error {
 
 	// Special case for cursor-agent status command
 	if c.providerConf.Name == "cursor" {
-		cmd = exec.CommandContext(ctx, c.cliPath, "status")
+		// Set a timeout for status command to avoid hanging in tests
+		statusCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+
+		cmd = exec.CommandContext(statusCtx, c.cliPath, "status")
 		output, err := cmd.CombinedOutput()
 		outputStr := strings.ToLower(string(output))
 		if err != nil || !strings.Contains(outputStr, "logged in") {

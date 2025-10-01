@@ -2,6 +2,7 @@ package ai
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,6 +11,16 @@ import (
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 )
+
+// TestMain sets up test environment for all tests in this package
+func TestMain(m *testing.M) {
+	// Skip authentication checks in tests to avoid hanging on CI/test environments
+	os.Setenv("SKIP_CLAUDE_AUTH_CHECK", "true")
+	os.Setenv("SKIP_CURSOR_AUTH_CHECK", "true")
+
+	// Run tests
+	os.Exit(m.Run())
+}
 
 func TestConvertToStorageTasksUUIDGeneration(t *testing.T) {
 	// Create analyzer with default config
