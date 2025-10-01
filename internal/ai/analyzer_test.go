@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
+
+	"github.com/google/uuid"
 )
 
 // TestMain sets up test environment for all tests in this package
