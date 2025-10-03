@@ -43,7 +43,7 @@ Examples:
 func init() {
 	analyzeCmd.Flags().IntVar(&batchSize, "batch-size", 1, "Number of comments to process per batch (recommended: 1 for stability)")
 	analyzeCmd.Flags().IntVar(&maxBatches, "max-batches", 1, "Maximum number of batches to process per command")
-	analyzeCmd.Flags().BoolVar(&async, "async", false, "Run analysis in background (check status later with 'reviewtask status')")
+	analyzeCmd.Flags().BoolVar(&async, "async", false, "Run analysis in background (output will be logged to stderr)")
 	rootCmd.AddCommand(analyzeCmd)
 }
 
