@@ -36,7 +36,7 @@ func RepairJSONResponse(input string) (string, error) {
 
 	// All strategies failed, return error
 	var finalErr error
-	json.Unmarshal([]byte(current), &test) // Get the error
+	finalErr = json.Unmarshal([]byte(current), &test) // Get the error
 	if finalErr == nil {
 		finalErr = fmt.Errorf("unknown JSON parsing error")
 	}
