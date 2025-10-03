@@ -406,6 +406,13 @@ func TestValidationEnabledIntegration(t *testing.T) {
 
 	// Check if we have saved review data to test with
 	// Change to repository root directory
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chdir(cwd)
+	})
 	if err := os.Chdir(".."); err != nil {
 		t.Fatalf("Failed to change to repository root: %v", err)
 	}
