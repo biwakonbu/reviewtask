@@ -49,6 +49,14 @@ func init() {
 
 // runAnalysis executes the analysis logic (used by both async and sync paths)
 func runAnalysis(cfg *config.Config, analyzer *ai.Analyzer, reviews []github.Review, prNumber int, storageManager *storage.Manager, batchSize, maxBatches int) ([]storage.Task, error) {
+	// Validate input parameters
+	if batchSize <= 0 {
+		return nil, fmt.Errorf("batch-size must be > 0")
+	}
+	if maxBatches < 0 {
+		return nil, fmt.Errorf("max-batches must be >= 0")
+	}
+
 	var tasks []storage.Task
 	var err error
 
