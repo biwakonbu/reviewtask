@@ -215,7 +215,97 @@ type TaskDeduplicator struct {
 3. Merge similar tasks while preserving status
 4. Configurable similarity threshold
 
+### Review Source Integration
+
+#### Multi-Source Review Support
+
+reviewtask supports multiple AI code review tools with different comment formats:
+
+##### CodeRabbit Integration
+- **Detection**: `coderabbitai[bot]` username
+- **Format**: Standard GitHub review comments + actionable summary
+- **Processing**:
+  - Summary body cleared but individual comments preserved
+  - Nitpick comments configurable via `process_nitpick_comments`
+  - HTML element removal for clean task extraction
+
+##### Codex Integration (NEW)
+- **Detection**: `chatgpt-codex-connector` username or contains "codex"
+- **Format**: Embedded comments within review body
+- **Processing**:
+  - Parse structured markdown from review body
+  - Extract GitHub permalinks, priority badges, titles, descriptions
+  - Convert to standard Comment format for task generation
+
+**Codex Comment Structure:**
+```go
+type EmbeddedComment struct {
+    FilePath    string // Extracted from GitHub permalink
+    StartLine   int    // From permalink line range
+    EndLine     int    // From permalink line range
+    Priority    string // P1/P2/P3 from badge
+    Title       string // From markdown heading
+    Description string // Comment body text
+    Permalink   string // Full GitHub URL
+}
+```
+
+**Priority Mapping:**
+- P1 (orange badge) → HIGH priority
+- P2 (yellow badge) → MEDIUM priority
+- P3 (green badge) → LOW priority
+
+**Deduplication:**
+- Codex sometimes submits duplicate reviews
+- Content-based fingerprinting detects duplicates
+- Keeps most recent review when duplicates found
+
+##### Integration Flow
+```mermaid
+graph TB
+    A[GitHub Reviews] --> B{Review Source?}
+    B -->|CodeRabbit| C[Clear Summary Body]
+    B -->|Codex| D[Parse Embedded Comments]
+    B -->|Standard| E[Process Normally]
+    C --> F[Extract Comments]
+    D --> G[Convert to Comment Format]
+    E --> F
+    F --> H[Deduplicate Reviews]
+    G --> H
+    H --> I[Task Generation]
+```
+
 ### GitHub Integration
+
+#### GraphQL API Integration
+
+**Thread Auto-Resolution:**
+```go
+type GraphQLClient struct {
+    token      string
+    httpClient *http.Client
+}
+
+func (c *GraphQLClient) ResolveReviewThread(ctx context.Context, threadID string) error
+func (c *GraphQLClient) GetReviewThreadID(ctx context.Context, owner, repo string, prNumber int, commentID int64) (string, error)
+```
+
+**Features:**
+- Automatically resolve review threads when tasks marked as `done`
+- Maps comment IDs to thread IDs via GraphQL API
+- Only applies to standard GitHub comments (not Codex embedded comments)
+- Configurable via `auto_resolve_threads` setting (default: false)
+
+**Implementation:**
+```go
+// When task updated to "done"
+if config.AISettings.AutoResolveThreads && task.Status == "done" {
+    threadID, err := client.GetReviewThreadID(ctx, owner, repo, prNumber, commentID)
+    if err == nil {
+        client.ResolveReviewThread(ctx, threadID)
+    }
+}
+```
 
 #### Authentication Hierarchy
 ```go

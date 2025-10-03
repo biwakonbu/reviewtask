@@ -146,8 +146,57 @@ reviewtask/
 
 - **Unit tests**: `Test{FunctionName}_{Scenario}`
 - **Golden tests**: `Test{Function}_Golden`
+- **Integration tests**: `Test{Feature}Integration_{Scenario}`
 - **Benchmarks**: `Benchmark{Operation}`
 - **Examples**: `Example{Function}`
+
+### Test Coverage for Review Sources
+
+#### Codex Integration Tests
+
+Tests for Codex embedded comment parsing and conversion:
+
+**Location**: `internal/github/codex_integration_test.go`
+
+**Test Scenarios**:
+- Real-world Codex review parsing (from biwakonbu/pylay PR #26)
+- Empty review body handling
+- Mixed reviewer detection (Codex vs. regular reviewers)
+- Thread ID tracking for embedded comments
+- Priority badge extraction (P1/P2/P3)
+- GitHub permalink parsing
+- Title and description extraction
+
+**Running Codex Tests**:
+```bash
+# Run all Codex integration tests
+go test -v ./internal/github -run TestCodexIntegration
+
+# Run specific Codex test
+go test -v ./internal/github -run TestCodexIntegration_RealWorldScenario
+
+# Skip integration tests (short mode)
+go test -short ./internal/github
+```
+
+#### Review Deduplication Tests
+
+Tests for duplicate review detection:
+
+**Location**: `internal/github/deduplication_test.go`
+
+**Test Scenarios**:
+- Content-based fingerprinting
+- Duplicate review detection from same reviewer
+- Chronological ordering preservation
+- Similar content detection
+- Multiple reviewer handling
+
+**Running Deduplication Tests**:
+```bash
+go test -v ./internal/github -run TestDeduplicateReviews
+go test -v ./internal/github -run TestIsSimilarContent
+```
 
 ## Writing Tests
 

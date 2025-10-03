@@ -356,7 +356,9 @@ AI-powered task deduplication prevents duplicate tasks:
 - Configurable similarity threshold (0.0-1.0)
 - Preserves existing task statuses during deduplication
 
-### CodeRabbit Integration
+### AI Review Tool Integration
+
+#### CodeRabbit Integration
 
 Special handling for CodeRabbit code review comments:
 
@@ -368,6 +370,58 @@ Special handling for CodeRabbit code review comments:
 - Control whether to process nitpick comments as tasks
 - Set priority level for nitpick-generated tasks
 - Integrates with low-priority detection patterns
+
+#### Codex Integration (NEW)
+
+Support for Codex (chatgpt-codex-connector) embedded review comments:
+
+**Automatic Detection:**
+- Detects `chatgpt-codex-connector` username or reviews containing "codex"
+- Parses structured comments from review body
+- Extracts priority badges (P1/P2/P3) and GitHub permalinks
+- Converts to standard task format automatically
+
+**Priority Mapping:**
+```
+P1 (🟠 orange) → HIGH priority
+P2 (🟡 yellow) → MEDIUM priority
+P3 (🟢 green)  → LOW priority
+```
+
+**Example Codex Review Format:**
+```markdown
+https://github.com/owner/repo/blob/hash/file.py#L1-L5
+**![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat) Fix critical issue**
+
+Description of the issue that needs to be addressed...
+```
+
+**Features:**
+- No configuration required - works automatically
+- Duplicate review detection (Codex sometimes submits twice)
+- Compatible with all existing task management features
+- Thread auto-resolution not available (embedded comments have no thread ID)
+
+#### GitHub Thread Auto-Resolution (NEW)
+
+Automatically resolve review threads when tasks are completed:
+
+```json
+"auto_resolve_threads": false
+```
+
+**When enabled:**
+- Tasks marked as `done` automatically resolve their GitHub review thread
+- Provides visual confirmation that feedback has been addressed
+- Reduces manual cleanup work for PR authors
+- Only works for standard GitHub comments (not Codex embedded comments)
+
+**Default:** `false` (opt-in feature)
+
+**Requirements:**
+- Valid GitHub authentication with repository write access
+- GraphQL API access (always available with standard GitHub tokens)
+- Tasks must have valid `SourceCommentID` (automatically populated)
 
 ## Environment Variables
 

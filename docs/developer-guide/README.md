@@ -2,6 +2,20 @@
 
 This documentation is for developers who want to contribute to reviewtask or understand its internal architecture.
 
+## Supported Integration Points
+
+### AI Providers
+- **Cursor CLI** - Primary AI provider with automatic model selection
+- **Claude Code** - Alternative AI provider via Anthropic's CLI
+- **Extensible architecture** - Easy to add new AI providers
+
+### Review Source Integrations
+- **Standard GitHub Reviews** - REST API + GraphQL for thread resolution
+- **CodeRabbit** (`coderabbitai[bot]`) - Nitpick detection, HTML cleaning
+- **Codex** (`chatgpt-codex-connector`) - Embedded comment parser with priority badges
+
+See [Architecture Overview](architecture.md) for detailed integration patterns.
+
 ## Architecture & Design
 
 - [Architecture Overview](architecture.md) - System design and components
