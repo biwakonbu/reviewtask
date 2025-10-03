@@ -1,0 +1,77 @@
+name: Dependabot Auto-Merge
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+
+    steps:
+    - name: Check if all CI checks passed
+      id: check-ci
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const { data: pr } = await github.rest.pulls.get({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.pull_request.number
+          });
+
+          const { data: checks } = await github.rest.checks.listForRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: pr.head.sha
+          });
+
+          // Required CI jobs that must pass
+          const requiredJobs = ['Test', 'Lint', 'Format Check', 'Go Vet', 'Build'];
+
+          const completedChecks = checks.check_runs.filter(check =>
+            requiredJobs.some(job => check.name.includes(job)) &&
+            check.status === 'completed'
+          );
+
+          const failedChecks = completedChecks.filter(check =>
+            check.conclusion !== 'success'
+          );
+
+          console.log('Completed checks:', completedChecks.map(c => `${c.name}: ${c.conclusion}`));
+          console.log('Required jobs:', requiredJobs);
+
+          if (failedChecks.length > 0) {
+            console.log('Failed checks found:', failedChecks.map(c => c.name));
+            core.setOutput('can_merge', 'false');
+            return;
+          }
+
+          if (completedChecks.length < requiredJobs.length) {
+            console.log('Not all required checks completed yet');
+            core.setOutput('can_merge', 'false');
+            return;
+          }
+
+          console.log('All CI checks passed!');
+          core.setOutput('can_merge', 'true');
+
+    - name: Enable auto-merge
+      if: steps.check-ci.outputs.can_merge == 'true'
+      run: gh pr merge --auto --squash "$PR_URL"
+      env:
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Approve PR
+      if: steps.check-ci.outputs.can_merge == 'true'
+      run: gh pr review --approve "$PR_URL"
+      env:
+        PR_URL: ${{ github.event.pull_request.html_url }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
