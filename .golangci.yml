@@ -27,7 +27,6 @@ linters-settings:
 linters:
   enable:
     - gofmt
-    - typecheck
 
   # Disable strict linters for initial CI setup
   disable:
