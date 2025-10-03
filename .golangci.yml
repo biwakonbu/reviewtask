@@ -1,29 +1,5 @@
 version: "2"
 
-settings:
-  gocyclo:
-    min-complexity: 15
-  goimports:
-    local-prefixes: reviewtask
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
-
 formatters:
   enable:
     - gofmt
@@ -46,6 +22,30 @@ linters:
     - unparam
     - unused
     - whitespace
+
+  settings:
+    gocyclo:
+      min-complexity: 15
+    goimports:
+      local-prefixes: reviewtask
+    goconst:
+      min-len: 2
+      min-occurrences: 2
+    misspell:
+      locale: US
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - dupImport
+        - ifElseChain
+        - octalLiteral
+        - whyNoLint
+        - wrapperFunc
 
   exclusions:
     paths:
