@@ -127,7 +127,7 @@ func defaultConfig() *Config {
 			OutputFormat:             "json",
 			MaxRetries:               5,
 			AIProvider:               "auto",     // Default to auto-detect (try cursor, then claude)
-			AutoResolveMode:          "disabled", // Default to disabled (user must opt-in)
+			AutoResolveMode:          "complete", // Default to complete mode (resolve when all comment tasks are done)
 			Model:                    "auto",     // Default to auto model (cursor chooses best model)
 			PromptProfile:            "v2",
 			ValidationEnabled:        &validationTrue,

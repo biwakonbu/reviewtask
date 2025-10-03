@@ -38,10 +38,12 @@ type Task struct {
 	File                 string               `json:"file"`
 	Line                 int                  `json:"line"`
 	Status               string               `json:"status"`
-	ImplementationStatus string               `json:"implementation_status"` // implemented, not_implemented
-	VerificationStatus   string               `json:"verification_status"`   // verified, not_verified, failed
-	VerificationResults  []VerificationResult `json:"verification_results"`  // History of verification attempts
-	LastVerificationAt   string               `json:"last_verification_at"`  // Last verification timestamp
+	CancelReason         string               `json:"cancel_reason,omitempty"` // Reason for cancellation (optional)
+	CancelCommentPosted  bool                 `json:"cancel_comment_posted"`   // Whether cancel reason was posted to PR
+	ImplementationStatus string               `json:"implementation_status"`   // implemented, not_implemented
+	VerificationStatus   string               `json:"verification_status"`     // verified, not_verified, failed
+	VerificationResults  []VerificationResult `json:"verification_results"`    // History of verification attempts
+	LastVerificationAt   string               `json:"last_verification_at"`    // Last verification timestamp
 	CreatedAt            string               `json:"created_at"`
 	UpdatedAt            string               `json:"updated_at"`
 	PRNumber             int                  `json:"pr_number"`
@@ -396,6 +398,10 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 }
 
 // AreAllCommentTasksCompleted checks if all tasks from a comment are completed
+// Rules for resolution:
+// - All tasks must be either "done" or "cancel"
+// - If any task is "pending", cannot resolve (blocks resolution)
+// - If task is "cancel", it must have CancelCommentPosted=true (reason was posted to PR)
 func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bool, error) {
 	tasks, err := m.GetTasksByComment(prNumber, commentID)
 	if err != nil {
@@ -407,9 +413,22 @@ func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bo
 		return false, nil
 	}
 
-	// Check if all tasks are done
+	// Check if all tasks are in a resolvable state
 	for _, task := range tasks {
-		if task.Status != "done" {
+		switch task.Status {
+		case "done":
+			// Done tasks are always OK
+			continue
+		case "cancel":
+			// Cancel tasks require a posted reason to be considered complete
+			if !task.CancelCommentPosted {
+				return false, nil
+			}
+		case "pending":
+			// Pending tasks block resolution
+			return false, nil
+		default:
+			// Any other status (todo, doing) means not completed
 			return false, nil
 		}
 	}
