@@ -233,6 +233,9 @@ func (m *Manager) saveTasksLocked(prNumber int, tasks []Task) error {
 }
 
 func (m *Manager) GetAllTasks() ([]Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	var allTasks []Task
 
 	// Check if storage directory exists
@@ -663,6 +666,9 @@ func (m *Manager) GetPRInfo(prNumber int) (*github.PRInfo, error) {
 
 // UpdateTaskVerificationStatus updates the verification status of a task
 func (m *Manager) UpdateTaskVerificationStatus(taskID string, verificationStatus string, result *VerificationResult) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// Find the task across all PRs
 	entries, err := os.ReadDir(m.baseDir)
 	if err != nil {
@@ -720,6 +726,9 @@ func (m *Manager) UpdateTaskVerificationStatus(taskID string, verificationStatus
 
 // UpdateTaskImplementationStatus updates the implementation status of a task
 func (m *Manager) UpdateTaskImplementationStatus(taskID string, implementationStatus string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// Find the task across all PRs
 	entries, err := os.ReadDir(m.baseDir)
 	if err != nil {
