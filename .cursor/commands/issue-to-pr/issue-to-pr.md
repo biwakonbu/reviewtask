@@ -8,13 +8,13 @@
 
 **Detecting current context and executing resume logic...**
 
-Current branch: `feature/issue-6-organize-pr-review-commands`
-Detected Issue number: **6**
-PR Status: **#18 exists (OPEN)**
+Current branch: `${CURRENT_BRANCH}`
+Detected Issue number: **${ISSUE_NUMBER}**
+PR Status: **${PR_STATUS}**
 
-**✅ RESUMING ISSUE #6 WORKFLOW FROM CURRENT STATE**
+**✅ RESUMING ISSUE #${ISSUE_NUMBER} WORKFLOW FROM CURRENT STATE**
 
-Proceeding with Issue #6 implementation workflow. Analyzing current progress and determining next steps...
+Proceeding with Issue #${ISSUE_NUMBER} implementation workflow. Analyzing current progress and determining next steps...
 
 ## 🔄 Resume Functionality
 
