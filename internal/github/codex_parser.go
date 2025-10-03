@@ -181,12 +181,12 @@ func ConvertEmbeddedCommentToComment(ec EmbeddedComment, author string, createdA
 func MapPriorityToTaskPriority(codexPriority string) string {
 	switch codexPriority {
 	case "P1":
-		return "HIGH"
+		return "high"
 	case "P2":
-		return "MEDIUM"
+		return "medium"
 	case "P3":
-		return "LOW"
+		return "low"
 	default:
-		return "MEDIUM" // Default to medium if unknown
+		return "medium" // Default to medium if unknown
 	}
 }
