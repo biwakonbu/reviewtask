@@ -395,6 +395,28 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 	return commentTasks, nil
 }
 
+// AreAllCommentTasksCompleted checks if all tasks from a comment are completed
+func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bool, error) {
+	tasks, err := m.GetTasksByComment(prNumber, commentID)
+	if err != nil {
+		return false, err
+	}
+
+	// If no tasks found, consider it as not completed
+	if len(tasks) == 0 {
+		return false, nil
+	}
+
+	// Check if all tasks are done
+	for _, task := range tasks {
+		if task.Status != "done" {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int64, taskIndex int, newStatus string) error {
 	// Find task by comment ID and task index
 	allTasks, err := m.GetTasksByPR(prNumber)

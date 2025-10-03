@@ -57,16 +57,39 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	// Check if auto-resolve is enabled
 	cfg, err := config.Load()
-	autoResolve := err == nil && cfg.AISettings.AutoResolveThreads
+
+	// Determine auto-resolve behavior based on configuration
+	// Priority: AutoResolveMode > AutoResolveThreads (legacy)
+	autoResolveMode := "disabled"
+	if err == nil {
+		if cfg.AISettings.AutoResolveMode != "" && cfg.AISettings.AutoResolveMode != "disabled" {
+			autoResolveMode = cfg.AISettings.AutoResolveMode
+		} else if cfg.AISettings.AutoResolveThreads {
+			// Legacy support: AutoResolveThreads=true maps to "immediate" mode
+			autoResolveMode = "immediate"
+		}
+	}
 
 	// Create callback for thread resolution if needed
 	var callback func(*storage.Task) error
-	if autoResolve && newStatus == "done" {
+	if autoResolveMode != "disabled" && newStatus == "done" {
 		callback = func(task *storage.Task) error {
 			// Only resolve threads for tasks with source comment IDs
 			// (embedded comments from Codex won't have thread IDs)
 			if task.SourceCommentID == 0 {
 				return nil
+			}
+
+			// For "complete" mode, check if all tasks for this comment are done
+			if autoResolveMode == "complete" {
+				allDone, err := storageManager.AreAllCommentTasksCompleted(task.PRNumber, task.SourceCommentID)
+				if err != nil {
+					return fmt.Errorf("failed to check comment completion status: %w", err)
+				}
+				if !allDone {
+					// Not all tasks are done yet, skip resolution
+					return nil
+				}
 			}
 
 			// Create GitHub client
