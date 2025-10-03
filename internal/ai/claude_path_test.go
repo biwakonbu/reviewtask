@@ -12,9 +12,17 @@ import (
 )
 
 func TestFindClaudeCLI(t *testing.T) {
-	// Save original PATH and restore after test
+	// Save original PATH and HOME and restore after test
 	originalPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", originalPath)
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		os.Setenv("PATH", originalPath)
+		os.Setenv("HOME", originalHome)
+	}()
+
+	// Create temporary home directory for test
+	homeDir := t.TempDir()
+	os.Setenv("HOME", homeDir)
 
 	tests := []struct {
 		name           string
@@ -46,8 +54,7 @@ func TestFindClaudeCLI(t *testing.T) {
 				// Remove claude from PATH
 				os.Setenv("PATH", "/nonexistent")
 
-				// Create mock claude in common location
-				homeDir, _ := os.UserHomeDir()
+				// Create mock claude in common location (use test home dir)
 				claudeDir := filepath.Join(homeDir, ".claude", "local")
 				if err := os.MkdirAll(claudeDir, 0755); err != nil {
 					t.Fatalf("Failed to create claude dir: %v", err)
