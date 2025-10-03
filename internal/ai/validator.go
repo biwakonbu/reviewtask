@@ -1,10 +1,9 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 
 	"reviewtask/internal/github"
@@ -189,9 +188,9 @@ Return JSON in this EXACT format:
 }
 
 func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult, error) {
-	// Ensure claude CLI is available in PATH before execution
-	if _, err := exec.LookPath("claude"); err != nil {
-		return nil, fmt.Errorf("claude CLI not found in PATH")
+	// Use the injected AI provider instead of calling Claude directly
+	if tv.aiProvider == nil {
+		return nil, fmt.Errorf("AI provider not initialized for validation")
 	}
 
 	// Check for very large prompts that might exceed system limits
@@ -200,46 +199,15 @@ func (tv *TaskValidator) callClaudeValidation(prompt string) (*ValidationResult,
 		return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", len(prompt), maxPromptSize)
 	}
 
-	claudePath, err := tv.findClaudeCommand()
+	// Call AI provider (supports both Claude and Cursor)
+	ctx := context.Background()
+	output, err := tv.aiProvider.Execute(ctx, prompt, "json")
 	if err != nil {
-		return nil, fmt.Errorf("claude command not found")
-	}
-
-	args := []string{}
-	// Add model parameter if specified in config (skip "auto" as it's not valid for Claude CLI)
-	if tv.config != nil && tv.config.AISettings.Model != "" && tv.config.AISettings.Model != "auto" {
-		args = append(args, "--model", tv.config.AISettings.Model)
-	}
-	args = append(args, "--output-format", "json")
-
-	cmd := exec.Command(claudePath, args...)
-	cmd.Stdin = strings.NewReader(prompt)
-	// Ensure the command inherits the current environment including PATH
-	cmd.Env = os.Environ()
-
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("claude validation execution failed")
-	}
-
-	// Parse Claude Code CLI response wrapper
-	var claudeResponse struct {
-		Type    string `json:"type"`
-		Subtype string `json:"subtype"`
-		IsError bool   `json:"is_error"`
-		Result  string `json:"result"`
-	}
-
-	if err := json.Unmarshal(output, &claudeResponse); err != nil {
-		return nil, fmt.Errorf("failed to parse claude response")
-	}
-
-	if claudeResponse.IsError {
-		return nil, fmt.Errorf("claude validation failed")
+		return nil, fmt.Errorf("AI validation execution failed: %w", err)
 	}
 
 	// Extract JSON from result (may be wrapped in markdown code block)
-	result := claudeResponse.Result
+	result := output
 	result = strings.TrimSpace(result)
 	if strings.HasPrefix(result, "```json") && strings.HasSuffix(result, "```") {
 		// Remove markdown code block wrapper
@@ -334,9 +302,4 @@ func (tv *TaskValidator) isValidPriority(priority string) bool {
 		}
 	}
 	return false
-}
-
-// findClaudeCommand searches for Claude CLI using the shared utility function
-func (tv *TaskValidator) findClaudeCommand() (string, error) {
-	return FindClaudeCommand(tv.config.AISettings.ClaudePath)
 }

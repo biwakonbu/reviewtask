@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -50,6 +51,84 @@ func outputPRReviewPromptToStdout(cmd *cobra.Command) error {
 
 // getPRReviewPromptTemplate returns the PR review workflow prompt template
 // This is shared between claude.go and prompt_stdout.go to maintain consistency
+func getIssueToPRTemplate() string {
+	// For tests and when running from different directories,
+	// try multiple possible locations for the template
+	possiblePaths := []string{
+		".claude/commands/issue-to-pr.md",
+		"../.claude/commands/issue-to-pr.md",
+		"../../.claude/commands/issue-to-pr.md",
+	}
+
+	for _, path := range possiblePaths {
+		if content, err := os.ReadFile(path); err == nil {
+			return string(content)
+		}
+	}
+
+	// Return a minimal working template if file not found
+	return `# Issue to PR Workflow
+
+## Core Principle: Complete Automation of Issues-Driven Development
+
+**Create systematic PRs and implementation from specified GitHub Issues numbers.**
+
+## Development Workflow
+
+1. **Branch Preparation**: Create feature branch from issue
+2. **Draft PR Creation**: Create draft PR linked to issue
+3. **Implementation**: Implement features step by step
+4. **Testing**: Create comprehensive tests
+5. **Completion**: Convert draft to open PR
+
+## Usage
+
+Run with issue number: /issue-to-pr 42
+
+This workflow automates the complete development process from GitHub Issues.`
+}
+
+func getLabelIssuesTemplate() string {
+	// For tests and when running from different directories,
+	// try multiple possible locations for the template
+	possiblePaths := []string{
+		".claude/commands/label-issues.md",
+		"../.claude/commands/label-issues.md",
+		"../../.claude/commands/label-issues.md",
+	}
+
+	for _, path := range possiblePaths {
+		if content, err := os.ReadFile(path); err == nil {
+			return string(content)
+		}
+	}
+
+	// Return a minimal working template if file not found
+	return `# Label Issues
+
+## Basic Principle: Automatic Label Setting Based on Release Impact
+
+**Automatically set appropriate release labels (release:major/minor/patch) for GitHub issues.**
+
+## Label Setting Flow
+
+1. **Fetch GitHub Issues**: Get open issues without release labels
+2. **Analyze Content**: Determine if it's a development-related issue
+3. **Assign Labels**: Apply appropriate release label based on impact
+
+## Release Label Criteria
+
+**release:major**: Breaking changes, CLI structure changes
+**release:minor**: New features, enhancements
+**release:patch**: Bug fixes, documentation updates
+
+## Usage
+
+Analyze and label all open issues: /label-issues
+
+This workflow helps maintain consistent semantic versioning.`
+}
+
 func getPRReviewPromptTemplate() string {
 	// Use § as placeholder for backticks to enable true heredoc format
 	template := `---

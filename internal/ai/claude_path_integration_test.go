@@ -14,14 +14,17 @@ import (
 )
 
 func TestClaudePathDetectionIntegration(t *testing.T) {
-	// Save original PATH and restore after test
+	// Save original PATH and HOME and restore after test
 	originalPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", originalPath)
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		os.Setenv("PATH", originalPath)
+		os.Setenv("HOME", originalHome)
+	}()
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
+	// Create temporary home directory for test
+	homeDir := t.TempDir()
+	os.Setenv("HOME", homeDir)
 
 	tests := []struct {
 		name          string
@@ -133,14 +136,17 @@ func TestClaudeExecutionWithPathDetection(t *testing.T) {
 		t.Skip("Skipping execution test - no Claude CLI available")
 	}
 
-	// Save original PATH and restore after test
+	// Save original PATH and HOME and restore after test
 	originalPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", originalPath)
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		os.Setenv("PATH", originalPath)
+		os.Setenv("HOME", originalHome)
+	}()
 
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Failed to get home directory: %v", err)
-	}
+	// Create temporary home directory for test
+	homeDir := t.TempDir()
+	os.Setenv("HOME", homeDir)
 
 	// Remove claude from PATH
 	os.Setenv("PATH", "/nonexistent")
@@ -310,9 +316,17 @@ func TestErrorHandlingIntegration(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping shell script based test on Windows")
 	}
-	// Save original PATH and restore after test
+	// Save original PATH and HOME and restore after test
 	originalPath := os.Getenv("PATH")
-	defer os.Setenv("PATH", originalPath)
+	originalHome := os.Getenv("HOME")
+	defer func() {
+		os.Setenv("PATH", originalPath)
+		os.Setenv("HOME", originalHome)
+	}()
+
+	// Create temporary home directory for test
+	homeDir := t.TempDir()
+	os.Setenv("HOME", homeDir)
 
 	// Test error handling when no Claude CLI is found
 	os.Setenv("PATH", "/nonexistent")
