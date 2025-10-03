@@ -168,16 +168,19 @@ Tests for Codex embedded comment parsing and conversion:
 - Title and description extraction
 
 **Running Codex Tests**:
-```bash
-# Run all Codex integration tests
-go test -v ./internal/github -run TestCodexIntegration
 
-# Run specific Codex test
-go test -v ./internal/github -run TestCodexIntegration_RealWorldScenario
-
-# Skip integration tests (short mode)
-go test -short ./internal/github
-```
+1. Run all Codex integration tests
+   ```bash
+   go test -v ./internal/github -run TestCodexIntegration
+   ```
+2. Run the real-world Codex scenario
+   ```bash
+   go test -v ./internal/github -run TestCodexIntegration_RealWorldScenario
+   ```
+3. Skip integration tests in short mode
+   ```bash
+   go test -short ./internal/github
+   ```
 
 #### Review Deduplication Tests
 
@@ -193,10 +196,15 @@ Tests for duplicate review detection:
 - Multiple reviewer handling
 
 **Running Deduplication Tests**:
-```bash
-go test -v ./internal/github -run TestDeduplicateReviews
-go test -v ./internal/github -run TestIsSimilarContent
-```
+
+1. Run the main deduplication tests
+   ```bash
+   go test -v ./internal/github -run TestDeduplicateReviews
+   ```
+2. Run the similar-content matcher tests
+   ```bash
+   go test -v ./internal/github -run TestIsSimilarContent
+   ```
 
 ## Writing Tests
 
