@@ -299,23 +299,23 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 					fmt.Fprintf(os.Stderr, "DEBUG: Failed to parse cursor-agent JSON response: %v\n", err)
 					fmt.Fprintf(os.Stderr, "DEBUG: Raw response: %.500s\n", output)
 				}
-				// If unmarshaling fails, try to extract result from partial JSON
-				if strings.Contains(output, `"result"`) {
-					// Try to extract result field manually
-					resultStart := strings.Index(output, `"result"`)
-					if resultStart != -1 {
-						resultStart = strings.Index(output[resultStart:], `"`) + resultStart
-						if resultStart != -1 {
-							resultEnd := strings.Index(output[resultStart+1:], `"`)
-							if resultEnd != -1 {
-								resultEnd += resultStart + 1
-								extractedResult := output[resultStart+1 : resultEnd]
-								if os.Getenv("REVIEWTASK_DEBUG") == "true" {
-									fmt.Fprintf(os.Stderr, "DEBUG: Extracted result from malformed JSON: %s\n", extractedResult)
-								}
-								return extractedResult, nil
-							}
+				// Try to repair malformed JSON using json_repair utility
+				if repaired, repairErr := RepairJSONResponse(output); repairErr == nil {
+					if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+						fmt.Fprintf(os.Stderr, "DEBUG: Repaired JSON: %.500s\n", repaired)
+					}
+					if unmarshalErr := json.Unmarshal([]byte(repaired), &cursorResponse); unmarshalErr == nil {
+						if os.Getenv("REVIEWTASK_DEBUG") == "true" {
+							fmt.Fprintf(os.Stderr, "DEBUG: Successfully repaired and parsed JSON\n")
 						}
+						if cursorResponse.IsError {
+							errorMsg := cursorResponse.Error
+							if errorMsg == "" {
+								errorMsg = cursorResponse.Result
+							}
+							return "", fmt.Errorf("%s API error: %s", c.providerConf.Name, errorMsg)
+						}
+						return cursorResponse.Result, nil
 					}
 				}
 				return "", fmt.Errorf("cursor-agent returned invalid JSON response: %w\nResponse: %.500s", err, output)
