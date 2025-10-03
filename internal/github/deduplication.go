@@ -89,13 +89,20 @@ func DeduplicateReviews(reviews []Review) []Review {
 		}
 
 		// Keep only the most recent review for each unique content hash
-		seen := make(map[string]bool)
+		// For each content hash, find the most recent review by comparing SubmittedAt
+		hashToLatest := make(map[string]Review)
 		for _, review := range reviewerReviews {
 			fp := GenerateReviewFingerprint(review)
-			if !seen[fp.ContentHash] {
-				deduplicated = append(deduplicated, review)
-				seen[fp.ContentHash] = true
+
+			// If we haven't seen this hash, or this review is more recent, keep it
+			if existing, exists := hashToLatest[fp.ContentHash]; !exists || review.SubmittedAt > existing.SubmittedAt {
+				hashToLatest[fp.ContentHash] = review
 			}
+		}
+
+		// Add the latest reviews to deduplicated list
+		for _, review := range hashToLatest {
+			deduplicated = append(deduplicated, review)
 		}
 	}
 
