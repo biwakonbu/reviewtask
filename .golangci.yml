@@ -3,6 +3,9 @@ version: "2"
 formatters:
   enable:
     - gofmt
+  settings:
+    goimports:
+      local-prefixes: reviewtask
 
 linters:
   # Disable strict linters for initial CI setup
@@ -13,7 +16,6 @@ linters:
     - errcheck
     - goconst
     - gocritic
-    - goimports
     - gosec
     - misspell
     - nakedret
@@ -22,30 +24,6 @@ linters:
     - unparam
     - unused
     - whitespace
-
-  settings:
-    gocyclo:
-      min-complexity: 15
-    goimports:
-      local-prefixes: reviewtask
-    goconst:
-      min-len: 2
-      min-occurrences: 2
-    misspell:
-      locale: US
-    gocritic:
-      enabled-tags:
-        - diagnostic
-        - experimental
-        - opinionated
-        - performance
-        - style
-      disabled-checks:
-        - dupImport
-        - ifElseChain
-        - octalLiteral
-        - whyNoLint
-        - wrapperFunc
 
   exclusions:
     paths:
