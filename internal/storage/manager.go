@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"reviewtask/internal/github"
@@ -23,6 +24,7 @@ var (
 
 type Manager struct {
 	baseDir string
+	mu      sync.RWMutex // Protects concurrent access to task storage
 }
 
 type Task struct {
@@ -192,6 +194,13 @@ func (m *Manager) ReviewsExist(prNumber int) (bool, error) {
 }
 
 func (m *Manager) SaveTasks(prNumber int, tasks []Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.saveTasksLocked(prNumber, tasks)
+}
+
+// saveTasksLocked is the internal implementation without locking (caller must hold lock)
+func (m *Manager) saveTasksLocked(prNumber int, tasks []Task) error {
 	prDir := m.getPRDir(prNumber)
 	if err := m.ensureDir(prDir); err != nil {
 		return err
@@ -264,6 +273,9 @@ func (m *Manager) GetAllTasks() ([]Task, error) {
 }
 
 func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	// Find the task across all PRs
 	entries, err := os.ReadDir(m.baseDir)
 	if err != nil {
@@ -336,6 +348,13 @@ func isPRDir(name string) bool {
 }
 
 func (m *Manager) GetTasksByPR(prNumber int) ([]Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.getTasksByPRLocked(prNumber)
+}
+
+// getTasksByPRLocked is the internal implementation without locking (caller must hold lock)
+func (m *Manager) getTasksByPRLocked(prNumber int) ([]Task, error) {
 	tasksPath := filepath.Join(m.getPRDir(prNumber), "tasks.json")
 	return m.loadTasksFromFile(tasksPath)
 }
@@ -380,7 +399,10 @@ func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int6
 
 // MergeTasks combines new tasks with existing ones, preserving existing task statuses
 func (m *Manager) MergeTasks(prNumber int, newTasks []Task) error {
-	existingTasks, err := m.GetTasksByPR(prNumber)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	existingTasks, err := m.getTasksByPRLocked(prNumber)
 	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("failed to load existing tasks: %w", err)
 	}
@@ -416,7 +438,7 @@ func (m *Manager) MergeTasks(prNumber int, newTasks []Task) error {
 		mergedTasks = append(mergedTasks, mergedForComment...)
 	}
 
-	return m.SaveTasks(prNumber, mergedTasks)
+	return m.saveTasksLocked(prNumber, mergedTasks)
 }
 
 // mergeTasksForComment handles task merging for a specific comment
