@@ -162,7 +162,7 @@ Issue #25: How to configure authentication? (question)
 
 ## 📚 関連情報
 
-- [VERSIONING.md](../VERSIONING.md): バージョン管理ルール
+- [VERSIONING.md](../../../VERSIONING.md): バージョン管理ルール
 - [GitHub CLI Documentation](https://cli.github.com/manual/): gh issue commands
 - [Semantic Versioning](https://semver.org/): セマンティックバージョニング規則
 
