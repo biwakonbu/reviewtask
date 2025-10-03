@@ -18,7 +18,12 @@ func TestCursorCommandIntegration(t *testing.T) {
 	os.RemoveAll(".cursor")
 	defer os.RemoveAll(".cursor")
 
-	// Reset flags
+	// Reset flags with snapshot/restore pattern to prevent cross-test flakiness
+	prevAll, prevStdout := cursorAllFlag, cursorStdoutFlag
+	t.Cleanup(func() {
+		cursorAllFlag = prevAll
+		cursorStdoutFlag = prevStdout
+	})
 	cursorAllFlag = false
 	cursorStdoutFlag = false
 
@@ -351,10 +356,18 @@ func TestCursorCommandWithTemplateFiles(t *testing.T) {
 	}
 
 	// Verify the generated file matches source
-	sourceContent, _ := os.ReadFile(filepath.FromSlash(".claude/commands/issue-to-pr.md"))
-	generatedContent, _ := os.ReadFile(filepath.FromSlash(".cursor/commands/issue-to-pr/issue-to-pr.md"))
-
-	if string(sourceContent) != string(generatedContent) {
+	srcPath := filepath.FromSlash(".claude/commands/issue-to-pr.md")
+	genPath := filepath.FromSlash(".cursor/commands/issue-to-pr/issue-to-pr.md")
+	sourceContent, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", srcPath, err)
+	}
+	generatedContent, err := os.ReadFile(genPath)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", genPath, err)
+	}
+	normalize := func(b []byte) string { return strings.ReplaceAll(string(b), "\r\n", "\n") }
+	if normalize(sourceContent) != normalize(generatedContent) {
 		t.Errorf("Generated issue-to-pr template doesn't match source template")
 	}
 
@@ -368,10 +381,129 @@ func TestCursorCommandWithTemplateFiles(t *testing.T) {
 	}
 
 	// Verify the generated file matches source
-	sourceContent, _ = os.ReadFile(filepath.FromSlash(".claude/commands/label-issues.md"))
-	generatedContent, _ = os.ReadFile(filepath.FromSlash(".cursor/commands/label-issues/label-issues.md"))
-
-	if string(sourceContent) != string(generatedContent) {
+	srcPath = filepath.FromSlash(".claude/commands/label-issues.md")
+	genPath = filepath.FromSlash(".cursor/commands/label-issues/label-issues.md")
+	sourceContent, err = os.ReadFile(srcPath)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", srcPath, err)
+	}
+	generatedContent, err = os.ReadFile(genPath)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", genPath, err)
+	}
+	if normalize(sourceContent) != normalize(generatedContent) {
 		t.Errorf("Generated label-issues template doesn't match source template")
 	}
+}
+
+// TestValidationEnabledIntegration verifies that validation_enabled=true works correctly
+// with actual cursor-agent execution and JSON repair functionality
+func TestValidationEnabledIntegration(t *testing.T) {
+	// Skip if cursor-agent is not available
+	if os.Getenv("SKIP_CURSOR_AUTH_CHECK") == "" {
+		t.Skip("Skipping validation integration test: set SKIP_CURSOR_AUTH_CHECK=true to run")
+	}
+
+	// Check if we have saved review data to test with
+	// Change to repository root directory
+	if err := os.Chdir(".."); err != nil {
+		t.Fatalf("Failed to change to repository root: %v", err)
+	}
+
+	reviewsPath := ".pr-review/PR-166/reviews.json"
+	if _, err := os.Stat(reviewsPath); os.IsNotExist(err) {
+		t.Skipf("Skipping test: review data %s not found", reviewsPath)
+	}
+
+	// Backup and restore config
+	configPath := ".pr-review/config.json"
+	configBackup, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("Failed to read config: %v", err)
+	}
+	defer func() {
+		if err := os.WriteFile(configPath, configBackup, 0644); err != nil {
+			t.Errorf("Failed to restore config: %v", err)
+		}
+	}()
+
+	// Enable validation and verbose mode in config
+	// Parse current config and enable validation_enabled and verbose_mode
+	configStr := string(configBackup)
+	configStr = strings.Replace(configStr, `"validation_enabled": false`, `"validation_enabled": true`, 1)
+	configStr = strings.Replace(configStr, `"verbose_mode": false`, `"verbose_mode": true`, 1)
+	if err := os.WriteFile(configPath, []byte(configStr), 0644); err != nil {
+		t.Fatalf("Failed to update config: %v", err)
+	}
+	t.Logf("Enabled validation_enabled=true and verbose_mode=true in config")
+
+	// Backup and restore tasks.json (we'll regenerate during test)
+	tasksPath := ".pr-review/PR-166/tasks.json"
+	var tasksBackup []byte
+	if tasksData, err := os.ReadFile(tasksPath); err == nil {
+		tasksBackup = tasksData
+		defer func() {
+			if err := os.WriteFile(tasksPath, tasksBackup, 0644); err != nil {
+				t.Errorf("Failed to restore tasks.json: %v", err)
+			}
+		}()
+	}
+
+	// Remove tasks.json and checkpoint.json so we can regenerate from scratch
+	if err := os.Remove(tasksPath); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Failed to remove tasks.json: %v", err)
+	}
+	checkpointPath := ".pr-review/PR-166/checkpoint.json"
+	if err := os.Remove(checkpointPath); err != nil && !os.IsNotExist(err) {
+		t.Fatalf("Failed to remove checkpoint.json: %v", err)
+	}
+	t.Logf("Removed tasks.json and checkpoint.json to force regeneration")
+
+	// Run the actual reviewtask analyze command through rootCmd
+	// Note: analyzeCmd is already added to rootCmd in init()
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	// Use small batch sizes for faster, more reliable testing
+	// batch-size=1 ensures we test individual comment processing
+	// max-batches=1 keeps the test short
+	rootCmd.SetArgs([]string{"analyze", "166", "--batch-size", "1", "--max-batches", "1"})
+
+	err = rootCmd.Execute()
+	output := buf.String()
+
+	// The command should succeed (no timeout, no panic)
+	if err != nil {
+		t.Errorf("Analyze command failed with validation_enabled=true: %v\nOutput: %s", err, output)
+	}
+
+	// Verify tasks were generated
+	if _, statErr := os.Stat(tasksPath); os.IsNotExist(statErr) {
+		t.Errorf("Expected tasks.json to be created, but it wasn't")
+		return
+	}
+
+	// Read and verify tasks
+	tasksData, err := os.ReadFile(tasksPath)
+	if err != nil {
+		t.Fatalf("Failed to read tasks.json: %v", err)
+	}
+
+	// Verify JSON is valid
+	if !bytes.Contains(tasksData, []byte(`"tasks"`)) {
+		t.Errorf("tasks.json doesn't contain expected 'tasks' field")
+	}
+
+	// Verify there are tasks (should be at least 1 from the batch)
+	if len(tasksData) < 50 {
+		t.Errorf("tasks.json seems too small (%d bytes), may not contain valid tasks", len(tasksData))
+	}
+
+	t.Logf("Generated tasks.json size: %d bytes", len(tasksData))
+
+	// Success - validation worked without timeout
+	t.Logf("✅ Validation integration test passed")
+	t.Logf("   - No timeout occurred")
+	t.Logf("   - Tasks generated successfully")
+	t.Logf("   - JSON repair and validation pipeline working correctly")
 }

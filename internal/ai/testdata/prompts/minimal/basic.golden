@@ -38,6 +38,12 @@ Rules:
 - Focus on WHAT needs to be achieved, not step-by-step implementation details
 - When in doubt, create ONE comprehensive task rather than multiple small ones
 
+CRITICAL JSON FORMATTING RULES:
+- Return RAW JSON only - NO markdown code blocks, NO ```json wrappers, NO explanations
+- ESCAPE all special characters in JSON strings: use \\n for newlines, \\t for tabs, \\r for carriage returns
+- Do NOT include literal newlines or tabs inside JSON string values
+- All string values must be properly escaped and on a single logical line
+
 IMPORTANT: Generate task descriptions in English language.
 
 Priority Guidelines for Task Generation:

@@ -1,0 +1,13 @@
+=== Validation Test Output ===
+AI Call Sequence: [analysis validation]
+Total AI Calls: 2
+
+Generated Tasks:
+---
+Task 1:
+  Description: Add input validation to prevent security vulnerabilities
+  Priority: critical
+  Status: todo
+  Source Comment ID: 101
+  File: internal/auth.go
+  Line: 42

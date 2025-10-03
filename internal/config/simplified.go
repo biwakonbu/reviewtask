@@ -137,12 +137,33 @@ func applyAdvancedAISettings(config *Config, aiSettings map[string]interface{}) 
 		config.AISettings.PromptProfile = profile
 	}
 
+	// Support both "verbose" and "verbose_mode" for backward compatibility
 	if verbose, ok := aiSettings["verbose"].(bool); ok {
 		config.AISettings.VerboseMode = verbose
 	}
+	if verboseMode, ok := aiSettings["verbose_mode"].(bool); ok {
+		config.AISettings.VerboseMode = verboseMode
+	}
 
+	// Support both "validation" and "validation_enabled" for backward compatibility
 	if validation, ok := aiSettings["validation"].(bool); ok {
 		config.AISettings.ValidationEnabled = &validation
+	}
+	if validationEnabled, ok := aiSettings["validation_enabled"].(bool); ok {
+		config.AISettings.ValidationEnabled = &validationEnabled
+	}
+
+	// Additional AI settings
+	if streamProcessing, ok := aiSettings["stream_processing_enabled"].(bool); ok {
+		config.AISettings.StreamProcessingEnabled = streamProcessing
+	}
+
+	if realtimeSaving, ok := aiSettings["realtime_saving_enabled"].(bool); ok {
+		config.AISettings.RealtimeSavingEnabled = realtimeSaving
+	}
+
+	if skipClaudeAuthCheck, ok := aiSettings["skip_claude_auth_check"].(bool); ok {
+		config.AISettings.SkipClaudeAuthCheck = skipClaudeAuthCheck
 	}
 }
 

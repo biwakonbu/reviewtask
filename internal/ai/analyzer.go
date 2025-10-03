@@ -103,12 +103,22 @@ type ValidationIssue struct {
 type TaskValidator struct {
 	config     *config.Config
 	maxRetries int
+	aiProvider ClaudeClient // Reuse ClaudeClient interface for AI provider
 }
 
 func NewTaskValidator(cfg *config.Config) *TaskValidator {
 	return &TaskValidator{
 		config:     cfg,
 		maxRetries: cfg.AISettings.MaxRetries,
+		aiProvider: nil, // Will be injected when needed
+	}
+}
+
+func NewTaskValidatorWithClient(cfg *config.Config, client ClaudeClient) *TaskValidator {
+	return &TaskValidator{
+		config:     cfg,
+		maxRetries: cfg.AISettings.MaxRetries,
+		aiProvider: client,
 	}
 }
 
@@ -697,7 +707,13 @@ Rules:
 - Only create multiple tasks when a comment discusses COMPLETELY SEPARATE topics
 - Preserve origin_text exactly; do not translate or summarize it
 - Focus on WHAT needs to be achieved, not step-by-step implementation details
-- When in doubt, create ONE comprehensive task rather than multiple small ones`
+- When in doubt, create ONE comprehensive task rather than multiple small ones
+
+CRITICAL JSON FORMATTING RULES:
+- Return RAW JSON only - NO markdown code blocks, NO ` + "```json" + ` wrappers, NO explanations
+- ESCAPE all special characters in JSON strings: use \\n for newlines, \\t for tabs, \\r for carriage returns
+- Do NOT include literal newlines or tabs inside JSON string values
+- All string values must be properly escaped and on a single logical line`
 	a.promptSizeTracker.TrackSystemPrompt(systemPrompt)
 
 	return fmt.Sprintf("%s\n\n%s\n%s\n%s\n\n%s", systemPrompt, languageInstruction, priorityPrompt, nitpickInstruction, reviewsDataStr)
@@ -904,14 +920,10 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 		return nil, fmt.Errorf("prompt size (%d bytes) exceeds maximum limit (%d bytes). Please shorten or chunk the prompt content", len(prompt), maxPromptSize)
 	}
 
-	// Use injected client if available, otherwise create a real one
+	// Use the AI provider client (should always be initialized by NewAnalyzer)
 	client := a.claudeClient
 	if client == nil {
-		var err error
-		client, err = NewRealClaudeClientWithConfig(a.config)
-		if err != nil {
-			return nil, NewClaudeAPIError("client initialization failed", err)
-		}
+		return nil, fmt.Errorf("AI provider not initialized - this should not happen")
 	}
 
 	// Debug information if enabled
@@ -999,6 +1011,16 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 
 	// Parse the actual task array with recovery mechanism
 	var tasks []TaskRequest
+
+	// STEP 0: Try to repair common cursor-agent(grok) JSON issues before parsing
+	repairedResult, repairErr := RepairJSONResponse(result)
+	if repairErr == nil {
+		result = repairedResult // Use repaired version
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("  🔧 JSON auto-repair successful\n")
+		}
+	}
+
 	if err := json.Unmarshal([]byte(result), &tasks); err != nil {
 		// First attempt JSON recovery for incomplete/malformed responses
 		recoverer := NewJSONRecoverer(
@@ -1741,7 +1763,8 @@ func (a *Analyzer) processCommentWithValidation(ctx CommentContext) ([]TaskReque
 		return a.processLargeComment(ctx, chunker)
 	}
 
-	validator := NewTaskValidator(a.config)
+	// Create validator with same AI provider as analyzer
+	validator := NewTaskValidatorWithClient(a.config, a.claudeClient)
 
 	for attempt := 1; attempt <= validator.maxRetries; attempt++ {
 		if a.config.AISettings.VerboseMode {
