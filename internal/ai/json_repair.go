@@ -129,11 +129,45 @@ func escapeControlCharacters(input string) string {
 func fixTruncatedJSON(input string) string {
 	input = strings.TrimSpace(input)
 
-	// Count brackets
-	openArray := strings.Count(input, "[")
-	closeArray := strings.Count(input, "]")
-	openObject := strings.Count(input, "{")
-	closeObject := strings.Count(input, "}")
+	// Track brackets outside of strings
+	openArray := 0
+	closeArray := 0
+	openObject := 0
+	closeObject := 0
+	inString := false
+	escaped := false
+
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+
+		if escaped {
+			escaped = false
+			continue
+		}
+
+		if ch == '\\' {
+			escaped = true
+			continue
+		}
+
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+
+		if !inString {
+			switch ch {
+			case '[':
+				openArray++
+			case ']':
+				closeArray++
+			case '{':
+				openObject++
+			case '}':
+				closeObject++
+			}
+		}
+	}
 
 	// Add missing closing brackets (arrays first, then objects)
 	for i := 0; i < openArray-closeArray; i++ {
