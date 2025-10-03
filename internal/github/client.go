@@ -481,6 +481,9 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		result = append(result, r)
 	}
 
+	// Deduplicate reviews (especially important for Codex which sometimes submits duplicates)
+	result = DeduplicateReviews(result)
+
 	// Cache the result (ignore cache error)
 	_ = c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)
 
