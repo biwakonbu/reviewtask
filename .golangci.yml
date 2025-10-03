@@ -5,7 +5,8 @@ formatters:
     - gofmt
   settings:
     goimports:
-      local-prefixes: reviewtask
+      local-prefixes:
+        - reviewtask
 
 linters:
   # Disable strict linters for initial CI setup
