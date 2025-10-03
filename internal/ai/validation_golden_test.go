@@ -96,22 +96,20 @@ func TestValidationFlow_Golden(t *testing.T) {
 		{
 			name:              "validation_enabled_pass",
 			validationEnabled: true,
-			// When validation is enabled, processCommentWithValidation expects TaskRequest format (object with tasks array)
-			analysisResponse: `{
-  "tasks": [
-    {
-      "description": "Add input validation to prevent security vulnerabilities",
-      "priority": "critical",
-      "origin_text": "Input validation is missing. This could lead to security issues.",
-      "source_review_id": 1,
-      "source_comment_id": 101,
-      "file": "internal/auth.go",
-      "line": 42,
-      "status": "todo",
-      "task_index": 0
-    }
-  ]
-}`,
+			// When validation is enabled, callClaudeCode expects direct array format []TaskRequest
+			analysisResponse: `[
+  {
+    "description": "Add input validation to prevent security vulnerabilities",
+    "priority": "critical",
+    "origin_text": "Input validation is missing. This could lead to security issues.",
+    "source_review_id": 1,
+    "source_comment_id": 101,
+    "file": "internal/auth.go",
+    "line": 42,
+    "status": "todo",
+    "task_index": 0
+  }
+]`,
 			validationResponse: `{
   "validation": true,
   "score": 0.95,
@@ -125,21 +123,19 @@ func TestValidationFlow_Golden(t *testing.T) {
 			// Validation detects issues (low score) but still returns tasks
 			// Note: In real scenarios with MaxRetries>1, this would trigger a retry,
 			// but this test verifies that tasks are still returned even with validation issues
-			analysisResponse: `{
-  "tasks": [
-    {
-      "description": "Fix the bug",
-      "priority": "medium",
-      "origin_text": "Input validation is missing. This could lead to security issues.",
-      "source_review_id": 1,
-      "source_comment_id": 101,
-      "file": "internal/auth.go",
-      "line": 42,
-      "status": "todo",
-      "task_index": 0
-    }
-  ]
-}`,
+			analysisResponse: `[
+  {
+    "description": "Fix the bug",
+    "priority": "medium",
+    "origin_text": "Input validation is missing. This could lead to security issues.",
+    "source_review_id": 1,
+    "source_comment_id": 101,
+    "file": "internal/auth.go",
+    "line": 42,
+    "status": "todo",
+    "task_index": 0
+  }
+]`,
 			validationResponse: `{
   "validation": false,
   "score": 0.65,
