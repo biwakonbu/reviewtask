@@ -57,10 +57,7 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	// Check if auto-resolve is enabled
 	cfg, err := config.Load()
-	autoResolve := false
-	if err == nil && cfg.AISettings.AutoResolveThreads {
-		autoResolve = true
-	}
+	autoResolve := err == nil && cfg.AISettings.AutoResolveThreads
 
 	// Create callback for thread resolution if needed
 	var callback func(*storage.Task) error
