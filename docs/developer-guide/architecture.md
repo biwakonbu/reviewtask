@@ -291,18 +291,45 @@ func (c *GraphQLClient) GetReviewThreadID(ctx context.Context, owner, repo strin
 ```
 
 **Features:**
-- Automatically resolve review threads when tasks marked as `done`
-- Maps comment IDs to thread IDs via GraphQL API
+- Automatically resolve review threads based on configurable mode
+- Maps comment IDs to thread IDs via GraphQL API with pagination support
+- Handles large PRs with >100 threads or >100 comments per thread
 - Only applies to standard GitHub comments (not Codex embedded comments)
-- Configurable via `auto_resolve_threads` setting (default: false)
+- Configurable via `auto_resolve_mode` setting (default: "complete")
+
+**Auto-Resolve Modes:**
+- `complete` - Resolve when ALL tasks from a comment are completed (smart resolution)
+- `immediate` - Resolve thread immediately when each task is marked as done
+- `disabled` - Never auto-resolve (use manual `reviewtask resolve` command)
+
+**Pagination Support:**
+The GraphQL client implements nested pagination to support large PRs:
+- Outer loop: Paginates through review threads (100 per page)
+- Inner loop: Paginates through comments within each thread (100 per page)
+- Returns immediately when target comment is found
+- Exhausts all pages before returning "not found" error
 
 **Implementation:**
 ```go
-// When task updated to "done"
-if config.AISettings.AutoResolveThreads && task.Status == "done" {
-    threadID, err := client.GetReviewThreadID(ctx, owner, repo, prNumber, commentID)
-    if err == nil {
-        client.ResolveReviewThread(ctx, threadID)
+// Comment-level completion check
+func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bool, error) {
+    // Check all tasks from the same comment
+    // Rules:
+    // - done: always OK
+    // - cancel: requires CancelCommentPosted=true
+    // - pending/todo/doing: blocks resolution
+}
+
+// Auto-resolve with mode support
+if config.AutoResolveMode != "disabled" {
+    if config.AutoResolveMode == "immediate" && task.Status == "done" {
+        // Resolve immediately
+        resolveThread(task)
+    } else if config.AutoResolveMode == "complete" {
+        // Check if all tasks from comment are completed
+        if allCompleted, _ := manager.AreAllCommentTasksCompleted(prNumber, commentID); allCompleted {
+            resolveThread(task)
+        }
     }
 }
 ```

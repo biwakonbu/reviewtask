@@ -402,26 +402,38 @@ Description of the issue that needs to be addressed...
 - Compatible with all existing task management features
 - Thread auto-resolution not available (embedded comments have no thread ID)
 
-#### GitHub Thread Auto-Resolution (NEW)
+#### GitHub Thread Auto-Resolution
 
 Automatically resolve review threads when tasks are completed:
 
 ```json
-"auto_resolve_threads": false
+"auto_resolve_mode": "complete"
 ```
 
+**Available modes:**
+- `complete` (default) - Resolve thread when ALL tasks from a comment are completed
+  - `done` tasks: Always OK
+  - `cancel` tasks: Must have posted cancel reason (`CancelCommentPosted: true`)
+  - `pending` tasks: Block resolution
+  - `todo`/`doing` tasks: Block resolution
+- `immediate` - Resolve thread immediately when each task is marked as done
+- `disabled` - Never auto-resolve (use `reviewtask resolve` for manual control)
+
+**Default:** `complete` (smart resolution based on all tasks from same comment)
+
 **When enabled:**
-- Tasks marked as `done` automatically resolve their GitHub review thread
+- Comment-level tracking ensures all feedback is addressed before resolution
 - Provides visual confirmation that feedback has been addressed
 - Reduces manual cleanup work for PR authors
-- Only works for standard GitHub comments (not Codex embedded comments)
-
-**Default:** `false` (opt-in feature)
+- Works with standard GitHub comments (Codex embedded comments have no thread ID)
 
 **Requirements:**
 - Valid GitHub authentication with repository write access
 - GraphQL API access (always available with standard GitHub tokens)
 - Tasks must have valid `SourceCommentID` (automatically populated)
+
+**Manual resolution:**
+Use `reviewtask resolve <task-id>` or `reviewtask resolve --all` for manual thread resolution when auto-resolve is disabled or for specific control.
 
 ## Environment Variables
 

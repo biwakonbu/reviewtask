@@ -94,10 +94,40 @@ reviewtask update task-uuid-here cancel
 
 **Valid statuses:**
 - `todo` - Ready to work on
-- `doing` - Currently in progress  
+- `doing` - Currently in progress
 - `done` - Completed
 - `pending` - Blocked or low priority
 - `cancel` - No longer relevant
+
+### Thread Resolution
+
+#### `reviewtask resolve [task-id] [options]`
+
+Manually resolve GitHub review threads for completed tasks.
+
+```bash
+# Resolve thread for a specific task
+reviewtask resolve task-uuid-here
+
+# Resolve all completed tasks' threads
+reviewtask resolve --all
+
+# Force resolution even if task isn't marked as done
+reviewtask resolve task-uuid-here --force
+```
+
+**Options:**
+- `--all` - Resolve threads for all tasks marked as done
+- `--force` - Resolve thread even if task status is not done
+
+**What it does:**
+- Resolves the GitHub review thread associated with the task
+- Requires task to be in `done` status (unless `--force` is used)
+- Uses GitHub GraphQL API to mark thread as resolved
+- Prevents duplicate resolution attempts
+
+**Auto-resolve mode:**
+By default, threads are automatically resolved when all tasks from a comment are completed. Use `reviewtask resolve` for manual control or when auto-resolve is disabled.
 
 ### Statistics
 
