@@ -137,15 +137,24 @@ func (c *GraphQLClient) ResolveReviewThread(ctx context.Context, threadID string
 
 // GetReviewThreadID gets the review thread ID for a review comment
 // This maps a review comment ID to its corresponding thread ID
+// Supports pagination for large PRs with >100 threads or >100 comments per thread
 func (c *GraphQLClient) GetReviewThreadID(ctx context.Context, owner, repo string, prNumber int, commentID int64) (string, error) {
 	query := `
-		query($owner: String!, $repo: String!, $prNumber: Int!) {
+		query($owner: String!, $repo: String!, $prNumber: Int!, $threadCursor: String, $commentCursor: String) {
 			repository(owner: $owner, name: $repo) {
 				pullRequest(number: $prNumber) {
-					reviewThreads(first: 100) {
+					reviewThreads(first: 100, after: $threadCursor) {
+						pageInfo {
+							hasNextPage
+							endCursor
+						}
 						nodes {
 							id
-							comments(first: 100) {
+							comments(first: 100, after: $commentCursor) {
+								pageInfo {
+									hasNextPage
+									endCursor
+								}
 								nodes {
 									id
 									databaseId
@@ -164,35 +173,107 @@ func (c *GraphQLClient) GetReviewThreadID(ctx context.Context, owner, repo strin
 		"prNumber": prNumber,
 	}
 
+	type CommentNode struct {
+		ID         string `json:"id"`
+		DatabaseID int64  `json:"databaseId"`
+	}
+
+	type PageInfo struct {
+		HasNextPage bool   `json:"hasNextPage"`
+		EndCursor   string `json:"endCursor"`
+	}
+
+	type Comments struct {
+		PageInfo PageInfo      `json:"pageInfo"`
+		Nodes    []CommentNode `json:"nodes"`
+	}
+
+	type ThreadNode struct {
+		ID       string   `json:"id"`
+		Comments Comments `json:"comments"`
+	}
+
+	type ReviewThreads struct {
+		PageInfo PageInfo     `json:"pageInfo"`
+		Nodes    []ThreadNode `json:"nodes"`
+	}
+
 	var result struct {
 		Repository struct {
 			PullRequest struct {
-				ReviewThreads struct {
-					Nodes []struct {
-						ID       string `json:"id"`
-						Comments struct {
-							Nodes []struct {
-								ID         string `json:"id"`
-								DatabaseID int64  `json:"databaseId"`
-							} `json:"nodes"`
-						} `json:"comments"`
-					} `json:"nodes"`
-				} `json:"reviewThreads"`
+				ReviewThreads ReviewThreads `json:"reviewThreads"`
 			} `json:"pullRequest"`
 		} `json:"repository"`
 	}
 
-	if err := c.Execute(ctx, query, variables, &result); err != nil {
-		return "", fmt.Errorf("failed to get review threads: %w", err)
-	}
-
-	// Find the thread containing this comment ID
-	for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
-		for _, comment := range thread.Comments.Nodes {
-			if comment.DatabaseID == commentID {
-				return thread.ID, nil
-			}
+	// Paginate through review threads
+	var threadCursor *string
+	for {
+		// Set thread cursor if we have one
+		if threadCursor != nil {
+			variables["threadCursor"] = *threadCursor
 		}
+
+		// Execute query for current page of threads
+		if err := c.Execute(ctx, query, variables, &result); err != nil {
+			return "", fmt.Errorf("failed to get review threads: %w", err)
+		}
+
+		// Search through threads in current page
+		for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
+			// For each thread, paginate through comments
+			var commentCursor *string
+			threadID := thread.ID
+			currentComments := thread.Comments
+
+			for {
+				// Search through comments in current page
+				for _, comment := range currentComments.Nodes {
+					if comment.DatabaseID == commentID {
+						return threadID, nil
+					}
+				}
+
+				// Check if there are more comments in this thread
+				if !currentComments.PageInfo.HasNextPage {
+					break
+				}
+
+				// Fetch next page of comments for this thread
+				commentCursor = &currentComments.PageInfo.EndCursor
+				variables["commentCursor"] = *commentCursor
+
+				if err := c.Execute(ctx, query, variables, &result); err != nil {
+					return "", fmt.Errorf("failed to get review thread comments: %w", err)
+				}
+
+				// Find the same thread in the new result (threads are re-fetched but we only care about comments)
+				found := false
+				for _, t := range result.Repository.PullRequest.ReviewThreads.Nodes {
+					if t.ID == threadID {
+						currentComments = t.Comments
+						found = true
+						break
+					}
+				}
+
+				if !found {
+					return "", fmt.Errorf("thread %s not found in paginated results", threadID)
+				}
+			}
+
+			// Reset comment cursor for next thread
+			delete(variables, "commentCursor")
+		}
+
+		// Check if there are more threads to fetch
+		if !result.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage {
+			break
+		}
+
+		// Move to next page of threads
+		cursor := result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		threadCursor = &cursor
 	}
 
 	return "", fmt.Errorf("no thread found for comment ID %d", commentID)
