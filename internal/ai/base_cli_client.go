@@ -261,10 +261,8 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 
 	cmd := c.buildCommand(ctx, args)
 
-	// Set stdin for non-cursor providers
-	if c.providerConf.Name != "cursor" {
-		cmd.Stdin = strings.NewReader(input)
-	}
+	// Set stdin
+	cmd.Stdin = strings.NewReader(input)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
