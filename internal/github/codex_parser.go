@@ -45,7 +45,10 @@ func ParseEmbeddedComments(reviewBody string) []EmbeddedComment {
 	var descriptionLines []string
 
 	for i := 0; i < len(lines); i++ {
-		line := strings.TrimSpace(lines[i])
+		// Preserve raw line with only \r removed, keep indentation and empty lines
+		rawLine := strings.TrimRight(lines[i], "\r")
+		// Use trimmed line for pattern matching and checks only
+		line := strings.TrimSpace(rawLine)
 
 		// Check if this line contains a GitHub permalink
 		if matches := githubPermalinkRegex.FindStringSubmatch(line); matches != nil {
@@ -83,7 +86,7 @@ func ParseEmbeddedComments(reviewBody string) []EmbeddedComment {
 
 		// If we're building a comment, check for title and priority
 		if currentComment != nil {
-			// Check for priority badges and title in the same line
+			// Check for priority badges and title in the same line (use trimmed for detection)
 			if containsPriorityBadge(line) {
 				priority := extractPriority(line)
 				title := extractTitle(line)
@@ -93,10 +96,9 @@ func ParseEmbeddedComments(reviewBody string) []EmbeddedComment {
 				continue
 			}
 
-			// Otherwise, accumulate description lines
-			if line != "" {
-				descriptionLines = append(descriptionLines, line)
-			}
+			// Otherwise, accumulate description lines (use raw line to preserve formatting)
+			// Allow empty lines to preserve code block structure
+			descriptionLines = append(descriptionLines, rawLine)
 		}
 	}
 
