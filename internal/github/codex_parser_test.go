@@ -245,29 +245,29 @@ func TestMapPriorityToTaskPriority(t *testing.T) {
 		expectedResult string
 	}{
 		{
-			name:           "P1 maps to HIGH",
+			name:           "P1 maps to high",
 			codexPriority:  "P1",
-			expectedResult: "HIGH",
+			expectedResult: "high",
 		},
 		{
-			name:           "P2 maps to MEDIUM",
+			name:           "P2 maps to medium",
 			codexPriority:  "P2",
-			expectedResult: "MEDIUM",
+			expectedResult: "medium",
 		},
 		{
-			name:           "P3 maps to LOW",
+			name:           "P3 maps to low",
 			codexPriority:  "P3",
-			expectedResult: "LOW",
+			expectedResult: "low",
 		},
 		{
-			name:           "Unknown priority defaults to MEDIUM",
+			name:           "Unknown priority defaults to medium",
 			codexPriority:  "P4",
-			expectedResult: "MEDIUM",
+			expectedResult: "medium",
 		},
 		{
-			name:           "Empty string defaults to MEDIUM",
+			name:           "Empty string defaults to medium",
 			codexPriority:  "",
-			expectedResult: "MEDIUM",
+			expectedResult: "medium",
 		},
 	}
 

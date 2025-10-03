@@ -60,8 +60,8 @@ mypyの実行時に旧名称` + "`yaml_type_spec.py`" + `を指定していま�
 
 	// Verify priority mapping
 	firstPriority := MapPriorityToTaskPriority(embeddedComments[0].Priority)
-	if firstPriority != "HIGH" {
-		t.Errorf("Expected P1 to map to HIGH, got %q", firstPriority)
+	if firstPriority != "high" {
+		t.Errorf("Expected P1 to map to high, got %q", firstPriority)
 	}
 
 	// Verify second comment (P2 priority)
@@ -74,8 +74,8 @@ mypyの実行時に旧名称` + "`yaml_type_spec.py`" + `を指定していま�
 	}
 
 	secondPriority := MapPriorityToTaskPriority(embeddedComments[1].Priority)
-	if secondPriority != "MEDIUM" {
-		t.Errorf("Expected P2 to map to MEDIUM, got %q", secondPriority)
+	if secondPriority != "medium" {
+		t.Errorf("Expected P2 to map to medium, got %q", secondPriority)
 	}
 
 	// Step 3: Test deduplication with duplicate reviews
