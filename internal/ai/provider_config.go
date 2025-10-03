@@ -32,15 +32,9 @@ func getHomeDir() string {
 // GetClaudeProviderConfig returns the configuration for Claude Code provider
 func GetClaudeProviderConfig() ProviderConfig {
 	homeDir := getHomeDir()
-	paths := []string{
-		filepath.Join(homeDir, ".claude/local/claude"),
-		filepath.Join(homeDir, ".npm-global/bin/claude"),
-		filepath.Join(homeDir, ".volta/bin/claude"),
-		"/usr/local/bin/claude",
-		filepath.Join(homeDir, ".local/bin/claude"),
-	}
-
-	if runtime.GOOS == "windows" {
+	var paths []string
+	switch runtime.GOOS {
+	case "windows":
 		paths = []string{
 			filepath.Join(homeDir, ".claude", "local", "claude.exe"),
 			filepath.Join(homeDir, ".npm-global", "claude.cmd"),
@@ -51,8 +45,23 @@ func GetClaudeProviderConfig() ProviderConfig {
 			filepath.Join(homeDir, "AppData", "Roaming", "npm", "claude.cmd"),
 			filepath.Join(homeDir, "AppData", "Roaming", "npm", "claude.exe"),
 		}
-	} else if runtime.GOOS == "darwin" {
-		paths = append(paths, "/opt/homebrew/bin/claude")
+	case "darwin":
+		paths = []string{
+			filepath.Join(homeDir, ".claude/local/claude"),
+			filepath.Join(homeDir, ".npm-global/bin/claude"),
+			filepath.Join(homeDir, ".volta/bin/claude"),
+			"/usr/local/bin/claude",
+			filepath.Join(homeDir, ".local/bin/claude"),
+			"/opt/homebrew/bin/claude",
+		}
+	default:
+		paths = []string{
+			filepath.Join(homeDir, ".claude/local/claude"),
+			filepath.Join(homeDir, ".npm-global/bin/claude"),
+			filepath.Join(homeDir, ".volta/bin/claude"),
+			"/usr/local/bin/claude",
+			filepath.Join(homeDir, ".local/bin/claude"),
+		}
 	}
 
 	return ProviderConfig{
@@ -68,22 +77,30 @@ func GetClaudeProviderConfig() ProviderConfig {
 // GetCursorProviderConfig returns the configuration for Cursor CLI provider
 func GetCursorProviderConfig() ProviderConfig {
 	homeDir := getHomeDir()
-	paths := []string{
-		filepath.Join(homeDir, ".npm-global/bin/cursor-agent"),
-		filepath.Join(homeDir, ".volta/bin/cursor-agent"),
-		"/usr/local/bin/cursor-agent",
-		filepath.Join(homeDir, ".local/bin/cursor-agent"),
-	}
-
-	if runtime.GOOS == "windows" {
+	var paths []string
+	switch runtime.GOOS {
+	case "windows":
 		paths = []string{
 			filepath.Join(homeDir, "AppData", "Roaming", "npm", "cursor-agent.cmd"),
 			filepath.Join(homeDir, "AppData", "Roaming", "npm", "cursor-agent.exe"),
 			filepath.Join(homeDir, ".volta", "bin", "cursor-agent.exe"),
 			filepath.Join(homeDir, ".volta", "bin", "cursor-agent.cmd"),
 		}
-	} else if runtime.GOOS == "darwin" {
-		paths = append(paths, "/opt/homebrew/bin/cursor-agent")
+	case "darwin":
+		paths = []string{
+			filepath.Join(homeDir, ".npm-global/bin/cursor-agent"),
+			filepath.Join(homeDir, ".volta/bin/cursor-agent"),
+			"/usr/local/bin/cursor-agent",
+			filepath.Join(homeDir, ".local/bin/cursor-agent"),
+			"/opt/homebrew/bin/cursor-agent",
+		}
+	default:
+		paths = []string{
+			filepath.Join(homeDir, ".npm-global/bin/cursor-agent"),
+			filepath.Join(homeDir, ".volta/bin/cursor-agent"),
+			"/usr/local/bin/cursor-agent",
+			filepath.Join(homeDir, ".local/bin/cursor-agent"),
+		}
 	}
 
 	return ProviderConfig{

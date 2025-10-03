@@ -1,32 +1,14 @@
-linters-settings:
-  gocyclo:
-    min-complexity: 15
-  goimports:
-    local-prefixes: reviewtask
-  goconst:
-    min-len: 2
-    min-occurrences: 2
-  misspell:
-    locale: US
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - dupImport
-      - ifElseChain
-      - octalLiteral
-      - whyNoLint
-      - wrapperFunc
+version: "2"
 
-linters:
+formatters:
   enable:
     - gofmt
-    - typecheck
+  settings:
+    goimports:
+      local-prefixes:
+        - reviewtask
 
+linters:
   # Disable strict linters for initial CI setup
   disable:
     - bodyclose
@@ -35,7 +17,6 @@ linters:
     - errcheck
     - goconst
     - gocritic
-    - goimports
     - gosec
     - misspell
     - nakedret
@@ -45,32 +26,33 @@ linters:
     - unused
     - whitespace
 
+  exclusions:
+    paths:
+      - dist
+    rules:
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+          - govet
+
+      # Exclude some staticcheck messages
+      - linters:
+          - staticcheck
+        text: "SA9003:"
+
+      # Exclude lll issues for long lines of comments
+      - linters:
+          - lll
+        source: "^//.*$"
+
 run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
 
 issues:
-  exclude-dirs:
-    - dist
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-        - govet
-    
-    # Exclude some staticcheck messages
-    - linters:
-        - staticcheck
-      text: "SA9003:"
-    
-    # Exclude lll issues for long lines of comments
-    - linters:
-        - lll
-      source: "^//.*$"
-
   max-issues-per-linter: 0
   max-same-issues: 0

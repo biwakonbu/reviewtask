@@ -136,9 +136,10 @@ func TestGenerateTasksWithBothReviewBodyAndInlineComments(t *testing.T) {
 	// Check that we have both review body and inline comment tasks
 	var reviewBodyTask, inlineCommentTask *storage.Task
 	for i := range tasks {
-		if tasks[i].SourceCommentID == 12345 {
+		switch tasks[i].SourceCommentID {
+		case 12345:
 			reviewBodyTask = &tasks[i]
-		} else if tasks[i].SourceCommentID == 67890 {
+		case 67890:
 			inlineCommentTask = &tasks[i]
 		}
 	}

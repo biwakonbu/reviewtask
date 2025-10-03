@@ -154,7 +154,7 @@ func (t *PromptSizeTracker) GetLargestComponent() (string, int) {
 		"Review data":       t.ReviewsData,
 	}
 
-	var largest string = "System prompt" // Default to first component
+	var largest = "System prompt" // Default to first component
 	var largestSize int
 	for name, size := range components {
 		if size > largestSize {
