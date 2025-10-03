@@ -72,6 +72,7 @@ type AISettings struct {
 	AutoSummarizeEnabled     bool    `json:"auto_summarize_enabled"`     // Enable automatic content summarization for large comments (default: true)
 	RealtimeSavingEnabled    bool    `json:"realtime_saving_enabled"`    // Enable real-time saving of tasks as they are processed (default: true)
 	SkipClaudeAuthCheck      bool    `json:"skip_claude_auth_check"`     // Skip Claude CLI authentication check (helps with frequent logout issues) (default: false)
+	AutoResolveThreads       bool    `json:"auto_resolve_threads"`       // Auto-resolve GitHub review threads when tasks are marked as done (default: false)
 }
 
 type VerificationSettings struct {

@@ -1,9 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"reviewtask/internal/config"
+	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 )
 
@@ -52,8 +55,42 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	storageManager := storage.NewManager()
 
-	// Update task status
-	err = storageManager.UpdateTaskStatus(taskID, newStatus)
+	// Check if auto-resolve is enabled
+	cfg, err := config.Load()
+	autoResolve := false
+	if err == nil && cfg.AISettings.AutoResolveThreads {
+		autoResolve = true
+	}
+
+	// Create callback for thread resolution if needed
+	var callback func(*storage.Task) error
+	if autoResolve && newStatus == "done" {
+		callback = func(task *storage.Task) error {
+			// Only resolve threads for tasks with source comment IDs
+			// (embedded comments from Codex won't have thread IDs)
+			if task.SourceCommentID == 0 {
+				return nil
+			}
+
+			// Create GitHub client
+			githubClient, err := github.NewClient()
+			if err != nil {
+				return fmt.Errorf("failed to create GitHub client: %w", err)
+			}
+
+			// Resolve the thread
+			ctx := context.Background()
+			if err := githubClient.ResolveCommentThread(ctx, task.PRNumber, task.SourceCommentID); err != nil {
+				return fmt.Errorf("failed to resolve thread: %w", err)
+			}
+
+			fmt.Printf("✓ Resolved review thread for comment #%d\n", task.SourceCommentID)
+			return nil
+		}
+	}
+
+	// Update task status with callback
+	err = storageManager.UpdateTaskStatusWithCallback(taskID, newStatus, callback)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
 			return fmt.Errorf("task '%s' not found", taskID)

@@ -276,6 +276,12 @@ func (m *Manager) GetAllTasks() ([]Task, error) {
 }
 
 func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
+	return m.UpdateTaskStatusWithCallback(taskID, newStatus, nil)
+}
+
+// UpdateTaskStatusWithCallback updates a task status and calls a callback with task information
+// This allows for side effects like resolving review threads
+func (m *Manager) UpdateTaskStatusWithCallback(taskID, newStatus string, callback func(task *Task) error) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -301,16 +307,27 @@ func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
 
 		// Check if task exists in this file
 		taskFound := false
+		var updatedTask *Task
 		for i := range tasksFile.Tasks {
 			if tasksFile.Tasks[i].ID == taskID {
 				tasksFile.Tasks[i].Status = newStatus
 				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
 				taskFound = true
+				updatedTask = &tasksFile.Tasks[i]
 				break
 			}
 		}
 
 		if taskFound {
+			// Call callback before saving (allows for side effects)
+			if callback != nil && updatedTask != nil {
+				if err := callback(updatedTask); err != nil {
+					// Log error but don't fail the update
+					// This ensures task status is updated even if thread resolution fails
+					fmt.Fprintf(os.Stderr, "Warning: callback failed for task %s: %v\n", taskID, err)
+				}
+			}
+
 			// Save updated tasks file
 			data, err := json.MarshalIndent(tasksFile, "", "  ")
 			if err != nil {
