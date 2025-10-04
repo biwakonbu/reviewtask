@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"reviewtask/internal/config"
@@ -62,9 +63,17 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	// Priority: AutoResolveMode > AutoResolveThreads (legacy)
 	autoResolveMode := "disabled"
 	if err == nil {
-		if cfg.AISettings.AutoResolveMode != "" && cfg.AISettings.AutoResolveMode != "disabled" {
-			autoResolveMode = cfg.AISettings.AutoResolveMode
-		} else if cfg.AISettings.AutoResolveThreads {
+		mode := strings.ToLower(strings.TrimSpace(cfg.AISettings.AutoResolveMode))
+		switch mode {
+		case "immediate", "complete":
+			autoResolveMode = mode
+		case "", "disabled":
+			// keep disabled
+		default:
+			fmt.Fprintf(cmd.ErrOrStderr(), "unknown auto_resolve_mode %q; defaulting to disabled\n", cfg.AISettings.AutoResolveMode)
+		}
+
+		if autoResolveMode == "disabled" && cfg.AISettings.AutoResolveThreads {
 			// Legacy support: AutoResolveThreads=true maps to "immediate" mode
 			autoResolveMode = "immediate"
 		}
