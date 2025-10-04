@@ -28,6 +28,9 @@ All review sources are automatically detected and processed without configuratio
 - **🤖 AI Analysis**: Supports multiple AI providers (Claude Code, Cursor CLI) for generating structured, actionable tasks
 - **💾 Local Storage**: Stores data in structured JSON format under `.pr-review/` directory
 - **📋 Task Management**: Full lifecycle management with status tracking (todo/doing/done/pending/cancel)
+- **❌ Task Cancellation**: Cancel tasks with GitHub comment posting and proper error propagation for CI/CD
+- **🔄 Thread Resolution**: Manually or automatically resolve GitHub review threads when tasks complete
+- **✅ Task Verification**: Automated verification checks before task completion with configurable commands
 - **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
 - **🔒 Authentication**: Multi-source token detection with interactive setup
 - **🎯 Priority-based Analysis**: Customizable priority rules for task generation
@@ -278,25 +281,87 @@ Authentication sources (in order of preference):
 # Valid statuses: todo, doing, done, pending, cancel
 ```
 
+### 5. Task Lifecycle Management
+
+```bash
+# Cancel a task with explanation (posts comment to GitHub review thread)
+./reviewtask cancel <task-id> --reason "Already addressed in commit abc1234"
+
+# Cancel all pending tasks at once
+./reviewtask cancel --all-pending --reason "Deferring to follow-up PR #125"
+
+# Complete task with automatic verification
+./reviewtask complete <task-id>
+
+# Verify task implementation quality
+./reviewtask verify <task-id>
+```
+
+**Cancel Command Features:**
+- Posts cancellation reason as comment on GitHub review thread
+- Returns non-zero exit code on failure (safe for CI/CD scripts)
+- Supports batch cancellation with `--all-pending` flag
+- Provides clear feedback to reviewers why tasks weren't addressed
+
+### 6. Thread Management
+
+```bash
+# Manually resolve GitHub review thread for completed task
+./reviewtask resolve <task-id>
+
+# Resolve all completed tasks at once
+./reviewtask resolve --all
+
+# Force resolve regardless of task status
+./reviewtask resolve --all --force
+```
+
 
 ## Command Reference
 
+### Core Workflow Commands
 | Command | Description |
 |---------|-------------|
 | `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
-| `reviewtask --refresh-cache` | Clear cache and reprocess all comments |
-| `reviewtask fetch [PR_NUMBER]` | Same as reviewtask (alias) |
+| `reviewtask fetch [PR_NUMBER]` | Fetch PR reviews from GitHub and save locally |
+| `reviewtask analyze [PR_NUMBER]` | Analyze saved reviews and generate tasks using AI |
 | `reviewtask status [options]` | Show task status and statistics |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
-| `reviewtask update <id> <status>` | Update task status |
+| `reviewtask update <id> <status>` | Update task status (todo/doing/done/pending/cancel) |
+
+### Task Lifecycle Management Commands
+| Command | Description |
+|---------|-------------|
+| `reviewtask cancel <task-id> --reason "..."` | Cancel task and post reason to GitHub review thread |
+| `reviewtask cancel --all-pending --reason "..."` | Cancel all pending tasks with same reason |
+| `reviewtask verify <task-id>` | Run verification checks before task completion |
+| `reviewtask complete <task-id>` | Complete task with automatic verification |
+| `reviewtask complete <task-id> --skip-verification` | Complete task without verification |
+
+### Thread Management Commands
+| Command | Description |
+|---------|-------------|
+| `reviewtask resolve <task-id>` | Manually resolve GitHub review thread for completed task |
+| `reviewtask resolve --all` | Resolve threads for all done tasks |
+| `reviewtask resolve --all --force` | Force resolve all tasks regardless of status |
+
+### Statistics and Configuration Commands
+| Command | Description |
+|---------|-------------|
 | `reviewtask stats [PR_NUMBER] [options]` | Show detailed task statistics with comment breakdown |
+| `reviewtask config show` | Display current verification configuration |
+| `reviewtask config set-verifier <task-type> <cmd>` | Configure custom verification commands |
+
+### Utility Commands
+| Command | Description |
+|---------|-------------|
 | `reviewtask version [VERSION]` | Show version information or switch to specific version |
 | `reviewtask versions` | List available versions from GitHub releases |
 | `reviewtask prompt <provider> <target>` | Generate AI provider command templates |
-| `reviewtask claude <target>` | (Deprecated) Use `reviewtask prompt claude <target>` |
 | `reviewtask debug fetch <phase> [PR]` | Test specific phases independently |
-| `reviewtask init` | Initialize repository |
+| `reviewtask init` | Initialize repository with interactive wizard |
 | `reviewtask auth <cmd>` | Authentication management |
+| `reviewtask --refresh-cache` | Clear cache and reprocess all comments |
 
 ### Command Options
 
@@ -607,7 +672,37 @@ The tool now includes advanced recovery mechanisms for handling incomplete Claud
 2. **Assignment**: Tasks get UUID-based IDs and default "todo" status
 3. **Execution**: Developers update status as they work (todo → doing → done)
 4. **Preservation**: Subsequent runs preserve existing task statuses
-5. **Cancellation**: Outdated tasks are automatically cancelled when comments change
+5. **Verification**: Optional automated checks ensure implementation quality
+6. **Completion**: Tasks marked as done with automatic or manual verification
+7. **Thread Resolution**: GitHub review threads resolved manually or automatically
+8. **Cancellation**: Tasks can be cancelled with explanatory comments posted to GitHub
+
+### Cancel Command Error Handling
+
+The cancel command includes robust error propagation for safe use in CI/CD environments:
+
+```bash
+# Returns non-zero exit code on failure
+reviewtask cancel <task-id> --reason "Already implemented" || echo "Cancellation failed"
+
+# Batch cancellation with proper error handling
+reviewtask cancel --all-pending --reason "Deferred to next PR"
+# Exit code 0: All tasks successfully cancelled
+# Exit code 1: One or more cancellations failed (first error wrapped and returned)
+
+# Safe for CI/CD scripts
+if ! reviewtask cancel --all-pending --reason "Sprint ended"; then
+    echo "Failed to cancel pending tasks" >&2
+    exit 1
+fi
+```
+
+**Error Handling Features:**
+- Wraps first encountered error with detailed context using Go's error wrapping (`%w`)
+- Provides total failure count in error message
+- Returns immediately on single-task cancellation failures
+- Continues processing remaining tasks in batch mode before returning error
+- Preserves error chains for better debugging and troubleshooting
 
 ## IDE Integration
 
@@ -767,6 +862,36 @@ This provides flexible options for AI integration:
 - Integration with existing reviewtask data structures
 
 **Note**: The `reviewtask claude` command is deprecated. Please use `reviewtask prompt claude` for future compatibility.
+
+#### Workflow Prompt Synchronization
+
+The tool maintains synchronized workflow prompts across multiple AI providers and locations:
+
+**Synchronized Locations:**
+1. `.claude/commands/pr-review/review-task-workflow.md` - Claude Code integration
+2. `.cursor/commands/pr-review/review-task-workflow.md` - Cursor IDE integration
+3. `cmd/prompt_stdout.go` - Programmatic template generation
+
+**All workflow prompts include comprehensive command documentation:**
+- 19 commands organized in 4 categories (Core/Lifecycle/Thread/Statistics)
+- `cancel` command with GitHub comment posting and error propagation
+- `resolve` command for manual thread management
+- `stats` command for task analytics and progress tracking
+- 8 detailed output examples showing actual command behavior
+- Task classification guidelines (when to cancel/pending/process tasks)
+
+**Verification:**
+```bash
+# Generate prompts from all sources and verify synchronization
+reviewtask prompt claude pr-review   # Writes to .claude/commands/
+reviewtask cursor pr-review          # Writes to .cursor/commands/
+reviewtask prompt stdout pr-review   # Outputs to stdout
+
+# All three methods produce identical content
+diff .claude/commands/pr-review/review-task-workflow.md \
+     .cursor/commands/pr-review/review-task-workflow.md
+# Should show no differences
+```
 
 ## Troubleshooting
 

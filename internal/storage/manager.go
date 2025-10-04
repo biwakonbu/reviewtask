@@ -861,3 +861,55 @@ func (m *Manager) GetTaskVerificationHistory(taskID string) ([]VerificationResul
 
 	return nil, ErrTaskNotFound
 }
+
+// UpdateTaskCancelStatus updates a task's cancel status and reason
+func (m *Manager) UpdateTaskCancelStatus(taskID, reason string, commentPosted bool) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Find the task across all PRs
+	entries, err := os.ReadDir(m.baseDir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() || !isPRDir(entry.Name()) {
+			continue
+		}
+
+		tasksPath := filepath.Join(m.baseDir, entry.Name(), "tasks.json")
+		tasksFile, err := m.loadTasksFile(tasksPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+
+		// Check if task exists in this file
+		taskFound := false
+		for i := range tasksFile.Tasks {
+			if tasksFile.Tasks[i].ID == taskID {
+				// Update cancel status and reason
+				tasksFile.Tasks[i].Status = "cancel"
+				tasksFile.Tasks[i].CancelReason = reason
+				tasksFile.Tasks[i].CancelCommentPosted = commentPosted
+				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
+				taskFound = true
+				break
+			}
+		}
+
+		if taskFound {
+			// Save updated tasks file
+			data, err := json.MarshalIndent(tasksFile, "", "  ")
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(tasksPath, data, 0644)
+		}
+	}
+
+	return ErrTaskNotFound
+}

@@ -99,6 +99,97 @@ reviewtask update task-uuid-here cancel
 - `pending` - Blocked or low priority
 - `cancel` - No longer relevant
 
+### Task Lifecycle Management
+
+#### `reviewtask cancel <task-id> [options]`
+
+Cancel a task with explanatory comment posted to GitHub review thread.
+
+```bash
+# Cancel a specific task with reason
+reviewtask cancel task-uuid-here --reason "Already addressed in commit abc1234"
+
+# Cancel all pending tasks with same reason
+reviewtask cancel --all-pending --reason "Deferring to follow-up PR #125"
+```
+
+**Options:**
+- `--reason <text>` - Required explanation for cancellation (posted to GitHub)
+- `--all-pending` - Cancel all tasks with status "pending"
+
+**What it does:**
+- Updates task status to "cancel"
+- Posts cancellation reason as comment on GitHub review thread
+- Notifies reviewers why feedback wasn't addressed
+- Returns non-zero exit code on failure (safe for CI/CD)
+
+**Error Handling:**
+- Exit code 0: Task(s) successfully cancelled
+- Exit code 1: Cancellation failed (error details provided)
+- Wraps first error with context using Go's `%w` error wrapping
+- In batch mode, continues processing all tasks before returning error
+
+**CI/CD Usage:**
+```bash
+# Safe error handling in scripts
+if ! reviewtask cancel --all-pending --reason "Sprint ended"; then
+    echo "Failed to cancel pending tasks" >&2
+    exit 1
+fi
+```
+
+#### `reviewtask verify <task-id>`
+
+Run verification checks before task completion.
+
+```bash
+# Verify task implementation quality
+reviewtask verify task-uuid-here
+```
+
+**What it does:**
+- Runs configured verification checks for task type
+- Build verification (default: `go build ./...`)
+- Test execution (default: `go test ./...`)
+- Code quality checks (default: `golangci-lint run`, `gofmt -l .`)
+- Custom verification commands based on task type
+- Records verification results in task metadata
+
+**Task Type Detection:**
+- `test-task`: Tasks containing "test" or "testing"
+- `build-task`: Tasks containing "build" or "compile"
+- `style-task`: Tasks containing "lint" or "format"
+- `bug-fix`: Tasks containing "bug" or "fix"
+- `feature-task`: Tasks containing "feature" or "implement"
+- `general-task`: All other tasks
+
+#### `reviewtask complete <task-id> [options]`
+
+Complete task with automatic verification.
+
+```bash
+# Complete task with verification
+reviewtask complete task-uuid-here
+
+# Complete without verification
+reviewtask complete task-uuid-here --skip-verification
+```
+
+**Options:**
+- `--skip-verification` - Skip verification checks before completion
+
+**What it does:**
+- Runs verification checks (unless skipped)
+- Updates task status to "done" if verification passes
+- Records verification results
+- Fails completion if verification fails
+
+**Recommended Workflow:**
+1. Implement changes for task
+2. Run `reviewtask verify <task-id>` to check quality
+3. Fix any issues found
+4. Run `reviewtask complete <task-id>` to mark as done
+
 ### Thread Resolution
 
 #### `reviewtask resolve [task-id] [options]`
@@ -330,11 +421,21 @@ reviewtask status         # Overall progress across all PRs
 # During implementation
 reviewtask show <task-id> # Full context for current task
 # Work on the task...
-reviewtask update <task-id> done
+reviewtask verify <task-id>         # Verify implementation quality
+reviewtask complete <task-id>       # Complete with automatic verification
+
+# Alternative: Cancel unnecessary tasks
+reviewtask cancel <task-id> --reason "Already addressed in commit abc1234"
 
 # When blocked
 reviewtask update <task-id> pending  # Mark as blocked
 reviewtask show                      # Find next task to work on
+
+# Clean up pending tasks
+reviewtask cancel --all-pending --reason "Deferring to follow-up PR"
+
+# Manually resolve review threads
+reviewtask resolve --all            # Resolve all completed tasks
 
 # When reviews are updated
 reviewtask                # Re-run to get new feedback
@@ -398,10 +499,16 @@ Some commands have aliases for convenience:
 reviewtask uses standard exit codes:
 
 - `0` - Success
-- `1` - General error
+- `1` - General error (including task cancellation failures)
 - `2` - Authentication error
 - `3` - Configuration error
 - `4` - Network error
+
+**Cancel Command Exit Codes:**
+- Returns `0` when all tasks successfully cancelled
+- Returns `1` when one or more cancellations fail
+- Wraps first error encountered for debugging
+- Safe for use in CI/CD pipelines and scripts
 
 ## Performance Considerations
 
