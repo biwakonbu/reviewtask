@@ -117,11 +117,20 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	// Cancel each task
 	successCount := 0
 	failureCount := 0
+	var firstErr error
 
 	for _, task := range tasksToCancel {
 		if err := cancelTask(cmd, storageManager, githubClient, &task, cancelReason); err != nil {
 			fmt.Fprintf(cmd.ErrOrStderr(), "✗ Failed to cancel task '%s': %v\n", task.ID, err)
 			failureCount++
+			// For single-task cancellations, return error immediately
+			if !cancelAllPending {
+				return err
+			}
+			// For batch cancellations, capture first error
+			if firstErr == nil {
+				firstErr = err
+			}
 		} else {
 			successCount++
 		}
@@ -132,6 +141,7 @@ func runCancel(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n✓ Successfully cancelled %d task(s)\n", successCount)
 		if failureCount > 0 {
 			fmt.Printf("✗ Failed to cancel %d task(s)\n", failureCount)
+			return fmt.Errorf("failed to cancel %d task(s)", failureCount)
 		}
 	}
 
