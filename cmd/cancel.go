@@ -141,6 +141,10 @@ func runCancel(cmd *cobra.Command, args []string) error {
 		fmt.Printf("\n✓ Successfully cancelled %d task(s)\n", successCount)
 		if failureCount > 0 {
 			fmt.Printf("✗ Failed to cancel %d task(s)\n", failureCount)
+			// Return the first error encountered for better debugging
+			if firstErr != nil {
+				return fmt.Errorf("failed to cancel %d task(s): %w", failureCount, firstErr)
+			}
 			return fmt.Errorf("failed to cancel %d task(s)", failureCount)
 		}
 	}

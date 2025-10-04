@@ -307,6 +307,86 @@ func TestCancelTaskWithoutSourceComment(t *testing.T) {
 	}
 }
 
+// TestCancelErrorPropagation tests that errors are properly propagated with non-zero exit status
+func TestCancelErrorPropagation(t *testing.T) {
+	tests := []struct {
+		name        string
+		taskID      string
+		allPending  bool
+		setupTasks  func(*storage.Manager) error
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name:       "single task not found returns error",
+			taskID:     "nonexistent",
+			allPending: false,
+			setupTasks: func(sm *storage.Manager) error {
+				return sm.SaveTasks(123, []storage.Task{
+					{ID: "task-1", Status: "todo", PRNumber: 123},
+				})
+			},
+			wantErr:     true,
+			errContains: "not found",
+		},
+		{
+			name:       "all-pending with no pending tasks returns nil",
+			allPending: true,
+			setupTasks: func(sm *storage.Manager) error {
+				return sm.SaveTasks(123, []storage.Task{
+					{ID: "task-1", Status: "done", PRNumber: 123},
+					{ID: "task-2", Status: "cancel", PRNumber: 123},
+				})
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			storageManager := storage.NewManagerWithBase(tempDir)
+
+			if tt.setupTasks != nil {
+				if err := tt.setupTasks(storageManager); err != nil {
+					t.Fatalf("Failed to setup tasks: %v", err)
+				}
+			}
+
+			// Reset global flags
+			cancelReason = "Test cancellation reason"
+			cancelAllPending = tt.allPending
+
+			// Build args
+			var args []string
+			if !tt.allPending && tt.taskID != "" {
+				args = []string{tt.taskID}
+			}
+
+			// Create command
+			cmd := &cobra.Command{Use: "cancel"}
+			var stderr bytes.Buffer
+			cmd.SetErr(&stderr)
+
+			// Run command
+			err := runCancel(cmd, args)
+
+			// Check error expectation
+			if (err != nil) != tt.wantErr {
+				t.Errorf("runCancel() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			// Check error message if error expected
+			if tt.wantErr && err != nil && tt.errContains != "" {
+				if !contains(err.Error(), tt.errContains) {
+					t.Errorf("Expected error containing %q, got %q", tt.errContains, err.Error())
+				}
+			}
+		})
+	}
+}
+
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
 	return bytes.Contains([]byte(s), []byte(substr))
