@@ -382,7 +382,7 @@ Support for Codex (chatgpt-codex-connector) embedded review comments:
 - Converts to standard task format automatically
 
 **Priority Mapping:**
-```
+```text
 P1 (🟠 orange) → HIGH priority
 P2 (🟡 yellow) → MEDIUM priority
 P3 (🟢 green)  → LOW priority
