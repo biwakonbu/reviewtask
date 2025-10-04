@@ -62,6 +62,7 @@ Examples:
 	cmd.AddCommand(fetchCmd)
 	cmd.AddCommand(statusCmd)
 	cmd.AddCommand(updateCmd)
+	cmd.AddCommand(cancelCmd)
 	cmd.AddCommand(completeCmd)
 	cmd.AddCommand(verifyCmd)
 	cmd.AddCommand(configCmd)
@@ -107,6 +108,7 @@ var newGitHubClient = github.NewClient
 
 func init() {
 	rootCmd.AddCommand(authCmd)
+	rootCmd.AddCommand(cancelCmd)
 	rootCmd.AddCommand(claudeCmd)
 	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(configCmd)
