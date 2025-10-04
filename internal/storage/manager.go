@@ -285,11 +285,11 @@ func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
 // This allows for side effects like resolving review threads
 func (m *Manager) UpdateTaskStatusWithCallback(taskID, newStatus string, callback func(task *Task) error) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// Find the task across all PRs
 	entries, err := os.ReadDir(m.baseDir)
 	if err != nil {
+		m.mu.Unlock()
 		return err
 	}
 
@@ -304,41 +304,53 @@ func (m *Manager) UpdateTaskStatusWithCallback(taskID, newStatus string, callbac
 			if os.IsNotExist(err) {
 				continue
 			}
+			m.mu.Unlock()
 			return err
 		}
 
 		// Check if task exists in this file
 		taskFound := false
-		var updatedTask *Task
+		var copiedTask Task
 		for i := range tasksFile.Tasks {
 			if tasksFile.Tasks[i].ID == taskID {
 				tasksFile.Tasks[i].Status = newStatus
 				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
 				taskFound = true
-				updatedTask = &tasksFile.Tasks[i]
+				// Create a copy of the task to pass to callback outside the lock
+				copiedTask = tasksFile.Tasks[i]
 				break
 			}
 		}
 
 		if taskFound {
-			// Call callback before saving (allows for side effects)
-			if callback != nil && updatedTask != nil {
-				if err := callback(updatedTask); err != nil {
+			// Save updated tasks file while holding the lock
+			data, err := json.MarshalIndent(tasksFile, "", "  ")
+			if err != nil {
+				m.mu.Unlock()
+				return err
+			}
+			if err := os.WriteFile(tasksPath, data, 0644); err != nil {
+				m.mu.Unlock()
+				return err
+			}
+
+			// Release the lock before calling the callback
+			m.mu.Unlock()
+
+			// Call callback outside the critical section to prevent deadlock
+			if callback != nil {
+				if err := callback(&copiedTask); err != nil {
 					// Log error but don't fail the update
 					// This ensures task status is updated even if thread resolution fails
 					fmt.Fprintf(os.Stderr, "Warning: callback failed for task %s: %v\n", taskID, err)
 				}
 			}
 
-			// Save updated tasks file
-			data, err := json.MarshalIndent(tasksFile, "", "  ")
-			if err != nil {
-				return err
-			}
-			return os.WriteFile(tasksPath, data, 0644)
+			return nil
 		}
 	}
 
+	m.mu.Unlock()
 	return ErrTaskNotFound
 }
 
