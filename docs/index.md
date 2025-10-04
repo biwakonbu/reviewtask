@@ -39,11 +39,14 @@ The [Developer Guide](developer-guide/README.md) provides in-depth technical doc
 ## 🌟 Key Features
 
 - **🔍 PR Review Analysis** - Convert GitHub reviews into actionable tasks
-- **🤖 AI-Powered** - Intelligent task generation using Claude
+- **🤖 AI-Powered** - Intelligent task generation using Cursor CLI or Claude Code
+- **🤝 Multi-Source Reviews** - Supports Standard GitHub, CodeRabbit, and Codex reviews
+- **🏷️ Priority Detection** - Automatic P1/P2/P3 badge parsing from Codex
 - **⚡ Parallel Processing** - Fast analysis of multiple comments
 - **📋 Task Management** - Full lifecycle tracking (todo/doing/done)
 - **🔄 State Preservation** - Never lose work progress
 - **🎯 Smart Prioritization** - Customizable priority rules
+- **🔗 Thread Auto-Resolution** - Automatically resolve GitHub review threads
 - **🔌 Extensible** - Plugin architecture for AI providers
 
 ## 📖 Choose Your Path

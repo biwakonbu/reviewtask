@@ -29,7 +29,10 @@ reviewtask/
 │   │   └── config.go     # Config structures
 │   ├── github/           # GitHub integration
 │   │   ├── client.go     # API client
-│   │   └── auth.go       # Authentication
+│   │   ├── auth.go       # Authentication
+│   │   ├── codex_parser.go # Codex embedded comment parser
+│   │   ├── deduplication.go # Review deduplication
+│   │   └── graphql.go    # GraphQL API (thread resolution)
 │   ├── storage/          # Data persistence
 │   │   ├── manager.go    # Storage operations
 │   │   ├── write_worker.go # Concurrent writes
@@ -75,10 +78,16 @@ reviewtask/
 - Manages prompt templates
 
 #### GitHub Package (`internal/github`)
-- Wraps GitHub API client
+- Wraps GitHub API client (REST and GraphQL)
 - Manages authentication
 - Handles rate limiting
 - Provides caching
+- **Multi-source review support**:
+  - CodeRabbit integration (standard comments + nitpick detection)
+  - Codex integration (embedded comment parsing)
+  - Standard GitHub reviews
+- **Review deduplication** (content-based fingerprinting)
+- **Thread auto-resolution** (GraphQL API integration)
 
 #### Storage Package (`internal/storage`)
 - Manages file I/O operations

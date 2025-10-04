@@ -8,6 +8,20 @@
 
 A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and generates actionable tasks for developers to address feedback systematically.
 
+## Supported AI Providers & Review Tools
+
+### AI Providers for Task Generation
+- **🤖 Cursor CLI** - Cursor's AI with automatic model selection (recommended)
+- **🤖 Claude Code** - Anthropic's Claude via command-line interface
+- **🤖 Auto-detection** - Automatically finds and uses available providers
+
+### Review Source Integration
+- **✅ Standard GitHub Reviews** - Direct comment processing
+- **✅ CodeRabbit** (`coderabbitai[bot]`) - With nitpick comment detection
+- **✅ Codex** (`chatgpt-codex-connector`) - Parses embedded comments with P1/P2/P3 priority badges
+
+All review sources are automatically detected and processed without configuration!
+
 ## Features
 
 - **🔍 PR Review Fetching**: Automatically retrieves reviews from GitHub API with nested comment structure
@@ -36,6 +50,9 @@ A CLI tool that fetches GitHub Pull Request reviews, analyzes them using AI, and
 - **🧠 AI Prompt Preservation**: Preserves "🤖 Prompt for AI Agents" blocks from CodeRabbit while removing verbose metadata
 - **📦 File Size Optimization**: Achieves up to 66% reduction in reviews.json size (200KB → 67KB) while maintaining essential content
 - **🔤 HTML Entity Processing**: Properly handles Unicode HTML entities and GitHub API response variations
+- **🤝 Multi-Source Review Support**: Automatically detects and processes CodeRabbit and Codex (chatgpt-codex-connector) reviews
+- **🏷️ Priority Badge Detection**: Parses P1/P2/P3 priority badges from Codex embedded comments
+- **🔗 GitHub Thread Auto-Resolution**: Automatically resolves review threads when tasks are marked as done (opt-in)
 
 ## Installation
 
@@ -230,9 +247,13 @@ Authentication sources (in order of preference):
 ./reviewtask 123
 
 # The tool will:
-# - Fetch PR reviews and comments
+# - Fetch PR reviews and comments from multiple sources:
+#   • Standard GitHub reviews
+#   • CodeRabbit reviews (automatic nitpick detection)
+#   • Codex reviews (embedded comment parsing with P1/P2/P3 priorities)
 # - Automatically optimize performance based on PR size
 # - Process comments in parallel batches
+# - Deduplicate reviews (especially useful for Codex double-submissions)
 # - Cache API responses to reduce redundant calls
 # - Support automatic resume if interrupted
 # - Generate actionable tasks with priorities

@@ -161,7 +161,8 @@ For backward compatibility, the following detailed format is also supported:
     "stream_processing_enabled": true,
     "auto_summarize_enabled": true,
     "realtime_saving_enabled": true,
-    "skip_claude_auth_check": false
+    "skip_claude_auth_check": false,
+    "auto_resolve_threads": false
   }
 }
 ```
@@ -179,8 +180,29 @@ For backward compatibility, the following detailed format is also supported:
 | `max_tasks_per_comment` | int | `2` | Max tasks per review comment | Increase for complex comments |
 | `deduplication_enabled` | bool | `true` | Remove duplicate tasks | Disable if unique tasks being removed |
 | `similarity_threshold` | float | `0.8` | Task similarity threshold | Lower to catch more duplicates |
-| `process_nitpick_comments` | bool | `true` | Process nitpick comments | Disable to skip minor issues |
+| `process_nitpick_comments` | bool | `true` | Process CodeRabbit nitpick comments | Disable to skip minor issues |
 | `process_self_reviews` | bool | `false` | Process PR author's own reviews | Enable for self-review workflows |
+| `auto_resolve_threads` | bool | `false` | Auto-resolve GitHub review threads when tasks are done | Enable to automatically close resolved threads |
+
+#### AI Review Tool Integration
+
+**Supported Review Tools:**
+
+1. **CodeRabbit** (`coderabbitai[bot]`)
+   - Standard GitHub review comments
+   - Nitpick comment handling via `process_nitpick_comments`
+   - Thread auto-resolution supported
+
+2. **Codex** (`chatgpt-codex-connector`)
+   - Embedded comments in review body
+   - Automatic priority badge detection (P1/P2/P3)
+   - GitHub permalink parsing
+   - Duplicate review detection
+   - Thread auto-resolution NOT supported (no comment ID)
+
+3. **Standard GitHub Reviews**
+   - Direct comment processing
+   - Thread auto-resolution supported
 
 ### Verification Settings
 

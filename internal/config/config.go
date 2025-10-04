@@ -72,6 +72,8 @@ type AISettings struct {
 	AutoSummarizeEnabled     bool    `json:"auto_summarize_enabled"`     // Enable automatic content summarization for large comments (default: true)
 	RealtimeSavingEnabled    bool    `json:"realtime_saving_enabled"`    // Enable real-time saving of tasks as they are processed (default: true)
 	SkipClaudeAuthCheck      bool    `json:"skip_claude_auth_check"`     // Skip Claude CLI authentication check (helps with frequent logout issues) (default: false)
+	AutoResolveThreads       bool    `json:"auto_resolve_threads"`       // Auto-resolve GitHub review threads when tasks are marked as done (default: false)
+	AutoResolveMode          string  `json:"auto_resolve_mode"`          // Auto-resolve mode: "immediate" (resolve each task), "complete" (resolve when all comment tasks done), "disabled" (default: "disabled")
 }
 
 type VerificationSettings struct {
@@ -124,8 +126,9 @@ func defaultConfig() *Config {
 			UserLanguage:             "English",
 			OutputFormat:             "json",
 			MaxRetries:               5,
-			AIProvider:               "auto", // Default to auto-detect (try cursor, then claude)
-			Model:                    "auto", // Default to auto model (cursor chooses best model)
+			AIProvider:               "auto",     // Default to auto-detect (try cursor, then claude)
+			AutoResolveMode:          "complete", // Default to complete mode (resolve when all comment tasks are done)
+			Model:                    "auto",     // Default to auto model (cursor chooses best model)
 			PromptProfile:            "v2",
 			ValidationEnabled:        &validationTrue,
 			QualityThreshold:         0.8,
@@ -308,6 +311,9 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	}
 	if config.AISettings.PartialResponseThreshold == 0 {
 		config.AISettings.PartialResponseThreshold = defaults.AISettings.PartialResponseThreshold
+	}
+	if config.AISettings.AutoResolveMode == "" {
+		config.AISettings.AutoResolveMode = defaults.AISettings.AutoResolveMode
 	}
 
 	// Boolean field handling: Only set defaults if the field is missing from the JSON

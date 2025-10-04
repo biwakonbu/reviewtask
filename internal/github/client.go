@@ -440,9 +440,11 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 	result := []Review{}
 	for _, review := range reviews {
 		reviewBody := review.GetBody()
+		reviewer := review.GetUser().GetLogin()
+		submittedAt := review.GetSubmittedAt().Format("2006-01-02T15:04:05Z")
 
 		// For CodeRabbit actionable comments, remove the summary body but keep individual comments
-		if review.GetUser().GetLogin() == "coderabbitai[bot]" &&
+		if reviewer == "coderabbitai[bot]" &&
 			strings.HasPrefix(reviewBody, "**Actionable comments posted:") {
 			reviewBody = "" // Clear the body but keep the review for its comments
 		} else {
@@ -451,10 +453,10 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 
 		r := Review{
 			ID:          review.GetID(),
-			Reviewer:    review.GetUser().GetLogin(),
+			Reviewer:    reviewer,
 			State:       review.GetState(),
 			Body:        reviewBody,
-			SubmittedAt: review.GetSubmittedAt().Format("2006-01-02T15:04:05Z"),
+			SubmittedAt: submittedAt,
 			Comments:    []Comment{}, // Initialize with empty slice to avoid null
 		}
 
@@ -467,8 +469,20 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 			r.Comments = comments
 		}
 
+		// Parse embedded comments from Codex-style reviews
+		if IsCodexReview(reviewer) {
+			embeddedComments := ParseEmbeddedComments(review.GetBody())
+			for _, ec := range embeddedComments {
+				comment := ConvertEmbeddedCommentToComment(ec, reviewer, submittedAt)
+				r.Comments = append(r.Comments, comment)
+			}
+		}
+
 		result = append(result, r)
 	}
+
+	// Deduplicate reviews (especially important for Codex which sometimes submits duplicates)
+	result = DeduplicateReviews(result)
 
 	// Cache the result (ignore cache error)
 	_ = c.cache.Set("GetPRReviews", c.owner, c.repo, result, prNumber)

@@ -193,7 +193,7 @@ For power users who need fine control, you can use advanced settings:
 }
 ```
 
-See [Configuration Reference](CONFIG_REFERENCE.md) for all parameters.
+See [Configuration Reference](config-reference.md) for all parameters.
 
 ## Troubleshooting
 
@@ -289,6 +289,6 @@ SKIP_CLAUDE_AUTH_CHECK=true reviewtask analyze
 
 ## Next Steps
 
-- See [Configuration Reference](CONFIG_REFERENCE.md) for all parameters
-- Learn about [AI Providers](AI_PROVIDERS.md)
-- Read the [Troubleshooting Guide](TROUBLESHOOTING.md)
+- See [Configuration Reference](config-reference.md) for all parameters
+- Learn about [AI Providers](ai-providers.md)
+- Read the [Troubleshooting Guide](troubleshooting.md)

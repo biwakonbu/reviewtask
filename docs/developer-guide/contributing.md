@@ -132,7 +132,7 @@ Labels: release:major, breaking-change
 - Check the [documentation](docs/)
 - Look at existing issues and PRs
 - Ask questions in issues with the `question` label
-- Review the [versioning guide](docs/VERSIONING.md)
+- Review the [versioning guide](versioning.md)
 
 ## License
 

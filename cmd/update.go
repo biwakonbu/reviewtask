@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"reviewtask/internal/config"
+	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 )
 
@@ -52,8 +56,70 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	storageManager := storage.NewManager()
 
-	// Update task status
-	err = storageManager.UpdateTaskStatus(taskID, newStatus)
+	// Check if auto-resolve is enabled
+	cfg, err := config.Load()
+
+	// Determine auto-resolve behavior based on configuration
+	// Priority: AutoResolveMode > AutoResolveThreads (legacy)
+	autoResolveMode := "disabled"
+	if err == nil {
+		mode := strings.ToLower(strings.TrimSpace(cfg.AISettings.AutoResolveMode))
+		switch mode {
+		case "immediate", "complete":
+			autoResolveMode = mode
+		case "", "disabled":
+			// keep disabled
+		default:
+			fmt.Fprintf(cmd.ErrOrStderr(), "unknown auto_resolve_mode %q; defaulting to disabled\n", cfg.AISettings.AutoResolveMode)
+		}
+
+		if autoResolveMode == "disabled" && cfg.AISettings.AutoResolveThreads {
+			// Legacy support: AutoResolveThreads=true maps to "immediate" mode
+			autoResolveMode = "immediate"
+		}
+	}
+
+	// Create callback for thread resolution if needed
+	var callback func(*storage.Task) error
+	if autoResolveMode != "disabled" && newStatus == "done" {
+		callback = func(task *storage.Task) error {
+			// Only resolve threads for tasks with source comment IDs
+			// (embedded comments from Codex won't have thread IDs)
+			if task.SourceCommentID == 0 {
+				return nil
+			}
+
+			// For "complete" mode, check if all tasks for this comment are done
+			if autoResolveMode == "complete" {
+				allDone, err := storageManager.AreAllCommentTasksCompleted(task.PRNumber, task.SourceCommentID)
+				if err != nil {
+					return fmt.Errorf("failed to check comment completion status: %w", err)
+				}
+				if !allDone {
+					// Not all tasks are done yet, skip resolution
+					return nil
+				}
+			}
+
+			// Create GitHub client
+			githubClient, err := github.NewClient()
+			if err != nil {
+				return fmt.Errorf("failed to create GitHub client: %w", err)
+			}
+
+			// Resolve the thread
+			ctx := context.Background()
+			if err := githubClient.ResolveCommentThread(ctx, task.PRNumber, task.SourceCommentID); err != nil {
+				return fmt.Errorf("failed to resolve thread: %w", err)
+			}
+
+			fmt.Printf("✓ Resolved review thread for comment #%d\n", task.SourceCommentID)
+			return nil
+		}
+	}
+
+	// Update task status with callback
+	err = storageManager.UpdateTaskStatusWithCallback(taskID, newStatus, callback)
 	if err != nil {
 		if err == storage.ErrTaskNotFound {
 			return fmt.Errorf("task '%s' not found", taskID)

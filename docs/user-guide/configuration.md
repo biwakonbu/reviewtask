@@ -356,7 +356,9 @@ AI-powered task deduplication prevents duplicate tasks:
 - Configurable similarity threshold (0.0-1.0)
 - Preserves existing task statuses during deduplication
 
-### CodeRabbit Integration
+### AI Review Tool Integration
+
+#### CodeRabbit Integration
 
 Special handling for CodeRabbit code review comments:
 
@@ -368,6 +370,70 @@ Special handling for CodeRabbit code review comments:
 - Control whether to process nitpick comments as tasks
 - Set priority level for nitpick-generated tasks
 - Integrates with low-priority detection patterns
+
+#### Codex Integration (NEW)
+
+Support for Codex (chatgpt-codex-connector) embedded review comments:
+
+**Automatic Detection:**
+- Detects `chatgpt-codex-connector` username or reviews containing "codex"
+- Parses structured comments from review body
+- Extracts priority badges (P1/P2/P3) and GitHub permalinks
+- Converts to standard task format automatically
+
+**Priority Mapping:**
+```text
+P1 (🟠 orange) → HIGH priority
+P2 (🟡 yellow) → MEDIUM priority
+P3 (🟢 green)  → LOW priority
+```
+
+**Example Codex Review Format:**
+```markdown
+https://github.com/owner/repo/blob/hash/file.py#L1-L5
+**![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat) Fix critical issue**
+
+Description of the issue that needs to be addressed...
+```
+
+**Features:**
+- No configuration required - works automatically
+- Duplicate review detection (Codex sometimes submits twice)
+- Compatible with all existing task management features
+- Thread auto-resolution not available (embedded comments have no thread ID)
+
+#### GitHub Thread Auto-Resolution
+
+Automatically resolve review threads when tasks are completed:
+
+```json
+"auto_resolve_mode": "complete"
+```
+
+**Available modes:**
+- `complete` (default) - Resolve thread when ALL tasks from a comment are completed
+  - `done` tasks: Always OK
+  - `cancel` tasks: Must have posted cancel reason (`CancelCommentPosted: true`)
+  - `pending` tasks: Block resolution
+  - `todo`/`doing` tasks: Block resolution
+- `immediate` - Resolve thread immediately when each task is marked as done
+- `disabled` - Never auto-resolve (use `reviewtask resolve` for manual control)
+
+**Default:** `complete` (smart resolution based on all tasks from same comment)
+
+**When enabled:**
+- Comment-level tracking ensures all feedback is addressed before resolution
+- Provides visual confirmation that feedback has been addressed
+- Reduces manual cleanup work for PR authors
+- Works with standard GitHub comments (Codex embedded comments have no thread ID)
+
+**Requirements:**
+- Valid GitHub authentication with repository write access
+- GraphQL API access (always available with standard GitHub tokens)
+- Tasks must have valid `SourceCommentID` (automatically populated)
+
+**Manual resolution:**
+Use `reviewtask resolve <task-id>` or `reviewtask resolve --all` for manual thread resolution when auto-resolve is disabled or for specific control.
 
 ## Environment Variables
 

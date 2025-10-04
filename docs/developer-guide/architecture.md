@@ -215,7 +215,124 @@ type TaskDeduplicator struct {
 3. Merge similar tasks while preserving status
 4. Configurable similarity threshold
 
+### Review Source Integration
+
+#### Multi-Source Review Support
+
+reviewtask supports multiple AI code review tools with different comment formats:
+
+##### CodeRabbit Integration
+- **Detection**: `coderabbitai[bot]` username
+- **Format**: Standard GitHub review comments + actionable summary
+- **Processing**:
+  - Summary body cleared but individual comments preserved
+  - Nitpick comments configurable via `process_nitpick_comments`
+  - HTML element removal for clean task extraction
+
+##### Codex Integration (NEW)
+- **Detection**: `chatgpt-codex-connector` username or contains "codex"
+- **Format**: Embedded comments within review body
+- **Processing**:
+  - Parse structured markdown from review body
+  - Extract GitHub permalinks, priority badges, titles, descriptions
+  - Convert to standard Comment format for task generation
+
+**Codex Comment Structure:**
+```go
+type EmbeddedComment struct {
+    FilePath    string // Extracted from GitHub permalink
+    StartLine   int    // From permalink line range
+    EndLine     int    // From permalink line range
+    Priority    string // P1/P2/P3 from badge
+    Title       string // From markdown heading
+    Description string // Comment body text
+    Permalink   string // Full GitHub URL
+}
+```
+
+**Priority Mapping:**
+- P1 (orange badge) → HIGH priority
+- P2 (yellow badge) → MEDIUM priority
+- P3 (green badge) → LOW priority
+
+**Deduplication:**
+- Codex sometimes submits duplicate reviews
+- Content-based fingerprinting detects duplicates
+- Keeps most recent review when duplicates found
+
+##### Integration Flow
+```mermaid
+graph TB
+    A[GitHub Reviews] --> B{Review Source?}
+    B -->|CodeRabbit| C[Clear Summary Body]
+    B -->|Codex| D[Parse Embedded Comments]
+    B -->|Standard| E[Process Normally]
+    C --> F[Extract Comments]
+    D --> G[Convert to Comment Format]
+    E --> F
+    F --> H[Deduplicate Reviews]
+    G --> H
+    H --> I[Task Generation]
+```
+
 ### GitHub Integration
+
+#### GraphQL API Integration
+
+**Thread Auto-Resolution:**
+```go
+type GraphQLClient struct {
+    token      string
+    httpClient *http.Client
+}
+
+func (c *GraphQLClient) ResolveReviewThread(ctx context.Context, threadID string) error
+func (c *GraphQLClient) GetReviewThreadID(ctx context.Context, owner, repo string, prNumber int, commentID int64) (string, error)
+```
+
+**Features:**
+- Automatically resolve review threads based on configurable mode
+- Maps comment IDs to thread IDs via GraphQL API with pagination support
+- Handles large PRs with >100 threads or >100 comments per thread
+- Only applies to standard GitHub comments (not Codex embedded comments)
+- Configurable via `auto_resolve_mode` setting (default: "complete")
+
+**Auto-Resolve Modes:**
+- `complete` - Resolve when ALL tasks from a comment are completed (smart resolution)
+- `immediate` - Resolve thread immediately when each task is marked as done
+- `disabled` - Never auto-resolve (use manual `reviewtask resolve` command)
+
+**Pagination Support:**
+The GraphQL client implements nested pagination to support large PRs:
+- Outer loop: Paginates through review threads (100 per page)
+- Inner loop: Paginates through comments within each thread (100 per page)
+- Returns immediately when target comment is found
+- Exhausts all pages before returning "not found" error
+
+**Implementation:**
+```go
+// Comment-level completion check
+func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bool, error) {
+    // Check all tasks from the same comment
+    // Rules:
+    // - done: always OK
+    // - cancel: requires CancelCommentPosted=true
+    // - pending/todo/doing: blocks resolution
+}
+
+// Auto-resolve with mode support
+if config.AutoResolveMode != "disabled" {
+    if config.AutoResolveMode == "immediate" && task.Status == "done" {
+        // Resolve immediately
+        resolveThread(task)
+    } else if config.AutoResolveMode == "complete" {
+        // Check if all tasks from comment are completed
+        if allCompleted, _ := manager.AreAllCommentTasksCompleted(prNumber, commentID); allCompleted {
+            resolveThread(task)
+        }
+    }
+}
+```
 
 #### Authentication Hierarchy
 ```go

@@ -38,10 +38,12 @@ type Task struct {
 	File                 string               `json:"file"`
 	Line                 int                  `json:"line"`
 	Status               string               `json:"status"`
-	ImplementationStatus string               `json:"implementation_status"` // implemented, not_implemented
-	VerificationStatus   string               `json:"verification_status"`   // verified, not_verified, failed
-	VerificationResults  []VerificationResult `json:"verification_results"`  // History of verification attempts
-	LastVerificationAt   string               `json:"last_verification_at"`  // Last verification timestamp
+	CancelReason         string               `json:"cancel_reason,omitempty"` // Reason for cancellation (optional)
+	CancelCommentPosted  bool                 `json:"cancel_comment_posted"`   // Whether cancel reason was posted to PR
+	ImplementationStatus string               `json:"implementation_status"`   // implemented, not_implemented
+	VerificationStatus   string               `json:"verification_status"`     // verified, not_verified, failed
+	VerificationResults  []VerificationResult `json:"verification_results"`    // History of verification attempts
+	LastVerificationAt   string               `json:"last_verification_at"`    // Last verification timestamp
 	CreatedAt            string               `json:"created_at"`
 	UpdatedAt            string               `json:"updated_at"`
 	PRNumber             int                  `json:"pr_number"`
@@ -276,12 +278,18 @@ func (m *Manager) GetAllTasks() ([]Task, error) {
 }
 
 func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
+	return m.UpdateTaskStatusWithCallback(taskID, newStatus, nil)
+}
+
+// UpdateTaskStatusWithCallback updates a task status and calls a callback with task information
+// This allows for side effects like resolving review threads
+func (m *Manager) UpdateTaskStatusWithCallback(taskID, newStatus string, callback func(task *Task) error) error {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	// Find the task across all PRs
 	entries, err := os.ReadDir(m.baseDir)
 	if err != nil {
+		m.mu.Unlock()
 		return err
 	}
 
@@ -296,30 +304,53 @@ func (m *Manager) UpdateTaskStatus(taskID, newStatus string) error {
 			if os.IsNotExist(err) {
 				continue
 			}
+			m.mu.Unlock()
 			return err
 		}
 
 		// Check if task exists in this file
 		taskFound := false
+		var copiedTask Task
 		for i := range tasksFile.Tasks {
 			if tasksFile.Tasks[i].ID == taskID {
 				tasksFile.Tasks[i].Status = newStatus
 				tasksFile.Tasks[i].UpdatedAt = time.Now().Format("2006-01-02T15:04:05Z")
 				taskFound = true
+				// Create a copy of the task to pass to callback outside the lock
+				copiedTask = tasksFile.Tasks[i]
 				break
 			}
 		}
 
 		if taskFound {
-			// Save updated tasks file
+			// Save updated tasks file while holding the lock
 			data, err := json.MarshalIndent(tasksFile, "", "  ")
 			if err != nil {
+				m.mu.Unlock()
 				return err
 			}
-			return os.WriteFile(tasksPath, data, 0644)
+			if err := os.WriteFile(tasksPath, data, 0644); err != nil {
+				m.mu.Unlock()
+				return err
+			}
+
+			// Release the lock before calling the callback
+			m.mu.Unlock()
+
+			// Call callback outside the critical section to prevent deadlock
+			if callback != nil {
+				if err := callback(&copiedTask); err != nil {
+					// Log error but don't fail the update
+					// This ensures task status is updated even if thread resolution fails
+					fmt.Fprintf(os.Stderr, "Warning: callback failed for task %s: %v\n", taskID, err)
+				}
+			}
+
+			return nil
 		}
 	}
 
+	m.mu.Unlock()
 	return ErrTaskNotFound
 }
 
@@ -376,6 +407,45 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 	}
 
 	return commentTasks, nil
+}
+
+// AreAllCommentTasksCompleted checks if all tasks from a comment are completed
+// Rules for resolution:
+// - All tasks must be either "done" or "cancel"
+// - If any task is "pending", cannot resolve (blocks resolution)
+// - If task is "cancel", it must have CancelCommentPosted=true (reason was posted to PR)
+func (m *Manager) AreAllCommentTasksCompleted(prNumber int, commentID int64) (bool, error) {
+	tasks, err := m.GetTasksByComment(prNumber, commentID)
+	if err != nil {
+		return false, err
+	}
+
+	// If no tasks found, consider it as not completed
+	if len(tasks) == 0 {
+		return false, nil
+	}
+
+	// Check if all tasks are in a resolvable state
+	for _, task := range tasks {
+		switch task.Status {
+		case "done":
+			// Done tasks are always OK
+			continue
+		case "cancel":
+			// Cancel tasks require a posted reason to be considered complete
+			if !task.CancelCommentPosted {
+				return false, nil
+			}
+		case "pending":
+			// Pending tasks block resolution
+			return false, nil
+		default:
+			// Any other status (todo, doing) means not completed
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 func (m *Manager) UpdateTaskStatusByCommentAndIndex(prNumber int, commentID int64, taskIndex int, newStatus string) error {
