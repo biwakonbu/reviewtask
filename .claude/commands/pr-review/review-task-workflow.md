@@ -21,7 +21,7 @@ The reviewtask tool provides the following commands for managing PR review tasks
 
 ### Task Lifecycle Management Commands:
 
-- **`reviewtask cancel <task-id> --reason "...")`** - Cancel a task and post reason to GitHub review thread
+- **`reviewtask cancel <task-id> --reason "..."`** - Cancel a task and post reason to GitHub review thread
 - **`reviewtask cancel --all-pending --reason "..."`** - Cancel all pending tasks with same reason
 - **`reviewtask verify <task-id>`** - Run verification checks before task completion
 - **`reviewtask complete <task-id>`** - Complete task with automatic verification
