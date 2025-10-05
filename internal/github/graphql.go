@@ -310,3 +310,45 @@ func (c *Client) ResolveCommentThread(ctx context.Context, prNumber int, comment
 
 	return nil
 }
+
+// GetCommentThreadState returns whether a review thread is resolved for a specific comment
+func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commentID int64) (isResolved bool, err error) {
+	// Create GraphQL client
+	graphqlClient, err := c.NewGraphQLClient()
+	if err != nil {
+		return false, fmt.Errorf("failed to create GraphQL client: %w", err)
+	}
+
+	// Reuse GetReviewThreadID to find the thread (handles pagination correctly)
+	threadID, err := graphqlClient.GetReviewThreadID(ctx, c.owner, c.repo, prNumber, commentID)
+	if err != nil {
+		return false, fmt.Errorf("failed to find thread: %w", err)
+	}
+
+	// Query just this thread's resolution state
+	query := `
+		query($threadId: ID!) {
+			node(id: $threadId) {
+				... on PullRequestReviewThread {
+					isResolved
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"threadId": threadID,
+	}
+
+	var result struct {
+		Node struct {
+			IsResolved bool `json:"isResolved"`
+		} `json:"node"`
+	}
+
+	if err := graphqlClient.Execute(ctx, query, variables, &result); err != nil {
+		return false, fmt.Errorf("failed to query thread state: %w", err)
+	}
+
+	return result.Node.IsResolved, nil
+}

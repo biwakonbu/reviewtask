@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -95,4 +96,28 @@ func GenerateColoredProgressBar(stats tasks.TaskStats, width int) string {
 	}
 
 	return strings.Join(segments, "")
+}
+
+// ProgressBar creates a progress bar with the given parameters.
+// Example: Progress [████████░░░░░░░░░░░░] 40% (4/10)
+func ProgressBar(completed, total int, width int) string {
+	if total == 0 {
+		return "Progress [" + strings.Repeat("░", width) + "] 0% (0/0)"
+	}
+
+	percentage := float64(completed) / float64(total) * 100
+	filledWidth := int(float64(completed) / float64(total) * float64(width))
+	emptyWidth := width - filledWidth
+
+	bar := strings.Repeat("█", filledWidth) + strings.Repeat("░", emptyWidth)
+	return fmt.Sprintf("Progress [%s] %.0f%% (%d/%d)", bar, percentage, completed, total)
+}
+
+// SimpleProgress creates a simple progress indicator without a bar.
+func SimpleProgress(completed, total int) string {
+	if total == 0 {
+		return "0 of 0 complete (0%)"
+	}
+	percentage := float64(completed) / float64(total) * 100
+	return fmt.Sprintf("%d of %d complete (%.0f%%)", completed, total, percentage)
 }
