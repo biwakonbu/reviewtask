@@ -252,6 +252,42 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Fetch thread resolution state for all comments
+	fmt.Println("  Checking thread resolution state...")
+	now := time.Now().Format("2006-01-02T15:04:05Z")
+	unresolvedCount := 0
+	for i := range reviews {
+		for j := range reviews[i].Comments {
+			comment := &reviews[i].Comments[j]
+			// Skip comments without ID (e.g., embedded Codex comments)
+			if comment.ID == 0 {
+				continue
+			}
+
+			// Fetch thread resolution state
+			isResolved, err := ghClient.GetCommentThreadState(ctx, prNumber, comment.ID)
+			if err != nil {
+				// Log warning but continue - not all comments have threads
+				if cfg.AISettings.VerboseMode {
+					fmt.Printf("  ⚠️  Could not fetch thread state for comment %d: %v\n", comment.ID, err)
+				}
+				continue
+			}
+
+			// Populate thread resolution fields
+			comment.GitHubThreadResolved = isResolved
+			comment.LastCheckedAt = now
+
+			if !isResolved {
+				unresolvedCount++
+			}
+		}
+	}
+
+	if unresolvedCount > 0 {
+		fmt.Printf("  Found %d unresolved comment threads\n", unresolvedCount)
+	}
+
 	// Save PR info and reviews
 	fmt.Println("  Saving data...")
 	if err := storageManager.SavePRInfo(prNumber, prInfo); err != nil {
