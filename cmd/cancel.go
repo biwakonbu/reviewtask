@@ -163,7 +163,7 @@ func cancelTask(cmd *cobra.Command, storageManager *storage.Manager, githubClien
 
 	// Post cancel reason as a reply to the review comment
 	ctx := context.Background()
-	commentBody := formatCancelComment(task, reason)
+	commentBody := formatCancelComment(storageManager, task, reason)
 
 	if err := githubClient.PostReviewCommentReply(ctx, task.PRNumber, task.SourceCommentID, commentBody); err != nil {
 		// If comment posting fails, still update task but mark comment as not posted
@@ -189,21 +189,69 @@ func updateTaskCancelStatus(storageManager *storage.Manager, taskID, reason stri
 }
 
 // formatCancelComment formats the cancellation comment for posting to GitHub
-func formatCancelComment(task *storage.Task, reason string) string {
+func formatCancelComment(storageManager *storage.Manager, task *storage.Task, reason string) string {
 	var comment strings.Builder
 
-	comment.WriteString("**Task Cancelled**\n\n")
+	// Header with Task ID and Priority
+	priorityStr := strings.ToUpper(task.Priority)
+	if priorityStr == "" {
+		priorityStr = "MEDIUM" // Default priority
+	}
+	comment.WriteString(fmt.Sprintf("**Task Cancelled**: %s (Priority: %s)\n\n", task.ID, priorityStr))
+
+	// Cancellation reason
 	comment.WriteString("This feedback item has been cancelled for the following reason:\n\n")
 	comment.WriteString(fmt.Sprintf("> %s\n\n", reason))
 
-	// Add task information
+	// Task details in structured format
+	comment.WriteString("**Task Details:**\n")
+	comment.WriteString(fmt.Sprintf("- **ID**: %s\n", task.ID))
+	comment.WriteString(fmt.Sprintf("- **Priority**: %s\n", priorityStr))
+
 	if task.Description != "" {
-		comment.WriteString(fmt.Sprintf("**Original task**: %s\n", task.Description))
+		comment.WriteString(fmt.Sprintf("- **Description**: %s\n", task.Description))
 	}
 
 	if task.URL != "" {
-		comment.WriteString(fmt.Sprintf("**Comment**: %s\n", task.URL))
+		comment.WriteString(fmt.Sprintf("- **Comment**: %s\n", task.URL))
+	}
+
+	// Add information about other tasks from the same comment
+	if task.SourceCommentID != 0 {
+		otherActiveTasks := countOtherActiveTasksFromSameComment(storageManager, task)
+		if otherActiveTasks > 0 {
+			comment.WriteString(fmt.Sprintf("\nℹ️ This comment has %d other task(s) still active\n", otherActiveTasks))
+		}
 	}
 
 	return comment.String()
+}
+
+// countOtherActiveTasksFromSameComment counts active tasks from the same source comment
+func countOtherActiveTasksFromSameComment(storageManager *storage.Manager, currentTask *storage.Task) int {
+	if currentTask.SourceCommentID == 0 {
+		return 0
+	}
+
+	// Get all tasks for this PR
+	allTasks, err := storageManager.GetTasksByPR(currentTask.PRNumber)
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	for _, task := range allTasks {
+		// Skip the current task being cancelled
+		if task.ID == currentTask.ID {
+			continue
+		}
+
+		// Count tasks from the same comment that are still active
+		if task.SourceCommentID == currentTask.SourceCommentID &&
+			task.Status != "done" && task.Status != "cancel" {
+			count++
+		}
+	}
+
+	return count
 }
