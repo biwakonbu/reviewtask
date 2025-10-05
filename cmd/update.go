@@ -18,15 +18,17 @@ var updateCmd = &cobra.Command{
 
 Valid statuses:
   todo     - Ready to start
-  doing    - Currently in progress  
+  doing    - Currently in progress
   done     - Completed
   pending  - Needs evaluation (whether to address or not)
-  cancel   - Decided not to address
+
+Note: To cancel a task, use 'reviewtask cancel <task-id> --reason "..."'
+This ensures cancellation reasons are posted to the PR.
 
 Examples:
   reviewtask update task-1 doing
   reviewtask update task-2 done
-  reviewtask update task-3 cancel`,
+  reviewtask update task-3 pending`,
 	Args: cobra.ExactArgs(2),
 	RunE: runUpdate,
 }
@@ -41,17 +43,24 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 	newStatus := args[1]
 
+	// Reject cancel status - must use dedicated cancel command
+	if newStatus == "cancel" {
+		return fmt.Errorf("cannot set status to 'cancel' using update command.\n\n"+
+			"Use 'reviewtask cancel %s --reason \"...\"' instead.\n\n"+
+			"This ensures cancellation reasons are posted to PR for reviewer visibility\n"+
+			"and enables proper thread auto-resolution.", taskID)
+	}
+
 	// Validate status
 	validStatuses := map[string]bool{
 		"todo":    true,
 		"doing":   true,
 		"done":    true,
 		"pending": true,
-		"cancel":  true,
 	}
 
 	if !validStatuses[newStatus] {
-		return fmt.Errorf("invalid status '%s'. Valid statuses: todo, doing, done, pending, cancel", newStatus)
+		return fmt.Errorf("invalid status '%s'. Valid statuses: todo, doing, done, pending", newStatus)
 	}
 
 	storageManager := storage.NewManager()
