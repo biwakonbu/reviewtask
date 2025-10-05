@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 )
@@ -192,35 +193,58 @@ func updateTaskCancelStatus(storageManager *storage.Manager, taskID, reason stri
 func formatCancelComment(storageManager *storage.Manager, task *storage.Task, reason string) string {
 	var comment strings.Builder
 
-	// Header with Task ID and Priority
+	// Load config to get user language preference
+	cfg, err := config.Load()
+	lang := "English" // Default language
+	if err == nil && cfg.AISettings.UserLanguage != "" {
+		lang = cfg.AISettings.UserLanguage
+	}
+
+	// Get priority string
 	priorityStr := strings.ToUpper(task.Priority)
 	if priorityStr == "" {
 		priorityStr = "MEDIUM" // Default priority
 	}
-	comment.WriteString(fmt.Sprintf("**Task Cancelled**: %s (Priority: %s)\n\n", task.ID, priorityStr))
+
+	// Select language-specific strings
+	var (
+		headerText        string
+		originalText      string
+		reasonText        string
+		priorityText      string
+		otherTasksPattern string
+	)
+
+	if lang == "Japanese" {
+		headerText = "**タスクをキャンセルしました**"
+		originalText = "**元のフィードバック:**"
+		reasonText = "キャンセル理由:"
+		priorityText = "優先度"
+		otherTasksPattern = "\nℹ️ このコメントには他に %d 件のタスクがあります\n"
+	} else {
+		headerText = "**Task Cancelled**"
+		originalText = "**Original Feedback:**"
+		reasonText = "Cancellation reason:"
+		priorityText = "Priority"
+		otherTasksPattern = "\nℹ️ This comment has %d other task(s) still active\n"
+	}
+
+	// Header with Priority
+	comment.WriteString(fmt.Sprintf("%s (%s: %s)\n\n", headerText, priorityText, priorityStr))
+
+	// Original feedback quote
+	if task.Description != "" {
+		comment.WriteString(fmt.Sprintf("%s\n> %s\n\n", originalText, task.Description))
+	}
 
 	// Cancellation reason
-	comment.WriteString("This feedback item has been cancelled for the following reason:\n\n")
-	comment.WriteString(fmt.Sprintf("> %s\n\n", reason))
-
-	// Task details in structured format
-	comment.WriteString("**Task Details:**\n")
-	comment.WriteString(fmt.Sprintf("- **ID**: %s\n", task.ID))
-	comment.WriteString(fmt.Sprintf("- **Priority**: %s\n", priorityStr))
-
-	if task.Description != "" {
-		comment.WriteString(fmt.Sprintf("- **Description**: %s\n", task.Description))
-	}
-
-	if task.URL != "" {
-		comment.WriteString(fmt.Sprintf("- **Comment**: %s\n", task.URL))
-	}
+	comment.WriteString(fmt.Sprintf("%s\n> %s\n", reasonText, reason))
 
 	// Add information about other tasks from the same comment
 	if task.SourceCommentID != 0 {
 		otherActiveTasks := countOtherActiveTasksFromSameComment(storageManager, task)
 		if otherActiveTasks > 0 {
-			comment.WriteString(fmt.Sprintf("\nℹ️ This comment has %d other task(s) still active\n", otherActiveTasks))
+			comment.WriteString(fmt.Sprintf(otherTasksPattern, otherActiveTasks))
 		}
 	}
 

@@ -51,8 +51,13 @@ func TestCancelCommandBasic(t *testing.T) {
 	if !contains(comment, "**Task Cancelled**") {
 		t.Error("formatCancelComment should contain task cancelled header")
 	}
-	if !contains(comment, tasks[0].ID) {
-		t.Error("formatCancelComment should contain task ID")
+	// Task ID should NOT be exposed in GitHub comments
+	if contains(comment, tasks[0].ID) {
+		t.Error("formatCancelComment should NOT contain internal task ID")
+	}
+	// Should contain original feedback
+	if !contains(comment, "**Original Feedback:**") {
+		t.Error("formatCancelComment should contain original feedback section")
 	}
 }
 
@@ -76,31 +81,34 @@ func TestFormatCancelComment(t *testing.T) {
 			},
 			reason: "Already fixed in another PR",
 			wantContain: []string{
-				"**Task Cancelled**: task-1",
+				"**Task Cancelled**",
 				"Priority: HIGH",
 				"Already fixed in another PR",
-				"Fix bug",
-				"**ID**: task-1",
-				"**Priority**: HIGH",
-				"**Description**: Fix bug",
+				"**Original Feedback:**",
+				"> Fix bug",
+			},
+			wantNotExist: []string{
+				"task-1", // Task ID should not be exposed
 			},
 		},
 		{
-			name: "task with URL",
+			name: "task with description",
 			task: &storage.Task{
 				ID:          "task-2",
 				Description: "Update docs",
 				Priority:    "medium",
-				URL:         "https://github.com/test/repo/pull/123#discussion_r123",
 				PRNumber:    123,
 			},
 			reason: "Documentation updated differently",
 			wantContain: []string{
-				"**Task Cancelled**: task-2",
+				"**Task Cancelled**",
 				"Priority: MEDIUM",
 				"Documentation updated differently",
-				"Update docs",
-				"https://github.com/test/repo/pull/123#discussion_r123",
+				"**Original Feedback:**",
+				"> Update docs",
+			},
+			wantNotExist: []string{
+				"task-2", // Task ID should not be exposed
 			},
 		},
 		{
@@ -134,9 +142,12 @@ func TestFormatCancelComment(t *testing.T) {
 			},
 			reason: "Covered by integration tests",
 			wantContain: []string{
-				"**Task Cancelled**: task-3",
-				"Add tests",
+				"**Task Cancelled**",
+				"> Add tests",
 				"ℹ️ This comment has 2 other task(s) still active",
+			},
+			wantNotExist: []string{
+				"task-3", // Task ID should not be exposed
 			},
 		},
 		{
@@ -149,6 +160,10 @@ func TestFormatCancelComment(t *testing.T) {
 			reason: "Not needed anymore",
 			wantContain: []string{
 				"Priority: MEDIUM",
+				"> Refactor code",
+			},
+			wantNotExist: []string{
+				"task-7", // Task ID should not be exposed
 			},
 		},
 	}
