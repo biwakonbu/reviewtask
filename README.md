@@ -24,6 +24,7 @@ All review sources are automatically detected and processed without configuratio
 
 ## Features
 
+### Core Functionality
 - **🔍 PR Review Fetching**: Automatically retrieves reviews from GitHub API with nested comment structure
 - **🤖 AI Analysis**: Supports multiple AI providers (Claude Code, Cursor CLI) for generating structured, actionable tasks
 - **💾 Local Storage**: Stores data in structured JSON format under `.pr-review/` directory
@@ -31,25 +32,42 @@ All review sources are automatically detected and processed without configuratio
 - **❌ Task Cancellation**: Cancel tasks with GitHub comment posting and proper error propagation for CI/CD
 - **🔄 Thread Resolution**: Manually or automatically resolve GitHub review threads when tasks complete
 - **✅ Task Verification**: Automated verification checks before task completion with configurable commands
-- **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
-- **🔒 Authentication**: Multi-source token detection with interactive setup
+
+### AI-Powered Features
+- **🧠 AI Impact Assessment**: Automatically assigns TODO/PENDING status based on implementation complexity
+  - **TODO**: Small changes (<30min: typos, renaming, simple fixes)
+  - **PENDING**: Large changes (design decisions, architecture, major refactoring)
+- **📊 Comprehensive Comment Analysis**: Analyzes ALL review comments (including nitpicks, questions, suggestions)
 - **🎯 Priority-based Analysis**: Customizable priority rules for task generation
-- **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
-- **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
-- **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
-- **👁️ AI Provider Transparency**: Displays current AI provider and model at the start of every command
-- **🏷️ Low-Priority Detection**: Automatically identifies and assigns "pending" status to low-priority comments (nits, suggestions)
+- **🔄 Smart Deduplication**: AI-powered task deduplication with similarity threshold control
+- **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
+
+### Performance & Reliability
+- **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
 - **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
 - **💨 API Caching**: Reduces redundant GitHub API calls automatically
 - **📊 Auto-Resume**: Seamlessly continues from where it left off if interrupted
-- **🔧 Debug Commands**: Test specific phases independently for troubleshooting
-- **📏 Prompt Size Optimization**: Automatic chunking for large comments (>20KB) and pre-validation size checks
-- **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
-- **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
-- **🔄 Smart Deduplication**: AI-powered task deduplication with similarity threshold control
 - **🛡️ JSON Recovery**: Automatic recovery from incomplete Claude API responses with partial task extraction
 - **🔁 Intelligent Retry**: Smart retry strategies with pattern detection and prompt size adjustment
 - **📊 Response Monitoring**: Performance analytics and optimization recommendations for API usage
+
+### User Experience
+- **🎨 Modern UI**: Clean, intuitive interface with visual progress indicators
+- **🔔 Unresolved Comment Detection**: Automatically identifies review threads requiring action
+- **📈 Enhanced Status Display**: Rich task status visualization with color-coded priorities
+- **💬 Interactive Guidance**: Context-aware next steps and workflow recommendations
+- **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
+
+### Integration & Configuration
+- **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
+- **👁️ AI Provider Transparency**: Displays current AI provider and model at the start of every command
+- **🔒 Authentication**: Multi-source token detection with interactive setup
+- **🔧 Debug Commands**: Test specific phases independently for troubleshooting
+- **📏 Prompt Size Optimization**: Automatic chunking for large comments (>20KB) and pre-validation size checks
+
+### Advanced Features
+- **🔄 Task State Preservation**: Maintains existing task statuses during subsequent runs
+- **🆔 UUID-based Task IDs**: Unique task identification to eliminate duplication issues
 - **🧠 AI Prompt Preservation**: Preserves "🤖 Prompt for AI Agents" blocks from CodeRabbit while removing verbose metadata
 - **📦 File Size Optimization**: Achieves up to 66% reduction in reviews.json size (200KB → 67KB) while maintaining essential content
 - **🔤 HTML Entity Processing**: Properly handles Unicode HTML entities and GitHub API response variations
@@ -254,12 +272,17 @@ Authentication sources (in order of preference):
 #   • Standard GitHub reviews
 #   • CodeRabbit reviews (automatic nitpick detection)
 #   • Codex reviews (embedded comment parsing with P1/P2/P3 priorities)
+# - Analyze ALL comments (including nitpicks, questions, suggestions)
+# - AI-powered impact assessment:
+#   • TODO: Small changes (<30min fixes, typos, renaming)
+#   • PENDING: Large changes (design decisions, architecture)
 # - Automatically optimize performance based on PR size
 # - Process comments in parallel batches
+# - Detect unresolved comment threads requiring action
 # - Deduplicate reviews (especially useful for Codex double-submissions)
 # - Cache API responses to reduce redundant calls
 # - Support automatic resume if interrupted
-# - Generate actionable tasks with priorities
+# - Generate actionable tasks with priorities and initial status
 # - Save results to .pr-review/PR-{number}/
 ```
 
@@ -556,7 +579,7 @@ Configure advanced processing features in `.pr-review/config.json`:
     "quality_threshold": 0.8,            // Minimum validation score (0.0-1.0)
     "deduplication_enabled": true,       // AI-powered task deduplication
     "similarity_threshold": 0.8,         // Task similarity detection threshold
-    "process_nitpick_comments": false,   // Process CodeRabbit nitpick comments
+    "process_nitpick_comments": true,    // Process ALL comments (default: true)
     "nitpick_priority": "low",           // Priority for nitpick-generated tasks
     "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
@@ -564,11 +587,35 @@ Configure advanced processing features in `.pr-review/config.json`:
     "log_truncated_responses": true,     // Log truncated responses for debugging
     "preserve_ai_prompts": true,         // Preserve "🤖 Prompt for AI Agents" blocks from CodeRabbit
     "optimize_file_size": true,          // Enable file size optimization (removes verbose metadata)
-    "html_entity_processing": true       // Process HTML entities in GitHub API responses
+    "html_entity_processing": true,      // Process HTML entities in GitHub API responses
     "process_self_reviews": false        // Process self-review comments from PR author
   }
 }
 ```
+
+### AI Impact Assessment
+
+The tool uses AI to automatically assess the implementation complexity of each review comment and assign appropriate initial status:
+
+**Task Status Assignment:**
+- **TODO**: Small/medium changes that can be completed quickly
+  - Typo fixes, variable renaming, adding comments
+  - Simple logic fixes, adding error handling, validation
+  - Changes requiring <30 minutes without design decisions
+
+- **PENDING**: Large changes requiring design decisions
+  - Architecture modifications, API changes
+  - Adding significant new functionality
+  - Major refactoring, breaking changes
+  - Changes needing team discussion or alignment
+
+**Impact Assessment Criteria:**
+1. **Implementation time**: TODO for <30min tasks, PENDING for longer
+2. **Design decisions required**: PENDING if requires architectural discussion
+3. **Code impact scope**: TODO for localized changes, PENDING for broad changes
+4. **Risk level**: PENDING for changes affecting core functionality
+
+**Note**: Impact assessment is independent of priority level. A critical bug can be TODO if the fix is straightforward, while a low-priority improvement might be PENDING if it requires design discussion.
 
 ### AI Prompt Preservation & File Size Optimization
 
@@ -668,14 +715,29 @@ The tool now includes advanced recovery mechanisms for handling incomplete Claud
 
 ## Task Lifecycle
 
-1. **Generation**: AI analyzes review comments and creates tasks
-2. **Assignment**: Tasks get UUID-based IDs and default "todo" status
-3. **Execution**: Developers update status as they work (todo → doing → done)
-4. **Preservation**: Subsequent runs preserve existing task statuses
-5. **Verification**: Optional automated checks ensure implementation quality
-6. **Completion**: Tasks marked as done with automatic or manual verification
-7. **Thread Resolution**: GitHub review threads resolved manually or automatically
-8. **Cancellation**: Tasks can be cancelled with explanatory comments posted to GitHub
+1. **Generation**: AI analyzes ALL review comments (including nitpicks, questions, suggestions)
+2. **Impact Assessment**: AI assigns initial status based on implementation complexity
+   - **TODO**: Small changes (<30min: typos, simple fixes, error handling)
+   - **PENDING**: Large changes (design decisions, architecture, major refactoring)
+3. **Assignment**: Tasks get UUID-based IDs with AI-assigned initial status
+4. **Execution**: Developers work on TODO tasks first (todo → doing → done)
+5. **Decision**: After TODO tasks, review PENDING tasks and decide
+   - Start implementing: update status to "doing"
+   - Defer or decline: cancel with reason
+6. **Preservation**: Subsequent runs preserve existing task statuses
+7. **Verification**: Optional automated checks ensure implementation quality
+8. **Completion**: Tasks marked as done with automatic or manual verification
+9. **Thread Resolution**: GitHub review threads resolved manually or automatically
+10. **Cancellation**: Tasks can be cancelled with explanatory comments posted to GitHub
+
+### Workflow Guidance
+
+The tool provides context-aware guidance based on your current task state:
+
+- **TODO tasks available**: Shows next recommended task and commands to start
+- **All TODO complete, PENDING tasks exist**: Prompts to review and decide on PENDING tasks
+- **Unresolved comments detected**: Suggests running analysis to generate new tasks
+- **All tasks complete**: Recommends pushing changes and checking for new reviews
 
 ### Cancel Command Error Handling
 
