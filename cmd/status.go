@@ -104,9 +104,15 @@ func runAIMode(storageManager *storage.Manager, specificPR int) error {
 	}
 
 	if len(allTasks) == 0 {
+		if statusShort {
+			return displayAIModeEmptyShort()
+		}
 		return displayAIModeEmpty()
 	}
 
+	if statusShort {
+		return displayAIModeContentShort(allTasks, contextDescription)
+	}
 	return displayAIModeContent(allTasks, contextDescription)
 }
 
@@ -204,6 +210,44 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	// Last updated timestamp
 	fmt.Printf("Last updated: %s\n", time.Now().Format("15:04:05"))
 
+	return nil
+}
+
+// displayAIModeEmptyShort shows empty state in brief format
+func displayAIModeEmptyShort() error {
+	fmt.Printf("Status: 0%% (0/0) | todo:0 doing:0 done:0 pending:0 cancel:0\n")
+	return nil
+}
+
+// displayAIModeContentShort shows tasks in brief format
+func displayAIModeContentShort(allTasks []storage.Task, contextDescription string) error {
+	stats := tasks.CalculateTaskStats(allTasks)
+	total := len(allTasks)
+	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
+	completionRate := float64(completed) / float64(total) * 100
+
+	// Brief one-line summary
+	fmt.Printf("Status: %.1f%% (%d/%d) - %s | todo:%d doing:%d done:%d pending:%d cancel:%d",
+		completionRate, completed, total, contextDescription,
+		stats.StatusCounts["todo"], stats.StatusCounts["doing"], stats.StatusCounts["done"],
+		stats.StatusCounts["pending"], stats.StatusCounts["cancel"])
+
+	// Show current task if any
+	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
+	if len(doingTasks) > 0 {
+		task := doingTasks[0]
+		fmt.Printf(" | Current: %s (%s)", task.ID[:8], strings.ToUpper(task.Priority))
+	}
+
+	// Show next task if any
+	todoTasks := tasks.FilterTasksByStatus(allTasks, "todo")
+	tasks.SortTasksByPriority(todoTasks)
+	if len(todoTasks) > 0 {
+		task := todoTasks[0]
+		fmt.Printf(" | Next: %s (%s)", task.ID[:8], strings.ToUpper(task.Priority))
+	}
+
+	fmt.Println()
 	return nil
 }
 
