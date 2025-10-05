@@ -41,7 +41,7 @@ func TestCancelCommandBasic(t *testing.T) {
 	}
 
 	// Test formatCancelComment
-	comment := formatCancelComment(&tasks[0], "Test reason")
+	comment := formatCancelComment(storageManager, &tasks[0], "Test reason")
 	if comment == "" {
 		t.Error("formatCancelComment returned empty string")
 	}
@@ -51,53 +51,154 @@ func TestCancelCommandBasic(t *testing.T) {
 	if !contains(comment, "**Task Cancelled**") {
 		t.Error("formatCancelComment should contain task cancelled header")
 	}
+	// Task ID should NOT be exposed in GitHub comments
+	if contains(comment, tasks[0].ID) {
+		t.Error("formatCancelComment should NOT contain internal task ID")
+	}
+	// Should contain original feedback
+	if !contains(comment, "**Original Feedback:**") {
+		t.Error("formatCancelComment should contain original feedback section")
+	}
 }
 
 // TestFormatCancelComment tests the comment formatting
 func TestFormatCancelComment(t *testing.T) {
 	tests := []struct {
-		name        string
-		task        *storage.Task
-		reason      string
-		wantContain []string
+		name         string
+		task         *storage.Task
+		otherTasks   []storage.Task // Other tasks from same comment for testing count
+		reason       string
+		wantContain  []string
+		wantNotExist []string
 	}{
 		{
-			name: "basic task",
+			name: "basic task with priority",
 			task: &storage.Task{
 				ID:          "task-1",
 				Description: "Fix bug",
+				Priority:    "high",
+				PRNumber:    123,
 			},
 			reason: "Already fixed in another PR",
 			wantContain: []string{
 				"**Task Cancelled**",
+				"Priority: HIGH",
 				"Already fixed in another PR",
-				"Fix bug",
+				"**Original Feedback:**",
+				"> Fix bug",
+			},
+			wantNotExist: []string{
+				"task-1", // Task ID should not be exposed
 			},
 		},
 		{
-			name: "task with URL",
+			name: "task with description",
 			task: &storage.Task{
 				ID:          "task-2",
 				Description: "Update docs",
-				URL:         "https://github.com/test/repo/pull/123#discussion_r123",
+				Priority:    "medium",
+				PRNumber:    123,
 			},
 			reason: "Documentation updated differently",
 			wantContain: []string{
 				"**Task Cancelled**",
+				"Priority: MEDIUM",
 				"Documentation updated differently",
-				"Update docs",
-				"https://github.com/test/repo/pull/123#discussion_r123",
+				"**Original Feedback:**",
+				"> Update docs",
+			},
+			wantNotExist: []string{
+				"task-2", // Task ID should not be exposed
+			},
+		},
+		{
+			name: "task with other active tasks from same comment",
+			task: &storage.Task{
+				ID:              "task-3",
+				Description:     "Add tests",
+				Priority:        "high",
+				PRNumber:        123,
+				SourceCommentID: 456,
+			},
+			otherTasks: []storage.Task{
+				{
+					ID:              "task-4",
+					Status:          "todo",
+					PRNumber:        123,
+					SourceCommentID: 456,
+				},
+				{
+					ID:              "task-5",
+					Status:          "doing",
+					PRNumber:        123,
+					SourceCommentID: 456,
+				},
+				{
+					ID:              "task-6",
+					Status:          "done",
+					PRNumber:        123,
+					SourceCommentID: 456, // This should not be counted as "active"
+				},
+			},
+			reason: "Covered by integration tests",
+			wantContain: []string{
+				"**Task Cancelled**",
+				"> Add tests",
+				"ℹ️ This comment has 2 other task(s) still active",
+			},
+			wantNotExist: []string{
+				"task-3", // Task ID should not be exposed
+			},
+		},
+		{
+			name: "task without priority defaults to MEDIUM",
+			task: &storage.Task{
+				ID:          "task-7",
+				Description: "Refactor code",
+				PRNumber:    123,
+			},
+			reason: "Not needed anymore",
+			wantContain: []string{
+				"Priority: MEDIUM",
+				"> Refactor code",
+			},
+			wantNotExist: []string{
+				"task-7", // Task ID should not be exposed
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := formatCancelComment(tt.task, tt.reason)
+			// Create temp directory and storage manager
+			tempDir := t.TempDir()
+			storageManager := storage.NewManagerWithBase(tempDir)
+
+			// Setup PR directory
+			prDir := filepath.Join(tempDir, fmt.Sprintf("PR-%d", tt.task.PRNumber))
+			if err := os.MkdirAll(prDir, 0755); err != nil {
+				t.Fatalf("Failed to create PR directory: %v", err)
+			}
+
+			// Save tasks if there are other tasks from same comment
+			if len(tt.otherTasks) > 0 {
+				allTasks := append([]storage.Task{*tt.task}, tt.otherTasks...)
+				if err := storageManager.SaveTasks(tt.task.PRNumber, allTasks); err != nil {
+					t.Fatalf("Failed to save tasks: %v", err)
+				}
+			}
+
+			result := formatCancelComment(storageManager, tt.task, tt.reason)
 
 			for _, want := range tt.wantContain {
 				if !contains(result, want) {
 					t.Errorf("formatCancelComment() result should contain %q, got:\n%s", want, result)
+				}
+			}
+
+			for _, notWant := range tt.wantNotExist {
+				if contains(result, notWant) {
+					t.Errorf("formatCancelComment() result should NOT contain %q, got:\n%s", notWant, result)
 				}
 			}
 		})

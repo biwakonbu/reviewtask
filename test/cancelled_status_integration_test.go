@@ -135,15 +135,20 @@ func TestCancelTaskIntegration(t *testing.T) {
 	require.NoError(t, os.WriteFile(tasksFile, data, 0644))
 
 	t.Run("update_task_to_cancel_status", func(t *testing.T) {
-		// Update task-1 to cancel status
+		// Attempt to update task-1 to cancel status using update command
 		cmd := exec.Command(execCmd, "update", "task-1", "cancel")
 		output, err := cmd.CombinedOutput()
-		require.NoError(t, err, "Command failed: %s", output)
 
-		// Verify the task was updated
-		assert.Contains(t, string(output), "✓ Updated task 'task-1' status to 'cancel'")
+		// Should fail with error message
+		require.Error(t, err, "Command should fail when trying to use 'cancel' status")
 
-		// Load tasks and verify status
+		outputStr := string(output)
+		// Verify error message directs to cancel command
+		assert.Contains(t, outputStr, "cannot set status to 'cancel' using update command")
+		assert.Contains(t, outputStr, "reviewtask cancel task-1 --reason")
+		assert.Contains(t, outputStr, "thread auto-resolution")
+
+		// Verify the task was NOT updated
 		updatedData, err := os.ReadFile(tasksFile)
 		require.NoError(t, err)
 
@@ -160,10 +165,31 @@ func TestCancelTaskIntegration(t *testing.T) {
 		}
 
 		require.NotNil(t, task1, "Task-1 not found")
-		assert.Equal(t, "cancel", task1.Status, "Task should be marked as 'cancel'")
+		assert.Equal(t, "todo", task1.Status, "Task should still be 'todo' (not updated)")
 	})
 
 	t.Run("status_command_shows_cancelled_tasks", func(t *testing.T) {
+		// Since we can't use update command for cancel anymore,
+		// manually create a task with cancel status to test the status display
+		updatedData, err := os.ReadFile(tasksFile)
+		require.NoError(t, err)
+
+		var updatedTasksFile storage.TasksFile
+		require.NoError(t, json.Unmarshal(updatedData, &updatedTasksFile))
+
+		// Find task-1 and manually set it to cancel
+		for i := range updatedTasksFile.Tasks {
+			if updatedTasksFile.Tasks[i].ID == "task-1" {
+				updatedTasksFile.Tasks[i].Status = "cancel"
+				break
+			}
+		}
+
+		// Save updated tasks
+		data, err := json.MarshalIndent(updatedTasksFile, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(tasksFile, data, 0644))
+
 		// Run status command
 		cmd := exec.Command(execCmd, "status")
 		output, err := cmd.CombinedOutput()
@@ -181,13 +207,28 @@ func TestCancelTaskIntegration(t *testing.T) {
 	})
 
 	t.Run("show_command_skips_cancelled_tasks", func(t *testing.T) {
-		// First cancel the doing task
-		cmd := exec.Command(execCmd, "update", "task-2", "cancel")
-		_, err := cmd.CombinedOutput()
+		// Manually set task-2 to cancel status
+		updatedData, err := os.ReadFile(tasksFile)
 		require.NoError(t, err)
 
+		var updatedTasksFile storage.TasksFile
+		require.NoError(t, json.Unmarshal(updatedData, &updatedTasksFile))
+
+		// Find task-2 and manually set it to cancel
+		for i := range updatedTasksFile.Tasks {
+			if updatedTasksFile.Tasks[i].ID == "task-2" {
+				updatedTasksFile.Tasks[i].Status = "cancel"
+				break
+			}
+		}
+
+		// Save updated tasks
+		data, err := json.MarshalIndent(updatedTasksFile, "", "  ")
+		require.NoError(t, err)
+		require.NoError(t, os.WriteFile(tasksFile, data, 0644))
+
 		// Run show command
-		cmd = exec.Command("./reviewtask", "show")
+		cmd := exec.Command(execCmd, "show")
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 )
@@ -163,7 +164,7 @@ func cancelTask(cmd *cobra.Command, storageManager *storage.Manager, githubClien
 
 	// Post cancel reason as a reply to the review comment
 	ctx := context.Background()
-	commentBody := formatCancelComment(task, reason)
+	commentBody := formatCancelComment(storageManager, task, reason)
 
 	if err := githubClient.PostReviewCommentReply(ctx, task.PRNumber, task.SourceCommentID, commentBody); err != nil {
 		// If comment posting fails, still update task but mark comment as not posted
@@ -189,21 +190,92 @@ func updateTaskCancelStatus(storageManager *storage.Manager, taskID, reason stri
 }
 
 // formatCancelComment formats the cancellation comment for posting to GitHub
-func formatCancelComment(task *storage.Task, reason string) string {
+func formatCancelComment(storageManager *storage.Manager, task *storage.Task, reason string) string {
 	var comment strings.Builder
 
-	comment.WriteString("**Task Cancelled**\n\n")
-	comment.WriteString("This feedback item has been cancelled for the following reason:\n\n")
-	comment.WriteString(fmt.Sprintf("> %s\n\n", reason))
-
-	// Add task information
-	if task.Description != "" {
-		comment.WriteString(fmt.Sprintf("**Original task**: %s\n", task.Description))
+	// Load config to get user language preference
+	cfg, err := config.Load()
+	lang := "English" // Default language
+	if err == nil && cfg.AISettings.UserLanguage != "" {
+		lang = cfg.AISettings.UserLanguage
 	}
 
-	if task.URL != "" {
-		comment.WriteString(fmt.Sprintf("**Comment**: %s\n", task.URL))
+	// Get priority string
+	priorityStr := strings.ToUpper(task.Priority)
+	if priorityStr == "" {
+		priorityStr = "MEDIUM" // Default priority
+	}
+
+	// Select language-specific strings
+	var (
+		headerText        string
+		originalText      string
+		reasonText        string
+		priorityText      string
+		otherTasksPattern string
+	)
+
+	if lang == "Japanese" {
+		headerText = "**タスクをキャンセルしました**"
+		originalText = "**元のフィードバック:**"
+		reasonText = "キャンセル理由:"
+		priorityText = "優先度"
+		otherTasksPattern = "\nℹ️ このコメントには他に %d 件のタスクがあります\n"
+	} else {
+		headerText = "**Task Cancelled**"
+		originalText = "**Original Feedback:**"
+		reasonText = "Cancellation reason:"
+		priorityText = "Priority"
+		otherTasksPattern = "\nℹ️ This comment has %d other task(s) still active\n"
+	}
+
+	// Header with Priority
+	comment.WriteString(fmt.Sprintf("%s (%s: %s)\n\n", headerText, priorityText, priorityStr))
+
+	// Original feedback quote
+	if task.Description != "" {
+		comment.WriteString(fmt.Sprintf("%s\n> %s\n\n", originalText, task.Description))
+	}
+
+	// Cancellation reason
+	comment.WriteString(fmt.Sprintf("%s\n> %s\n", reasonText, reason))
+
+	// Add information about other tasks from the same comment
+	if task.SourceCommentID != 0 {
+		otherActiveTasks := countOtherActiveTasksFromSameComment(storageManager, task)
+		if otherActiveTasks > 0 {
+			comment.WriteString(fmt.Sprintf(otherTasksPattern, otherActiveTasks))
+		}
 	}
 
 	return comment.String()
+}
+
+// countOtherActiveTasksFromSameComment counts active tasks from the same source comment
+func countOtherActiveTasksFromSameComment(storageManager *storage.Manager, currentTask *storage.Task) int {
+	if currentTask.SourceCommentID == 0 {
+		return 0
+	}
+
+	// Get all tasks for this PR
+	allTasks, err := storageManager.GetTasksByPR(currentTask.PRNumber)
+	if err != nil {
+		return 0
+	}
+
+	count := 0
+	for _, task := range allTasks {
+		// Skip the current task being cancelled
+		if task.ID == currentTask.ID {
+			continue
+		}
+
+		// Count tasks from the same comment that are still active
+		if task.SourceCommentID == currentTask.SourceCommentID &&
+			task.Status != "done" && task.Status != "cancel" {
+			count++
+		}
+	}
+
+	return count
 }
