@@ -37,14 +37,14 @@ func TestStatusCommand(t *testing.T) {
 			expectUsage: false,
 		},
 		{
-			name:        "PR flag with valid number",
-			args:        []string{"--pr", "123"},
+			name:        "PR number as argument",
+			args:        []string{"123"},
 			expectError: false,
 			expectUsage: false,
 		},
 		{
-			name:        "Branch flag",
-			args:        []string{"--branch", "feature/test"},
+			name:        "Short flag",
+			args:        []string{"--short"},
 			expectError: false,
 			expectUsage: false,
 		},
@@ -68,14 +68,12 @@ func TestStatusCommand(t *testing.T) {
 				},
 			}
 
-			// Add flags
+			// Add flags (v3.0.0 simplified flags)
 			var statusShowAll bool
-			var statusSpecificPR int
-			var statusBranch string
+			var statusShort bool
 
-			cmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
-			cmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
-			cmd.Flags().StringVar(&statusBranch, "branch", "", "Show tasks for specific branch")
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
 			// Capture output
 			var buf bytes.Buffer
@@ -115,22 +113,17 @@ func TestStatusFlagPriority(t *testing.T) {
 		expectedAction string
 	}{
 		{
-			name:           "PR flag takes priority over branch flag",
-			args:           []string{"--pr", "123", "--branch", "test"},
-			expectedAction: "pr_flag",
+			name:           "PR number argument takes priority over all flag",
+			args:           []string{"123", "--all"},
+			expectedAction: "pr_arg",
 		},
 		{
-			name:           "Branch flag takes priority over all flag",
-			args:           []string{"--branch", "test", "--all"},
-			expectedAction: "branch_flag",
-		},
-		{
-			name:           "All flag when no other flags",
+			name:           "All flag when no PR argument",
 			args:           []string{"--all"},
 			expectedAction: "all_flag",
 		},
 		{
-			name:           "Default to current branch when no flags",
+			name:           "Default to current branch when no flags or args",
 			args:           []string{},
 			expectedAction: "current_branch",
 		},
@@ -142,13 +135,17 @@ func TestStatusFlagPriority(t *testing.T) {
 			var capturedAction string
 
 			cmd := &cobra.Command{
-				Use: "status",
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
-					// Mock the priority logic from runStatus
-					if statusSpecificPR > 0 {
-						capturedAction = "pr_flag"
-					} else if statusBranch != "" {
-						capturedAction = "branch_flag"
+					// Mock the priority logic from runStatus (v3.0.0)
+					var specificPR int
+					if len(args) > 0 {
+						capturedAction = "pr_arg"
+						return nil
+					}
+					if specificPR > 0 {
+						capturedAction = "pr_arg"
 					} else if statusShowAll {
 						capturedAction = "all_flag"
 					} else {
@@ -158,15 +155,13 @@ func TestStatusFlagPriority(t *testing.T) {
 				},
 			}
 
-			// Add flags (using package-level variables to match actual implementation)
-			cmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
-			cmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
-			cmd.Flags().StringVar(&statusBranch, "branch", "", "Show tasks for specific branch")
+			// Add flags (v3.0.0 simplified flags)
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
 			// Reset flags before each test
 			statusShowAll = false
-			statusSpecificPR = 0
-			statusBranch = ""
+			statusShort = false
 
 			// Set args and execute
 			cmd.SetArgs(tt.args)
@@ -187,12 +182,12 @@ func TestStatusFlagPriority(t *testing.T) {
 func TestStatusCommandHelp(t *testing.T) {
 	// Create a fresh command instance to avoid interference with global state
 	cmd := &cobra.Command{
-		Use:   "status",
+		Use:   "status [PR_NUMBER]",
 		Short: "Show current task status and statistics",
 		Long: `Display current tasks, next tasks to work on, and overall statistics.
 
-By default, shows tasks for the current branch. Use flags to show all PRs 
-or filter by specific criteria.
+By default, shows tasks for the current branch. Provide a PR number to show
+tasks for a specific PR, or use --all to show all PRs.
 
 Shows:
 - Current tasks (doing status)
@@ -200,24 +195,23 @@ Shows:
 - Task statistics (status breakdown, priority breakdown, completion rate)
 
 Examples:
-  reviewtask status             # Show current branch tasks
-  reviewtask status --all       # Show all PRs tasks
-  reviewtask status --pr 123    # Show PR #123 tasks
-  reviewtask status --branch feature/xyz # Show specific branch tasks`,
+  reviewtask status             # Show tasks for current branch
+  reviewtask status 123         # Show tasks for PR #123
+  reviewtask status --all       # Show tasks for all PRs
+  reviewtask status --short     # Brief output format`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Mock implementation - should not run
 			return nil
 		},
 	}
 
-	// Add flags
+	// Add flags (v3.0.0 simplified)
 	var statusShowAll bool
-	var statusSpecificPR int
-	var statusBranch string
+	var statusShort bool
 
-	cmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
-	cmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
-	cmd.Flags().StringVar(&statusBranch, "branch", "", "Show tasks for specific branch")
+	cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+	cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -230,18 +224,17 @@ Examples:
 
 	output := buf.String()
 
-	// Check for key elements in help text
+	// Check for key elements in help text (v3.0.0)
 	expectedElements := []string{
 		"Display current tasks, next tasks",
 		"Examples:",
 		"reviewtask status",
 		"--all",
-		"--pr",
-		"--branch",
-		"Show current branch tasks",
-		"Show all PRs tasks",
-		"Show PR #123 tasks",
-		"Show specific branch tasks",
+		"--short",
+		"Show tasks for current branch",
+		"Show tasks for all PRs",
+		"Show tasks for PR #123",
+		"Brief output format",
 		"Current tasks (doing status)",
 		"Next tasks (todo status, sorted by priority)",
 		"Task statistics",
@@ -254,49 +247,37 @@ Examples:
 	}
 }
 
-// TestStatusCommandFlags tests flag parsing
+// TestStatusCommandFlags tests flag parsing (v3.0.0)
 func TestStatusCommandFlags(t *testing.T) {
 	tests := []struct {
-		name           string
-		args           []string
-		expectedAll    bool
-		expectedPR     int
-		expectedBranch string
+		name          string
+		args          []string
+		expectedAll   bool
+		expectedShort bool
 	}{
 		{
-			name:           "All flag set",
-			args:           []string{"--all"},
-			expectedAll:    true,
-			expectedPR:     0,
-			expectedBranch: "",
+			name:          "All flag set",
+			args:          []string{"--all"},
+			expectedAll:   true,
+			expectedShort: false,
 		},
 		{
-			name:           "PR flag set",
-			args:           []string{"--pr", "123"},
-			expectedAll:    false,
-			expectedPR:     123,
-			expectedBranch: "",
+			name:          "Short flag set",
+			args:          []string{"--short"},
+			expectedAll:   false,
+			expectedShort: true,
 		},
 		{
-			name:           "Branch flag set",
-			args:           []string{"--branch", "feature/test"},
-			expectedAll:    false,
-			expectedPR:     0,
-			expectedBranch: "feature/test",
+			name:          "Both flags set",
+			args:          []string{"--all", "--short"},
+			expectedAll:   true,
+			expectedShort: true,
 		},
 		{
-			name:           "Multiple flags set",
-			args:           []string{"--all", "--pr", "456", "--branch", "main"},
-			expectedAll:    true,
-			expectedPR:     456,
-			expectedBranch: "main",
-		},
-		{
-			name:           "No flags set",
-			args:           []string{},
-			expectedAll:    false,
-			expectedPR:     0,
-			expectedBranch: "",
+			name:          "No flags set",
+			args:          []string{},
+			expectedAll:   false,
+			expectedShort: false,
 		},
 	}
 
@@ -304,21 +285,20 @@ func TestStatusCommandFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Reset flags
 			statusShowAll = false
-			statusSpecificPR = 0
-			statusBranch = ""
+			statusShort = false
 
 			// Create a copy of the command to avoid state pollution
 			cmd := &cobra.Command{
-				Use: "status",
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
 					// Just capture flag values, don't execute logic
 					return nil
 				},
 			}
 
-			cmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
-			cmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
-			cmd.Flags().StringVar(&statusBranch, "branch", "", "Show tasks for specific branch")
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
 			cmd.SetArgs(tt.args)
 			err := cmd.Execute()
@@ -331,12 +311,8 @@ func TestStatusCommandFlags(t *testing.T) {
 				t.Errorf("Expected statusShowAll to be %v, got %v", tt.expectedAll, statusShowAll)
 			}
 
-			if statusSpecificPR != tt.expectedPR {
-				t.Errorf("Expected statusSpecificPR to be %d, got %d", tt.expectedPR, statusSpecificPR)
-			}
-
-			if statusBranch != tt.expectedBranch {
-				t.Errorf("Expected statusBranch to be '%s', got '%s'", tt.expectedBranch, statusBranch)
+			if statusShort != tt.expectedShort {
+				t.Errorf("Expected statusShort to be %v, got %v", tt.expectedShort, statusShort)
 			}
 		})
 	}
@@ -689,63 +665,8 @@ func TestCalculateTaskStatsNormalization(t *testing.T) {
 	assert.Equal(t, 1, stats.PRCounts[3])
 }
 
-// TestWatchFlag tests the watch flag functionality
-func TestWatchFlag(t *testing.T) {
-	// Reset flags
-	statusWatch = false
-
-	cmd := &cobra.Command{
-		Use: "status",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Just check if watch mode is triggered
-			if statusWatch {
-				fmt.Fprint(cmd.OutOrStdout(), "Human Mode (TUI Dashboard) - Coming Soon!")
-			} else {
-				fmt.Fprint(cmd.OutOrStdout(), "AI Mode Output")
-			}
-			return nil
-		},
-	}
-
-	cmd.Flags().BoolVarP(&statusWatch, "watch", "w", false, "Human mode: rich TUI dashboard with real-time updates")
-
-	tests := []struct {
-		name     string
-		args     []string
-		expected string
-	}{
-		{
-			name:     "Without watch flag",
-			args:     []string{},
-			expected: "AI Mode Output",
-		},
-		{
-			name:     "With watch flag",
-			args:     []string{"--watch"},
-			expected: "Human Mode (TUI Dashboard) - Coming Soon!",
-		},
-		{
-			name:     "With short watch flag",
-			args:     []string{"-w"},
-			expected: "Human Mode (TUI Dashboard) - Coming Soon!",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			statusWatch = false // Reset before each test
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			cmd.SetArgs(tt.args)
-
-			err := cmd.Execute()
-			require.NoError(t, err)
-
-			output := buf.String()
-			assert.Contains(t, output, tt.expected)
-		})
-	}
-}
+// TestWatchFlag has been removed in v3.0.0 since --watch flag is deprecated
+// The TUI dashboard functionality has been moved to a separate command
 
 // TestGenerateColoredProgressBar tests the colored progress bar generation
 func TestGenerateColoredProgressBar(t *testing.T) {

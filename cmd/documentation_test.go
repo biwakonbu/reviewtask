@@ -63,14 +63,15 @@ func TestStatsCommandDocumentedFlags(t *testing.T) {
 	}
 }
 
-// TestStatusCommandDocumentedFlags tests that status command has documented flags
+// TestStatusCommandDocumentedFlags tests that status command has documented flags (v3.0.0)
 func TestStatusCommandDocumentedFlags(t *testing.T) {
 	cmd, _, err := rootCmd.Find([]string{"status"})
 	if err != nil {
 		t.Fatalf("status command not found: %v", err)
 	}
 
-	expectedFlags := []string{"all", "pr", "branch"}
+	// v3.0.0: Only --all and --short flags remain
+	expectedFlags := []string{"all", "short"}
 
 	for _, flagName := range expectedFlags {
 		flag := cmd.Flags().Lookup(flagName)
