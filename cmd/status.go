@@ -294,6 +294,87 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 		fmt.Println()
 	}
 
+	// Check for unresolved comments
+	if err := displayUnresolvedComments(storageManager); err != nil {
+		// Non-fatal error
+		fmt.Printf("⚠️  Warning: Failed to check for unresolved comments: %v\n\n", err)
+	}
+
+	return nil
+}
+
+// displayUnresolvedComments checks and displays PRs with unresolved review threads
+func displayUnresolvedComments(storageManager *storage.Manager) error {
+	// Get all PR numbers
+	allPRs, err := storageManager.GetAllPRNumbers()
+	if err != nil {
+		return fmt.Errorf("failed to get PR numbers: %w", err)
+	}
+
+	type unresolvedInfo struct {
+		PRNumber        int
+		UnresolvedCount int
+		TotalComments   int
+		LastCheckedAt   string
+	}
+
+	var prsWithUnresolved []unresolvedInfo
+	for _, prNumber := range allPRs {
+		// Load reviews
+		reviews, err := storageManager.LoadReviews(prNumber)
+		if err != nil {
+			continue // Skip on error
+		}
+
+		totalComments := 0
+		unresolvedCount := 0
+		lastChecked := ""
+
+		for _, review := range reviews {
+			for _, comment := range review.Comments {
+				// Skip embedded comments without IDs
+				if comment.ID == 0 {
+					continue
+				}
+
+				totalComments++
+
+				// Check if thread is unresolved
+				if !comment.GitHubThreadResolved {
+					unresolvedCount++
+				}
+
+				// Track latest check time
+				if comment.LastCheckedAt != "" && (lastChecked == "" || comment.LastCheckedAt > lastChecked) {
+					lastChecked = comment.LastCheckedAt
+				}
+			}
+		}
+
+		if unresolvedCount > 0 {
+			prsWithUnresolved = append(prsWithUnresolved, unresolvedInfo{
+				PRNumber:        prNumber,
+				UnresolvedCount: unresolvedCount,
+				TotalComments:   totalComments,
+				LastCheckedAt:   lastChecked,
+			})
+		}
+	}
+
+	if len(prsWithUnresolved) > 0 {
+		fmt.Println("💬 Unresolved Review Threads:")
+		for _, info := range prsWithUnresolved {
+			percentage := float64(info.UnresolvedCount) / float64(info.TotalComments) * 100
+			fmt.Printf("  PR #%d: %d/%d comments unresolved (%.1f%%)\n",
+				info.PRNumber, info.UnresolvedCount, info.TotalComments, percentage)
+			if info.LastCheckedAt != "" {
+				fmt.Printf("    Last checked: %s\n", info.LastCheckedAt)
+			}
+			fmt.Printf("    📝 Address feedback and resolve threads to complete review\n")
+		}
+		fmt.Println()
+	}
+
 	return nil
 }
 
