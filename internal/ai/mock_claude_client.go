@@ -70,16 +70,18 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 		// Generate a task with low priority
 		tasks = []SimpleTaskRequest{
 			{
-				Description: "Fix minor issue",
-				Priority:    "low",
+				Description:   "Fix minor issue",
+				Priority:      "low",
+				InitialStatus: "todo", // Minor issues default to TODO
 			},
 		}
 	} else {
 		// Default task generation
 		tasks = []SimpleTaskRequest{
 			{
-				Description: "Fix the issue mentioned in the comment",
-				Priority:    "medium",
+				Description:   "Fix the issue mentioned in the comment",
+				Priority:      "medium",
+				InitialStatus: "todo", // Default to TODO
 			},
 		}
 	}
