@@ -137,11 +137,26 @@ func (c *Context) pendingTasksGuidance() *Guidance {
 			{
 				Action:      ui.Warning(message),
 				Command:     "reviewtask status",
-				Description: "Review pending tasks",
+				Description: "Review pending tasks list",
+			},
+			{
+				Action:      "Review each PENDING task details",
+				Command:     "reviewtask show <pending-task-id>",
+				Description: "See full context and requirements",
 			},
 			{
 				Action:      "Decide: start or cancel each pending task",
-				Command:     "reviewtask show <task-id>",
+				Command:     "",
+				Description: "",
+			},
+			{
+				Action:      "  • If implementing: reviewtask update <task-id> doing",
+				Command:     "",
+				Description: "",
+			},
+			{
+				Action:      "  • If deferring: reviewtask cancel <task-id> --reason \"<explanation>\"",
+				Command:     "",
 				Description: "",
 			},
 		},
@@ -187,7 +202,12 @@ func (c *Context) startTasksGuidance() *Guidance {
 
 	if c.HasPendingTasks {
 		steps = append(steps, Step{
-			Action:      ui.Warning("You have PENDING tasks requiring decision\nReview them after completing TODO tasks"),
+			Action:      ui.Warning(fmt.Sprintf("You have %d PENDING tasks requiring decision", c.PendingCount)),
+			Command:     "",
+			Description: "",
+		})
+		steps = append(steps, Step{
+			Action:      "PENDING tasks need design decisions (complete TODO tasks first)",
 			Command:     "",
 			Description: "",
 		})
