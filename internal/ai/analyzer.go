@@ -67,8 +67,9 @@ func NewAnalyzerWithClient(cfg *config.Config, client ClaudeClient) *Analyzer {
 
 // SimpleTaskRequest is what AI generates - minimal fields only
 type SimpleTaskRequest struct {
-	Description string `json:"description"` // AI-generated task description (user language)
-	Priority    string `json:"priority"`    // critical|high|medium|low
+	Description   string `json:"description"`    // AI-generated task description (user language)
+	Priority      string `json:"priority"`       // critical|high|medium|low
+	InitialStatus string `json:"initial_status"` // todo|pending (AI-assigned based on impact)
 }
 
 // TaskRequest is the full task structure with all fields
@@ -839,8 +840,9 @@ func (a *Analyzer) callClaudeForSimpleTasks(prompt string) ([]SimpleTaskRequest,
 				// Convert recovered TaskRequest back to SimpleTaskRequest
 				for _, task := range recoveryResult.Tasks {
 					simpleTasks = append(simpleTasks, SimpleTaskRequest{
-						Description: task.Description,
-						Priority:    task.Priority,
+						Description:   task.Description,
+						Priority:      task.Priority,
+						InitialStatus: task.Status, // Preserve initial status from recovery
 					})
 				}
 				if a.config.AISettings.VerboseMode {
@@ -859,8 +861,9 @@ func (a *Analyzer) callClaudeForSimpleTasks(prompt string) ([]SimpleTaskRequest,
 				// Convert recovered TaskRequest back to SimpleTaskRequest
 				for _, task := range recoveryResult.Tasks {
 					simpleTasks = append(simpleTasks, SimpleTaskRequest{
-						Description: task.Description,
-						Priority:    task.Priority,
+						Description:   task.Description,
+						Priority:      task.Priority,
+						InitialStatus: task.Status, // Preserve initial status from recovery
 					})
 				}
 				if a.config.AISettings.VerboseMode {
@@ -1469,6 +1472,12 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 	// Convert simple tasks to full TaskRequest objects
 	var fullTasks []TaskRequest
 	for i, simpleTask := range consolidatedTasks {
+		// Use AI-assigned initial status, default to "todo" if not specified
+		initialStatus := simpleTask.InitialStatus
+		if initialStatus == "" {
+			initialStatus = "todo"
+		}
+
 		fullTask := TaskRequest{
 			Description:     simpleTask.Description,
 			Priority:        simpleTask.Priority,
@@ -1477,7 +1486,7 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 			SourceCommentID: ctx.Comment.ID,
 			File:            ctx.Comment.File,
 			Line:            ctx.Comment.Line,
-			Status:          "todo",
+			Status:          initialStatus, // Use AI-assigned status
 			TaskIndex:       i,
 			URL:             ctx.Comment.URL,
 		}
@@ -1504,13 +1513,18 @@ func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleT
 		fmt.Printf("  🔄 Consolidating %d tasks from single comment into unified task\n", len(tasks))
 	}
 
-	// Find the highest priority
+	// Find the highest priority and most restrictive status
 	highestPriority := "low"
 	priorityOrder := map[string]int{"critical": 4, "high": 3, "medium": 2, "low": 1}
+	consolidatedStatus := "todo" // Default to todo
 
 	for _, task := range tasks {
 		if priorityOrder[task.Priority] > priorityOrder[highestPriority] {
 			highestPriority = task.Priority
+		}
+		// If any task is pending, the consolidated task should be pending
+		if task.InitialStatus == "pending" {
+			consolidatedStatus = "pending"
 		}
 	}
 
@@ -1525,8 +1539,9 @@ func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleT
 
 	// Return single consolidated task
 	consolidatedTask := SimpleTaskRequest{
-		Description: unifiedDescription,
-		Priority:    highestPriority,
+		Description:   unifiedDescription,
+		Priority:      highestPriority,
+		InitialStatus: consolidatedStatus,
 	}
 
 	if a.config.AISettings.VerboseMode {
