@@ -59,15 +59,20 @@ func TestUpdateCommandRejectsCancelStatus(t *testing.T) {
 
 	// Check error message
 	errMsg := err.Error()
-	expectedPhrases := []string{
-		"cannot set status to 'cancel' using update command",
+	if !strings.Contains(errMsg, "cannot set status to 'cancel' using update command") {
+		t.Errorf("Error message should contain %q, got:\n%s", "cannot set status to 'cancel' using update command", errMsg)
+	}
+
+	// Check stderr output for guidance
+	stderrOutput := errBuf.String()
+	expectedStderrPhrases := []string{
 		"reviewtask cancel test-task-1 --reason",
 		"thread auto-resolution",
 	}
 
-	for _, phrase := range expectedPhrases {
-		if !strings.Contains(errMsg, phrase) {
-			t.Errorf("Error message should contain %q, got:\n%s", phrase, errMsg)
+	for _, phrase := range expectedStderrPhrases {
+		if !strings.Contains(stderrOutput, phrase) {
+			t.Errorf("Stderr output should contain %q, got:\n%s", phrase, stderrOutput)
 		}
 	}
 

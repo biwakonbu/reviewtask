@@ -45,10 +45,10 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	// Reject cancel status - must use dedicated cancel command
 	if newStatus == "cancel" {
-		return fmt.Errorf("cannot set status to 'cancel' using update command.\n\n"+
-			"Use 'reviewtask cancel %s --reason \"...\"' instead.\n\n"+
-			"This ensures cancellation reasons are posted to PR for reviewer visibility\n"+
-			"and enables proper thread auto-resolution.", taskID)
+		fmt.Fprintf(cmd.ErrOrStderr(), "\nUse 'reviewtask cancel %s --reason \"...\"' instead.\n\n", taskID)
+		fmt.Fprintf(cmd.ErrOrStderr(), "This ensures cancellation reasons are posted to PR for reviewer visibility\n")
+		fmt.Fprintf(cmd.ErrOrStderr(), "and enables proper thread auto-resolution.\n\n")
+		return fmt.Errorf("cannot set status to 'cancel' using update command")
 	}
 
 	// Validate status
