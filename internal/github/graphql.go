@@ -310,3 +310,70 @@ func (c *Client) ResolveCommentThread(ctx context.Context, prNumber int, comment
 
 	return nil
 }
+
+// GetCommentThreadState returns whether a review thread is resolved for a specific comment
+func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commentID int64) (isResolved bool, err error) {
+	// Create GraphQL client
+	graphqlClient, err := c.NewGraphQLClient()
+	if err != nil {
+		return false, fmt.Errorf("failed to create GraphQL client: %w", err)
+	}
+
+	// Get thread state for this comment
+	query := `
+		query($owner: String!, $repo: String!, $prNumber: Int!) {
+			repository(owner: $owner, name: $repo) {
+				pullRequest(number: $prNumber) {
+					reviewThreads(first: 100) {
+						nodes {
+							id
+							isResolved
+							comments(first: 1) {
+								nodes {
+									databaseId
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	`
+
+	variables := map[string]interface{}{
+		"owner":    c.owner,
+		"repo":     c.repo,
+		"prNumber": prNumber,
+	}
+
+	var result struct {
+		Repository struct {
+			PullRequest struct {
+				ReviewThreads struct {
+					Nodes []struct {
+						ID         string `json:"id"`
+						IsResolved bool   `json:"isResolved"`
+						Comments   struct {
+							Nodes []struct {
+								DatabaseID int64 `json:"databaseId"`
+							} `json:"nodes"`
+						} `json:"comments"`
+					} `json:"nodes"`
+				} `json:"reviewThreads"`
+			} `json:"pullRequest"`
+		} `json:"repository"`
+	}
+
+	if err := graphqlClient.Execute(ctx, query, variables, &result); err != nil {
+		return false, fmt.Errorf("failed to execute GraphQL query: %w", err)
+	}
+
+	// Find the thread for this comment
+	for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
+		if len(thread.Comments.Nodes) > 0 && thread.Comments.Nodes[0].DatabaseID == commentID {
+			return thread.IsResolved, nil
+		}
+	}
+
+	return false, fmt.Errorf("thread not found for comment ID %d", commentID)
+}

@@ -55,6 +55,12 @@ type Comment struct {
 	CreatedAt string  `json:"created_at"`
 	URL       string  `json:"url"` // GitHub comment URL for reference
 	Replies   []Reply `json:"replies"`
+
+	// Thread resolution tracking (Issue #191)
+	GitHubThreadResolved bool   `json:"github_thread_resolved,omitempty"`
+	LastCheckedAt        string `json:"last_checked_at,omitempty"`
+	TasksGenerated       bool   `json:"tasks_generated,omitempty"`
+	AllTasksCompleted    bool   `json:"all_tasks_completed,omitempty"`
 }
 
 type Reply struct {
