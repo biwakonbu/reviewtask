@@ -29,7 +29,3 @@ func runHold(cmd *cobra.Command, args []string) error {
 	// Delegate to update command with "pending" status
 	return runUpdate(cmd, []string{taskID, "pending"})
 }
-
-func init() {
-	rootCmd.AddCommand(holdCmd)
-}

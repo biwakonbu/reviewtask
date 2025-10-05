@@ -24,7 +24,3 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// Delegate to update command with "doing" status
 	return runUpdate(cmd, []string{taskID, "doing"})
 }
-
-func init() {
-	rootCmd.AddCommand(startCmd)
-}

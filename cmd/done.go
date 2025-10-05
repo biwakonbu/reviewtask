@@ -32,7 +32,3 @@ func runDone(cmd *cobra.Command, args []string) error {
 	// Note: runUpdate already handles thread auto-resolution if configured
 	return runUpdate(cmd, []string{taskID, "done"})
 }
-
-func init() {
-	rootCmd.AddCommand(doneCmd)
-}
