@@ -114,12 +114,32 @@ reviewtask update <task-id> doing
 reviewtask update <task-id> done
 ```
 
+## Task Management Commands (v3.0.0)
+
+reviewtask provides intuitive commands for managing task status:
+
+```bash
+# Start working on a task
+reviewtask start <task-id>
+
+# Mark a task as completed
+reviewtask done <task-id>
+
+# Put a task on hold
+reviewtask hold <task-id>
+
+# Traditional update command (still supported)
+reviewtask update <task-id> doing
+reviewtask update <task-id> done
+reviewtask update <task-id> pending
+```
+
 ## Task Statuses
 
 - `todo` - Ready to work on
-- `doing` - Currently in progress
-- `done` - Completed
-- `pending` - Blocked or low priority
+- `doing` - Currently in progress (use `reviewtask start`)
+- `done` - Completed (use `reviewtask done`)
+- `pending` - Blocked or low priority (use `reviewtask hold`)
 - `cancel` - No longer relevant
 
 ## Next Steps
@@ -144,14 +164,15 @@ reviewtask status         # Overall progress across all PRs
 ### During Implementation
 ```bash
 reviewtask show <task-id> # Full context for current task
+reviewtask start <task-id> # Mark as in progress
 # Work on the task...
-reviewtask update <task-id> done
+reviewtask done <task-id>  # Mark as completed
 ```
 
 ### When Blocked
 ```bash
-reviewtask update <task-id> pending  # Mark as blocked
-reviewtask show                      # Find next task to work on
+reviewtask hold <task-id>  # Put task on hold
+reviewtask show            # Find next task to work on
 ```
 
 ### When Reviews Are Updated
