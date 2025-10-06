@@ -3,6 +3,7 @@ package threads
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"reviewtask/internal/config"
 	"reviewtask/internal/storage"
@@ -60,7 +61,8 @@ func NewThreadResolver(cfg *config.Config, storageManager StorageInterface, gith
 // ShouldResolveThread determines if a thread should be resolved based on task completion
 func (r *ThreadResolver) ShouldResolveThread(ctx context.Context, task *storage.Task) (*ResolutionResult, error) {
 	// Check configuration
-	mode := ResolveMode(r.config.DoneWorkflow.EnableAutoResolve)
+	// Normalize to lowercase to prevent case-sensitivity issues
+	mode := ResolveMode(strings.ToLower(r.config.DoneWorkflow.EnableAutoResolve))
 	if mode == ResolveModeDisabled {
 		return &ResolutionResult{
 			ThreadResolved: false,
