@@ -303,6 +303,25 @@ Authentication sources (in order of preference):
 ./reviewtask update <task-id> <status>
 
 # Valid statuses: todo, doing, done, pending, cancel
+
+# Start working on a task (intuitive alternative to update)
+./reviewtask start <task-id>
+
+# The start command provides a more intuitive way to begin work:
+# - Changes status from todo → doing
+# - Provides visual feedback with 🚀 emoji
+# - Shows helpful next-step guidance
+# - Equivalent to: reviewtask update <task-id> doing
+
+# Put a task on hold (intuitive alternative to update)
+./reviewtask hold <task-id> [--reason "explanation"]
+
+# The hold command provides an intuitive way to pause work:
+# - Changes status from todo/doing → pending
+# - Optional --reason flag for documenting why task is on hold
+# - Provides visual feedback with ⏸️ emoji
+# - Shows contextual guidance for resuming work
+# - Equivalent to: reviewtask update <task-id> pending
 ```
 
 ### 5. Task Lifecycle Management
@@ -372,6 +391,8 @@ Authentication sources (in order of preference):
 | Command | Description |
 |---------|-------------|
 | `reviewtask done <task-id>` | **[RECOMMENDED]** Complete task with full automation workflow (verification + commit + thread resolution + next task) |
+| `reviewtask start <task-id>` | **[INTUITIVE]** Start working on a task (equivalent to `update <id> doing`) |
+| `reviewtask hold <task-id> [--reason "..."]` | **[INTUITIVE]** Put task on hold (equivalent to `update <id> pending`) |
 | `reviewtask cancel <task-id> --reason "..."` | Cancel task and post reason to GitHub review thread |
 | `reviewtask cancel --all-pending --reason "..."` | Cancel all pending tasks with same reason |
 | `reviewtask verify <task-id>` | Run verification checks before task completion |

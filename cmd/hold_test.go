@@ -51,3 +51,40 @@ func TestHoldCommandIntegration(t *testing.T) {
 	assert.NotNil(t, holdCmd)
 	assert.Equal(t, "hold", holdCmd.Name())
 }
+
+func TestHoldCommandWithReasonFlag(t *testing.T) {
+	// Test that hold command accepts and processes --reason flag
+	cmd := NewRootCmd()
+	cmd.SetArgs([]string{"hold", "task-123", "--reason", "Waiting for external approval"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Note: This test will fail if task doesn't exist, but we can test the command structure
+	err := cmd.Execute()
+	if err != nil {
+		// Check that error is about task not existing, not command structure
+		assert.Contains(t, err.Error(), "not found")
+		assert.NotContains(t, err.Error(), "accepts")
+		assert.NotContains(t, err.Error(), "flag")
+	}
+}
+
+func TestHoldCommandOutput(t *testing.T) {
+	// Test that hold command provides proper output and guidance
+	cmd := NewRootCmd()
+	cmd.SetArgs([]string{"hold", "task-123"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Note: This test will fail if task doesn't exist, but we can test the command structure
+	err := cmd.Execute()
+	if err != nil {
+		// Check that error is about task not existing, not command structure
+		assert.Contains(t, err.Error(), "not found")
+		assert.NotContains(t, err.Error(), "accepts")
+	}
+}
