@@ -211,7 +211,7 @@ Configure automation behavior for the `reviewtask done` command. This provides a
 ```json
 {
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",
+    "enable_auto_resolve": "complete",
     "enable_verification": true,
     "enable_auto_commit": true,
     "enable_next_task_suggestion": true,
@@ -227,7 +227,7 @@ Configure automation behavior for the `reviewtask done` command. This provides a
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `enable_auto_resolve` | string | `"when_all_complete"` | Thread resolution mode: `"immediate"`, `"when_all_complete"`, or `"disabled"` |
+| `enable_auto_resolve` | string | `"complete"` | Thread resolution mode: `"immediate"`, `"complete"`, or `"disabled"` |
 | `enable_verification` | bool | `true` | Run verification checks before marking task as done |
 | `enable_auto_commit` | bool | `true` | Automatically commit changes with structured message |
 | `enable_next_task_suggestion` | bool | `true` | Show next recommended task after completion |
@@ -235,7 +235,7 @@ Configure automation behavior for the `reviewtask done` command. This provides a
 
 **Auto-Resolve Modes:**
 - `"immediate"`: Resolve GitHub review thread immediately after task completion
-- `"when_all_complete"`: Resolve only when all tasks from same comment are done (recommended)
+- `"complete"`: Resolve only when all tasks from same comment are done (recommended)
 - `"disabled"`: No automatic resolution (use `reviewtask resolve` manually)
 
 **Verification Commands:**
@@ -247,12 +247,30 @@ The `verifiers` object maps verification types to shell commands. Default comman
 
 **Skip Options:**
 You can skip individual automation phases:
+
+Skip verification phase (build, test, lint checks):
 ```bash
 reviewtask done <task-id> --skip-verification
+```
+Task will be marked as done without running verification checks.
+
+Skip automatic commit:
+```bash
 reviewtask done <task-id> --skip-commit
+```
+Task will be marked as done without creating a git commit.
+
+Skip automatic thread resolution:
+```bash
 reviewtask done <task-id> --skip-resolve
+```
+Task will be marked as done without resolving the GitHub review thread.
+
+Skip next task suggestion:
+```bash
 reviewtask done <task-id> --skip-suggestion
 ```
+Task will be marked as done without suggesting the next task to work on.
 
 ### Update Check Settings
 

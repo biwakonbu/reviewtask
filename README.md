@@ -511,7 +511,7 @@ Configure automation behavior for the `reviewtask done` command:
 ```json
 {
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",
+    "enable_auto_resolve": "complete",
     "enable_verification": true,
     "enable_auto_commit": true,
     "enable_next_task_suggestion": true,
@@ -528,7 +528,7 @@ Configure automation behavior for the `reviewtask done` command:
 **Settings:**
 - `enable_auto_resolve`: Thread resolution mode
   - `"immediate"`: Resolve thread immediately after task completion
-  - `"when_all_complete"`: Resolve only when all tasks from same comment are done
+  - `"complete"`: Resolve only when all tasks from same comment are done
   - `"disabled"`: No automatic resolution
 - `enable_verification`: Run build/test/lint checks before completion
 - `enable_auto_commit`: Automatically commit changes with structured message

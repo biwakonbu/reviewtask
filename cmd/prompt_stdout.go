@@ -339,7 +339,7 @@ Tasks are automatically categorized for custom verification:
 §§§json
 {
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",
+    "enable_auto_resolve": "complete",
     "enable_verification": true,
     "enable_auto_commit": true,
     "enable_next_task_suggestion": true,

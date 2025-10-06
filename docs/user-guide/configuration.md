@@ -63,7 +63,7 @@ That's it! The tool automatically:
     "verbose_mode": true
   },
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",
+    "enable_auto_resolve": "complete",
     "enable_verification": true,
     "enable_auto_commit": true,
     "enable_next_task_suggestion": true,
@@ -100,7 +100,7 @@ The `done_workflow` section controls automation behavior for the `reviewtask don
 ```json
 {
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",
+    "enable_auto_resolve": "complete",
     "enable_verification": true,
     "enable_auto_commit": true,
     "enable_next_task_suggestion": true
@@ -126,7 +126,7 @@ The `done_workflow` section controls automation behavior for the `reviewtask don
 
 **`enable_auto_resolve`** - Thread resolution mode:
 - `"immediate"`: Resolve thread right after task completion
-- `"when_all_complete"`: Resolve only when all comment tasks are done (recommended)
+- `"complete"`: Resolve only when all comment tasks are done (recommended)
 - `"disabled"`: Manual resolution with `reviewtask resolve`
 
 **`enable_verification`** - Run quality checks:
