@@ -574,8 +574,17 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 			result = append(result, task)
 		}
 
-		// Add new tasks
-		result = append(result, new...)
+		// Add new tasks, but avoid duplicates by task ID
+		existingIDs := make(map[string]bool)
+		for _, task := range result {
+			existingIDs[task.ID] = true
+		}
+
+		for _, task := range new {
+			if !existingIDs[task.ID] {
+				result = append(result, task)
+			}
+		}
 		return result
 	}
 
