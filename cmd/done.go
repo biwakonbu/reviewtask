@@ -328,9 +328,9 @@ func getTaskByID(storageManager *storage.Manager, taskID string) (*storage.Task,
 		return nil, err
 	}
 
-	for _, task := range allTasks {
-		if task.ID == taskID || strings.HasPrefix(task.ID, taskID) {
-			return &task, nil
+	for i := range allTasks {
+		if allTasks[i].ID == taskID || strings.HasPrefix(allTasks[i].ID, taskID) {
+			return &allTasks[i], nil
 		}
 	}
 
