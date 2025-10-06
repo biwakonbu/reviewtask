@@ -39,14 +39,46 @@ reviewtask start <task-id>
 
 # Complete the work...
 
-# Mark task as completed (v3.0.0)
+# Mark task as completed with full automation (v3.0.0 - RECOMMENDED)
 reviewtask done <task-id>
+# What happens automatically:
+# 1. Verification (build/test/lint checks)
+# 2. Status update to "done"
+# 3. Auto-commit with structured message
+# 4. Review thread resolution (when all comment tasks complete)
+# 5. Next task suggestion
 
-# Find next task
-reviewtask show
+# Skip specific automation phases if needed:
+# reviewtask done <task-id> --skip-verification
+# reviewtask done <task-id> --skip-commit
+# reviewtask done <task-id> --skip-resolve
+# reviewtask done <task-id> --skip-suggestion
 ```
 
-**Note:** The traditional `reviewtask update <task-id> doing` and `reviewtask update <task-id> done` commands are still supported, but the new `start` and `done` commands provide a more intuitive interface.
+**Done Command Automation:**
+
+The `reviewtask done` command provides complete workflow automation:
+
+1. **Verification Phase** - Runs build, test, lint, and format checks
+   - Configured via `done_workflow.verifiers` in config
+   - Auto-detected based on project type (Go, Node.js, Python, Rust)
+   - Fails if checks don't pass (prevents incomplete work)
+
+2. **Status Update** - Marks task as "done" in local storage
+
+3. **Auto-Commit** - Creates structured commit with:
+   - Task description and context
+   - Reference to review comment
+   - Co-authored-by tag for attribution
+
+4. **Thread Resolution** - Resolves GitHub review thread based on mode:
+   - `immediate`: Resolve right after task completion
+   - `when_all_complete`: Resolve only when all comment tasks done (recommended)
+   - `disabled`: Manual resolution
+
+5. **Next Task Suggestion** - Shows next recommended task by priority
+
+**Note:** Traditional commands (`reviewtask update <task-id> doing/done`) are still supported, but `start` and `done` provide better workflow integration.
 
 ### When Blocked
 
