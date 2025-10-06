@@ -161,8 +161,7 @@ For backward compatibility, the following detailed format is also supported:
     "stream_processing_enabled": true,
     "auto_summarize_enabled": true,
     "realtime_saving_enabled": true,
-    "skip_claude_auth_check": false,
-    "auto_resolve_threads": false
+    "skip_claude_auth_check": false
   }
 }
 ```
@@ -182,7 +181,8 @@ For backward compatibility, the following detailed format is also supported:
 | `similarity_threshold` | float | `0.8` | Task similarity threshold | Lower to catch more duplicates |
 | `process_nitpick_comments` | bool | `true` | Process CodeRabbit nitpick comments | Disable to skip minor issues |
 | `process_self_reviews` | bool | `false` | Process PR author's own reviews | Enable for self-review workflows |
-| `auto_resolve_threads` | bool | `false` | Auto-resolve GitHub review threads when tasks are done | Enable to automatically close resolved threads |
+
+**Note:** Thread auto-resolution is now configured via `done_workflow.enable_auto_resolve` setting. See [Done Workflow Settings](#done-workflow-settings) for details.
 
 #### AI Review Tool Integration
 
@@ -204,36 +204,55 @@ For backward compatibility, the following detailed format is also supported:
    - Direct comment processing
    - Thread auto-resolution supported
 
-### Verification Settings
+### Done Workflow Settings
+
+Configure automation behavior for the `reviewtask done` command. This provides a complete workflow automation including verification, commit, thread resolution, and next task suggestion.
 
 ```json
 {
-  "verification_settings": {
-    "enabled": true,
-    "build_command": "go build ./...",
-    "test_command": "go test ./...",
-    "lint_command": "golangci-lint run",
-    "format_command": "gofmt -l .",
-    "custom_rules": {
-      "security-task": "security-scan.sh"
-    },
-    "mandatory_checks": ["build"],
-    "optional_checks": ["test", "lint"],
-    "timeout_minutes": 5
+  "done_workflow": {
+    "enable_auto_resolve": "when_all_complete",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true,
+    "verifiers": {
+      "build": "go build ./...",
+      "test": "go test ./...",
+      "lint": "golangci-lint run",
+      "format": "gofmt -l ."
+    }
   }
 }
 ```
 
-| Parameter | Type | Default | Description | Auto-Detection |
-|-----------|------|---------|-------------|----------------|
-| `enabled` | bool | `true` | Enable verification system | - |
-| `build_command` | string | *project-specific* | Build command | Auto-detected based on project type |
-| `test_command` | string | *project-specific* | Test command | Auto-detected based on project type |
-| `lint_command` | string | *project-specific* | Lint command | Auto-detected based on project type |
-| `custom_rules` | object | `{}` | Custom verification commands | Map task types to commands |
-| `mandatory_checks` | array | `["build"]` | Required checks | Checks that must pass |
-| `optional_checks` | array | `["test", "lint"]` | Optional checks | Checks that may fail |
-| `timeout_minutes` | int | `5` | Verification timeout | Increase for slow builds |
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enable_auto_resolve` | string | `"when_all_complete"` | Thread resolution mode: `"immediate"`, `"when_all_complete"`, or `"disabled"` |
+| `enable_verification` | bool | `true` | Run verification checks before marking task as done |
+| `enable_auto_commit` | bool | `true` | Automatically commit changes with structured message |
+| `enable_next_task_suggestion` | bool | `true` | Show next recommended task after completion |
+| `verifiers` | object | *project-specific* | Verification commands by type (build, test, lint, format) |
+
+**Auto-Resolve Modes:**
+- `"immediate"`: Resolve GitHub review thread immediately after task completion
+- `"when_all_complete"`: Resolve only when all tasks from same comment are done (recommended)
+- `"disabled"`: No automatic resolution (use `reviewtask resolve` manually)
+
+**Verification Commands:**
+The `verifiers` object maps verification types to shell commands. Default commands are auto-detected based on project type:
+- **Go projects**: `go build`, `go test`, `golangci-lint run`, `gofmt -l .`
+- **Node.js projects**: `npm run build`, `npm test`, `npm run lint`, `npm run format`
+- **Python projects**: `python setup.py build`, `pytest`, `flake8`, `black --check`
+- **Rust projects**: `cargo build`, `cargo test`, `cargo clippy`, `cargo fmt --check`
+
+**Skip Options:**
+You can skip individual automation phases:
+```bash
+reviewtask done <task-id> --skip-verification
+reviewtask done <task-id> --skip-commit
+reviewtask done <task-id> --skip-resolve
+reviewtask done <task-id> --skip-suggestion
+```
 
 ### Update Check Settings
 
