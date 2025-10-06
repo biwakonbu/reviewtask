@@ -237,17 +237,17 @@ func TestConfigCreateDefault(t *testing.T) {
 
 func TestDoneWorkflowBooleanDefaults(t *testing.T) {
 	tests := []struct {
-		name                      string
-		configJSON                string
-		expectedVerification      bool
-		expectedAutoCommit        bool
+		name                       string
+		configJSON                 string
+		expectedVerification       bool
+		expectedAutoCommit         bool
 		expectedNextTaskSuggestion bool
 	}{
 		{
-			name:                      "empty config gets defaults (all true)",
-			configJSON:                `{}`,
-			expectedVerification:      true,
-			expectedAutoCommit:        true,
+			name:                       "empty config gets defaults (all true)",
+			configJSON:                 `{}`,
+			expectedVerification:       true,
+			expectedAutoCommit:         true,
 			expectedNextTaskSuggestion: true,
 		},
 		{
@@ -259,8 +259,8 @@ func TestDoneWorkflowBooleanDefaults(t *testing.T) {
 					"enable_next_task_suggestion": false
 				}
 			}`,
-			expectedVerification:      false,
-			expectedAutoCommit:        false,
+			expectedVerification:       false,
+			expectedAutoCommit:         false,
 			expectedNextTaskSuggestion: false,
 		},
 		{
@@ -272,8 +272,8 @@ func TestDoneWorkflowBooleanDefaults(t *testing.T) {
 					"enable_next_task_suggestion": true
 				}
 			}`,
-			expectedVerification:      true,
-			expectedAutoCommit:        true,
+			expectedVerification:       true,
+			expectedAutoCommit:         true,
 			expectedNextTaskSuggestion: true,
 		},
 		{
@@ -283,8 +283,8 @@ func TestDoneWorkflowBooleanDefaults(t *testing.T) {
 					"enable_auto_commit": false
 				}
 			}`,
-			expectedVerification:      true,  // Default
-			expectedAutoCommit:        false, // Explicit
+			expectedVerification:       true,  // Default
+			expectedAutoCommit:         false, // Explicit
 			expectedNextTaskSuggestion: true,  // Default
 		},
 		{
@@ -295,8 +295,8 @@ func TestDoneWorkflowBooleanDefaults(t *testing.T) {
 					"enable_next_task_suggestion": true
 				}
 			}`,
-			expectedVerification:      false, // Explicit
-			expectedAutoCommit:        true,  // Default
+			expectedVerification:       false, // Explicit
+			expectedAutoCommit:         true,  // Default
 			expectedNextTaskSuggestion: true,  // Explicit
 		},
 	}

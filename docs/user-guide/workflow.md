@@ -48,12 +48,33 @@ reviewtask done <task-id>
 # 4. Review thread resolution (when all comment tasks complete)
 # 5. Next task suggestion
 
-# Skip specific automation phases if needed:
-# reviewtask done <task-id> --skip-verification
-# reviewtask done <task-id> --skip-commit
-# reviewtask done <task-id> --skip-resolve
-# reviewtask done <task-id> --skip-suggestion
 ```
+
+**Skip Options** - Skip individual automation phases when needed:
+
+Skip verification (build, test, lint checks):
+```bash
+reviewtask done <task-id> --skip-verification
+```
+Task will be marked as done without running verification checks.
+
+Skip automatic commit:
+```bash
+reviewtask done <task-id> --skip-commit
+```
+Task will be marked as done without creating a git commit.
+
+Skip thread resolution:
+```bash
+reviewtask done <task-id> --skip-resolve
+```
+Task will be marked as done without resolving the GitHub review thread.
+
+Skip next task suggestion:
+```bash
+reviewtask done <task-id> --skip-suggestion
+```
+Task will be marked as done without suggesting the next task.
 
 **Done Command Automation:**
 

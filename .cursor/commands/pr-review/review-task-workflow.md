@@ -21,7 +21,7 @@ The reviewtask tool provides the following commands for managing PR review tasks
 
 ### Task Lifecycle Management Commands:
 
-- **`reviewtask done <task-id>`** - Complete task with full automation (verification, commit, resolve, next task)
+- **`reviewtask done <task-id>`** - Complete task with full 5-phase automation (verification, status update, commit, resolve, next task)
 - **`reviewtask done <task-id> --skip-verification`** - Skip verification phase
 - **`reviewtask done <task-id> --skip-commit`** - Skip automatic commit
 - **`reviewtask done <task-id> --skip-resolve`** - Skip thread resolution
