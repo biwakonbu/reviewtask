@@ -292,6 +292,7 @@ Authentication sources (in order of preference):
 ```bash
 # View all task status
 ./reviewtask status
+./reviewtask status 123
 
 # Show current/next task details
 ./reviewtask show
@@ -383,7 +384,7 @@ Authentication sources (in order of preference):
 | `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
 | `reviewtask fetch [PR_NUMBER]` | Fetch PR reviews from GitHub and save locally |
 | `reviewtask analyze [PR_NUMBER]` | Analyze saved reviews and generate tasks using AI |
-| `reviewtask status [options]` | Show task status and statistics |
+| `reviewtask status [PR_NUMBER]` | Show task status and statistics for current branch or specific PR |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status (todo/doing/done/pending/cancel) |
 

@@ -6,10 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 	"reviewtask/internal/ui"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -52,6 +53,9 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		prNumber, err := strconv.Atoi(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid PR number: %s", args[0])
+		}
+		if prNumber <= 0 {
+			return fmt.Errorf("invalid PR number: %s (must be a positive integer)", args[0])
 		}
 		statusSpecificPR = prNumber
 	}
