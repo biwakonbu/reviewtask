@@ -755,13 +755,8 @@ func (c *Client) GetTokenScopes() ([]string, error) {
 
 // PostReviewCommentReply posts a reply to a review comment on a pull request
 func (c *Client) PostReviewCommentReply(ctx context.Context, prNumber int, commentID int64, body string) error {
-	// Create a new review comment as a reply
-	comment := &github.PullRequestComment{
-		Body:      github.String(body),
-		InReplyTo: github.Int64(commentID),
-	}
-
-	_, _, err := c.client.PullRequests.CreateComment(ctx, c.owner, c.repo, prNumber, comment)
+	// Use CreateCommentInReplyTo to post a reply to the review comment
+	_, _, err := c.client.PullRequests.CreateCommentInReplyTo(ctx, c.owner, c.repo, prNumber, body, commentID)
 	if err != nil {
 		return fmt.Errorf("failed to post review comment reply: %w", err)
 	}
