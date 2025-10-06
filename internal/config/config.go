@@ -406,13 +406,23 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	if config.DoneWorkflow.EnableAutoResolve == "" {
 		config.DoneWorkflow.EnableAutoResolve = defaults.DoneWorkflow.EnableAutoResolve
 	}
-	if !hasField(rawConfig, "done_workflow", "enable_verification") {
+
+	// For boolean fields, only apply defaults when the field is truly absent
+	// to preserve explicit false values
+	if doneWorkflow, ok := rawConfig["done_workflow"].(map[string]interface{}); ok {
+		if _, exists := doneWorkflow["enable_verification"]; !exists {
+			config.DoneWorkflow.EnableVerification = defaults.DoneWorkflow.EnableVerification
+		}
+		if _, exists := doneWorkflow["enable_auto_commit"]; !exists {
+			config.DoneWorkflow.EnableAutoCommit = defaults.DoneWorkflow.EnableAutoCommit
+		}
+		if _, exists := doneWorkflow["enable_next_task_suggestion"]; !exists {
+			config.DoneWorkflow.EnableNextTaskSuggestion = defaults.DoneWorkflow.EnableNextTaskSuggestion
+		}
+	} else {
+		// done_workflow section doesn't exist, apply all defaults
 		config.DoneWorkflow.EnableVerification = defaults.DoneWorkflow.EnableVerification
-	}
-	if !hasField(rawConfig, "done_workflow", "enable_auto_commit") {
 		config.DoneWorkflow.EnableAutoCommit = defaults.DoneWorkflow.EnableAutoCommit
-	}
-	if !hasField(rawConfig, "done_workflow", "enable_next_task_suggestion") {
 		config.DoneWorkflow.EnableNextTaskSuggestion = defaults.DoneWorkflow.EnableNextTaskSuggestion
 	}
 
