@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -139,14 +140,15 @@ func TestStatusFlagPriority(t *testing.T) {
 				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
 					// Mock the priority logic from runStatus (v3.0.0)
-					var specificPR int
 					if len(args) > 0 {
-						capturedAction = "pr_arg"
-						return nil
+						// Parse PR number from positional argument
+						_, err := strconv.Atoi(args[0])
+						if err == nil {
+							capturedAction = "pr_arg"
+							return nil
+						}
 					}
-					if specificPR > 0 {
-						capturedAction = "pr_arg"
-					} else if statusShowAll {
+					if statusShowAll {
 						capturedAction = "all_flag"
 					} else {
 						capturedAction = "current_branch"
