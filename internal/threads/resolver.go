@@ -79,10 +79,13 @@ func (r *ThreadResolver) ShouldResolveThread(ctx context.Context, task *storage.
 	}
 
 	// Count completed and total tasks
+	// Note: Both "done" and "cancel" (with posted reason) are considered complete
 	totalTasks := len(tasks)
 	completedTasks := 0
 	for _, t := range tasks {
 		if t.Status == "done" {
+			completedTasks++
+		} else if t.Status == "cancel" && t.CancelCommentPosted {
 			completedTasks++
 		}
 	}
