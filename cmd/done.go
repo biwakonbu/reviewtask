@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"reviewtask/internal/config"
 	"reviewtask/internal/git"
 	"reviewtask/internal/github"
@@ -152,11 +154,12 @@ func runVerificationPhase(task *storage.Task) error {
 
 	// Check results
 	allPassed := true
+	titleCaser := cases.Title(language.English)
 	for _, result := range results {
 		if result.Success {
-			fmt.Printf("  ✓ %s passed\n", strings.Title(string(result.Type)))
+			fmt.Printf("  ✓ %s passed\n", titleCaser.String(string(result.Type)))
 		} else {
-			fmt.Printf("  ✗ %s failed\n", strings.Title(string(result.Type)))
+			fmt.Printf("  ✗ %s failed\n", titleCaser.String(string(result.Type)))
 			if result.Message != "" {
 				fmt.Printf("    %s\n", result.Message)
 			}
