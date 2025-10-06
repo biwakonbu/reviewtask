@@ -236,7 +236,11 @@ func displayAIModeContentShort(allTasks []storage.Task, contextDescription strin
 	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
 	if len(doingTasks) > 0 {
 		task := doingTasks[0]
-		fmt.Printf(" | Current: %s (%s)", task.ID[:8], strings.ToUpper(task.Priority))
+		currentID := task.ID
+		if len(currentID) > 8 {
+			currentID = currentID[:8]
+		}
+		fmt.Printf(" | Current: %s (%s)", currentID, strings.ToUpper(task.Priority))
 	}
 
 	// Show next task if any
@@ -244,7 +248,11 @@ func displayAIModeContentShort(allTasks []storage.Task, contextDescription strin
 	tasks.SortTasksByPriority(todoTasks)
 	if len(todoTasks) > 0 {
 		task := todoTasks[0]
-		fmt.Printf(" | Next: %s (%s)", task.ID[:8], strings.ToUpper(task.Priority))
+		nextID := task.ID
+		if len(nextID) > 8 {
+			nextID = nextID[:8]
+		}
+		fmt.Printf(" | Next: %s (%s)", nextID, strings.ToUpper(task.Priority))
 	}
 
 	fmt.Println()
