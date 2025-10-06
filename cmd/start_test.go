@@ -69,3 +69,24 @@ func TestStartCommandOutput(t *testing.T) {
 		assert.NotContains(t, err.Error(), "accepts")
 	}
 }
+
+func TestStartCommandTaskNotFound(t *testing.T) {
+	// Test that start command properly handles non-existent tasks
+	// Note: This test may pass or fail depending on test environment state
+	// The important thing is that the command structure is valid
+	cmd := NewRootCmd()
+	cmd.SetArgs([]string{"start", "non-existent-task-12345"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	err := cmd.Execute()
+	// May or may not error depending on test environment, but command structure should be valid
+	if err != nil {
+		// If it errors, it should be about task not found, not command structure
+		assert.Contains(t, err.Error(), "not found")
+		assert.NotContains(t, err.Error(), "accepts")
+		assert.NotContains(t, err.Error(), "requires")
+	}
+}

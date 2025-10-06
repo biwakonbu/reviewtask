@@ -3,6 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"reviewtask/internal/storage"
+
 	"github.com/spf13/cobra"
 )
 
@@ -23,13 +25,41 @@ Examples:
 func runStart(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 
+	// Validate that task is not already doing or done
+	storageManager := storage.NewManager()
+
+	// Get all tasks to find the specific task
+	allTasks, err := storageManager.GetAllTasks()
+	if err != nil {
+		return fmt.Errorf("failed to get tasks: %w", err)
+	}
+
+	// Find the specific task
+	var targetTask *storage.Task
+	for _, task := range allTasks {
+		if task.ID == taskID {
+			targetTask = &task
+			break
+		}
+	}
+
+	if targetTask == nil {
+		return fmt.Errorf("task '%s' not found", taskID)
+	}
+
+	// Validate current status
+	if targetTask.Status == "doing" {
+		return fmt.Errorf("task '%s' is already in progress (doing). Use 'reviewtask done %s' to complete it first, or 'reviewtask hold %s' if you need to pause it", taskID, taskID, taskID)
+	}
+	if targetTask.Status == "done" {
+		return fmt.Errorf("task '%s' is already completed (done). Create a new task if you need to work on this again, or use 'reviewtask update %s doing' if you need to reopen it", taskID, taskID)
+	}
+
 	fmt.Printf("🚀 Starting work on task '%s'...\n", taskID)
 
 	// Delegate to update command with "doing" status
-	// The update command will handle validation and provide appropriate error messages
-	err := runUpdate(cmd, []string{taskID, "doing"})
+	err = runUpdate(cmd, []string{taskID, "doing"})
 	if err != nil {
-		// If the task is already doing or done, update command will return appropriate error
 		return err
 	}
 
