@@ -32,6 +32,7 @@ All review sources are automatically detected and processed without configuratio
 - **❌ Task Cancellation**: Cancel tasks with GitHub comment posting and proper error propagation for CI/CD
 - **🔄 Thread Resolution**: Manually or automatically resolve GitHub review threads when tasks complete
 - **✅ Task Verification**: Automated verification checks before task completion with configurable commands
+- **🚀 Done Command Automation**: Complete workflow automation with verification → commit → thread resolution → next task suggestion
 
 ### AI-Powered Features
 - **🧠 AI Impact Assessment**: Automatically assigns TODO/PENDING status based on implementation complexity
@@ -307,13 +308,28 @@ Authentication sources (in order of preference):
 ### 5. Task Lifecycle Management
 
 ```bash
+# Complete task with full automation workflow (RECOMMENDED)
+./reviewtask done <task-id>
+
+# The done command provides automated workflow:
+# 1. Verification (build/test/lint)
+# 2. Auto-commit with structured message
+# 3. Thread resolution (when all comment tasks complete)
+# 4. Next task suggestion
+#
+# Skip specific phases if needed:
+./reviewtask done <task-id> --skip-verification
+./reviewtask done <task-id> --skip-commit
+./reviewtask done <task-id> --skip-resolve
+./reviewtask done <task-id> --skip-suggestion
+
 # Cancel a task with explanation (posts comment to GitHub review thread)
 ./reviewtask cancel <task-id> --reason "Already addressed in commit abc1234"
 
 # Cancel all pending tasks at once
 ./reviewtask cancel --all-pending --reason "Deferring to follow-up PR #125"
 
-# Complete task with automatic verification
+# Alternative: Complete task with verification only (no automation)
 ./reviewtask complete <task-id>
 
 # Verify task implementation quality
@@ -355,10 +371,11 @@ Authentication sources (in order of preference):
 ### Task Lifecycle Management Commands
 | Command | Description |
 |---------|-------------|
+| `reviewtask done <task-id>` | **[RECOMMENDED]** Complete task with full automation workflow (verification + commit + thread resolution + next task) |
 | `reviewtask cancel <task-id> --reason "..."` | Cancel task and post reason to GitHub review thread |
 | `reviewtask cancel --all-pending --reason "..."` | Cancel all pending tasks with same reason |
 | `reviewtask verify <task-id>` | Run verification checks before task completion |
-| `reviewtask complete <task-id>` | Complete task with automatic verification |
+| `reviewtask complete <task-id>` | Complete task with automatic verification (alternative to done) |
 | `reviewtask complete <task-id> --skip-verification` | Complete task without verification |
 
 ### Thread Management Commands
@@ -486,6 +503,37 @@ reviewtask config show
 
 #### Level 3: Advanced (Power Users)
 See [Configuration Reference](docs/CONFIG_REFERENCE.md) for all available parameters.
+
+### Done Workflow Configuration
+
+Configure automation behavior for the `reviewtask done` command:
+
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "complete",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true,
+    "verifiers": {
+      "build": "go build ./...",
+      "test": "go test ./...",
+      "lint": "golangci-lint run",
+      "format": "gofmt -l ."
+    }
+  }
+}
+```
+
+**Settings:**
+- `enable_auto_resolve`: Thread resolution mode
+  - `"immediate"`: Resolve thread immediately after task completion
+  - `"complete"`: Resolve only when all tasks from same comment are done
+  - `"disabled"`: No automatic resolution
+- `enable_verification`: Run build/test/lint checks before completion
+- `enable_auto_commit`: Automatically commit changes with structured message
+- `enable_next_task_suggestion`: Show next recommended task after completion
+- `verifiers`: Custom commands for verification checks (by verification type)
 
 ### Prompt Profiles
 

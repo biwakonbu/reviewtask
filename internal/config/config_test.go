@@ -234,3 +234,92 @@ func TestConfigCreateDefault(t *testing.T) {
 	assert.True(t, config.AISettings.ProcessNitpickComments)
 	assert.Equal(t, "low", config.AISettings.NitpickPriority)
 }
+
+func TestDoneWorkflowBooleanDefaults(t *testing.T) {
+	tests := []struct {
+		name                       string
+		configJSON                 string
+		expectedVerification       bool
+		expectedAutoCommit         bool
+		expectedNextTaskSuggestion bool
+	}{
+		{
+			name:                       "empty config gets defaults (all true)",
+			configJSON:                 `{}`,
+			expectedVerification:       true,
+			expectedAutoCommit:         true,
+			expectedNextTaskSuggestion: true,
+		},
+		{
+			name: "explicit false values are preserved",
+			configJSON: `{
+				"done_workflow": {
+					"enable_verification": false,
+					"enable_auto_commit": false,
+					"enable_next_task_suggestion": false
+				}
+			}`,
+			expectedVerification:       false,
+			expectedAutoCommit:         false,
+			expectedNextTaskSuggestion: false,
+		},
+		{
+			name: "explicit true values are preserved",
+			configJSON: `{
+				"done_workflow": {
+					"enable_verification": true,
+					"enable_auto_commit": true,
+					"enable_next_task_suggestion": true
+				}
+			}`,
+			expectedVerification:       true,
+			expectedAutoCommit:         true,
+			expectedNextTaskSuggestion: true,
+		},
+		{
+			name: "partial config: only enable_auto_commit set to false, others get defaults",
+			configJSON: `{
+				"done_workflow": {
+					"enable_auto_commit": false
+				}
+			}`,
+			expectedVerification:       true,  // Default
+			expectedAutoCommit:         false, // Explicit
+			expectedNextTaskSuggestion: true,  // Default
+		},
+		{
+			name: "partial config: mix of true and false",
+			configJSON: `{
+				"done_workflow": {
+					"enable_verification": false,
+					"enable_next_task_suggestion": true
+				}
+			}`,
+			expectedVerification:       false, // Explicit
+			expectedAutoCommit:         true,  // Default
+			expectedNextTaskSuggestion: true,  // Explicit
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Unmarshal from JSON string to simulate real config loading
+			var config Config
+			err := json.Unmarshal([]byte(tt.configJSON), &config)
+			require.NoError(t, err)
+
+			var rawConfig map[string]interface{}
+			err = json.Unmarshal([]byte(tt.configJSON), &rawConfig)
+			require.NoError(t, err)
+
+			mergeWithDefaults(&config, rawConfig)
+
+			assert.Equal(t, tt.expectedVerification, config.DoneWorkflow.EnableVerification,
+				"EnableVerification mismatch")
+			assert.Equal(t, tt.expectedAutoCommit, config.DoneWorkflow.EnableAutoCommit,
+				"EnableAutoCommit mismatch")
+			assert.Equal(t, tt.expectedNextTaskSuggestion, config.DoneWorkflow.EnableNextTaskSuggestion,
+				"EnableNextTaskSuggestion mismatch")
+		})
+	}
+}

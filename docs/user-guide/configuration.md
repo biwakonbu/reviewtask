@@ -61,6 +61,131 @@ That's it! The tool automatically:
     "user_language": "English",
     "validation_enabled": false,
     "verbose_mode": true
+  },
+  "done_workflow": {
+    "enable_auto_resolve": "complete",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true,
+    "verifiers": {
+      "build": "go build ./...",
+      "test": "go test ./...",
+      "lint": "golangci-lint run",
+      "format": "gofmt -l ."
+    }
+  }
+}
+```
+
+## Done Workflow Configuration
+
+The `done_workflow` section controls automation behavior for the `reviewtask done` command, providing a complete workflow from task completion to next task suggestion.
+
+### Configuration Patterns
+
+#### Pattern 1: Minimal (Manual Workflow)
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "disabled",
+    "enable_verification": false,
+    "enable_auto_commit": false,
+    "enable_next_task_suggestion": false
+  }
+}
+```
+**Use when:** You want full manual control over commits and thread resolution.
+
+#### Pattern 2: Recommended (Balanced Automation)
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "complete",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true
+  }
+}
+```
+**Use when:** You want automation with safety (verifies before committing, resolves only when all tasks done).
+
+#### Pattern 3: Maximum Automation
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "immediate",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true
+  }
+}
+```
+**Use when:** You trust the automation and want immediate feedback loop.
+
+### Settings Explained
+
+**`enable_auto_resolve`** - Thread resolution mode:
+- `"immediate"`: Resolve thread right after task completion
+- `"complete"`: Resolve only when all comment tasks are done (recommended)
+- `"disabled"`: Manual resolution with `reviewtask resolve`
+
+**`enable_verification`** - Run quality checks:
+- Executes build, test, lint, format commands before marking done
+- Prevents incomplete work from being marked complete
+- Auto-detected commands based on project type
+
+**`enable_auto_commit`** - Automatic commit:
+- Creates structured commit with Co-authored-by tag
+- Skip with `--skip-commit` flag when needed
+- Commit message includes task context
+
+**`enable_next_task_suggestion`** - Task recommendation:
+- Shows next recommended task after completion
+- Based on priority (critical > high > medium > low)
+- Skip with `--skip-suggestion` flag
+
+### Verification Commands
+
+Customize verification commands per project type:
+
+**Go Project:**
+```json
+{
+  "done_workflow": {
+    "verifiers": {
+      "build": "go build ./...",
+      "test": "go test -short ./...",
+      "lint": "golangci-lint run --fast",
+      "format": "gofmt -l ."
+    }
+  }
+}
+```
+
+**Node.js Project:**
+```json
+{
+  "done_workflow": {
+    "verifiers": {
+      "build": "npm run build",
+      "test": "npm test",
+      "lint": "npm run lint",
+      "format": "npm run format:check"
+    }
+  }
+}
+```
+
+**Python Project:**
+```json
+{
+  "done_workflow": {
+    "verifiers": {
+      "build": "python setup.py build",
+      "test": "pytest tests/",
+      "lint": "flake8 .",
+      "format": "black --check ."
+    }
   }
 }
 ```

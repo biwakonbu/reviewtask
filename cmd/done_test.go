@@ -39,7 +39,7 @@ func TestDoneCommandHelp(t *testing.T) {
 
 	output := buf.String()
 	assert.Contains(t, output, "done <task-id>")
-	assert.Contains(t, output, "Mark a task as \"done\"")
+	assert.Contains(t, output, "automated workflow")
 	assert.Contains(t, output, "reviewtask done task-1")
 }
 

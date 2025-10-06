@@ -19,6 +19,8 @@ type Config struct {
 	AISettings           AISettings           `json:"ai_settings"`
 	VerificationSettings VerificationSettings `json:"verification_settings"`
 	UpdateCheck          UpdateCheck          `json:"update_check"`
+	DoneWorkflow         DoneWorkflow         `json:"done_workflow"`
+	Language             string               `json:"language"` // User's preferred language for output (en, ja, etc.)
 }
 
 type PriorityRules struct {
@@ -95,6 +97,13 @@ type UpdateCheck struct {
 	LastCheck         time.Time `json:"last_check"`         // Last check timestamp
 }
 
+type DoneWorkflow struct {
+	EnableVerification       bool   `json:"enable_verification"`         // Enable verification before task completion
+	EnableAutoCommit         bool   `json:"enable_auto_commit"`          // Enable automatic commit after task completion
+	EnableAutoResolve        string `json:"enable_auto_resolve"`         // Thread resolution mode: "immediate", "complete", "disabled"
+	EnableNextTaskSuggestion bool   `json:"enable_next_task_suggestion"` // Enable next task suggestion after completion
+}
+
 // Default configuration
 func defaultConfig() *Config {
 	validationTrue := true
@@ -167,6 +176,13 @@ func defaultConfig() *Config {
 			NotifyPrereleases: false,
 			LastCheck:         time.Time{}, // Zero time means never checked
 		},
+		DoneWorkflow: DoneWorkflow{
+			EnableVerification:       true,
+			EnableAutoCommit:         true,
+			EnableAutoResolve:        "complete",
+			EnableNextTaskSuggestion: true,
+		},
+		Language: "en", // Default to English
 	}
 }
 
@@ -384,6 +400,35 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	// Merge update check settings
 	if config.UpdateCheck.IntervalHours == 0 {
 		config.UpdateCheck.IntervalHours = defaults.UpdateCheck.IntervalHours
+	}
+
+	// Merge done workflow settings
+	if config.DoneWorkflow.EnableAutoResolve == "" {
+		config.DoneWorkflow.EnableAutoResolve = defaults.DoneWorkflow.EnableAutoResolve
+	}
+
+	// For boolean fields, only apply defaults when the field is truly absent
+	// to preserve explicit false values
+	if doneWorkflow, ok := rawConfig["done_workflow"].(map[string]interface{}); ok {
+		if _, exists := doneWorkflow["enable_verification"]; !exists {
+			config.DoneWorkflow.EnableVerification = defaults.DoneWorkflow.EnableVerification
+		}
+		if _, exists := doneWorkflow["enable_auto_commit"]; !exists {
+			config.DoneWorkflow.EnableAutoCommit = defaults.DoneWorkflow.EnableAutoCommit
+		}
+		if _, exists := doneWorkflow["enable_next_task_suggestion"]; !exists {
+			config.DoneWorkflow.EnableNextTaskSuggestion = defaults.DoneWorkflow.EnableNextTaskSuggestion
+		}
+	} else {
+		// done_workflow section doesn't exist, apply all defaults
+		config.DoneWorkflow.EnableVerification = defaults.DoneWorkflow.EnableVerification
+		config.DoneWorkflow.EnableAutoCommit = defaults.DoneWorkflow.EnableAutoCommit
+		config.DoneWorkflow.EnableNextTaskSuggestion = defaults.DoneWorkflow.EnableNextTaskSuggestion
+	}
+
+	// Merge language setting
+	if config.Language == "" {
+		config.Language = defaults.Language
 	}
 
 	// Note: VerboseMode is NOT merged with defaults - explicit false values are preserved

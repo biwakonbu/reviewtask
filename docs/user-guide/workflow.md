@@ -39,14 +39,67 @@ reviewtask start <task-id>
 
 # Complete the work...
 
-# Mark task as completed (v3.0.0)
+# Mark task as completed with full automation (v3.0.0 - RECOMMENDED)
 reviewtask done <task-id>
+# What happens automatically:
+# 1. Verification (build/test/lint checks)
+# 2. Status update to "done"
+# 3. Auto-commit with structured message
+# 4. Review thread resolution (when all comment tasks complete)
+# 5. Next task suggestion
 
-# Find next task
-reviewtask show
 ```
 
-**Note:** The traditional `reviewtask update <task-id> doing` and `reviewtask update <task-id> done` commands are still supported, but the new `start` and `done` commands provide a more intuitive interface.
+**Skip Options** - Skip individual automation phases when needed:
+
+Skip verification (build, test, lint checks):
+```bash
+reviewtask done <task-id> --skip-verification
+```
+Task will be marked as done without running verification checks.
+
+Skip automatic commit:
+```bash
+reviewtask done <task-id> --skip-commit
+```
+Task will be marked as done without creating a git commit.
+
+Skip thread resolution:
+```bash
+reviewtask done <task-id> --skip-resolve
+```
+Task will be marked as done without resolving the GitHub review thread.
+
+Skip next task suggestion:
+```bash
+reviewtask done <task-id> --skip-suggestion
+```
+Task will be marked as done without suggesting the next task.
+
+**Done Command Automation:**
+
+The `reviewtask done` command provides complete workflow automation:
+
+1. **Verification Phase** - Runs build, test, lint, and format checks
+   - Configured via `done_workflow.verifiers` in config
+   - Auto-detected based on project type (Go, Node.js, Python, Rust)
+   - Fails if checks don't pass (prevents incomplete work)
+
+2. **Status Update** - Marks task as "done" in local storage
+
+3. **Auto-Commit** - Creates structured commit with:
+   - Task description and context
+   - Reference to review comment
+   - Co-authored-by tag for attribution
+
+4. **Thread Resolution** - Resolves GitHub review thread based on mode:
+   - `immediate`: Resolve right after task completion
+   - `complete`: Resolve only when all comment tasks done (recommended)
+   - `disabled`: Manual resolution
+
+5. **Next Task Suggestion** - Shows next recommended task by priority
+
+**Note:** Traditional commands (`reviewtask update <task-id> doing/done`) are still supported, but `start` and `done` provide better workflow integration.
 
 ### When Blocked
 

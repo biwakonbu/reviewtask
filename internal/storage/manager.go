@@ -409,6 +409,23 @@ func (m *Manager) GetTasksByComment(prNumber int, commentID int64) ([]Task, erro
 	return commentTasks, nil
 }
 
+// GetTasksByCommentID retrieves all tasks for a comment ID across all PRs
+func (m *Manager) GetTasksByCommentID(commentID int64) ([]Task, error) {
+	allTasks, err := m.GetAllTasks()
+	if err != nil {
+		return nil, err
+	}
+
+	var commentTasks []Task
+	for _, task := range allTasks {
+		if task.SourceCommentID == commentID {
+			commentTasks = append(commentTasks, task)
+		}
+	}
+
+	return commentTasks, nil
+}
+
 // AreAllCommentTasksCompleted checks if all tasks from a comment are completed
 // Rules for resolution:
 // - All tasks must be either "done" or "cancel"
@@ -557,8 +574,17 @@ func (m *Manager) mergeTasksForComment(commentID int64, existing, new []Task) []
 			result = append(result, task)
 		}
 
-		// Add new tasks
-		result = append(result, new...)
+		// Add new tasks, but avoid duplicates by task ID
+		existingIDs := make(map[string]bool)
+		for _, task := range result {
+			existingIDs[task.ID] = true
+		}
+
+		for _, task := range new {
+			if !existingIDs[task.ID] {
+				result = append(result, task)
+			}
+		}
 		return result
 	}
 
