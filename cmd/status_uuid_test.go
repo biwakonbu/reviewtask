@@ -8,10 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	"reviewtask/internal/storage"
+
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"reviewtask/internal/storage"
 )
 
 // generateTestUUID creates RFC 4122 compliant UUIDs for testing
@@ -103,7 +104,7 @@ func TestStatusDisplaysActualUUIDs(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := displayAIModeContent(tc.tasks, "test context")
+			err := displayAIModeContent(tc.tasks, "test context", nil, nil)
 			require.NoError(t, err)
 
 			w.Close()
@@ -156,7 +157,7 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context")
+	err := displayAIModeContent(testTasks, "test context", nil, nil)
 	require.NoError(t, err)
 
 	w.Close()
@@ -210,7 +211,7 @@ func TestStatusUUIDFormat(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context")
+	err := displayAIModeContent(testTasks, "test context", nil, nil)
 	require.NoError(t, err)
 
 	w.Close()

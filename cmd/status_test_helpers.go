@@ -1,14 +1,15 @@
 package cmd
 
 import (
-	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
+
+	"github.com/spf13/cobra"
 )
 
 // DisplayAIModeContentForTest is a test helper that exposes displayAIModeContent
 // for testing the status command output without running the full command.
 func DisplayAIModeContentForTest(tasks []storage.Task, contextDescription string) error {
-	return displayAIModeContent(tasks, contextDescription)
+	return displayAIModeContent(tasks, contextDescription, nil, nil)
 }
 
 // DisplayTaskDetailsForTest is a test helper that exposes displayTaskDetails
