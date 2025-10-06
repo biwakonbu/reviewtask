@@ -237,8 +237,8 @@ func formatCancelComment(storageManager *storage.Manager, task *storage.Task, re
 		comment.WriteString(fmt.Sprintf("%s\n> %s\n\n", originalText, task.Description))
 	}
 
-	// Cancellation reason
-	comment.WriteString(fmt.Sprintf("%s\n> %s\n", reasonText, reason))
+	// Cancellation reason (not quoted - this is our own statement)
+	comment.WriteString(fmt.Sprintf("**%s**\n%s\n", reasonText, reason))
 
 	// Add information about other tasks from the same comment
 	if task.SourceCommentID != 0 {
