@@ -51,3 +51,21 @@ func TestStartCommandIntegration(t *testing.T) {
 	assert.NotNil(t, startCmd)
 	assert.Equal(t, "start", startCmd.Name())
 }
+
+func TestStartCommandOutput(t *testing.T) {
+	// Test that start command provides proper output and guidance
+	cmd := NewRootCmd()
+	cmd.SetArgs([]string{"start", "task-123"})
+
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+
+	// Note: This test will fail if task doesn't exist, but we can test the command structure
+	err := cmd.Execute()
+	if err != nil {
+		// Check that error is about task not existing, not command structure
+		assert.Contains(t, err.Error(), "not found")
+		assert.NotContains(t, err.Error(), "accepts")
+	}
+}

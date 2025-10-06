@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
@@ -21,6 +23,18 @@ Examples:
 func runStart(cmd *cobra.Command, args []string) error {
 	taskID := args[0]
 
+	fmt.Printf("🚀 Starting work on task '%s'...\n", taskID)
+
 	// Delegate to update command with "doing" status
-	return runUpdate(cmd, []string{taskID, "doing"})
+	// The update command will handle validation and provide appropriate error messages
+	err := runUpdate(cmd, []string{taskID, "doing"})
+	if err != nil {
+		// If the task is already doing or done, update command will return appropriate error
+		return err
+	}
+
+	fmt.Printf("✅ Task '%s' is now in progress!\n", taskID)
+	fmt.Printf("💡 Tip: Use 'reviewtask done %s' when you complete this task\n", taskID)
+
+	return nil
 }
