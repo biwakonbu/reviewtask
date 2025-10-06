@@ -850,3 +850,54 @@ func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
 		})
 	}
 }
+
+// TestStatusShortWithShortTaskIDs tests that --short flag handles short task IDs without panic
+func TestStatusShortWithShortTaskIDs(t *testing.T) {
+	testTasks := []storage.Task{
+		{
+			ID:          "abc", // 3 chars - shorter than 8
+			Description: "Short ID task",
+			Priority:    "high",
+			Status:      "doing",
+			PRNumber:    123,
+		},
+		{
+			ID:          "1234567", // 7 chars
+			Description: "7-char ID task",
+			Priority:    "medium",
+			Status:      "todo",
+			PRNumber:    123,
+		},
+		{
+			ID:          "aebcab54-5073-4cf4-9641-d55bb4bee614", // Full UUID
+			Description: "Full UUID task",
+			Priority:    "low",
+			Status:      "todo",
+			PRNumber:    123,
+		},
+	}
+
+	// Capture stdout
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// Should not panic with short IDs
+	err := displayAIModeContentShort(testTasks, "test context")
+	require.NoError(t, err)
+
+	w.Close()
+	os.Stdout = old
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Verify output contains expected elements
+	assert.Contains(t, output, "Status:")
+	assert.Contains(t, output, "Current: abc") // Short ID displayed as-is
+	assert.Contains(t, output, "Next: 1234567") // 7-char ID displayed as-is
+
+	// Verify no panic occurred
+	assert.NotEmpty(t, output)
+}
