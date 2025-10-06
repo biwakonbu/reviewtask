@@ -17,7 +17,7 @@ jobs:
     steps:
     - name: Check if all CI checks passed
       id: check-ci
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const { data: pr } = await github.rest.pulls.get({
