@@ -306,7 +306,7 @@ internal/              # Private implementation packages
 ```json
 {
   "done_workflow": {
-    "enable_auto_resolve": "when_all_complete",  // Thread resolution mode
+    "enable_auto_resolve": "complete",           // Thread resolution mode
     "enable_verification": true,                 // Run build/test/lint checks
     "enable_auto_commit": true,                  // Auto-commit with structured message
     "enable_next_task_suggestion": true,         // Show next recommended task
@@ -322,7 +322,7 @@ internal/              # Private implementation packages
 
 **Auto-Resolve Modes:**
 - `"immediate"`: Resolve thread immediately after each task completion
-- `"when_all_complete"`: Resolve only when all tasks from same comment are done (recommended)
+- `"complete"`: Resolve only when all tasks from same comment are done (recommended)
 - `"disabled"`: No automatic resolution
 
 **Advanced Features:**
