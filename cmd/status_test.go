@@ -655,8 +655,8 @@ func TestStatusCommandArgumentValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd := &cobra.Command{
-				Use:   "status [PR_NUMBER]",
-				Args:  cobra.MaximumNArgs(1),
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
 				RunE: func(cmd *cobra.Command, args []string) error {
 					// Parse PR number from arguments if provided
 					if len(args) > 0 {
