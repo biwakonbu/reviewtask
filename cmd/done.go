@@ -291,7 +291,12 @@ func runNextTaskSuggestionPhase(storageManager *storage.Manager, completedTaskID
 	fmt.Printf("\n")
 	fmt.Println("Progress")
 	fmt.Println("────────")
-	allTasks, _ := storageManager.GetAllTasks()
+	allTasks, err := storageManager.GetAllTasks()
+	if err != nil {
+		fmt.Printf("⚠️  Failed to calculate progress: %v\n", err)
+		fmt.Println()
+		return
+	}
 	totalTasks := len(allTasks)
 	completedTasks := 0
 	for _, t := range allTasks {
