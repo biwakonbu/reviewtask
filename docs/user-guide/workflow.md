@@ -34,25 +34,27 @@ As you work on tasks, maintain visibility and track progress:
 # Get full context for a specific task
 reviewtask show <task-id>
 
-# Mark task as in progress
-reviewtask update <task-id> doing
+# Start working on the task (v3.0.0)
+reviewtask start <task-id>
 
 # Complete the work...
 
-# Mark task as done
-reviewtask update <task-id> done
+# Mark task as completed (v3.0.0)
+reviewtask done <task-id>
 
 # Find next task
 reviewtask show
 ```
+
+**Note:** The traditional `reviewtask update <task-id> doing` and `reviewtask update <task-id> done` commands are still supported, but the new `start` and `done` commands provide a more intuitive interface.
 
 ### When Blocked
 
 Handle blocked or low-priority work systematically:
 
 ```bash
-# Mark task as blocked/pending
-reviewtask update <task-id> pending
+# Put task on hold (v3.0.0)
+reviewtask hold <task-id>
 
 # Find next available task
 reviewtask show
@@ -60,6 +62,8 @@ reviewtask show
 # Check overall progress
 reviewtask status
 ```
+
+**Note:** The traditional `reviewtask update <task-id> pending` command is still supported, but the new `hold` command is more intuitive.
 
 ### Handling Updated Reviews
 
@@ -99,11 +103,11 @@ reviewtask show
 
 #### 4. Work on Tasks Systematically
 ```bash
-# Start working on a task
-reviewtask update <task-id> doing
+# Start working on a task (v3.0.0)
+reviewtask start <task-id>
 
-# Complete implementation
-reviewtask update <task-id> done
+# Complete implementation (v3.0.0)
+reviewtask done <task-id>
 ```
 
 #### 5. Handle Updated Reviews
@@ -158,13 +162,13 @@ any → cancel           (comment becomes outdated)
 # Morning: Check what needs attention
 reviewtask status
 
-# During work: Track progress
-reviewtask update <task-id> doing
+# During work: Track progress (v3.0.0)
+reviewtask start <task-id>
 # ... work ...
-reviewtask update <task-id> done
+reviewtask done <task-id>
 
-# When stuck: Mark as pending and find next task
-reviewtask update <task-id> pending
+# When stuck: Put on hold and find next task (v3.0.0)
+reviewtask hold <task-id>
 reviewtask show
 ```
 
@@ -199,13 +203,13 @@ Working across multiple PRs simultaneously:
 # Check all PRs
 reviewtask status --all
 
-# Work on specific PR
+# Work on specific PR (v3.0.0: simplified syntax)
 cd /path/to/pr-branch
 reviewtask show
 
-# Switch between PRs
-reviewtask status --pr 123
-reviewtask status --pr 456
+# Check specific PR status (v3.0.0: positional argument)
+reviewtask status 123
+reviewtask status 456
 ```
 
 ### Priority-Based Workflow

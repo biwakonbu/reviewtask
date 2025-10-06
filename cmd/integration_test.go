@@ -42,7 +42,7 @@ func TestCommandIntegration(t *testing.T) {
 			name:      "status help shows options",
 			args:      []string{"status", "--help"},
 			expectErr: false,
-			contains:  []string{"--all", "--pr", "--branch"},
+			contains:  []string{"--all", "--short"},
 		},
 		{
 			name:      "versions command available",

@@ -126,7 +126,7 @@ func TestStatusCommandIntegration(t *testing.T) {
 	reviewtaskPath := filepath.Join(testDir, binaryName)
 
 	t.Run("AI Mode Output", func(t *testing.T) {
-		cmd := exec.Command(reviewtaskPath, "status", "--pr", "123")
+		cmd := exec.Command(reviewtaskPath, "status", "123")
 		cmd.Dir = testDir
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, "Command failed: %s", output)
@@ -159,7 +159,7 @@ func TestStatusCommandIntegration(t *testing.T) {
 	})
 
 	t.Run("Japanese Character Display", func(t *testing.T) {
-		cmd := exec.Command(reviewtaskPath, "status", "--pr", "123")
+		cmd := exec.Command(reviewtaskPath, "status", "123")
 		cmd.Dir = testDir
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestStatusCommandIntegration(t *testing.T) {
 		err = os.WriteFile(emptyTasksFile, []byte(emptyTasksContent), 0644)
 		require.NoError(t, err)
 
-		cmd := exec.Command(reviewtaskPath, "status", "--pr", "999")
+		cmd := exec.Command(reviewtaskPath, "status", "999")
 		cmd.Dir = testDir
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err)
@@ -203,17 +203,19 @@ func TestStatusCommandIntegration(t *testing.T) {
 		assert.Contains(t, outputStr, "No pending tasks")
 	})
 
-	t.Run("Watch Flag Recognition", func(t *testing.T) {
-		// Test that --watch flag is recognized (even though TUI won't work in test env)
+	t.Run("Short Flag Recognition", func(t *testing.T) {
+		// Test that --short flag is recognized (v3.0.0)
 		cmd := exec.Command(reviewtaskPath, "status", "--help")
 		cmd.Dir = testDir
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err)
 
 		outputStr := string(output)
-		assert.Contains(t, outputStr, "--watch")
-		assert.Contains(t, outputStr, "-w")
-		assert.Contains(t, outputStr, "Human mode: rich TUI dashboard with real-time updates")
+		assert.Contains(t, outputStr, "--short")
+		assert.Contains(t, outputStr, "-s")
+		assert.Contains(t, outputStr, "Brief output format")
+		// Ensure watch flag is removed
+		assert.NotContains(t, outputStr, "--watch")
 	})
 
 	t.Run("Priority Sorting", func(t *testing.T) {
@@ -260,7 +262,7 @@ func TestStatusCommandIntegration(t *testing.T) {
 		err = os.WriteFile(mixedTasksFile, []byte(mixedTasksContent), 0644)
 		require.NoError(t, err)
 
-		cmd := exec.Command(reviewtaskPath, "status", "--pr", "456")
+		cmd := exec.Command(reviewtaskPath, "status", "456")
 		cmd.Dir = testDir
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err)
@@ -409,7 +411,7 @@ func TestProgressBarColorTerminalCompatibility(t *testing.T) {
 				"TERM":        "xterm-256color",
 				"FORCE_COLOR": "1",
 			},
-			cmdArgs: []string{"status", "--pr", "123"},
+			cmdArgs: []string{"status", "123"},
 		},
 		{
 			name: "No color terminal",
@@ -417,14 +419,14 @@ func TestProgressBarColorTerminalCompatibility(t *testing.T) {
 				"TERM":     "dumb",
 				"NO_COLOR": "1",
 			},
-			cmdArgs: []string{"status", "--pr", "123"},
+			cmdArgs: []string{"status", "123"},
 		},
 		{
 			name: "Basic terminal",
 			env: map[string]string{
 				"TERM": "xterm",
 			},
-			cmdArgs: []string{"status", "--pr", "123"},
+			cmdArgs: []string{"status", "123"},
 		},
 	}
 

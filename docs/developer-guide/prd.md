@@ -13,10 +13,13 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 - **Usage**:
   - `reviewtask [PR_NUMBER]` - Check reviews for current branch or specified PR number
   - `reviewtask --refresh-cache` - Clear cache and reprocess all comments
-  - `reviewtask status [options]` - Show current task status and statistics
+  - `reviewtask status [PR_NUMBER] [options]` - Show current task status and statistics (v3.0.0: PR as positional arg)
   - `reviewtask show [task-id]` - Show current/next task or specific task details
   - `reviewtask stats [PR_NUMBER] [options]` - Show detailed task statistics with comment breakdown
-  - `reviewtask update <task-id> <new-status>` - Update task status
+  - `reviewtask start <task-id>` - Start working on a task (v3.0.0: sets status to "doing")
+  - `reviewtask done <task-id>` - Mark task as completed (v3.0.0: sets status to "done")
+  - `reviewtask hold <task-id>` - Put task on hold (v3.0.0: sets status to "pending")
+  - `reviewtask update <task-id> <new-status>` - Update task status (traditional interface)
   - `reviewtask version [VERSION]` - Show version information or switch to specific version
   - `reviewtask versions` - List available versions from GitHub releases
   - `reviewtask claude <target>` - Generate Claude Code integration templates
@@ -25,7 +28,8 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
 
 ##### Command Options
 - **Global Options**: `--refresh-cache` for cache management
-- **Filtering Options**: `--all`, `--pr <number>`, `--branch <name>` for status/stats commands
+- **Status Command Options (v3.0.0)**: `--all`, `--short` (removed: `--pr`, `--branch`, `--watch`)
+- **Stats Command Options**: `--all`, `--pr <number>`, `--branch <name>`
 - **Version Options**: `--check` for update checking
 
 #### 2.2 Data Collection
@@ -271,7 +275,11 @@ A command-line tool that fetches GitHub Pull Request reviews, saves them in a st
   - Completion rate (done / total tasks)
 
 #### 5.3 Task Update Commands
-- **Individual Updates**: `reviewtask update <task-id> <new-status>`
+- **Status-Specific Commands (v3.0.0)**:
+  - `reviewtask start <task-id>` - Start working on a task (sets status to "doing")
+  - `reviewtask done <task-id>` - Mark task as completed (sets status to "done")
+  - `reviewtask hold <task-id>` - Put task on hold (sets status to "pending")
+- **Traditional Update**: `reviewtask update <task-id> <new-status>` (still supported)
 - **Status Validation**: Only valid status transitions allowed
 - **Timestamp Tracking**: Automatic `updated_at` field management
 

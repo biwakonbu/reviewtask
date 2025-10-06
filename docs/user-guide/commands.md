@@ -46,7 +46,7 @@ reviewtask --refresh-cache
 
 ### Task Management
 
-#### `reviewtask status [options]`
+#### `reviewtask status [PR_NUMBER] [options]`
 
 Show task status and statistics across PRs.
 
@@ -54,20 +54,24 @@ Show task status and statistics across PRs.
 # Current branch status
 reviewtask status
 
+# Specific PR (v3.0.0: simplified interface)
+reviewtask status 123
+
 # All PRs
 reviewtask status --all
 
-# Specific PR
-reviewtask status --pr 123
-
-# Specific branch
-reviewtask status --branch feature/new-feature
+# Brief output format
+reviewtask status --short
 ```
 
 **Options:**
-- `--all` - Show information for all PRs
-- `--pr <number>` - Show information for specific PR
-- `--branch <name>` - Show information for specific branch
+- `--all`, `-a` - Show information for all PRs
+- `--short`, `-s` - Brief output format
+
+**Changes in v3.0.0:**
+- PR number is now a positional argument: `status 123` instead of `--pr 123`
+- Removed `--pr`, `--branch`, `--watch` flags
+- Simplified to only 2 flags for clarity
 
 #### `reviewtask show [task-id]`
 
@@ -81,15 +85,59 @@ reviewtask show
 reviewtask show task-uuid-here
 ```
 
+#### `reviewtask start <task-id>` (v3.0.0)
+
+Start working on a task (sets status to "doing").
+
+```bash
+reviewtask start task-uuid-here
+```
+
+**What it does:**
+- Marks task as "doing" to indicate active work
+- More intuitive than `reviewtask update <task-id> doing`
+- Recommended for new workflows
+
+#### `reviewtask done <task-id>` (v3.0.0)
+
+Mark a task as completed (sets status to "done").
+
+```bash
+reviewtask done task-uuid-here
+```
+
+**What it does:**
+- Marks task as completed
+- Automatically resolves GitHub review thread (if configured)
+- More intuitive than `reviewtask update <task-id> done`
+- Recommended for new workflows
+
+**Note:** Basic completion behavior only. Future enhancements will add:
+- Verification of changes
+- Automatic commit
+- Next task suggestion
+
+#### `reviewtask hold <task-id>` (v3.0.0)
+
+Put a task on hold (sets status to "pending").
+
+```bash
+reviewtask hold task-uuid-here
+```
+
+**What it does:**
+- Marks task as "pending" to indicate it needs evaluation or is blocked
+- More intuitive than `reviewtask update <task-id> pending`
+- Use when you need to evaluate feedback or are blocked by dependencies
+
 #### `reviewtask update <task-id> <status>`
 
-Update task status.
+Update task status (traditional interface).
 
 ```bash
 reviewtask update task-uuid-here doing
 reviewtask update task-uuid-here done
 reviewtask update task-uuid-here pending
-reviewtask update task-uuid-here cancel
 ```
 
 **Valid statuses:**
@@ -97,7 +145,8 @@ reviewtask update task-uuid-here cancel
 - `doing` - Currently in progress
 - `done` - Completed
 - `pending` - Blocked or low priority
-- `cancel` - No longer relevant
+
+**Note:** This command is still supported but the new `start`, `done`, and `hold` commands are recommended for better clarity. Use `reviewtask cancel` command for canceling tasks instead of `update <id> cancel`.
 
 ### Task Lifecycle Management
 

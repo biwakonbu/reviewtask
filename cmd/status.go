@@ -2,35 +2,28 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
-	"reviewtask/internal/tui"
 	"reviewtask/internal/ui"
 )
 
 var (
-	statusShowAll    bool
-	statusSpecificPR int
-	statusBranch     string
-	statusWatch      bool
+	statusShowAll bool
+	statusShort   bool
 )
 
 var statusCmd = &cobra.Command{
-	Use:   "status",
+	Use:   "status [PR_NUMBER]",
 	Short: "Show current task status and statistics",
 	Long: `Display current tasks, next tasks to work on, and overall statistics.
 
-By default, shows tasks for the current branch. Use flags to show all PRs 
-or filter by specific criteria.
-
-Output Modes:
-- AI Mode (default): Clean, parseable text format for automation
-- Human Mode (--watch): Rich TUI dashboard with real-time updates
+By default, shows tasks for the current branch. Provide a PR number to show
+tasks for a specific PR, or use --all to show all PRs.
 
 Shows:
 - Current tasks (doing status)
@@ -38,12 +31,11 @@ Shows:
 - Task statistics (status breakdown, priority breakdown, completion rate)
 
 Examples:
-  reviewtask status             # AI mode: simple text output
-  reviewtask status --all       # Show all PRs tasks
-  reviewtask status --pr 123    # Show PR #123 tasks
-  reviewtask status --branch feature/xyz # Show specific branch tasks
-  reviewtask status -w          # Human mode: rich TUI dashboard
-  reviewtask status --watch --all # TUI dashboard for all PRs`,
+  reviewtask status             # Show tasks for current branch
+  reviewtask status 123         # Show tasks for PR #123
+  reviewtask status --all       # Show tasks for all PRs
+  reviewtask status --short     # Brief output format`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: runStatus,
 }
 
@@ -54,43 +46,33 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		// Continue without config - status can work without it
 	}
 
-	storageManager := storage.NewManager()
-
-	// Check for watch mode
-	if statusWatch {
-		return runHumanMode(storageManager)
+	// Parse PR number from arguments if provided
+	var statusSpecificPR int
+	if len(args) > 0 {
+		prNumber, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid PR number: %s", args[0])
+		}
+		statusSpecificPR = prNumber
 	}
 
+	storageManager := storage.NewManager()
+
 	// Default: AI Mode
-	return runAIMode(storageManager)
+	return runAIMode(storageManager, statusSpecificPR)
 }
 
 // runAIMode implements simple, parseable text output for automation
-func runAIMode(storageManager *storage.Manager) error {
-	// Determine which tasks to load based on flags
+func runAIMode(storageManager *storage.Manager, specificPR int) error {
+	// Determine which tasks to load based on arguments and flags
 	var allTasks []storage.Task
 	var err error
 	var contextDescription string
 
-	if statusSpecificPR > 0 {
-		// --pr flag
-		allTasks, err = storageManager.GetTasksByPR(statusSpecificPR)
-		contextDescription = fmt.Sprintf("PR #%d", statusSpecificPR)
-	} else if statusBranch != "" {
-		// --branch flag
-		prNumbers, err := storageManager.GetPRsForBranch(statusBranch)
-		if err != nil {
-			return fmt.Errorf("failed to get PRs for branch '%s': %w", statusBranch, err)
-		}
-
-		for _, prNumber := range prNumbers {
-			tasks, err := storageManager.GetTasksByPR(prNumber)
-			if err != nil {
-				return fmt.Errorf("failed to get tasks for PR %d: %w", prNumber, err)
-			}
-			allTasks = append(allTasks, tasks...)
-		}
-		contextDescription = fmt.Sprintf("branch '%s'", statusBranch)
+	if specificPR > 0 {
+		// PR number provided as argument
+		allTasks, err = storageManager.GetTasksByPR(specificPR)
+		contextDescription = fmt.Sprintf("PR #%d", specificPR)
 	} else if statusShowAll {
 		// --all flag
 		allTasks, err = storageManager.GetAllTasks()
@@ -122,9 +104,15 @@ func runAIMode(storageManager *storage.Manager) error {
 	}
 
 	if len(allTasks) == 0 {
+		if statusShort {
+			return displayAIModeEmptyShort()
+		}
 		return displayAIModeEmpty()
 	}
 
+	if statusShort {
+		return displayAIModeContentShort(allTasks, contextDescription)
+	}
 	return displayAIModeContent(allTasks, contextDescription)
 }
 
@@ -225,18 +213,49 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 	return nil
 }
 
-// runHumanMode implements rich TUI dashboard with real-time updates
-func runHumanMode(storageManager *storage.Manager) error {
-	// Import the TUI dashboard
-	model := tui.NewModel(storageManager, statusShowAll, statusSpecificPR, statusBranch)
+// displayAIModeEmptyShort shows empty state in brief format
+func displayAIModeEmptyShort() error {
+	fmt.Printf("Status: 0%% (0/0) | todo:0 doing:0 done:0 pending:0 cancel:0\n")
+	return nil
+}
 
-	// Create and run the bubbletea program
-	p := tea.NewProgram(model, tea.WithAltScreen())
+// displayAIModeContentShort shows tasks in brief format
+func displayAIModeContentShort(allTasks []storage.Task, contextDescription string) error {
+	stats := tasks.CalculateTaskStats(allTasks)
+	total := len(allTasks)
+	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
+	completionRate := float64(completed) / float64(total) * 100
 
-	if _, err := p.Run(); err != nil {
-		return fmt.Errorf("error running TUI: %w", err)
+	// Brief one-line summary
+	fmt.Printf("Status: %.1f%% (%d/%d) - %s | todo:%d doing:%d done:%d pending:%d cancel:%d",
+		completionRate, completed, total, contextDescription,
+		stats.StatusCounts["todo"], stats.StatusCounts["doing"], stats.StatusCounts["done"],
+		stats.StatusCounts["pending"], stats.StatusCounts["cancel"])
+
+	// Show current task if any
+	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
+	if len(doingTasks) > 0 {
+		task := doingTasks[0]
+		currentID := task.ID
+		if len(currentID) > 8 {
+			currentID = currentID[:8]
+		}
+		fmt.Printf(" | Current: %s (%s)", currentID, strings.ToUpper(task.Priority))
 	}
 
+	// Show next task if any
+	todoTasks := tasks.FilterTasksByStatus(allTasks, "todo")
+	tasks.SortTasksByPriority(todoTasks)
+	if len(todoTasks) > 0 {
+		task := todoTasks[0]
+		nextID := task.ID
+		if len(nextID) > 8 {
+			nextID = nextID[:8]
+		}
+		fmt.Printf(" | Next: %s (%s)", nextID, strings.ToUpper(task.Priority))
+	}
+
+	fmt.Println()
 	return nil
 }
 
@@ -387,9 +406,7 @@ type incompleteAnalysisInfo struct {
 }
 
 func init() {
-	// Add flags
-	statusCmd.Flags().BoolVar(&statusShowAll, "all", false, "Show tasks for all PRs")
-	statusCmd.Flags().IntVar(&statusSpecificPR, "pr", 0, "Show tasks for specific PR number")
-	statusCmd.Flags().StringVar(&statusBranch, "branch", "", "Show tasks for specific branch")
-	statusCmd.Flags().BoolVarP(&statusWatch, "watch", "w", false, "Human mode: rich TUI dashboard with real-time updates")
+	// Add flags - only --all and --short for v3.0.0
+	statusCmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+	statusCmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 }

@@ -78,11 +78,15 @@ Transform GitHub Pull Request reviews into a structured, trackable workflow that
 
 4. **Work on Tasks Systematically**
    ```bash
-   # Start working on a task
-   reviewtask update <task-id> doing
-   
-   # Complete implementation
-   reviewtask update <task-id> done
+   # Start working on a task (v3.0.0: intuitive commands)
+   reviewtask start <task-id>
+
+   # Complete implementation (v3.0.0)
+   reviewtask done <task-id>
+
+   # Traditional commands still supported:
+   # reviewtask update <task-id> doing
+   # reviewtask update <task-id> done
    ```
 
 5. **Handle Updated Reviews**
@@ -102,15 +106,16 @@ reviewtask status         # Overall progress across all PRs
 
 **During Implementation:**
 ```bash
-reviewtask show <task-id> # Full context for current task
+reviewtask show <task-id>  # Full context for current task
+reviewtask start <task-id> # Start working (v3.0.0)
 # Work on the task...
-reviewtask update <task-id> done
+reviewtask done <task-id>  # Mark completed (v3.0.0)
 ```
 
 **When Blocked:**
 ```bash
-reviewtask update <task-id> pending  # Mark as blocked
-reviewtask show                      # Find next task to work on
+reviewtask hold <task-id>  # Put on hold (v3.0.0)
+reviewtask show            # Find next task to work on
 ```
 
 ### 3. Debugging and Troubleshooting
@@ -242,6 +247,18 @@ internal/              # Private implementation packages
 - Help text includes practical examples
 - Error messages provide actionable guidance
 - Progressive disclosure: simple commands first, advanced features discoverable
+
+**v3.0.0 Command Interface Improvements:**
+- **Status-Specific Commands**: Intuitive task management with `start`, `done`, `hold` commands
+  - `reviewtask start <task-id>` replaces verbose `reviewtask update <task-id> doing`
+  - `reviewtask done <task-id>` replaces verbose `reviewtask update <task-id> done`
+  - `reviewtask hold <task-id>` replaces verbose `reviewtask update <task-id> pending`
+  - Traditional `update` command still supported for backward compatibility
+- **Status Command Simplification**: Reduced cognitive load with clearer syntax
+  - PR number changed from flag to positional argument: `status 123` instead of `status --pr 123`
+  - Removed confusing flags: `--pr`, `--branch`, `--watch` (TUI functionality)
+  - Kept only essential flags: `--all`, `--short`
+  - Implementation: All new commands delegate to existing `update` logic, ensuring zero behavior changes
 
 **Testing Strategy:**
 - Focus on workflow testing over unit testing
