@@ -86,16 +86,25 @@ func (s *StagingChecker) GetStagingStatus() (*StagingStatus, error) {
 		statusCode := line[0:2]
 		fileName := strings.TrimSpace(line[3:])
 
-		switch {
-		case statusCode[0] != ' ' && statusCode[0] != '?':
-			// Staged changes
-			status.StagedFiles = append(status.StagedFiles, fileName)
-		case statusCode[1] != ' ' && statusCode[1] != '?':
-			// Unstaged changes
-			status.UnstagedFiles = append(status.UnstagedFiles, fileName)
-		case statusCode == "??":
-			// Untracked files
+		// Check for minimum required length
+		if len(statusCode) < 2 {
+			continue
+		}
+
+		// Handle untracked files separately
+		if statusCode == "??" {
 			status.UntrackedFiles = append(status.UntrackedFiles, fileName)
+			continue
+		}
+
+		// Check staged changes (first character)
+		if statusCode[0] != ' ' && statusCode[0] != '?' {
+			status.StagedFiles = append(status.StagedFiles, fileName)
+		}
+
+		// Check unstaged changes (second character)
+		if statusCode[1] != ' ' && statusCode[1] != '?' {
+			status.UnstagedFiles = append(status.UnstagedFiles, fileName)
 		}
 	}
 
