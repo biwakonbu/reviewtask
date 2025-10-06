@@ -94,7 +94,7 @@ The `reviewtask done` command provides complete workflow automation:
 
 4. **Thread Resolution** - Resolves GitHub review thread based on mode:
    - `immediate`: Resolve right after task completion
-   - `when_all_complete`: Resolve only when all comment tasks done (recommended)
+   - `complete`: Resolve only when all comment tasks done (recommended)
    - `disabled`: Manual resolution
 
 5. **Next Task Suggestion** - Shows next recommended task by priority
