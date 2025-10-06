@@ -98,24 +98,50 @@ reviewtask start task-uuid-here
 - More intuitive than `reviewtask update <task-id> doing`
 - Recommended for new workflows
 
-#### `reviewtask done <task-id>` (v3.0.0)
+#### `reviewtask done <task-id>` (v3.0.0) **[RECOMMENDED]**
 
-Mark a task as completed (sets status to "done").
+Complete task with full automation workflow including verification, commit, thread resolution, and next task suggestion.
 
 ```bash
+# Complete task with full automation
 reviewtask done task-uuid-here
+
+# Skip specific phases if needed
+reviewtask done task-uuid-here --skip-verification
+reviewtask done task-uuid-here --skip-commit
+reviewtask done task-uuid-here --skip-resolve
+reviewtask done task-uuid-here --skip-suggestion
 ```
 
-**What it does:**
-- Marks task as completed
-- Automatically resolves GitHub review thread (if configured)
-- More intuitive than `reviewtask update <task-id> done`
-- Recommended for new workflows
+**What it does (in order):**
+1. **Verification**: Runs build/test/lint checks (if `enable_verification: true`)
+2. **Status Update**: Marks task as "done"
+3. **Auto-commit**: Creates structured commit with changes (if `enable_auto_commit: true`)
+4. **Thread Resolution**: Resolves GitHub review thread (based on `enable_auto_resolve` mode)
+5. **Next Task**: Shows next recommended task (if `enable_next_task_suggestion: true`)
 
-**Note:** Basic completion behavior only. Future enhancements will add:
-- Verification of changes
-- Automatic commit
-- Next task suggestion
+**Configuration:**
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "when_all_complete",
+    "enable_verification": true,
+    "enable_auto_commit": true,
+    "enable_next_task_suggestion": true
+  }
+}
+```
+
+**Options:**
+- `--skip-verification` - Skip build/test/lint checks
+- `--skip-commit` - Don't auto-commit changes
+- `--skip-resolve` - Don't resolve review thread
+- `--skip-suggestion` - Don't show next task
+
+**Why use `done` instead of `complete`:**
+- `done` provides full workflow automation
+- `complete` only handles verification + status update
+- `done` is the recommended command for most workflows
 
 #### `reviewtask hold <task-id>` (v3.0.0)
 

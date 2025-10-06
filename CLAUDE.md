@@ -81,8 +81,20 @@ Transform GitHub Pull Request reviews into a structured, trackable workflow that
    # Start working on a task (v3.0.0: intuitive commands)
    reviewtask start <task-id>
 
-   # Complete implementation (v3.0.0)
+   # Complete implementation with full automation (v3.0.0 - RECOMMENDED)
    reviewtask done <task-id>
+   # What happens automatically:
+   # 1. Verification (build/test/lint checks)
+   # 2. Status update to "done"
+   # 3. Auto-commit with structured message
+   # 4. Review thread resolution (when all comment tasks complete)
+   # 5. Next task suggestion
+
+   # Skip specific automation phases if needed:
+   reviewtask done <task-id> --skip-verification
+   reviewtask done <task-id> --skip-commit
+   reviewtask done <task-id> --skip-resolve
+   reviewtask done <task-id> --skip-suggestion
 
    # Traditional commands still supported:
    # reviewtask update <task-id> doing
@@ -289,6 +301,29 @@ internal/              # Private implementation packages
 - **JSON Recovery**: `"enable_json_recovery": true` recovers tasks from incomplete API responses
 - **Intelligent Retry**: Smart retry strategies with exponential backoff and prompt reduction
 - **Response Monitoring**: Performance tracking and optimization recommendations
+
+**Done Workflow Configuration:**
+```json
+{
+  "done_workflow": {
+    "enable_auto_resolve": "when_all_complete",  // Thread resolution mode
+    "enable_verification": true,                 // Run build/test/lint checks
+    "enable_auto_commit": true,                  // Auto-commit with structured message
+    "enable_next_task_suggestion": true,         // Show next recommended task
+    "verifiers": {
+      "build": "go build ./...",                 // Build verification command
+      "test": "go test ./...",                   // Test verification command
+      "lint": "golangci-lint run",               // Lint verification command
+      "format": "gofmt -l ."                     // Format verification command
+    }
+  }
+}
+```
+
+**Auto-Resolve Modes:**
+- `"immediate"`: Resolve thread immediately after each task completion
+- `"when_all_complete"`: Resolve only when all tasks from same comment are done (recommended)
+- `"disabled"`: No automatic resolution
 
 **Advanced Features:**
 ```json
