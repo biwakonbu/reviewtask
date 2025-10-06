@@ -895,7 +895,7 @@ func TestStatusShortWithShortTaskIDs(t *testing.T) {
 
 	// Verify output contains expected elements
 	assert.Contains(t, output, "Status:")
-	assert.Contains(t, output, "Current: abc") // Short ID displayed as-is
+	assert.Contains(t, output, "Current: abc")  // Short ID displayed as-is
 	assert.Contains(t, output, "Next: 1234567") // 7-char ID displayed as-is
 
 	// Verify no panic occurred
