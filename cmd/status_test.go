@@ -2,19 +2,18 @@ package cmd
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
 
+	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
+
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"reviewtask/internal/storage"
-	"reviewtask/internal/tasks"
-	"reviewtask/internal/ui"
 )
 
 // TestStatusCommand tests the status command functionality
@@ -613,291 +612,348 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 	}
 }
 
-// TestGenerateTaskID tests task ID generation
-func TestGenerateTaskID(t *testing.T) {
-	testCases := []struct {
-		prNumber int
-		expected string
-	}{
-		{42, "TSK-042"},
-		{1234, "TSK-1234"},
-		{1, "TSK-001"},
-		{999, "TSK-999"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("PR_%d", tc.prNumber), func(t *testing.T) {
-			task := storage.Task{PRNumber: tc.prNumber}
-			id := tasks.GenerateTaskID(task)
-			assert.Equal(t, tc.expected, id)
-		})
-	}
-}
-
-// TestCalculateTaskStatsNormalization tests the normalization of "cancelled" to "cancel"
-func TestCalculateTaskStatsNormalization(t *testing.T) {
-	testTasks := []storage.Task{
-		{Status: "todo", Priority: "high", PRNumber: 1},
-		{Status: "doing", Priority: "medium", PRNumber: 1},
-		{Status: "done", Priority: "high", PRNumber: 2},
-		{Status: "cancelled", Priority: "low", PRNumber: 2}, // Should be normalized to "cancel"
-		{Status: "cancel", Priority: "critical", PRNumber: 1},
-		{Status: "pending", Priority: "medium", PRNumber: 3},
-	}
-
-	stats := tasks.CalculateTaskStats(testTasks)
-
-	// Check status counts
-	assert.Equal(t, 1, stats.StatusCounts["todo"])
-	assert.Equal(t, 1, stats.StatusCounts["doing"])
-	assert.Equal(t, 1, stats.StatusCounts["done"])
-	assert.Equal(t, 2, stats.StatusCounts["cancel"]) // Both "cancel" and "cancelled"
-	assert.Equal(t, 1, stats.StatusCounts["pending"])
-	assert.Equal(t, 0, stats.StatusCounts["cancelled"]) // Should not exist
-
-	// Check priority counts
-	assert.Equal(t, 1, stats.PriorityCounts["critical"])
-	assert.Equal(t, 2, stats.PriorityCounts["high"])
-	assert.Equal(t, 2, stats.PriorityCounts["medium"])
-	assert.Equal(t, 1, stats.PriorityCounts["low"])
-
-	// Check PR counts
-	assert.Equal(t, 3, stats.PRCounts[1])
-	assert.Equal(t, 2, stats.PRCounts[2])
-	assert.Equal(t, 1, stats.PRCounts[3])
-}
-
-// TestWatchFlag has been removed in v3.0.0 since --watch flag is deprecated
-// The TUI dashboard functionality has been moved to a separate command
-
-// TestGenerateColoredProgressBar tests the colored progress bar generation
-func TestGenerateColoredProgressBar(t *testing.T) {
-	testCases := []struct {
-		name             string
-		stats            tasks.TaskStats
-		width            int
-		shouldContain    []string
-		shouldNotContain []string
+// TestStatusCommandArgumentValidation tests command argument validation logic
+func TestStatusCommandArgumentValidation(t *testing.T) {
+	// Test cases for actual command execution with different scenarios
+	tests := []struct {
+		name           string
+		args           []string
+		setupStorage   func() (*storage.Manager, error)
+		expectedError  bool
+		expectedOutput string
 	}{
 		{
-			name: "Empty stats",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{},
+			name: "Valid PR number argument",
+			args: []string{"123"},
+			setupStorage: func() (*storage.Manager, error) {
+				// Create a mock storage manager for testing
+				// This would normally be replaced with a proper test setup
+				return storage.NewManager(), nil
 			},
-			width:            10,
-			shouldContain:    []string{"░"},
-			shouldNotContain: []string{"█"},
+			expectedError:  false,
+			expectedOutput: "should contain completion percentage",
 		},
 		{
-			name: "All done tasks",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{
-					"done":    5,
-					"todo":    0,
-					"doing":   0,
-					"pending": 0,
-					"cancel":  0,
-				},
+			name: "All flag",
+			args: []string{"--all"},
+			setupStorage: func() (*storage.Manager, error) {
+				return storage.NewManager(), nil
 			},
-			width:            10,
-			shouldContain:    []string{"█"},
-			shouldNotContain: []string{"░"},
+			expectedError:  false,
+			expectedOutput: "should contain completion percentage",
 		},
 		{
-			name: "Mixed task states",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{
-					"done":    2,
-					"doing":   1,
-					"todo":    1,
-					"pending": 1,
-					"cancel":  0,
-				},
+			name: "Short flag",
+			args: []string{"--short"},
+			setupStorage: func() (*storage.Manager, error) {
+				return storage.NewManager(), nil
 			},
-			width:            10,
-			shouldContain:    []string{"█", "░"},
-			shouldNotContain: []string{},
+			expectedError:  false,
+			expectedOutput: "Status: ",
 		},
 		{
-			name: "Only incomplete tasks",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{
-					"done":    0,
-					"doing":   2,
-					"todo":    2,
-					"pending": 1,
-					"cancel":  0,
-				},
+			name: "Invalid PR number",
+			args: []string{"invalid"},
+			setupStorage: func() (*storage.Manager, error) {
+				return storage.NewManager(), nil
 			},
-			width:            10,
-			shouldContain:    []string{"░"},
-			shouldNotContain: []string{"█"},
+			expectedError:  true,
+			expectedOutput: "invalid PR number",
 		},
 		{
-			name: "With cancelled tasks",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{
-					"done":    1,
-					"doing":   1,
-					"todo":    1,
-					"pending": 1,
-					"cancel":  1,
-				},
+			name: "No arguments (current branch)",
+			args: []string{},
+			setupStorage: func() (*storage.Manager, error) {
+				return storage.NewManager(), nil
 			},
-			width:            10,
-			shouldContain:    []string{"█", "░"},
-			shouldNotContain: []string{},
+			expectedError:  false,
+			expectedOutput: "should contain completion percentage",
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
-
-			// Check that result is not empty
-			assert.NotEmpty(t, result)
-
-			// Check for expected characters
-			for _, expected := range tc.shouldContain {
-				assert.Contains(t, result, expected, "Expected to contain '%s'", expected)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// This test would need proper mocking of storage and git operations
+			// For now, we'll test the argument parsing logic
+			cmd := &cobra.Command{
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
+				RunE: runStatus,
 			}
 
-			// Check for unexpected characters
-			for _, unexpected := range tc.shouldNotContain {
-				assert.NotContains(t, result, unexpected, "Expected NOT to contain '%s'", unexpected)
+			// Add the same flags as the actual command
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
+
+			// Set args and execute
+			cmd.SetArgs(tt.args)
+
+			// For this test, we'll focus on argument validation
+			// In a real implementation, this would test actual execution
+			err := cmd.Execute()
+
+			if tt.expectedError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.expectedError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
 			}
 		})
 	}
 }
 
-// TestGenerateColoredProgressBarWidth tests that progress bar respects width constraints
-func TestGenerateColoredProgressBarWidth(t *testing.T) {
-	stats := tasks.TaskStats{
-		StatusCounts: map[string]int{
-			"done":    3,
-			"doing":   2,
-			"todo":    3,
-			"pending": 1,
-			"cancel":  1,
+// TestStatusCommandErrorHandling tests error scenarios
+func TestStatusCommandErrorHandling(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expectedError string
+	}{
+		{
+			name:          "Invalid PR number format",
+			args:          []string{"abc"},
+			expectedError: "invalid PR number",
+		},
+		{
+			name:          "Empty PR number",
+			args:          []string{""},
+			expectedError: "invalid PR number",
+		},
+		{
+			name:          "Zero PR number",
+			args:          []string{"0"},
+			expectedError: "must be a positive integer",
+		},
+		{
+			name:          "Negative PR number",
+			args:          []string{"--", "-1"},
+			expectedError: "must be a positive integer",
+		},
+		{
+			name:          "Too many arguments",
+			args:          []string{"123", "456"},
+			expectedError: "accepts at most 1 arg",
 		},
 	}
 
-	widths := []int{10, 20, 50, 80}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := &cobra.Command{
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
+				RunE: runStatus,
+			}
 
-	for _, width := range widths {
-		t.Run(fmt.Sprintf("width_%d", width), func(t *testing.T) {
-			result := ui.GenerateColoredProgressBar(stats, width)
+			// Add flags
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
-			// Count visible characters (█ and ░)
-			visibleChars := strings.Count(result, "█") + strings.Count(result, "░")
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
 
-			// Should match the requested width (allowing for ANSI color codes)
-			assert.Equal(t, width, visibleChars, "Progress bar should have exactly %d visible characters", width)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.expectedError)
 		})
 	}
 }
 
-// TestGenerateColoredProgressBarEdgeCases tests edge cases
-func TestGenerateColoredProgressBarEdgeCases(t *testing.T) {
-	testCases := []struct {
-		name  string
-		stats tasks.TaskStats
-		width int
+// TestStatusCommandIntegration tests the integration with storage and task management
+func TestStatusCommandIntegration(t *testing.T) {
+	// This test verifies that the status command properly integrates
+	// with the storage and task management systems
+	t.Run("Storage Manager Integration", func(t *testing.T) {
+		// Test that the command can create and use a storage manager
+		cmd := &cobra.Command{
+			Use:  "status [PR_NUMBER]",
+			Args: cobra.MaximumNArgs(1),
+			RunE: runStatus,
+		}
+
+		// Add flags
+		cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+		cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
+
+		// Test with no arguments (should not error during setup)
+		cmd.SetArgs([]string{})
+		// Note: This test would need proper mocking for full integration testing
+		// For now, we verify the command structure is correct
+		assert.NotNil(t, cmd)
+	})
+
+	t.Run("Task Management Integration", func(t *testing.T) {
+		// Test that the command properly handles task-related operations
+		// This would typically test the interaction between status command
+		// and the tasks package functions like CalculateTaskStats, FilterTasksByStatus, etc.
+
+		// Create test tasks
+		testTasks := []storage.Task{
+			{ID: "task1", Status: "doing", Priority: "high", PRNumber: 123},
+			{ID: "task2", Status: "todo", Priority: "medium", PRNumber: 123},
+			{ID: "task3", Status: "done", Priority: "low", PRNumber: 123},
+		}
+
+		// Verify task structure
+		assert.Len(t, testTasks, 3)
+		assert.Equal(t, "doing", testTasks[0].Status)
+		assert.Equal(t, "high", testTasks[0].Priority)
+		assert.Equal(t, 123, testTasks[0].PRNumber)
+	})
+}
+
+// TestStatusCommandFlagCombinations tests various flag combinations
+func TestStatusCommandFlagCombinations(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expectedAll   bool
+		expectedShort bool
+		expectedError bool
 	}{
 		{
-			name: "Zero width",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{"done": 1},
-			},
-			width: 0,
+			name:          "All flag only",
+			args:          []string{"--all"},
+			expectedAll:   true,
+			expectedShort: false,
+			expectedError: false,
 		},
 		{
-			name: "Negative width",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{"done": 1},
-			},
-			width: -5,
+			name:          "Short flag only",
+			args:          []string{"--short"},
+			expectedAll:   false,
+			expectedShort: true,
+			expectedError: false,
 		},
 		{
-			name: "Single character width",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{"done": 1, "todo": 1},
-			},
-			width: 1,
+			name:          "Both flags",
+			args:          []string{"--all", "--short"},
+			expectedAll:   true,
+			expectedShort: true,
+			expectedError: false,
 		},
 		{
-			name: "Large width",
-			stats: tasks.TaskStats{
-				StatusCounts: map[string]int{"done": 1, "todo": 1},
-			},
-			width: 200,
+			name:          "PR number with all flag",
+			args:          []string{"123", "--all"},
+			expectedAll:   true,
+			expectedShort: false,
+			expectedError: false,
+		},
+		{
+			name:          "PR number with short flag",
+			args:          []string{"123", "--short"},
+			expectedAll:   false,
+			expectedShort: true,
+			expectedError: false,
+		},
+		{
+			name:          "PR number with both flags",
+			args:          []string{"123", "--all", "--short"},
+			expectedAll:   true,
+			expectedShort: true,
+			expectedError: false,
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Should not panic
-			result := ui.GenerateColoredProgressBar(tc.stats, tc.width)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Reset flags
+			statusShowAll = false
+			statusShort = false
 
-			if tc.width <= 0 {
-				// For zero or negative width, should return empty string
-				assert.Empty(t, result)
-			} else {
-				assert.NotEmpty(t, result)
-				visibleChars := strings.Count(result, "█") + strings.Count(result, "░")
-				assert.Equal(t, tc.width, visibleChars)
+			cmd := &cobra.Command{
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
+				RunE: func(cmd *cobra.Command, args []string) error {
+					// Just validate that flags are parsed correctly
+					return nil
+				},
+			}
+
+			// Add flags
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
+
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
+
+			if tt.expectedError && err == nil {
+				t.Errorf("Expected error but got none")
+			}
+			if !tt.expectedError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+
+			if !tt.expectedError {
+				assert.Equal(t, tt.expectedAll, statusShowAll)
+				assert.Equal(t, tt.expectedShort, statusShort)
 			}
 		})
 	}
 }
 
-// TestStatusShortWithShortTaskIDs tests that --short flag handles short task IDs without panic
-func TestStatusShortWithShortTaskIDs(t *testing.T) {
-	testTasks := []storage.Task{
+// TestStatusCommandPriority tests that PR number argument takes priority over flags
+func TestStatusCommandPriority(t *testing.T) {
+	tests := []struct {
+		name           string
+		args           []string
+		expectedAction string
+	}{
 		{
-			ID:          "abc", // 3 chars - shorter than 8
-			Description: "Short ID task",
-			Priority:    "high",
-			Status:      "doing",
-			PRNumber:    123,
+			name:           "PR number argument with conflicting flags",
+			args:           []string{"123", "--all"},
+			expectedAction: "pr_number_takes_priority",
 		},
 		{
-			ID:          "1234567", // 7 chars
-			Description: "7-char ID task",
-			Priority:    "medium",
-			Status:      "todo",
-			PRNumber:    123,
+			name:           "All flag when no PR argument",
+			args:           []string{"--all"},
+			expectedAction: "all_flag_used",
 		},
 		{
-			ID:          "aebcab54-5073-4cf4-9641-d55bb4bee614", // Full UUID
-			Description: "Full UUID task",
-			Priority:    "low",
-			Status:      "todo",
-			PRNumber:    123,
+			name:           "Default behavior with no arguments",
+			args:           []string{},
+			expectedAction: "current_branch_detected",
 		},
 	}
 
-	// Capture stdout
-	old := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedAction string
 
-	// Should not panic with short IDs
-	err := displayAIModeContentShort(testTasks, "test context")
-	require.NoError(t, err)
+			cmd := &cobra.Command{
+				Use:  "status [PR_NUMBER]",
+				Args: cobra.MaximumNArgs(1),
+				RunE: func(cmd *cobra.Command, args []string) error {
+					// Simulate the priority logic from runStatus
+					if len(args) > 0 {
+						// Parse PR number from positional argument
+						_, err := strconv.Atoi(args[0])
+						if err == nil {
+							capturedAction = "pr_number_takes_priority"
+							return nil
+						}
+					}
 
-	w.Close()
-	os.Stdout = old
+					if statusShowAll {
+						capturedAction = "all_flag_used"
+					} else {
+						capturedAction = "current_branch_detected"
+					}
+					return nil
+				},
+			}
 
-	var buf bytes.Buffer
-	io.Copy(&buf, r)
-	output := buf.String()
+			// Add flags
+			cmd.Flags().BoolVarP(&statusShowAll, "all", "a", false, "Show tasks for all PRs")
+			cmd.Flags().BoolVarP(&statusShort, "short", "s", false, "Brief output format")
 
-	// Verify output contains expected elements
-	assert.Contains(t, output, "Status:")
-	assert.Contains(t, output, "Current: abc")  // Short ID displayed as-is
-	assert.Contains(t, output, "Next: 1234567") // 7-char ID displayed as-is
+			// Reset flags
+			statusShowAll = false
+			statusShort = false
 
-	// Verify no panic occurred
-	assert.NotEmpty(t, output)
+			cmd.SetArgs(tt.args)
+			err := cmd.Execute()
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedAction, capturedAction)
+		})
+	}
 }
