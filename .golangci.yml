@@ -1,12 +1,62 @@
-# golangci-lint v2 configuration
-
-version: "2"
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
 
 run:
   timeout: 5m
+  go: '1.24'
 
 linters:
   enable:
-    - errcheck
-    - govet
-    - staticcheck
+    - errcheck      # エラーチェック漏れを検出
+    - gosimple      # コードの簡略化を提案
+    - govet         # go vetの各種チェック
+    - ineffassign   # 無駄な代入を検出
+    - staticcheck   # 静的解析
+    - typecheck     # 型チェック
+    - unused        # 未使用のコード検出
+
+linters-settings:
+  govet:
+    disable:
+      - shadow      # 変数のシャドーイングは許容
+      - fieldalignment  # フィールドの並び順は気にしない
+  errcheck:
+    check-type-assertions: false
+    check-blank: false
+
+issues:
+  exclude-dirs:
+    - .pr-review
+    - dist
+    - site
+    - demos
+  exclude-files:
+    - ".*_generated\\.go$"
+    - ".*\\.pb\\.go$"
+  exclude-rules:
+    # テストファイルは緩く
+    - path: _test\.go
+      linters:
+        - errcheck
+        - govet
+    # testutilパッケージも緩く
+    - path: testutil/
+      linters:
+        - errcheck
+        - govet
+    # 未使用コードの警告を一部除外
+    - linters:
+        - unused
+      text: "is unused"
+    - path: internal/github/client\.go
+      linters:
+        - unused
+    # その他の除外ルール
+    - linters:
+        - staticcheck
+      text: "SA9003"  # empty branch
+    - linters:
+        - govet
+      text: "unusedwrite"
+  max-issues-per-linter: 50
+  max-same-issues: 10
