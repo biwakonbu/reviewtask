@@ -102,7 +102,13 @@ Examples:
   reviewtask 123          # Analyze PR #123 (integrated workflow)
   reviewtask status       # Show current task status
   reviewtask show         # Show current/next task details
-  reviewtask done <id>    # Complete task with automation`,
+  reviewtask done <id>    # Complete task with automation
+
+Common Workflow:
+  reviewtask              # 1. Fetch reviews and analyze
+  reviewtask status       # 2. Check tasks
+  reviewtask start <id>   # 3. Start working on a task
+  reviewtask done <id>    # 4. Complete with full automation`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runReviewTask,
 }
