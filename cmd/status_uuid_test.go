@@ -104,7 +104,7 @@ func TestStatusDisplaysActualUUIDs(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := displayAIModeContent(tc.tasks, "test context", nil, nil)
+			err := displayAIModeContent(tc.tasks, "test context", nil, nil, 0)
 			require.NoError(t, err)
 
 			w.Close()
@@ -157,7 +157,7 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context", nil, nil)
+	err := displayAIModeContent(testTasks, "test context", nil, nil, 0)
 	require.NoError(t, err)
 
 	w.Close()
@@ -211,7 +211,7 @@ func TestStatusUUIDFormat(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context", nil, nil)
+	err := displayAIModeContent(testTasks, "test context", nil, nil, 0)
 	require.NoError(t, err)
 
 	w.Close()

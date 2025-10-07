@@ -259,7 +259,7 @@ Progress [██████░░░░░░░░░░░░░░] 30% (3/1
 Next Steps
 ──────────
 ! You have unresolved review comments
-  reviewtask analyze    # Analyze new comments and create tasks
+  reviewtask    # Analyze new comments and create tasks
 ```
 
 #### UI Example: All Complete
@@ -485,8 +485,8 @@ reviewtask done abc123
 cmd/
   start.go          # start command
   done.go           # done command (automation routine)
-  hold.go           # hold command
-  pending.go        # pending task dialog
+  hold.go           # hold command (manages pending status)
+  cancel.go         # cancel command with GitHub comment posting
   status.go         # status command (unresolved comment detection added)
 
 internal/
@@ -529,11 +529,21 @@ internal/
 
 ### Backward Compatibility
 
-Maintain `fetch`, `analyze`, `update` as aliases (v3.0.0):
+Maintain `update` for backward compatibility (v3.0.0):
+
+1) Update task status to doing:
 ```bash
-reviewtask fetch 123    # Internally executes 'reviewtask 123'
-reviewtask analyze 123  # Does nothing (completed in fetch)
-reviewtask update <id> doing  # Delegates to 'start'
+reviewtask update <id> doing
+```
+
+2) Update task status to done:
+```bash
+reviewtask update <id> done
+```
+
+3) Update task status to pending:
+```bash
+reviewtask update <id> pending
 ```
 
 ## Success Metrics

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
@@ -40,33 +41,37 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 // This prevents shared state issues in concurrent tests
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reviewtask",
+		Use:   "reviewtask [PR_NUMBER]",
 		Short: "AI-powered PR review management tool",
 		Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
+When called without subcommands, reviewtask runs the integrated workflow:
+fetch → analyze → generate tasks with AI impact assessment.
+
 Examples:
-  reviewtask fetch        # Check reviews for current branch's PR
-  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask              # Analyze current branch's PR (integrated workflow)
+  reviewtask 123          # Analyze PR #123 (integrated workflow)
   reviewtask status       # Show current task status
   reviewtask show         # Show current/next task details
-  reviewtask show <task-id>  # Show specific task details
-  reviewtask update <task-id> doing  # Update task status`,
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
+  reviewtask done <id>    # Complete task with automation
+
+Common Workflow:
+  reviewtask              # 1. Fetch reviews and analyze
+  reviewtask status       # 2. Check tasks
+  reviewtask start <id>   # 3. Start working on a task
+  reviewtask done <id>    # 4. Complete with full automation`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: runReviewTask,
 	}
 
 	// Add all subcommands
-	cmd.AddCommand(fetchCmd)
 	cmd.AddCommand(statusCmd)
 	cmd.AddCommand(updateCmd)
 	cmd.AddCommand(startCmd)
 	cmd.AddCommand(doneCmd)
 	cmd.AddCommand(holdCmd)
 	cmd.AddCommand(cancelCmd)
-	cmd.AddCommand(completeCmd)
 	cmd.AddCommand(verifyCmd)
 	cmd.AddCommand(configCmd)
 	cmd.AddCommand(showCmd)
@@ -84,22 +89,28 @@ Examples:
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "reviewtask",
+	Use:   "reviewtask [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
 	Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
+When called without subcommands, reviewtask runs the integrated workflow:
+fetch → analyze → generate tasks with AI impact assessment.
+
 Examples:
-  reviewtask fetch        # Check reviews for current branch's PR
-  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask              # Analyze current branch's PR (integrated workflow)
+  reviewtask 123          # Analyze PR #123 (integrated workflow)
   reviewtask status       # Show current task status
   reviewtask show         # Show current/next task details
-  reviewtask show <task-id>  # Show specific task details
-  reviewtask update <task-id> doing  # Update task status`,
-	Args: cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
+  reviewtask done <id>    # Complete task with automation
+
+Common Workflow:
+  reviewtask              # 1. Fetch reviews and analyze
+  reviewtask status       # 2. Check tasks
+  reviewtask start <id>   # 3. Start working on a task
+  reviewtask done <id>    # 4. Complete with full automation`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runReviewTask,
 }
 
 func Execute() error {
@@ -113,7 +124,6 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 	rootCmd.AddCommand(cancelCmd)
 	rootCmd.AddCommand(claudeCmd)
-	rootCmd.AddCommand(completeCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(cursorCmd)
 	rootCmd.AddCommand(debugCmd)
@@ -320,13 +330,36 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	if totalComments > 0 {
 		fmt.Printf("📊 Found %d comments ready for analysis\n", totalComments)
 		fmt.Println()
-		fmt.Println("📋 Ready for task generation!")
-		fmt.Printf("🔄 Run: reviewtask analyze %d\n", prNumber)
+
+		// Automatically run analysis (integrated workflow)
+		fmt.Println("🔄 Analyzing reviews and generating tasks...")
 		fmt.Println()
-		fmt.Printf("💡 Tip: Analysis will process 5 comments at a time for better control.\n")
-		fmt.Printf("    Run the analyze command multiple times to process all comments.\n")
+
+		// Call the analyze function directly
+		return runAnalyzeIntegrated(cmd, prNumber, cfg)
 	} else {
 		fmt.Printf("ℹ️  No comments found in the reviews\n")
+	}
+
+	return nil
+}
+
+// runAnalyzeIntegrated runs the analysis workflow automatically after fetch
+func runAnalyzeIntegrated(cmd *cobra.Command, prNumber int, cfg *config.Config) error {
+	// Import AI package
+	analyzer := ai.NewAnalyzer(cfg)
+	storageManager := storage.NewManager()
+
+	// Load saved reviews
+	reviews, err := storageManager.LoadReviews(prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to load reviews: %w", err)
+	}
+
+	// Generate tasks with realtime saving
+	_, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
+	if err != nil {
+		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
 	return nil

@@ -58,10 +58,10 @@ func TestVerifyCommandHelp(t *testing.T) {
 	// Check for key phrases in help text
 	expectedPhrases := []string{
 		"verification checks",
-		"Build verification",
-		"Test execution",
-		"Lint/format checks",
-		"Custom verification",
+		"build verification",
+		"test execution",
+		"lint/format checks",
+		"custom verification",
 		"Examples:",
 	}
 
@@ -183,4 +183,19 @@ func TestVerifyCommandUsage(t *testing.T) {
 			t.Errorf("Expected help to mention verification type %q", vType)
 		}
 	}
+}
+
+// Helper function to check if text contains a phrase
+func containsPhrase(text, phrase string) bool {
+	if len(text) == 0 || len(phrase) == 0 {
+		return false
+	}
+
+	// Use simple substring checking
+	for i := 0; i <= len(text)-len(phrase); i++ {
+		if text[i:i+len(phrase)] == phrase {
+			return true
+		}
+	}
+	return false
 }

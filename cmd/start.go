@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 
+	"reviewtask/internal/guidance"
 	"reviewtask/internal/storage"
 
 	"github.com/spf13/cobra"
@@ -65,6 +66,14 @@ func runStart(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("✅ Task '%s' is now in progress!\n", taskID)
 	fmt.Printf("💡 Tip: Use 'reviewtask done %s' when you complete this task\n", taskID)
+
+	// Context-aware guidance
+	detector := guidance.NewDetector(storageManager)
+	ctx, err := detector.DetectContext()
+	if err == nil {
+		guide := ctx.Generate()
+		fmt.Print(guide.Format())
+	}
 
 	return nil
 }

@@ -20,10 +20,9 @@ func TestHelpCommand(t *testing.T) {
 			expectedOutput: []string{
 				"reviewtask fetches GitHub Pull Request reviews",
 				"Usage:",
-				"reviewtask [flags]",
+				"reviewtask [PR_NUMBER] [flags]",
 				"Available Commands:",
 				"auth",
-				"fetch",
 				"init",
 				"prompt",
 				"show",

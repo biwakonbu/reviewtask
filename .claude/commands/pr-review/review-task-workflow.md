@@ -11,8 +11,7 @@ The reviewtask tool provides the following commands for managing PR review tasks
 
 ### Core Workflow Commands:
 
-- **`reviewtask fetch [PR_NUMBER]`** - Fetch PR reviews from GitHub and save locally
-- **`reviewtask analyze [PR_NUMBER]`** - Analyze saved reviews and generate tasks using AI (batch processing)
+- **`reviewtask [PR_NUMBER]`** - Fetch reviews and analyze with AI (integrated workflow)
 - **`reviewtask status`** - Check overall task status and get summary
 - **`reviewtask show`** - Get next recommended task based on priority
 - **`reviewtask show <task-id>`** - Show detailed information for a specific task
@@ -26,11 +25,11 @@ The reviewtask tool provides the following commands for managing PR review tasks
 - **`reviewtask done <task-id> --skip-commit`** - Skip automatic commit
 - **`reviewtask done <task-id> --skip-resolve`** - Skip thread resolution
 - **`reviewtask done <task-id> --skip-suggestion`** - Skip next task suggestion
+- **`reviewtask start <task-id>`** - Start working on a task
+- **`reviewtask hold <task-id>`** - Put task on hold
 - **`reviewtask cancel <task-id> --reason "..."`** - Cancel a task and post reason to GitHub review thread
 - **`reviewtask cancel --all-pending --reason "..."`** - Cancel all pending tasks with same reason
 - **`reviewtask verify <task-id>`** - Run verification checks before task completion
-- **`reviewtask complete <task-id>`** - Complete task with automatic verification
-- **`reviewtask complete <task-id> --skip-verification`** - Complete task without verification
 
 ### Thread Management Commands:
 
@@ -56,12 +55,12 @@ Tasks are automatically assigned priority levels that determine processing order
 
 ## Initial Setup (Execute Once Per Command Invocation):
 
-**Fetch and Analyze Reviews**: The workflow consists of two steps:
+**Fetch and Analyze Reviews**: The integrated workflow automatically handles both steps:
 
-1. **Fetch Reviews**: `reviewtask fetch` - Downloads PR reviews from GitHub and saves them locally
-2. **Generate Tasks**: `reviewtask analyze` - Analyzes reviews using AI and generates actionable tasks
+- `reviewtask` - Fetches PR reviews from GitHub and analyzes them with AI to generate actionable tasks
+- `reviewtask [PR_NUMBER]` - Same workflow for a specific PR number
 
-You can also use the combined command `reviewtask` (without arguments) which runs both fetch and analyze in sequence. Run these commands to ensure you're working with the most current review feedback and tasks.
+Run this command to ensure you're working with the most current review feedback and tasks.
 
 After completing the initial setup, follow this exact workflow:
 
@@ -113,7 +112,6 @@ After completing the initial setup, follow this exact workflow:
 
    - **Alternative Commands**:
      - `reviewtask verify <task-id>` - Run verification checks only
-     - `reviewtask complete <task-id>` - Complete with verification only
      - `reviewtask update <task-id> done` - Direct status update (no automation)
 
    **Note**: The `done` command automatically creates commits with proper formatting when auto-commit is enabled.
@@ -322,7 +320,7 @@ BUILD: verification passed (0.45s)
 TEST: verification passed (2.3s)
 
 All verification checks passed for task 'task-001'
-You can now safely complete this task with: reviewtask complete task-001
+You can now safely complete this task with: reviewtask done task-001
 ```
 
 **`reviewtask done` output example:**
@@ -351,13 +349,6 @@ You can now safely complete this task with: reviewtask complete task-001
    Remaining: 2 tasks (1 critical, 1 high priority)
 
 Next: reviewtask done task-002
-```
-
-**`reviewtask complete` output example:**
-```text
-Running verification checks for task 'task-001'...
-Task 'task-001' completed successfully!
-All verification checks passed
 ```
 
 **`reviewtask cancel` output example:**

@@ -175,7 +175,7 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 		if opts.ShowProgress {
 			fmt.Printf("📊 Processed %d/%d comments in %d batches\n", checkpoint.ProcessedCount, checkpoint.TotalComments, processedBatches)
 			fmt.Printf("📋 Remaining: %d comments (%.1f%% remaining)\n", remaining, float64(remaining)/float64(checkpoint.TotalComments)*100)
-			fmt.Printf("🔄 Continue with: reviewtask analyze %d\n", prNumber)
+			fmt.Printf("🔄 Continue with: reviewtask %d\n", prNumber)
 		}
 	}
 
