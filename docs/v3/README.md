@@ -32,10 +32,10 @@ v3.0.0 is tracked through the following issues:
 ### Phase 5: Guidance Enhancement ✅ COMPLETED
 - [#206](https://github.com/biwakonbu/reviewtask/issues/206) - ✅ Implement context-aware guidance system for all commands
 
-### Remaining for v3.0.0 Final Release 🚧
-- [#215](https://github.com/biwakonbu/reviewtask/issues/215) - 🚧 Implement integrated reviewtask command (fetch + analyze)
-- [#216](https://github.com/biwakonbu/reviewtask/issues/216) - 🚧 Remove or deprecate analyze command flags
-- [#217](https://github.com/biwakonbu/reviewtask/issues/217) - 🚧 Deprecate complete command in favor of done
+### Phase 6: Command Simplification ✅ COMPLETED
+- [#215](https://github.com/biwakonbu/reviewtask/issues/215) - ✅ Implement integrated reviewtask command (fetch + analyze)
+- [#216](https://github.com/biwakonbu/reviewtask/issues/216) - ✅ Remove or deprecate analyze command flags
+- [#217](https://github.com/biwakonbu/reviewtask/issues/217) - ✅ Deprecate complete command in favor of done
 
 ## Release Timeline
 
