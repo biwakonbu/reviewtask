@@ -452,13 +452,16 @@ func TestDisplayAIModeEmpty(t *testing.T) {
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	// Check essential parts of empty state
-	assert.Contains(t, output, "ReviewTask Status - 0% Complete")
+	// Check essential parts of empty state (Modern UI)
+	assert.Contains(t, output, "Review Status")
+	assert.Contains(t, output, "Progress: 0% Complete (0/0)")
 	assert.Contains(t, output, strings.Repeat("░", 80))
+	assert.Contains(t, output, "Tasks")
 	assert.Contains(t, output, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
+	assert.Contains(t, output, "Current Task")
 	assert.Contains(t, output, "No active tasks - all completed!")
-	assert.Contains(t, output, "No pending tasks")
-	assert.Contains(t, output, "Last updated:")
+	assert.Contains(t, output, "Next Steps")
+	assert.Contains(t, output, "All tasks completed!")
 }
 
 // TestDisplayAIModeContent tests the AI mode content output
@@ -527,26 +530,36 @@ func TestDisplayAIModeContent(t *testing.T) {
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	// Check completion rate (2 completed out of 5 = 40%)
-	assert.Contains(t, output, "ReviewTask Status - 40.0% Complete (2/5)")
+	// Check completion rate (Modern UI format)
+	assert.Contains(t, output, "Review Status")
+	assert.Contains(t, output, "Progress: 40.0% Complete (2/5)")
 
 	// Check progress bar has both filled and empty parts
+	assert.Contains(t, output, "Progress [")
 	assert.Contains(t, output, "█")
 	assert.Contains(t, output, "░")
 
-	// Check task summary
-	assert.Contains(t, output, "todo: 2    doing: 1    done: 1    pending: 0    cancel: 1")
+	// Check task summary (Modern UI - vertical layout)
+	assert.Contains(t, output, "Tasks")
+	assert.Contains(t, output, "TODO: 2")
+	assert.Contains(t, output, "DOING: 1")
+	assert.Contains(t, output, "DONE: 1")
+	assert.Contains(t, output, "PENDING: 0")
+	assert.Contains(t, output, "CANCEL: 1")
 
-	// Check current task shows the doing task
-	assert.Contains(t, output, "Current Task:")
+	// Check current task shows the doing task (Modern UI)
+	assert.Contains(t, output, "Current Task")
 	assert.Contains(t, output, "task1") // Use actual task ID instead of TSK-123
 	assert.Contains(t, output, "HIGH")
 	assert.Contains(t, output, "Fix authentication bug")
 
-	// Check next tasks are sorted by priority
-	assert.Contains(t, output, "Next Tasks (up to 5):")
+	// Check next tasks are sorted by priority (Modern UI)
+	assert.Contains(t, output, "Next Tasks")
 	assert.Contains(t, output, "1. task3  HIGH    Add unit tests")         // Use actual task ID
 	assert.Contains(t, output, "2. task2  MEDIUM    Update documentation") // Use actual task ID
+
+	// Check Next Steps section (Modern UI)
+	assert.Contains(t, output, "Next Steps")
 }
 
 // TestEnglishMessagesInAIModeNoActiveTasks verifies English messages when no active tasks
@@ -563,7 +576,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 				{ID: "1", Status: "todo", Priority: "high", PRNumber: 1},
 				{ID: "2", Status: "done", Priority: "low", PRNumber: 1},
 			},
-			expectedMsg1: "No active tasks",
+			expectedMsg1: "Next Tasks", // Modern UI shows next tasks section when todo tasks exist
 			expectedMsg2: "HIGH",
 		},
 		{
@@ -573,7 +586,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 				{ID: "2", Status: "done", Priority: "low", PRNumber: 1},
 			},
 			expectedMsg1: "HIGH",
-			expectedMsg2: "No pending tasks",
+			expectedMsg2: "Current Task", // Modern UI shows current task section
 		},
 		{
 			name: "Only completed tasks",
@@ -581,8 +594,8 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 				{ID: "1", Status: "done", Priority: "high", PRNumber: 1},
 				{ID: "2", Status: "cancel", Priority: "low", PRNumber: 1},
 			},
-			expectedMsg1: "No active tasks",
-			expectedMsg2: "No pending tasks",
+			expectedMsg1: "Next Steps",           // Modern UI shows Next Steps section
+			expectedMsg2: "All tasks completed!", // Modern UI shows completion message in Next Steps
 		},
 	}
 

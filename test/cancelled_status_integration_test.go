@@ -201,8 +201,8 @@ func TestCancelTaskIntegration(t *testing.T) {
 
 		outputStr := string(output)
 
-		// Should show cancel: 1 in status breakdown
-		assert.Contains(t, outputStr, "cancel: 1", "Status should show 1 cancelled task")
+		// Should show CANCEL: 1 in status breakdown (Modern UI uses uppercase)
+		assert.Contains(t, outputStr, "CANCEL: 1", "Status should show 1 cancelled task")
 
 		// Completion rate should include cancelled tasks
 		// We have: 1 done, 1 cancel, 1 doing = 2/3 completed
@@ -370,8 +370,8 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 
 	outputStr := string(output)
 
-	// Should count both "cancel" and "cancelled" statuses
-	assert.Contains(t, outputStr, "cancel: 2", "Should count both cancel and cancelled statuses")
+	// Should count both "cancel" and "cancelled" statuses (Modern UI uses uppercase)
+	assert.Contains(t, outputStr, "CANCEL: 2", "Should count both cancel and cancelled statuses")
 
 	// Completion rate should be 66.7% (2 cancelled + 0 done) / 3 total
 	assert.Contains(t, outputStr, "66.7%", "Completion rate should be 66.7%")

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"reviewtask/internal/ui"
 	"reviewtask/internal/verification"
 )
 
@@ -46,7 +47,8 @@ func runVerify(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to create verifier: %w", err)
 	}
 
-	fmt.Printf("🔍 Running verification checks for task '%s'...\n\n", taskID)
+	fmt.Println(ui.SectionDivider(fmt.Sprintf("Verifying Task %s", taskID)))
+	fmt.Println()
 
 	results, err := verifier.VerifyTask(taskID)
 	if err != nil {
@@ -54,35 +56,39 @@ func runVerify(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(results) == 0 {
-		fmt.Println("⚠️  No verification checks configured")
+		fmt.Println(ui.Warning("No verification checks configured"))
 		return nil
 	}
 
+	fmt.Println(ui.SectionDivider("Verification Results"))
 	allPassed := true
 	for _, result := range results {
-		status := "✅"
+		status := ui.SymbolSuccess
 		if !result.Success {
-			status = "❌"
+			status = ui.SymbolError
 			allPassed = false
 		}
 
 		fmt.Printf("%s %s: %s (%.2fs)\n", status, strings.ToUpper(string(result.Type)), result.Message, result.Duration.Seconds())
 
 		if verifyVerbose && result.Output != "" {
-			fmt.Printf("   Command: %s\n", result.Command)
-			fmt.Printf("   Output:\n%s\n", indentOutput(result.Output))
+			fmt.Printf("  Command: %s\n", result.Command)
+			fmt.Printf("  Output:\n%s\n", indentOutput(result.Output))
 		}
 	}
 
 	fmt.Println()
+	fmt.Println(ui.SectionDivider("Next Steps"))
 	if allPassed {
-		fmt.Printf("✅ All verification checks passed for task '%s'\n", taskID)
-		fmt.Println("💡 You can now safely complete this task with: reviewtask update", taskID, "done")
+		fmt.Println(ui.Success(fmt.Sprintf("All verification checks passed for task '%s'", taskID)))
+		fmt.Println(ui.Next("Complete this task"))
+		fmt.Printf("  reviewtask done %s\n", taskID)
 	} else {
-		fmt.Printf("❌ Some verification checks failed for task '%s'\n", taskID)
-		fmt.Println("💡 Please fix the issues above before completing the task")
+		fmt.Println(ui.Error(fmt.Sprintf("Some verification checks failed for task '%s'", taskID)))
+		fmt.Println(ui.Warning("Please fix the issues above before completing the task"))
 		return fmt.Errorf("verification checks failed")
 	}
+	fmt.Println()
 
 	return nil
 }

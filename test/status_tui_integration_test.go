@@ -133,29 +133,34 @@ func TestStatusCommandIntegration(t *testing.T) {
 
 		outputStr := string(output)
 
-		// Check AI mode format
-		assert.Contains(t, outputStr, "ReviewTask Status - 40.0% Complete (2/5)")
-		assert.Contains(t, outputStr, "Progress:")
+		// Check AI mode format (Modern UI)
+		assert.Contains(t, outputStr, "Review Status")
+		assert.Contains(t, outputStr, "Progress: 40.0% Complete (2/5)")
+		assert.Contains(t, outputStr, "Progress [")
 		assert.Contains(t, outputStr, "█") // Filled progress
 		assert.Contains(t, outputStr, "░") // Empty progress
 
-		// Check task summary
-		assert.Contains(t, outputStr, "Task Summary:")
-		assert.Contains(t, outputStr, "todo: 2    doing: 1    done: 1    pending: 0    cancel: 1")
+		// Check task summary (Modern UI - vertical layout)
+		assert.Contains(t, outputStr, "Tasks")
+		assert.Contains(t, outputStr, "TODO: 2")
+		assert.Contains(t, outputStr, "DOING: 1")
+		assert.Contains(t, outputStr, "DONE: 1")
+		assert.Contains(t, outputStr, "PENDING: 0")
+		assert.Contains(t, outputStr, "CANCEL: 1")
 
-		// Check current task
-		assert.Contains(t, outputStr, "Current Task:")
+		// Check current task (Modern UI)
+		assert.Contains(t, outputStr, "Current Task")
 		assert.Contains(t, outputStr, "task1") // Use actual task ID instead of TSK-123
 		assert.Contains(t, outputStr, "HIGH")
 		assert.Contains(t, outputStr, "認証トークンの検証処理を修正")
 
-		// Check next tasks
-		assert.Contains(t, outputStr, "Next Tasks (up to 5):")
+		// Check next tasks (Modern UI - without parenthetical)
+		assert.Contains(t, outputStr, "Next Tasks")
 		assert.Contains(t, outputStr, "1. task3  HIGH    ユニットテストを追加")     // Use actual task ID
 		assert.Contains(t, outputStr, "2. task2  MEDIUM    APIドキュメントの更新") // Use actual task ID
 
-		// Check timestamp
-		assert.Contains(t, outputStr, "Last updated:")
+		// Check Next Steps section (Modern UI)
+		assert.Contains(t, outputStr, "Next Steps")
 	})
 
 	t.Run("Japanese Character Display", func(t *testing.T) {
@@ -195,12 +200,16 @@ func TestStatusCommandIntegration(t *testing.T) {
 
 		outputStr := string(output)
 
-		// Check empty state
-		assert.Contains(t, outputStr, "ReviewTask Status - 0% Complete")
+		// Check empty state (Modern UI)
+		assert.Contains(t, outputStr, "Review Status")
+		assert.Contains(t, outputStr, "Progress: 0% Complete (0/0)")
 		assert.Contains(t, outputStr, strings.Repeat("░", 80))
+		assert.Contains(t, outputStr, "Tasks")
 		assert.Contains(t, outputStr, "todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
+		assert.Contains(t, outputStr, "Current Task")
 		assert.Contains(t, outputStr, "No active tasks - all completed!")
-		assert.Contains(t, outputStr, "No pending tasks")
+		assert.Contains(t, outputStr, "Next Steps")
+		assert.Contains(t, outputStr, "All tasks completed!")
 	})
 
 	t.Run("Short Flag Recognition", func(t *testing.T) {
@@ -454,17 +463,17 @@ func TestProgressBarColorTerminalCompatibility(t *testing.T) {
 			hasEmptyBlocks := strings.Contains(outputStr, "░")
 			assert.True(t, hasFilledBlocks || hasEmptyBlocks, "Progress bar should contain progress characters")
 
-			// Basic functionality should work regardless of color support
-			assert.Contains(t, outputStr, "Task Summary:")
-			assert.Contains(t, outputStr, "ReviewTask Status")
+			// Basic functionality should work regardless of color support (Modern UI)
+			assert.Contains(t, outputStr, "Tasks")
+			assert.Contains(t, outputStr, "Review Status")
 
 			// Should not crash or produce empty output
 			assert.NotEmpty(t, outputStr, "Output should not be empty")
 
-			// Should contain meaningful content regardless of color support
-			assert.Contains(t, outputStr, "todo:")
-			assert.Contains(t, outputStr, "doing:")
-			assert.Contains(t, outputStr, "done:")
+			// Should contain meaningful content regardless of color support (Modern UI - uppercase)
+			assert.Contains(t, outputStr, "TODO:")
+			assert.Contains(t, outputStr, "DOING:")
+			assert.Contains(t, outputStr, "DONE:")
 		})
 	}
 }

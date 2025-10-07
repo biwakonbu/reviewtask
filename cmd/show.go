@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"reviewtask/internal/storage"
+	"reviewtask/internal/ui"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
@@ -73,7 +74,7 @@ func showCurrentOrNextTask(cmd *cobra.Command, storageManager *storage.Manager, 
 	for _, task := range allTasks {
 		if task.Status == "doing" {
 			if !jsonOut && !briefOut {
-				fmt.Fprintln(cmd.OutOrStdout(), "📍 Current Task (In Progress):")
+				fmt.Fprintln(cmd.OutOrStdout(), "Current Task (In Progress)")
 				fmt.Fprintln(cmd.OutOrStdout())
 			}
 			return displayTaskDetails(cmd, task, jsonOut, briefOut)
@@ -97,7 +98,7 @@ func showCurrentOrNextTask(cmd *cobra.Command, storageManager *storage.Manager, 
 
 	if nextTask == nil {
 		if !jsonOut && !briefOut {
-			fmt.Fprintln(cmd.OutOrStdout(), "✅ No current or next tasks found.")
+			fmt.Fprintln(cmd.OutOrStdout(), "No current or next tasks found.")
 			fmt.Fprintln(cmd.OutOrStdout(), "All tasks may be completed, cancelled, or pending.")
 			fmt.Fprintln(cmd.OutOrStdout(), "Run 'reviewtask status' to see overall task status.")
 		}
@@ -105,7 +106,7 @@ func showCurrentOrNextTask(cmd *cobra.Command, storageManager *storage.Manager, 
 	}
 
 	if !jsonOut && !briefOut {
-		fmt.Fprintln(cmd.OutOrStdout(), "🎯 Next Task (Recommended):")
+		fmt.Fprintln(cmd.OutOrStdout(), "Next Task (Recommended)")
 		fmt.Fprintln(cmd.OutOrStdout())
 	}
 	return displayTaskDetails(cmd, *nextTask, jsonOut, briefOut)
@@ -139,100 +140,94 @@ func displayTaskDetails(cmd *cobra.Command, task storage.Task, jsonOut, briefOut
 	}
 
 	// Default detailed output
-	// Status indicator
-	statusIndicator := getStatusIndicator(task.Status)
-
-	// Priority indicator
-	priorityIndicator := getPriorityIndicator(task.Priority)
-
-	// Header
 	out := cmd.OutOrStdout()
-	fmt.Fprintf(out, "Task ID: %s\n", task.ID)
 	title := cases.Title(language.Und)
-	fmt.Fprintf(out, "Status: %s %s\n", statusIndicator, title.String(task.Status))
-	fmt.Fprintf(out, "Priority: %s %s\n", priorityIndicator, strings.ToUpper(task.Priority))
+
+	// Task Overview section
+	fmt.Fprintln(out, ui.SectionDivider("Task Overview"))
+	fmt.Fprintf(out, "ID: %s\n", task.ID)
+	fmt.Fprintf(out, "Status: %s\n", strings.ToUpper(task.Status))
+	fmt.Fprintf(out, "Priority: %s\n", strings.ToUpper(task.Priority))
 
 	// Implementation and Verification Status
 	if task.ImplementationStatus != "" {
-		implIndicator := getImplementationIndicator(task.ImplementationStatus)
-		fmt.Fprintf(out, "Implementation: %s %s\n", implIndicator, title.String(task.ImplementationStatus))
+		fmt.Fprintf(out, "Implementation: %s\n", title.String(task.ImplementationStatus))
 	}
 	if task.VerificationStatus != "" {
-		verifyIndicator := getVerificationIndicator(task.VerificationStatus)
-		fmt.Fprintf(out, "Verification: %s %s\n", verifyIndicator, title.String(task.VerificationStatus))
+		fmt.Fprintf(out, "Verification: %s\n", title.String(task.VerificationStatus))
 	}
 	fmt.Fprintln(out)
 
 	// Task Description
-	fmt.Fprintln(out, "📝 Task Description:")
-	fmt.Fprintf(out, "   %s\n", task.Description)
+	fmt.Fprintln(out, ui.SectionDivider("Description"))
+	fmt.Fprintf(out, "%s\n", task.Description)
 	fmt.Fprintln(out)
 
 	// Original Review Comment
-	fmt.Fprintln(out, "💬 Original Review Comment:")
+	fmt.Fprintln(out, ui.SectionDivider("Original Comment"))
 	originLines := strings.Split(task.OriginText, "\n")
 	for _, line := range originLines {
-		fmt.Fprintf(out, "   %s\n", line)
+		fmt.Fprintf(out, "%s\n", line)
 	}
 	fmt.Fprintln(out)
 
 	// File and Line Information
 	if task.File != "" {
-		fmt.Fprintln(out, "📂 Location:")
-		fmt.Fprintf(out, "   File: %s\n", task.File)
+		fmt.Fprintln(out, ui.SectionDivider("Location"))
+		fmt.Fprintf(out, "File: %s\n", task.File)
 		if task.Line > 0 {
-			fmt.Fprintf(out, "   Line: %d\n", task.Line)
+			fmt.Fprintf(out, "Line: %d\n", task.Line)
 		}
 		fmt.Fprintln(out)
 	}
 
 	// PR and Review Information
-	fmt.Fprintln(out, "🔗 Source Information:")
-	fmt.Fprintf(out, "   PR Number: #%d\n", task.PRNumber)
-	fmt.Fprintf(out, "   Review ID: %d\n", task.SourceReviewID)
-	fmt.Fprintf(out, "   Comment ID: %d\n", task.SourceCommentID)
+	fmt.Fprintln(out, ui.SectionDivider("Source"))
+	fmt.Fprintf(out, "PR Number: #%d\n", task.PRNumber)
+	fmt.Fprintf(out, "Review ID: %d\n", task.SourceReviewID)
+	fmt.Fprintf(out, "Comment ID: %d\n", task.SourceCommentID)
 	if task.TaskIndex > 0 {
-		fmt.Fprintf(out, "   Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
+		fmt.Fprintf(out, "Task Index: %d (multiple tasks from same comment)\n", task.TaskIndex)
 	}
 	if task.URL != "" {
-		fmt.Fprintf(out, "   URL: %s\n", task.URL)
+		fmt.Fprintf(out, "URL: %s\n", task.URL)
 	}
 	fmt.Fprintln(out)
 
 	// Timestamps
-	fmt.Fprintln(out, "🕒 Timeline:")
+	fmt.Fprintln(out, ui.SectionDivider("Timeline"))
 	if task.CreatedAt != "" {
 		if createdTime, err := time.Parse("2006-01-02T15:04:05Z", task.CreatedAt); err == nil {
-			fmt.Fprintf(out, "   Created: %s\n", createdTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "Created: %s\n", createdTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Fprintf(out, "   Created: %s\n", task.CreatedAt)
+			fmt.Fprintf(out, "Created: %s\n", task.CreatedAt)
 		}
 	}
 	if task.UpdatedAt != "" && task.UpdatedAt != task.CreatedAt {
 		if updatedTime, err := time.Parse("2006-01-02T15:04:05Z", task.UpdatedAt); err == nil {
-			fmt.Fprintf(out, "   Updated: %s\n", updatedTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "Updated: %s\n", updatedTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Fprintf(out, "   Updated: %s\n", task.UpdatedAt)
+			fmt.Fprintf(out, "Updated: %s\n", task.UpdatedAt)
 		}
 	}
 
 	// Last verification timestamp
 	if task.LastVerificationAt != "" {
 		if verifyTime, err := time.Parse("2006-01-02T15:04:05Z", task.LastVerificationAt); err == nil {
-			fmt.Fprintf(out, "   Last Verification: %s\n", verifyTime.Format("2006-01-02 15:04:05"))
+			fmt.Fprintf(out, "Last Verification: %s\n", verifyTime.Format("2006-01-02 15:04:05"))
 		} else {
-			fmt.Fprintf(out, "   Last Verification: %s\n", task.LastVerificationAt)
+			fmt.Fprintf(out, "Last Verification: %s\n", task.LastVerificationAt)
 		}
 	}
 	fmt.Fprintln(out)
 
 	// Verification History
 	if len(task.VerificationResults) > 0 {
-		fmt.Fprintln(out, "🔍 Verification History:")
+		fmt.Fprintln(out, ui.SectionDivider("Verification History"))
 		for i, result := range task.VerificationResults {
-			resultIndicator := "✅"
+			resultIndicator := ui.SymbolSuccess
 			if !result.Success {
-				resultIndicator = "❌"
+				resultIndicator = ui.SymbolError
 			}
 
 			verifyTime := result.Timestamp
@@ -240,106 +235,45 @@ func displayTaskDetails(cmd *cobra.Command, task storage.Task, jsonOut, briefOut
 				verifyTime = parsedTime.Format("2006-01-02 15:04:05")
 			}
 
-			fmt.Fprintf(out, "   %d. %s %s", i+1, resultIndicator, verifyTime)
+			fmt.Fprintf(out, "%d. %s %s", i+1, resultIndicator, verifyTime)
 			if len(result.ChecksRun) > 0 {
 				fmt.Fprintf(out, " (checks: %s)", strings.Join(result.ChecksRun, ", "))
 			}
 			fmt.Fprintln(out)
 
 			if result.FailureReason != "" {
-				fmt.Fprintf(out, "      Reason: %s\n", result.FailureReason)
+				fmt.Fprintf(out, "   Reason: %s\n", result.FailureReason)
 			}
 		}
 		fmt.Fprintln(out)
 	}
 
 	// Action suggestions based on status
-	fmt.Fprintln(out, "💡 Suggested Actions:")
+	fmt.Fprintln(out, ui.SectionDivider("Next Steps"))
 	switch task.Status {
 	case "todo":
-		fmt.Fprintf(out, "   Start working on this task:\n")
-		fmt.Fprintf(out, "   reviewtask update %s doing\n", task.ID)
+		fmt.Fprintln(out, ui.Next("Start working on this task"))
+		fmt.Fprintf(out, "  reviewtask start %s\n", task.ID)
 	case "doing":
-		fmt.Fprintf(out, "   Verify and complete task:\n")
-		fmt.Fprintf(out, "   reviewtask complete %s\n", task.ID)
-		fmt.Fprintf(out, "   \n")
-		fmt.Fprintf(out, "   Or verify without completing:\n")
-		fmt.Fprintf(out, "   reviewtask verify %s\n", task.ID)
-		fmt.Fprintf(out, "   \n")
-		fmt.Fprintf(out, "   Or mark as done directly (skip verification):\n")
-		fmt.Fprintf(out, "   reviewtask update %s done\n", task.ID)
-		fmt.Fprintf(out, "   \n")
-		fmt.Fprintf(out, "   Or mark as pending if blocked:\n")
-		fmt.Fprintf(out, "   reviewtask update %s pending\n", task.ID)
+		fmt.Fprintln(out, ui.Next("Complete the task"))
+		fmt.Fprintf(out, "  reviewtask done %s\n", task.ID)
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, ui.Next("Or verify without completing"))
+		fmt.Fprintf(out, "  reviewtask verify %s\n", task.ID)
 	case "pending":
-		fmt.Fprintf(out, "   Resume work when unblocked:\n")
-		fmt.Fprintf(out, "   reviewtask update %s doing\n", task.ID)
-		fmt.Fprintf(out, "   \n")
-		fmt.Fprintf(out, "   Or cancel if no longer needed:\n")
-		fmt.Fprintf(out, "   reviewtask update %s cancel\n", task.ID)
+		fmt.Fprintln(out, ui.Next("Resume work when unblocked"))
+		fmt.Fprintf(out, "  reviewtask start %s\n", task.ID)
+		fmt.Fprintln(out)
+		fmt.Fprintln(out, ui.Next("Or cancel if no longer needed"))
+		fmt.Fprintf(out, "  reviewtask cancel %s\n", task.ID)
 	case "done":
-		fmt.Fprintf(out, "   Task completed! ✅\n")
+		fmt.Fprintln(out, ui.Success("Task completed!"))
 	case "cancel", "cancelled":
-		fmt.Fprintf(out, "   Task cancelled. ❌\n")
+		fmt.Fprintln(out, "Task cancelled")
 	}
+	fmt.Fprintln(out)
 
 	return nil
-}
-
-func getStatusIndicator(status string) string {
-	switch status {
-	case "todo":
-		return "⏳"
-	case "doing":
-		return "🚀"
-	case "done":
-		return "✅"
-	case "pending":
-		return "⏸️"
-	case "cancel", "cancelled":
-		return "❌"
-	default:
-		return "❓"
-	}
-}
-
-func getPriorityIndicator(priority string) string {
-	switch priority {
-	case "critical":
-		return "🔴"
-	case "high":
-		return "🟠"
-	case "medium":
-		return "🟡"
-	case "low":
-		return "🟢"
-	default:
-		return "⚪"
-	}
-}
-
-func getImplementationIndicator(status string) string {
-	switch status {
-	case "implemented":
-		return "✅"
-	case "not_implemented":
-		return "❌"
-	default:
-		return "❓"
-	}
-}
-
-func getVerificationIndicator(status string) string {
-	switch status {
-	case "verified":
-		return "✅"
-	case "failed":
-		return "❌"
-	case "not_verified":
-		return "⏳"
-	default:
-		return "❓"
-	}
 }
 
 // displayTaskAsJSON outputs the task in JSON format

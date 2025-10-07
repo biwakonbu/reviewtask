@@ -185,24 +185,27 @@ func displayAIModeEmpty() error {
 	// Check for incomplete analysis before showing empty state
 	if err := displayIncompleteAnalysis(storageManager); err != nil {
 		// Non-fatal error, continue with empty display
-		fmt.Printf("⚠️  Warning: Failed to check for incomplete analysis: %v\n\n", err)
+		fmt.Printf("%s Warning: Failed to check for incomplete analysis: %v\n\n", ui.SymbolWarning, err)
 	}
 
-	fmt.Println("ReviewTask Status - 0% Complete")
+	fmt.Println(ui.SectionDivider("Review Status"))
+	fmt.Println("Progress: 0% Complete (0/0)")
 	fmt.Println()
 	emptyBar := strings.Repeat("░", 80)
 	fmt.Printf("Progress: %s\n", ui.EmptyProgressStyle.Render(emptyBar))
 	fmt.Println()
-	fmt.Println("Task Summary:")
+
+	fmt.Println(ui.SectionDivider("Tasks"))
 	fmt.Println("  todo: 0    doing: 0    done: 0    pending: 0    cancel: 0")
 	fmt.Println()
-	fmt.Println("Current Task:")
+
+	fmt.Println(ui.SectionDivider("Current Task"))
 	fmt.Println("  No active tasks - all completed!")
 	fmt.Println()
-	fmt.Println("Next Tasks:")
-	fmt.Println("  No pending tasks")
+
+	fmt.Println(ui.SectionDivider("Next Steps"))
+	fmt.Println(ui.Success("All tasks completed!"))
 	fmt.Println()
-	fmt.Printf("Last updated: %s\n", time.Now().Format("15:04:05"))
 	return nil
 }
 
@@ -213,7 +216,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 	// Check for incomplete analysis before showing task content
 	if err := displayIncompleteAnalysis(storageManager); err != nil {
 		// Non-fatal error, continue with task display
-		fmt.Printf("⚠️  Warning: Failed to check for incomplete analysis: %v\n\n", err)
+		fmt.Printf("%s Warning: Failed to check for incomplete analysis: %v\n\n", ui.SymbolWarning, err)
 	}
 
 	stats := tasks.CalculateTaskStats(allTasks)
@@ -221,40 +224,37 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
 	completionRate := float64(completed) / float64(total) * 100
 
-	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
+	fmt.Println(ui.SectionDivider("Review Status"))
+	fmt.Printf("Progress: %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
 	fmt.Println()
 
 	// Display completion status if available
 	if completionDetection != nil {
-		fmt.Println("Completion Status")
-		fmt.Println("─────────────────")
 		fmt.Printf("Status: %.1f%% Complete\n", completionDetection.CompletionPercentage)
 		fmt.Printf("Summary: %s\n", completionDetection.CompletionSummary)
 
 		if completionDetection.IsComplete {
-			fmt.Println("🎉 All work completed!")
+			fmt.Println(ui.Success("All work completed!"))
 		} else {
-			fmt.Printf("📋 Unresolved items: %d tasks, %d comments\n",
+			fmt.Printf("%s Unresolved items: %d tasks, %d comments\n",
+				ui.SymbolWarning,
 				len(completionDetection.UnresolvedTasks),
 				len(completionDetection.UnresolvedComments))
 		}
 		fmt.Println()
 	} else if unresolvedReport != nil {
 		// Fallback to original unresolved comments display if completion detection is not available
-		fmt.Println("Review Status")
-		fmt.Println("─────────────")
-
 		if unresolvedReport.IsComplete() {
-			fmt.Println("✅ No unresolved comments")
-			fmt.Println("✅ All threads resolved")
+			fmt.Println(ui.Success("No unresolved comments"))
+			fmt.Println(ui.Success("All threads resolved"))
 			fmt.Println()
 		} else {
 			fmt.Printf("Unresolved Comments: %d\n", len(unresolvedReport.UnanalyzedComments)+len(unresolvedReport.InProgressComments))
 			if len(unresolvedReport.UnanalyzedComments) > 0 {
-				fmt.Printf("  ❌ %d comments not yet analyzed\n", len(unresolvedReport.UnanalyzedComments))
+				fmt.Printf("%s %d comments not yet analyzed\n", ui.SymbolError, len(unresolvedReport.UnanalyzedComments))
 			}
 			if len(unresolvedReport.InProgressComments) > 0 {
-				fmt.Printf("  ⏳ %d comments with pending tasks\n", len(unresolvedReport.InProgressComments))
+				fmt.Printf("%s %d comments with pending tasks\n", ui.SymbolWarning, len(unresolvedReport.InProgressComments))
 			}
 			fmt.Println()
 		}
@@ -262,37 +262,33 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 
 	// Progress bar with colors based on task status
 	progressBar := ui.GenerateColoredProgressBar(stats, 80)
-	fmt.Printf("Progress: %s\n", progressBar)
+	fmt.Printf("Progress [%s]\n", progressBar)
 	fmt.Println()
 
 	// Task Summary
-	fmt.Println("Task Summary:")
-	fmt.Printf("  todo: %d    doing: %d    done: %d    pending: %d    cancel: %d\n",
-		stats.StatusCounts["todo"], stats.StatusCounts["doing"], stats.StatusCounts["done"],
-		stats.StatusCounts["pending"], stats.StatusCounts["cancel"])
+	fmt.Println(ui.SectionDivider("Tasks"))
+	fmt.Printf("  TODO: %d\n", stats.StatusCounts["todo"])
+	fmt.Printf("  DOING: %d\n", stats.StatusCounts["doing"])
+	fmt.Printf("  DONE: %d\n", stats.StatusCounts["done"])
+	fmt.Printf("  PENDING: %d\n", stats.StatusCounts["pending"])
+	fmt.Printf("  CANCEL: %d\n", stats.StatusCounts["cancel"])
 	fmt.Println()
 
 	// Current Task (single active task)
-	fmt.Println("Current Task:")
 	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
-	if len(doingTasks) == 0 {
-		fmt.Println("  No active tasks")
-	} else {
-		// Show first doing task with work order format: 着手順, ID, Priority, Title
+	if len(doingTasks) > 0 {
+		fmt.Println(ui.SectionDivider("Current Task"))
 		task := doingTasks[0]
-		fmt.Printf("  1. %s  %s    %s\n", task.ID, strings.ToUpper(task.Priority), task.Description)
+		fmt.Printf("  %s  %s    %s\n", task.ID, strings.ToUpper(task.Priority), task.Description)
+		fmt.Println()
 	}
-	fmt.Println()
 
 	// Next Tasks (up to 5)
-	fmt.Println("Next Tasks (up to 5):")
 	todoTasks := tasks.FilterTasksByStatus(allTasks, "todo")
 	tasks.SortTasksByPriority(todoTasks)
 
-	if len(todoTasks) == 0 {
-		fmt.Println("  No pending tasks")
-	} else {
-		// Show top 5 tasks with work order format: 着手順, ID, Priority, Title
+	if len(todoTasks) > 0 {
+		fmt.Println(ui.SectionDivider("Next Tasks"))
 		maxDisplay := 5
 		if len(todoTasks) < maxDisplay {
 			maxDisplay = len(todoTasks)
@@ -302,11 +298,32 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 			task := todoTasks[i]
 			fmt.Printf("  %d. %s  %s    %s\n", i+1, task.ID, strings.ToUpper(task.Priority), task.Description)
 		}
+		fmt.Println()
+	}
+
+	// Next Steps
+	fmt.Println(ui.SectionDivider("Next Steps"))
+	if unresolvedReport != nil && !unresolvedReport.IsComplete() {
+		if len(unresolvedReport.UnanalyzedComments) > 0 {
+			fmt.Println(ui.Warning("You have unresolved review comments"))
+			fmt.Println(ui.Indent("reviewtask analyze", 2))
+		} else if len(doingTasks) > 0 {
+			fmt.Println(ui.Next("Continue with current task"))
+			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask show %s", doingTasks[0].ID), 2))
+		} else if len(todoTasks) > 0 {
+			fmt.Println(ui.Next("Start next task"))
+			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask start %s", todoTasks[0].ID), 2))
+		}
+	} else if len(doingTasks) > 0 {
+		fmt.Println(ui.Next("Complete current task"))
+		fmt.Println(ui.Indent(fmt.Sprintf("reviewtask done %s", doingTasks[0].ID), 2))
+	} else if len(todoTasks) > 0 {
+		fmt.Println(ui.Next("Start next task"))
+		fmt.Println(ui.Indent(fmt.Sprintf("reviewtask start %s", todoTasks[0].ID), 2))
+	} else {
+		fmt.Println(ui.Success("All tasks completed!"))
 	}
 	fmt.Println()
-
-	// Last updated timestamp
-	fmt.Printf("Last updated: %s\n", time.Now().Format("15:04:05"))
 
 	return nil
 }
@@ -400,13 +417,16 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 	}
 
 	if len(incompletePRs) > 0 {
-		fmt.Println("📊 Incomplete Analysis:")
+		fmt.Println(ui.SectionDivider("Incomplete Analysis"))
 		for _, info := range incompletePRs {
 			remaining := info.TotalComments - info.ProcessedCount
-			percentage := float64(remaining) / float64(info.TotalComments) * 100
+			percentage := 0.0
+			if info.TotalComments > 0 {
+				percentage = float64(remaining) / float64(info.TotalComments) * 100
+			}
 			fmt.Printf("  PR #%d: %d/%d comments processed, %d remaining (%.1f%% pending)\n",
 				info.PRNumber, info.ProcessedCount, info.TotalComments, remaining, percentage)
-			fmt.Printf("    🔄 Continue with: reviewtask analyze %d\n", info.PRNumber)
+			fmt.Printf("    %s Continue with: reviewtask analyze %d\n", ui.SymbolNext, info.PRNumber)
 		}
 		fmt.Println()
 	}
@@ -414,7 +434,7 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 	// Check for unresolved comments
 	if err := displayUnresolvedComments(storageManager); err != nil {
 		// Non-fatal error
-		fmt.Printf("⚠️  Warning: Failed to check for unresolved comments: %v\n\n", err)
+		fmt.Printf("%s Warning: Failed to check for unresolved comments: %v\n\n", ui.SymbolWarning, err)
 	}
 
 	return nil
@@ -479,7 +499,7 @@ func displayUnresolvedComments(storageManager *storage.Manager) error {
 	}
 
 	if len(prsWithUnresolved) > 0 {
-		fmt.Println("💬 Unresolved Review Threads:")
+		fmt.Println(ui.SectionDivider("Unresolved Review Threads"))
 		for _, info := range prsWithUnresolved {
 			percentage := float64(info.UnresolvedCount) / float64(info.TotalComments) * 100
 			fmt.Printf("  PR #%d: %d/%d comments unresolved (%.1f%%)\n",
@@ -487,7 +507,7 @@ func displayUnresolvedComments(storageManager *storage.Manager) error {
 			if info.LastCheckedAt != "" {
 				fmt.Printf("    Last checked: %s\n", info.LastCheckedAt)
 			}
-			fmt.Printf("    📝 Address feedback and resolve threads to complete review\n")
+			fmt.Printf("    %s Address feedback and resolve threads to complete review\n", ui.SymbolNext)
 		}
 		fmt.Println()
 	}

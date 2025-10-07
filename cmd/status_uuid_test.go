@@ -188,8 +188,8 @@ func TestStatusUUIDsCompatibleWithShowCommand(t *testing.T) {
 		io.Copy(&taskBuf, r)
 		taskOutput := taskBuf.String()
 
-		// Verify the show command displays the same UUID
-		assert.Contains(t, taskOutput, "Task ID: "+task.ID,
+		// Verify the show command displays the same UUID (Modern UI format)
+		assert.Contains(t, taskOutput, "ID: "+task.ID,
 			"Show command should display the same UUID that status command shows")
 	}
 }
@@ -262,7 +262,7 @@ func TestStatusEmptyTasksNoUUIDs(t *testing.T) {
 	assert.NotContains(t, output, "uuid")
 	assert.NotContains(t, output, "task-")
 
-	// But verify it shows the correct empty messages
+	// But verify it shows the correct empty messages (Modern UI)
 	assert.Contains(t, output, "No active tasks")
-	assert.Contains(t, output, "No pending tasks")
+	assert.Contains(t, output, "All tasks completed!")
 }
