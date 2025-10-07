@@ -1,5 +1,4 @@
 # golangci-lint v2 configuration
-# Minimal config for compatibility
 
 version: "2"
 
@@ -9,8 +8,5 @@ run:
 linters:
   enable:
     - errcheck
-    - gosimple
     - govet
-    - ineffassign
     - staticcheck
-    - unused
