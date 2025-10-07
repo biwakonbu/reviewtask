@@ -64,6 +64,40 @@
 - ✅ Documented all modified files and line numbers
 - ✅ Documented test coverage and results
 
+## Post-Implementation Bug Fixes
+
+### 🐛 Bug Fix: Consolidated Task Status Fallback (2025-10-07)
+
+**Issue:** Consolidated tasks were always initialized with hardcoded `"todo"` status, preventing fallback logic from working properly.
+
+**Root Cause:**
+In `consolidateTasksIfNeeded()` function, the code initialized `consolidatedStatus := "todo"` which prevented the pattern-based detection in `convertToStorageTasks()` from working when:
+- Multiple tasks without `initial_status` were merged
+- Low-priority patterns (nit:, minor:) needed detection
+- Custom `DefaultStatus` configuration needed to be respected
+
+**Fix Applied:**
+- Changed initialization from `consolidatedStatus := "todo"` to `consolidatedStatus := ""`
+- Only set status when source tasks have explicit `initial_status`
+- Prioritize "pending" status when found in any source task
+- Use first non-empty status found if no "pending" status exists
+- Allow empty status to pass through to `convertToStorageTasks()` for fallback logic
+
+**Impact:**
+- ✅ Low-priority patterns (nit:, minor:) now correctly trigger pending status via fallback
+- ✅ Custom `DefaultStatus` configuration is now properly respected
+- ✅ Consolidated tasks correctly inherit explicit status from source tasks
+- ✅ Empty status values properly trigger pattern-based detection
+
+**Commit:** `be7ccba` - "fix: Restore fallback status for consolidated tasks"
+
+**Files Modified:**
+- `internal/ai/analyzer.go` (line 1546-1565)
+
+**Tests:** All existing tests pass (100% success rate)
+
+**Identified By:** Codex AI review on PR #211
+
 ## Impact Assessment Criteria (AI Guidance)
 
 ### TODO (Small/Medium Impact)
