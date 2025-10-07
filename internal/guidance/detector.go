@@ -49,6 +49,9 @@ func (d *Detector) DetectContext() (*Context, error) {
 			ctx.PendingCount++
 		case StatusHold:
 			ctx.HoldCount++
+		case StatusCancel:
+			// Cancelled tasks are treated as complete for guidance purposes
+			ctx.DoneCount++
 		}
 	}
 
