@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"reviewtask/internal/github"
+	"reviewtask/internal/guidance"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 	"reviewtask/internal/ui"
@@ -324,6 +325,14 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 		fmt.Println(ui.Success("All tasks completed!"))
 	}
 	fmt.Println()
+
+	// Context-aware guidance
+	detector := guidance.NewDetector(storageManager)
+	ctx, err := detector.DetectContext()
+	if err == nil {
+		guide := ctx.Generate()
+		fmt.Print(guide.Format())
+	}
 
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"reviewtask/internal/config"
 	"reviewtask/internal/git"
 	"reviewtask/internal/github"
+	"reviewtask/internal/guidance"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 	"reviewtask/internal/threads"
@@ -122,7 +123,8 @@ func runDone(cmd *cobra.Command, args []string) error {
 		fmt.Println("⏭️  Skipping thread resolution")
 	}
 
-	// Phase 4: Next task suggestion
+	// Phase 4: Next task suggestion (legacy approach)
+	// This is kept for backward compatibility but will be replaced by guidance system
 	if cfg.DoneWorkflow.EnableNextTaskSuggestion && !doneSkipSuggestion {
 		runNextTaskSuggestionPhase(storageManager, taskID)
 	}
@@ -132,6 +134,16 @@ func runDone(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✅ Task %s completed\n", formatTaskID(taskID))
 	fmt.Println("════════════════════════════════════════")
 	fmt.Printf("\n")
+
+	// Phase 5: Context-aware guidance
+	if !doneSkipSuggestion {
+		detector := guidance.NewDetector(storageManager)
+		ctx, err := detector.DetectContext()
+		if err == nil {
+			guide := ctx.Generate()
+			fmt.Print(guide.Format())
+		}
+	}
 
 	return nil
 }
