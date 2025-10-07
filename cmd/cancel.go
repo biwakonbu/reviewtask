@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,7 +41,9 @@ Examples:
 func init() {
 	cancelCmd.Flags().StringVar(&cancelReason, "reason", "", "Reason for cancelling the task (required)")
 	cancelCmd.Flags().BoolVar(&cancelAllPending, "all-pending", false, "Cancel all pending tasks")
-	cancelCmd.MarkFlagRequired("reason")
+	if err := cancelCmd.MarkFlagRequired("reason"); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: Failed to mark 'reason' flag as required: %v\n", err)
+	}
 }
 
 func runCancel(cmd *cobra.Command, args []string) error {

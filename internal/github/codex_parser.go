@@ -73,9 +73,14 @@ func ParseEmbeddedComments(reviewBody string) []EmbeddedComment {
 
 			// Extract line numbers
 			if len(matches) > 2 && matches[2] != "" {
-				fmt.Sscanf(matches[2], "%d", &currentComment.StartLine)
+				if _, err := fmt.Sscanf(matches[2], "%d", &currentComment.StartLine); err != nil {
+					// If parsing fails, leave StartLine as 0
+					currentComment.StartLine = 0
+				}
 				if len(matches) > 3 && matches[3] != "" {
-					fmt.Sscanf(matches[3], "%d", &currentComment.EndLine)
+					if _, err := fmt.Sscanf(matches[3], "%d", &currentComment.EndLine); err != nil {
+						currentComment.EndLine = currentComment.StartLine
+					}
 				} else {
 					currentComment.EndLine = currentComment.StartLine
 				}

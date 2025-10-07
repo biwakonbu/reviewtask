@@ -430,3 +430,61 @@ func TestGetProviderDisplayName(t *testing.T) {
 		})
 	}
 }
+
+func TestTryLoadSimplifiedConfig_InvalidJSON(t *testing.T) {
+	// Create a temp directory
+	tempDir := t.TempDir()
+	originalConfigFile := ConfigFile
+	ConfigFile = filepath.Join(tempDir, ".pr-review", "config.json")
+	defer func() { ConfigFile = originalConfigFile }()
+
+	// Create directory
+	os.MkdirAll(filepath.Dir(ConfigFile), 0755)
+
+	tests := []struct {
+		name      string
+		jsonData  string
+		wantError bool
+	}{
+		{
+			name:      "completely invalid JSON",
+			jsonData:  `{invalid json`,
+			wantError: true,
+		},
+		{
+			name: "valid simplified config",
+			jsonData: `{
+				"language": "English",
+				"ai_provider": "claude"
+			}`,
+			wantError: false,
+		},
+		{
+			name: "malformed JSON in raw config check",
+			jsonData: `{
+				"language": "English",
+				"ai_provider": "claude"
+				invalid
+			}`,
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Write test config
+			err := os.WriteFile(ConfigFile, []byte(tt.jsonData), 0644)
+			if err != nil {
+				t.Fatalf("Failed to write test config: %v", err)
+			}
+
+			_, err = LoadSimplified()
+			if tt.wantError && err == nil {
+				t.Error("Expected error but got nil")
+			}
+			if !tt.wantError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}

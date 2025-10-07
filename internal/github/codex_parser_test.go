@@ -453,3 +453,71 @@ mypyの実行時に旧名称` + "`yaml_type_spec.py`" + `を指定していま�
 		t.Errorf("Expected Priority 'P2', got %q", second.Priority)
 	}
 }
+
+func TestParseEmbeddedComments_InvalidLineNumbers(t *testing.T) {
+	tests := []struct {
+		name          string
+		reviewBody    string
+		expectedCount int
+		checkFunc     func(*testing.T, []EmbeddedComment)
+	}{
+		{
+			name: "Invalid start line number",
+			reviewBody: `https://github.com/owner/repo/blob/abc123/file.py#Linvalid-L20
+**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Test**
+
+Content`,
+			expectedCount: 1,
+			checkFunc: func(t *testing.T, comments []EmbeddedComment) {
+				if comments[0].StartLine != 0 {
+					t.Errorf("Expected StartLine 0 for invalid input, got %d", comments[0].StartLine)
+				}
+			},
+		},
+		{
+			name: "Invalid end line number",
+			reviewBody: `https://github.com/owner/repo/blob/abc123/file.py#L10-Linvalid
+**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Test**
+
+Content`,
+			expectedCount: 1,
+			checkFunc: func(t *testing.T, comments []EmbeddedComment) {
+				if comments[0].StartLine != 10 {
+					t.Errorf("Expected StartLine 10, got %d", comments[0].StartLine)
+				}
+				// End line should default to start line when parsing fails
+				if comments[0].EndLine != 10 {
+					t.Errorf("Expected EndLine 10 (fallback to StartLine), got %d", comments[0].EndLine)
+				}
+			},
+		},
+		{
+			name: "Valid line numbers should parse correctly",
+			reviewBody: `https://github.com/owner/repo/blob/abc123/file.py#L15-L25
+**<sub><sub>![P1 Badge](https://img.shields.io/badge/P1-orange?style=flat)</sub></sub>  Test**
+
+Content`,
+			expectedCount: 1,
+			checkFunc: func(t *testing.T, comments []EmbeddedComment) {
+				if comments[0].StartLine != 15 {
+					t.Errorf("Expected StartLine 15, got %d", comments[0].StartLine)
+				}
+				if comments[0].EndLine != 25 {
+					t.Errorf("Expected EndLine 25, got %d", comments[0].EndLine)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			comments := ParseEmbeddedComments(tt.reviewBody)
+			if len(comments) != tt.expectedCount {
+				t.Fatalf("Expected %d comments, got %d", tt.expectedCount, len(comments))
+			}
+			if tt.checkFunc != nil {
+				tt.checkFunc(t, comments)
+			}
+		})
+	}
+}

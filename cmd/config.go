@@ -335,7 +335,9 @@ func runMigrateConfig(cmd *cobra.Command, args []string) error {
 	// Save simplified config
 	if err := config.CreateSimplifiedConfig(simplified); err != nil {
 		// Restore backup on failure
-		os.WriteFile(config.ConfigFile, currentData, 0644)
+		if restoreErr := os.WriteFile(config.ConfigFile, currentData, 0644); restoreErr != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: Failed to restore backup config: %v\n", restoreErr)
+		}
 		return fmt.Errorf("failed to save migrated configuration: %w", err)
 	}
 
