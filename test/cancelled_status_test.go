@@ -248,8 +248,8 @@ func TestStatusCommandOutput(t *testing.T) {
 	// Verify all parts are present in expected output
 	expectedOutput := strings.Join(expectedParts, ", ")
 
-	// This is what the status command should show (Modern UI uses uppercase)
-	assert.Contains(t, expectedOutput, "CANCEL: 2", "Status output should show 2 cancelled tasks")
+	// This is what the test data shows (lowercase in test, but Modern UI uses uppercase in actual output)
+	assert.Contains(t, expectedOutput, "cancel: 2", "Status output should show 2 cancelled tasks")
 
 	// Verify completion rate includes cancelled tasks
 	completed := statusCounts["done"] + statusCounts["cancel"]

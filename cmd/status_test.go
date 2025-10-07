@@ -576,7 +576,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 				{ID: "1", Status: "todo", Priority: "high", PRNumber: 1},
 				{ID: "2", Status: "done", Priority: "low", PRNumber: 1},
 			},
-			expectedMsg1: "No active tasks",
+			expectedMsg1: "Next Tasks", // Modern UI shows next tasks section when todo tasks exist
 			expectedMsg2: "HIGH",
 		},
 		{
@@ -594,7 +594,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 				{ID: "1", Status: "done", Priority: "high", PRNumber: 1},
 				{ID: "2", Status: "cancel", Priority: "low", PRNumber: 1},
 			},
-			expectedMsg1: "No active tasks",
+			expectedMsg1: "Next Steps",           // Modern UI shows Next Steps section
 			expectedMsg2: "All tasks completed!", // Modern UI shows completion message in Next Steps
 		},
 	}
