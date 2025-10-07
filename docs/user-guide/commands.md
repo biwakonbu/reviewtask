@@ -238,46 +238,6 @@ reviewtask verify task-uuid-here
 - `feature-task`: Tasks containing "feature" or "implement"
 - `general-task`: All other tasks
 
-#### `reviewtask complete <task-id> [options]` **[DEPRECATED]**
-
-> **⚠️ Deprecation Notice**: Deprecated in v3.0.0 (remains available for backward compatibility). Use `reviewtask done` instead for full workflow automation.
-
-Complete task with automatic verification (limited functionality).
-
-```bash
-# Complete task with verification
-reviewtask complete task-uuid-here
-
-# Complete without verification
-reviewtask complete task-uuid-here --skip-verification
-```
-
-**Options:**
-- `--skip-verification` - Skip verification checks before completion
-
-**What it does:**
-- Runs verification checks (unless skipped)
-- Updates task status to "done" if verification passes
-- Records verification results
-- Fails completion if verification fails
-
-**Migration to `done` command:**
-
-The `done` command provides all `complete` functionality plus automation:
-
-| Old Command | New Equivalent | Notes |
-|------------|----------------|-------|
-| `reviewtask complete <id>` | `reviewtask done <id> --skip-commit --skip-resolve --skip-suggestion` | Same behavior |
-| `reviewtask complete <id> --skip-verification` | `reviewtask done <id> --skip-verification --skip-commit --skip-resolve` | Skip checks |
-| Recommended: | `reviewtask done <id>` | Full automation |
-
-**Why migrate to `done`:**
-- ✅ Full workflow automation (verify → commit → resolve → next task)
-- ✅ Structured commit messages
-- ✅ Automatic thread resolution
-- ✅ Context-aware next task suggestions
-- ✅ Single command for complete task lifecycle
-
 ### Thread Resolution
 
 #### `reviewtask resolve [task-id] [options]`

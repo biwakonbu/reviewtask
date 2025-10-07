@@ -259,7 +259,7 @@ Progress [██████░░░░░░░░░░░░░░] 30% (3/1
 Next Steps
 ──────────
 ! You have unresolved review comments
-  reviewtask analyze    # Analyze new comments and create tasks
+  reviewtask    # Analyze new comments and create tasks
 ```
 
 #### UI Example: All Complete
@@ -529,11 +529,11 @@ internal/
 
 ### Backward Compatibility
 
-Maintain `fetch`, `analyze`, `update` as aliases (v3.0.0):
+Maintain `update` for backward compatibility (v3.0.0):
 ```bash
-reviewtask fetch 123    # Internally executes 'reviewtask 123'
-reviewtask analyze 123  # Does nothing (completed in fetch)
 reviewtask update <id> doing  # Delegates to 'start'
+reviewtask update <id> done   # Delegates to 'done'
+reviewtask update <id> pending  # Delegates to 'hold'
 ```
 
 ## Success Metrics

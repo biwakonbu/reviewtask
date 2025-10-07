@@ -165,9 +165,6 @@ go tool cover -html=coverage.out
 ### Running in Debug Mode
 
 ```bash
-# Enable verbose logging
-reviewtask fetch 123 --verbose
-
 # Use debug commands
 reviewtask debug fetch review 123
 reviewtask debug fetch task 123
@@ -325,7 +322,7 @@ go test ./...
 
 # Build and test binary
 go build -o reviewtask main.go
-./reviewtask fetch YOUR_PR_NUMBER
+./reviewtask YOUR_PR_NUMBER
 ```
 
 ### 4. Commit Changes

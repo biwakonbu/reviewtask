@@ -23,7 +23,6 @@ func TestHelpCommand(t *testing.T) {
 				"reviewtask [PR_NUMBER] [flags]",
 				"Available Commands:",
 				"auth",
-				"fetch",
 				"init",
 				"prompt",
 				"show",

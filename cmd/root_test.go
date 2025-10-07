@@ -20,7 +20,6 @@ func TestRootCommandRegistration(t *testing.T) {
 		"done":     false, // v3.0.0
 		"hold":     false, // v3.0.0
 		"cancel":   false,
-		"complete": false,
 		"verify":   false,
 		"config":   false,
 		"show":     false,
@@ -32,7 +31,6 @@ func TestRootCommandRegistration(t *testing.T) {
 		"claude":   false,
 		"cursor":   false,
 		"debug":    false,
-		"fetch":    false,
 		"prompt":   false,
 	}
 

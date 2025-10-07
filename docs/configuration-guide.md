@@ -281,10 +281,10 @@ You can override configuration with environment variables:
 
 ```bash
 # Override AI provider
-REVIEWTASK_AI_PROVIDER=claude reviewtask analyze
+REVIEWTASK_AI_PROVIDER=claude reviewtask
 
 # Skip authentication checks (useful in CI)
-SKIP_CLAUDE_AUTH_CHECK=true reviewtask analyze
+SKIP_CLAUDE_AUTH_CHECK=true reviewtask
 ```
 
 ## Next Steps

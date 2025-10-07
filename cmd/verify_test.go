@@ -184,3 +184,18 @@ func TestVerifyCommandUsage(t *testing.T) {
 		}
 	}
 }
+
+// Helper function to check if text contains a phrase
+func containsPhrase(text, phrase string) bool {
+	if len(text) == 0 || len(phrase) == 0 {
+		return false
+	}
+
+	// Use simple substring checking
+	for i := 0; i <= len(text)-len(phrase); i++ {
+		if text[i:i+len(phrase)] == phrase {
+			return true
+		}
+	}
+	return false
+}
