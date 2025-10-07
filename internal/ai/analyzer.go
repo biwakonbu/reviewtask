@@ -1504,11 +1504,9 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 	// Convert simple tasks to full TaskRequest objects
 	var fullTasks []TaskRequest
 	for i, simpleTask := range consolidatedTasks {
-		// Use AI-assigned initial status, default to "todo" if not specified
+		// Use AI-assigned initial status if provided
+		// If empty, convertToStorageTasks will handle fallback logic
 		initialStatus := simpleTask.InitialStatus
-		if initialStatus == "" {
-			initialStatus = "todo"
-		}
 
 		fullTask := TaskRequest{
 			Description:     simpleTask.Description,
@@ -1518,7 +1516,7 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 			SourceCommentID: ctx.Comment.ID,
 			File:            ctx.Comment.File,
 			Line:            ctx.Comment.Line,
-			Status:          initialStatus, // Use AI-assigned status
+			Status:          initialStatus, // Use AI-assigned status (may be empty)
 			TaskIndex:       i,
 			URL:             ctx.Comment.URL,
 		}
