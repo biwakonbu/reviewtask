@@ -1,10 +1,13 @@
 package ai
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"reviewtask/internal/storage"
 )
@@ -198,9 +201,24 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		go func(ctx CommentContext) {
 			defer wg.Done()
 
-			// Acquire semaphore (blocks if max concurrent requests reached)
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }() // Release semaphore
+			// Acquire semaphore with timeout (blocks if max concurrent requests reached)
+			acquireCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			select {
+			case semaphore <- struct{}{}:
+				defer func() { <-semaphore }() // Release semaphore
+			case <-acquireCtx.Done():
+				if sp.analyzer.config.AISettings.VerboseMode {
+					fmt.Printf("⚠️  Timeout acquiring semaphore for comment ID %d\n", ctx.Comment.ID)
+				}
+				results <- result{
+					tasks:   nil,
+					err:     fmt.Errorf("timeout acquiring semaphore after 5 minutes"),
+					context: ctx,
+				}
+				return
+			}
 
 			if sp.analyzer.config.AISettings.VerboseMode {
 				fmt.Printf("🔍 Starting processing of comment ID %d\n", ctx.Comment.ID)
@@ -232,14 +250,15 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	// Process results as they arrive
 	var allTasks []storage.Task
 	failedComments := make([]storage.FailedComment, 0)
-	processedCount := 0
+	var processedCount int32 // Use int32 for atomic operations
 	totalComments := len(comments)
 
 	if sp.analyzer.config.AISettings.VerboseMode {
 		fmt.Printf("🔍 Starting to collect results from %d comments\n", len(comments))
 	}
 	for res := range results {
-		processedCount++
+		atomic.AddInt32(&processedCount, 1)
+		currentCount := atomic.LoadInt32(&processedCount)
 		if sp.analyzer.config.AISettings.VerboseMode {
 			fmt.Printf("🔍 Processing result for comment ID %d\n", res.context.Comment.ID)
 		}
@@ -290,8 +309,8 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		}
 
 		// Show real-time progress (every comment, or every 5th for large batches)
-		if !sp.analyzer.config.AISettings.VerboseMode && (totalComments <= 10 || processedCount%5 == 0 || processedCount == totalComments) {
-			fmt.Printf("⚡ Processed %d/%d comments...\n", processedCount, totalComments)
+		if shouldShowProgress(totalComments, currentCount, sp.analyzer.config.AISettings.VerboseMode) {
+			fmt.Printf("⚡ Processed %d/%d comments...\n", currentCount, totalComments)
 		}
 	}
 
@@ -330,6 +349,14 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	}
 
 	return dedupedTasks, nil
+}
+
+// shouldShowProgress determines if progress should be shown based on total count and current progress
+func shouldShowProgress(total int, current int32, verboseMode bool) bool {
+	if verboseMode {
+		return false // Verbose mode has its own detailed logging
+	}
+	return total <= 10 || current%5 == 0 || int(current) == total
 }
 
 // categorizeError categorizes errors for better tracking

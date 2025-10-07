@@ -349,9 +349,21 @@ func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task,
 		go func(index int, ctx CommentContext) {
 			defer wg.Done()
 
-			// Acquire semaphore (blocks if max concurrent requests reached)
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }() // Release semaphore
+			// Acquire semaphore with timeout (blocks if max concurrent requests reached)
+			acquireCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			select {
+			case semaphore <- struct{}{}:
+				defer func() { <-semaphore }() // Release semaphore
+			case <-acquireCtx.Done():
+				results <- commentResult{
+					tasks: nil,
+					err:   fmt.Errorf("timeout acquiring semaphore after 5 minutes"),
+					index: index,
+				}
+				return
+			}
 
 			tasks, err := a.processComment(ctx)
 			results <- commentResult{

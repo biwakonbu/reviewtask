@@ -76,8 +76,8 @@ type AISettings struct {
 	SkipClaudeAuthCheck      bool    `json:"skip_claude_auth_check"`     // Skip Claude CLI authentication check (helps with frequent logout issues) (default: false)
 	AutoResolveThreads       bool    `json:"auto_resolve_threads"`       // Auto-resolve GitHub review threads when tasks are marked as done (default: false)
 	AutoResolveMode          string  `json:"auto_resolve_mode"`          // Auto-resolve mode: "immediate" (resolve each task), "complete" (resolve when all comment tasks done), "disabled" (default: "disabled")
-	MaxConcurrentRequests    int     `json:"max_concurrent_requests"`    // Maximum concurrent API requests for parallel processing (default: 5)
-	BatchSize                int     `json:"batch_size"`                 // Number of comments to process per batch (default: 4)
+	MaxConcurrentRequests    int     `json:"max_concurrent_requests"`    // Maximum concurrent API requests for parallel processing (default: 5, recommended: 3-10, max: 20). Lower values reduce API rate limiting, higher values improve throughput.
+	BatchSize                int     `json:"batch_size"`                 // Number of comments to process per batch (default: 4). With default concurrency (5), can efficiently process 20 comments (4 batches × 5 concurrent = 20 total).
 }
 
 type VerificationSettings struct {
@@ -307,6 +307,17 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	}
 	if config.AISettings.MaxRetries == 0 {
 		config.AISettings.MaxRetries = defaults.AISettings.MaxRetries
+	}
+	// Validate and set MaxConcurrentRequests
+	if config.AISettings.MaxConcurrentRequests <= 0 {
+		config.AISettings.MaxConcurrentRequests = defaults.AISettings.MaxConcurrentRequests
+	} else if config.AISettings.MaxConcurrentRequests > 20 {
+		fmt.Fprintf(os.Stderr, "⚠️  MaxConcurrentRequests (%d) exceeds recommended limit (20). Using 20 to prevent API rate limiting.\n", config.AISettings.MaxConcurrentRequests)
+		config.AISettings.MaxConcurrentRequests = 20
+	}
+	// Validate and set BatchSize
+	if config.AISettings.BatchSize <= 0 {
+		config.AISettings.BatchSize = defaults.AISettings.BatchSize
 	}
 	if config.AISettings.Model == "" {
 		config.AISettings.Model = defaults.AISettings.Model
