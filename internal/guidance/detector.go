@@ -2,6 +2,7 @@ package guidance
 
 import (
 	"reviewtask/internal/storage"
+	"reviewtask/internal/tasks"
 )
 
 const (
@@ -61,12 +62,20 @@ func (d *Detector) DetectContext() (*Context, error) {
 
 	// Find next suggested task (highest priority TODO task)
 	if ctx.TodoCount > 0 {
+		// Collect all TODO tasks
+		todoTasks := []storage.Task{}
 		for _, task := range allTasks {
 			if task.Status == StatusTodo {
-				ctx.NextTaskID = task.ID
-				ctx.NextTaskDesc = task.Description
-				break
+				todoTasks = append(todoTasks, task)
 			}
+		}
+
+		// Sort by priority (critical > high > medium > low)
+		if len(todoTasks) > 0 {
+			tasks.SortTasksByPriority(todoTasks)
+			task := todoTasks[0]
+			ctx.NextTaskID = task.ID
+			ctx.NextTaskDesc = task.Description
 		}
 	}
 
