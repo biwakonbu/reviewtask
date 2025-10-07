@@ -74,17 +74,17 @@ type SimpleTaskRequest struct {
 
 // TaskRequest is the full task structure with all fields
 type TaskRequest struct {
-	Description     string `json:"description"`      // AI-generated task description (user language)
-	OriginText      string `json:"origin_text"`      // Original review comment text
+	Description     string `json:"description"` // AI-generated task description (user language)
+	OriginText      string `json:"origin_text"` // Original review comment text
 	Priority        string `json:"priority"`
 	SourceReviewID  int64  `json:"source_review_id"`
 	SourceCommentID int64  `json:"source_comment_id"` // Required: specific comment ID
 	File            string `json:"file"`
 	Line            int    `json:"line"`
-	Status          string `json:"status"`           // For legacy responses and direct status setting
-	InitialStatus   string `json:"initial_status"`   // AI-assigned status from impact assessment (todo/pending)
-	TaskIndex       int    `json:"task_index"`       // New: index within comment (0, 1, 2...)
-	URL             string `json:"url"`              // GitHub comment URL for direct navigation
+	Status          string `json:"status"`         // For legacy responses and direct status setting
+	InitialStatus   string `json:"initial_status"` // AI-assigned status from impact assessment (todo/pending)
+	TaskIndex       int    `json:"task_index"`     // New: index within comment (0, 1, 2...)
+	URL             string `json:"url"`            // GitHub comment URL for direct navigation
 }
 
 type ValidationResult struct {
