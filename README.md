@@ -54,7 +54,11 @@ All review sources are automatically detected and processed without configuratio
 
 ### User Experience
 - **🎨 Modern UI**: Clean, intuitive interface with visual progress indicators
-- **🔔 Unresolved Comment Detection**: Automatically identifies review threads requiring action
+- **🔔 Unresolved Comment Detection**: Automatically identifies and categorizes review comments by resolution status:
+  - **Unanalyzed comments**: Exist on GitHub but tasks not yet generated
+  - **In-progress comments**: Tasks generated but not completed
+  - **Resolved comments**: All tasks completed and GitHub threads resolved
+  - **Completion status**: Integrated task and comment status for accurate completion detection
 - **📈 Enhanced Status Display**: Rich task status visualization with color-coded priorities
 - **💬 Interactive Guidance**: Context-aware next steps and workflow recommendations
 - **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
@@ -313,6 +317,45 @@ Authentication sources (in order of preference):
 # - Provides visual feedback with 🚀 emoji
 # - Shows helpful next-step guidance
 # - Equivalent to: reviewtask update <task-id> doing
+```
+
+#### Unresolved Comment Detection
+
+The `status` command now includes comprehensive unresolved comment detection:
+
+```bash
+./reviewtask status
+
+ReviewTask Status - 75.0% Complete (3/4) - PR #123
+
+Completion Status
+─────────────────
+Status: 75.0% Complete
+Summary: ⏳ Incomplete: 1 pending tasks, 1 unresolved comments
+
+📋 Unresolved items: 1 tasks, 1 comments
+
+Review Status
+─────────────
+Unresolved Comments: 1
+  ❌ 1 comments not yet analyzed
+
+Tasks
+─────
+  TODO: 1
+  DOING: 0
+  DONE: 3
+```
+
+**Comment Categories:**
+- **Unanalyzed comments**: Exist on GitHub but tasks not yet generated
+- **In-progress comments**: Tasks generated but not completed
+- **Resolved comments**: All tasks completed and GitHub threads resolved
+
+**Completion Detection:**
+- Integrates task completion status with comment resolution status
+- Provides accurate completion percentage and detailed summary
+- Shows remaining work items clearly categorized
 
 # Put a task on hold (intuitive alternative to update)
 ./reviewtask hold <task-id> [--reason "explanation"]
@@ -384,7 +427,7 @@ Authentication sources (in order of preference):
 | `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
 | `reviewtask fetch [PR_NUMBER]` | Fetch PR reviews from GitHub and save locally |
 | `reviewtask analyze [PR_NUMBER]` | Analyze saved reviews and generate tasks using AI |
-| `reviewtask status [PR_NUMBER]` | Show task status and statistics for current branch or specific PR |
+| `reviewtask status [PR_NUMBER]` | Show task status, completion progress, and unresolved comment detection for current branch or specific PR |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status (todo/doing/done/pending/cancel) |
 

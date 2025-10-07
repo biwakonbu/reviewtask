@@ -2,6 +2,7 @@ package ai
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -165,7 +166,11 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		if err := sp.writeWorker.Start(); err != nil {
 			return nil, fmt.Errorf("failed to start write worker: %w", err)
 		}
-		defer sp.writeWorker.Stop()
+		defer func() {
+			if err := sp.writeWorker.Stop(); err != nil {
+				fmt.Fprintf(os.Stderr, "WARNING: Failed to stop write worker: %v\n", err)
+			}
+		}()
 	}
 
 	type result struct {

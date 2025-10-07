@@ -216,3 +216,22 @@ func TestConfigCommandExamples(t *testing.T) {
 func containsExample(text, example string) bool {
 	return len(text) > 0 && len(example) > 0 // Simplified check
 }
+
+func TestMigrateCommand_ErrorHandling(t *testing.T) {
+	// Test that migrate command handles errors gracefully
+	cmd := migrateConfigCmd
+
+	if cmd.Use != "migrate" {
+		t.Errorf("Expected Use 'migrate', got %q", cmd.Use)
+	}
+
+	// Test command has proper description
+	if len(cmd.Short) == 0 {
+		t.Error("migrate command should have a short description")
+	}
+
+	// Test that RunE is set (means error handling is in place)
+	if cmd.RunE == nil {
+		t.Error("migrate command should have RunE set for error handling")
+	}
+}

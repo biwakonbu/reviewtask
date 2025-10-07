@@ -20,6 +20,10 @@ func TestCancelTaskIntegration(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
+	// Enable test mode to skip GitHub client initialization
+	os.Setenv("REVIEWTASK_TEST_MODE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -249,6 +253,10 @@ func TestBackwardCompatibilityIntegration(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
+	// Enable test mode to skip GitHub client initialization
+	os.Setenv("REVIEWTASK_TEST_MODE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -375,6 +383,10 @@ func TestMergeWithCancelledTasks(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
+	// Enable test mode to skip GitHub client initialization
+	os.Setenv("REVIEWTASK_TEST_MODE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
+
 	// Create a temporary directory for the test
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()
@@ -469,6 +481,10 @@ func TestShowCommandPriority(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	// Enable test mode to skip GitHub client initialization
+	os.Setenv("REVIEWTASK_TEST_MODE", "true")
+	defer os.Unsetenv("REVIEWTASK_TEST_MODE")
 
 	tempDir := t.TempDir()
 	origDir, _ := os.Getwd()

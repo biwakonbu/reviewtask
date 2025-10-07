@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 
@@ -516,7 +517,7 @@ func TestDisplayAIModeContent(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context")
+	err := displayAIModeContent(testTasks, "test context", nil, nil)
 	require.NoError(t, err)
 
 	w.Close()
@@ -592,7 +593,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := displayAIModeContent(tc.tasks, "test")
+			err := displayAIModeContent(tc.tasks, "test", nil, nil)
 			require.NoError(t, err)
 
 			w.Close()
@@ -950,4 +951,134 @@ func TestStatusCommandPriority(t *testing.T) {
 			assert.Equal(t, tt.expectedAction, capturedAction)
 		})
 	}
+}
+
+// TestDetectCompletionState tests the completion state detection logic
+func TestDetectCompletionState(t *testing.T) {
+	tests := []struct {
+		name             string
+		tasks            []storage.Task
+		unresolvedReport *github.UnresolvedCommentsReport
+		expectedComplete bool
+		expectedSummary  string
+	}{
+		{
+			name: "All tasks completed, no unresolved comments",
+			tasks: []storage.Task{
+				{ID: "task-1", Status: "done"},
+				{ID: "task-2", Status: "done"},
+			},
+			unresolvedReport: &github.UnresolvedCommentsReport{
+				UnanalyzedComments: []github.Comment{},
+				InProgressComments: []github.Comment{},
+				ResolvedComments:   []github.Comment{{ID: 1}, {ID: 2}},
+			},
+			expectedComplete: true,
+			expectedSummary:  "✅ All tasks completed and all comments resolved",
+		},
+		{
+			name: "Some tasks pending, some comments unresolved",
+			tasks: []storage.Task{
+				{ID: "task-1", Status: "done"},
+				{ID: "task-2", Status: "todo"},
+				{ID: "task-3", Status: "doing"},
+			},
+			unresolvedReport: &github.UnresolvedCommentsReport{
+				UnanalyzedComments: []github.Comment{{ID: 1}},
+				InProgressComments: []github.Comment{{ID: 2}},
+				ResolvedComments:   []github.Comment{},
+			},
+			expectedComplete: false,
+			expectedSummary:  "⏳ Incomplete: 1 pending tasks, 1 in-progress tasks, 2 unresolved comments",
+		},
+		{
+			name: "All tasks completed but comments unresolved",
+			tasks: []storage.Task{
+				{ID: "task-1", Status: "done"},
+				{ID: "task-2", Status: "cancel"},
+			},
+			unresolvedReport: &github.UnresolvedCommentsReport{
+				UnanalyzedComments: []github.Comment{{ID: 1}},
+				InProgressComments: []github.Comment{},
+				ResolvedComments:   []github.Comment{},
+			},
+			expectedComplete: true,
+			expectedSummary:  "✅ All tasks completed and all comments resolved",
+		},
+		{
+			name:  "No tasks but comments resolved",
+			tasks: []storage.Task{},
+			unresolvedReport: &github.UnresolvedCommentsReport{
+				UnanalyzedComments: []github.Comment{},
+				InProgressComments: []github.Comment{},
+				ResolvedComments:   []github.Comment{},
+			},
+			expectedComplete: true,
+			expectedSummary:  "✅ All tasks completed and all comments resolved",
+		},
+		{
+			name: "Tasks completed but no comment report",
+			tasks: []storage.Task{
+				{ID: "task-1", Status: "done"},
+			},
+			unresolvedReport: nil,
+			expectedComplete: true,
+			expectedSummary:  "✅ All tasks completed and all comments resolved",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := DetectCompletionState(tt.tasks, tt.unresolvedReport, 123)
+
+			assert.Equal(t, tt.expectedComplete, result.IsComplete)
+			assert.Contains(t, result.CompletionSummary, tt.expectedSummary)
+
+			// Check unresolved items count
+			if tt.unresolvedReport != nil {
+				expectedUnresolvedComments := len(tt.unresolvedReport.UnanalyzedComments) + len(tt.unresolvedReport.InProgressComments)
+				assert.Equal(t, expectedUnresolvedComments, len(result.UnresolvedComments))
+			}
+
+			// Check unresolved tasks count
+			expectedUnresolvedTasks := 0
+			for _, task := range tt.tasks {
+				if task.Status == "todo" || task.Status == "doing" || task.Status == "pending" {
+					expectedUnresolvedTasks++
+				}
+			}
+			assert.Equal(t, expectedUnresolvedTasks, len(result.UnresolvedTasks))
+		})
+	}
+}
+
+// TestUnresolvedCommentsReport tests the UnresolvedCommentsReport functionality
+func TestUnresolvedCommentsReport(t *testing.T) {
+	comment1 := github.Comment{ID: 1, Body: "Comment 1"}
+	comment2 := github.Comment{ID: 2, Body: "Comment 2"}
+	comment3 := github.Comment{ID: 3, Body: "Comment 3"}
+
+	report := &github.UnresolvedCommentsReport{
+		UnanalyzedComments: []github.Comment{comment1},
+		InProgressComments: []github.Comment{comment2},
+		ResolvedComments:   []github.Comment{comment3},
+	}
+
+	// Test IsComplete
+	assert.False(t, report.IsComplete())
+
+	// Test with all comments resolved
+	emptyReport := &github.UnresolvedCommentsReport{
+		UnanalyzedComments: []github.Comment{},
+		InProgressComments: []github.Comment{},
+		ResolvedComments:   []github.Comment{comment1, comment2, comment3},
+	}
+	assert.True(t, emptyReport.IsComplete())
+
+	// Test GetSummary
+	summary := report.GetSummary()
+	assert.Contains(t, summary, "Unresolved Comments: 2")
+	assert.Contains(t, summary, "1 comments not yet analyzed")
+	assert.Contains(t, summary, "1 comments with pending tasks")
+	assert.Contains(t, summary, "1 comments resolved")
 }

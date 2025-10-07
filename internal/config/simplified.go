@@ -55,7 +55,10 @@ func tryLoadSimplifiedConfig() (*Config, error) {
 	// Check if this looks like a simplified config
 	// (has language/ai_provider but no priority_rules structure)
 	var rawConfig map[string]interface{}
-	json.Unmarshal(data, &rawConfig)
+	if err := json.Unmarshal(data, &rawConfig); err != nil {
+		// If we can't parse as generic map, it's not a simplified config
+		return nil, err
+	}
 
 	_, hasLanguage := rawConfig["language"]
 	_, hasProvider := rawConfig["ai_provider"]

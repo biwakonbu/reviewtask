@@ -1,11 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"reviewtask/internal/github"
 	"reviewtask/internal/storage"
 	"reviewtask/internal/tasks"
 	"reviewtask/internal/ui"
@@ -68,10 +71,60 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 // runAIMode implements simple, parseable text output for automation
 func runAIMode(storageManager *storage.Manager, specificPR int) error {
+	ctx := context.Background()
+
+	// Initialize GitHub client for comment tracking
+	// Skip in test mode to avoid git/network dependencies
+	var githubClient *github.Client
+	var err error
+	if os.Getenv("REVIEWTASK_TEST_MODE") != "true" {
+		githubClient, err = github.NewClient()
+		if err != nil {
+			// Continue without GitHub client - status can work without it
+			fmt.Fprintf(os.Stderr, "Warning: Failed to initialize GitHub client: %v\n", err)
+		}
+	}
+
+	// Determine which PR to analyze for unresolved comments
+	var targetPR int
+	if specificPR > 0 {
+		targetPR = specificPR
+	} else if !statusShowAll {
+		// Get PR for current branch
+		currentBranch, err := storageManager.GetCurrentBranch()
+		if err != nil {
+			return fmt.Errorf("failed to get current branch: %w", err)
+		}
+
+		prNumbers, err := storageManager.GetPRsForBranch(currentBranch)
+		if err != nil {
+			return fmt.Errorf("failed to get PRs for current branch '%s': %w", currentBranch, err)
+		}
+		if len(prNumbers) > 0 {
+			targetPR = prNumbers[0] // Use first PR for current branch
+		}
+	}
+
+	// Get unresolved comments report if we have a GitHub client and target PR
+	var unresolvedReport *github.UnresolvedCommentsReport
+	if githubClient != nil && targetPR > 0 {
+		commentManager := github.NewCommentManager(githubClient)
+		unresolvedReport, err = commentManager.GetUnresolvedCommentsReport(ctx, targetPR)
+		if err != nil {
+			// Continue without unresolved comments report
+			fmt.Fprintf(os.Stderr, "Warning: Failed to get unresolved comments report: %v\n", err)
+		}
+	}
+
 	// Determine which tasks to load based on arguments and flags
 	var allTasks []storage.Task
-	var err error
 	var contextDescription string
+
+	// Detect completion state by integrating task and comment status
+	var completionDetection *CompletionDetectionResult
+	if unresolvedReport != nil && targetPR > 0 {
+		// We'll detect completion after loading tasks
+	}
 
 	if specificPR > 0 {
 		// PR number provided as argument
@@ -107,6 +160,11 @@ func runAIMode(storageManager *storage.Manager, specificPR int) error {
 		return fmt.Errorf("failed to load tasks: %w", err)
 	}
 
+	// Detect completion state after loading tasks
+	if unresolvedReport != nil && targetPR > 0 && len(allTasks) > 0 {
+		completionDetection = DetectCompletionState(allTasks, unresolvedReport, targetPR)
+	}
+
 	if len(allTasks) == 0 {
 		if statusShort {
 			return displayAIModeEmptyShort()
@@ -115,9 +173,9 @@ func runAIMode(storageManager *storage.Manager, specificPR int) error {
 	}
 
 	if statusShort {
-		return displayAIModeContentShort(allTasks, contextDescription)
+		return displayAIModeContentShort(allTasks, contextDescription, unresolvedReport, completionDetection)
 	}
-	return displayAIModeContent(allTasks, contextDescription)
+	return displayAIModeContent(allTasks, contextDescription, unresolvedReport, completionDetection)
 }
 
 // displayAIModeEmpty shows empty state in AI mode format
@@ -149,7 +207,7 @@ func displayAIModeEmpty() error {
 }
 
 // displayAIModeContent shows tasks in AI mode format
-func displayAIModeContent(allTasks []storage.Task, contextDescription string) error {
+func displayAIModeContent(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult) error {
 	storageManager := storage.NewManager()
 
 	// Check for incomplete analysis before showing task content
@@ -165,6 +223,42 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string) er
 
 	fmt.Printf("ReviewTask Status - %.1f%% Complete (%d/%d) - %s\n", completionRate, completed, total, contextDescription)
 	fmt.Println()
+
+	// Display completion status if available
+	if completionDetection != nil {
+		fmt.Println("Completion Status")
+		fmt.Println("─────────────────")
+		fmt.Printf("Status: %.1f%% Complete\n", completionDetection.CompletionPercentage)
+		fmt.Printf("Summary: %s\n", completionDetection.CompletionSummary)
+
+		if completionDetection.IsComplete {
+			fmt.Println("🎉 All work completed!")
+		} else {
+			fmt.Printf("📋 Unresolved items: %d tasks, %d comments\n",
+				len(completionDetection.UnresolvedTasks),
+				len(completionDetection.UnresolvedComments))
+		}
+		fmt.Println()
+	} else if unresolvedReport != nil {
+		// Fallback to original unresolved comments display if completion detection is not available
+		fmt.Println("Review Status")
+		fmt.Println("─────────────")
+
+		if unresolvedReport.IsComplete() {
+			fmt.Println("✅ No unresolved comments")
+			fmt.Println("✅ All threads resolved")
+			fmt.Println()
+		} else {
+			fmt.Printf("Unresolved Comments: %d\n", len(unresolvedReport.UnanalyzedComments)+len(unresolvedReport.InProgressComments))
+			if len(unresolvedReport.UnanalyzedComments) > 0 {
+				fmt.Printf("  ❌ %d comments not yet analyzed\n", len(unresolvedReport.UnanalyzedComments))
+			}
+			if len(unresolvedReport.InProgressComments) > 0 {
+				fmt.Printf("  ⏳ %d comments with pending tasks\n", len(unresolvedReport.InProgressComments))
+			}
+			fmt.Println()
+		}
+	}
 
 	// Progress bar with colors based on task status
 	progressBar := ui.GenerateColoredProgressBar(stats, 80)
@@ -224,7 +318,7 @@ func displayAIModeEmptyShort() error {
 }
 
 // displayAIModeContentShort shows tasks in brief format
-func displayAIModeContentShort(allTasks []storage.Task, contextDescription string) error {
+func displayAIModeContentShort(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult) error {
 	stats := tasks.CalculateTaskStats(allTasks)
 	total := len(allTasks)
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
@@ -407,6 +501,113 @@ type incompleteAnalysisInfo struct {
 	ProcessedCount  int
 	TotalComments   int
 	LastProcessedAt time.Time
+}
+
+// CompletionDetectionResult represents the result of completion state detection
+type CompletionDetectionResult struct {
+	IsComplete           bool     `json:"is_complete"`
+	CompletionSummary    string   `json:"completion_summary"`
+	UnresolvedTasks      []string `json:"unresolved_tasks"`
+	UnresolvedComments   []string `json:"unresolved_comments"`
+	CompletionPercentage float64  `json:"completion_percentage"`
+}
+
+// DetectCompletionState analyzes tasks and comments to determine completion state
+func DetectCompletionState(tasks []storage.Task, unresolvedReport *github.UnresolvedCommentsReport, prNumber int) *CompletionDetectionResult {
+	result := &CompletionDetectionResult{
+		IsComplete:         false,
+		CompletionSummary:  "",
+		UnresolvedTasks:    []string{},
+		UnresolvedComments: []string{},
+	}
+
+	// Count task statuses
+	var todoTasks, doingTasks, doneTasks, pendingTasks, cancelledTasks int
+	for _, task := range tasks {
+		switch task.Status {
+		case "todo":
+			todoTasks++
+		case "doing":
+			doingTasks++
+		case "done":
+			doneTasks++
+		case "pending":
+			pendingTasks++
+		case "cancel":
+			cancelledTasks++
+		}
+	}
+
+	// Check if all tasks are completed (done or cancelled)
+	allTasksCompleted := todoTasks == 0 && doingTasks == 0 && pendingTasks == 0
+
+	// Check if all comments are resolved
+	allCommentsResolved := unresolvedReport != nil && unresolvedReport.IsComplete()
+
+	// Determine completion state
+	// Complete if all tasks are completed, regardless of comment resolution status
+	// (comments may not exist or may not be relevant for completion)
+	result.IsComplete = allTasksCompleted
+
+	// Calculate completion percentage
+	totalTasks := len(tasks)
+	completedTasks := doneTasks + cancelledTasks
+	if totalTasks > 0 {
+		result.CompletionPercentage = float64(completedTasks) / float64(totalTasks) * 100
+	} else {
+		result.CompletionPercentage = 100
+	}
+
+	// Build completion summary
+	if result.IsComplete {
+		result.CompletionSummary = "✅ All tasks completed and all comments resolved"
+	} else {
+		summaryParts := []string{}
+
+		if !allTasksCompleted {
+			if todoTasks > 0 {
+				summaryParts = append(summaryParts, fmt.Sprintf("%d pending tasks", todoTasks))
+			}
+			if doingTasks > 0 {
+				summaryParts = append(summaryParts, fmt.Sprintf("%d in-progress tasks", doingTasks))
+			}
+			if pendingTasks > 0 {
+				summaryParts = append(summaryParts, fmt.Sprintf("%d blocked tasks", pendingTasks))
+			}
+		}
+
+		if !allCommentsResolved && unresolvedReport != nil {
+			unresolvedCount := len(unresolvedReport.UnanalyzedComments) + len(unresolvedReport.InProgressComments)
+			if unresolvedCount > 0 {
+				summaryParts = append(summaryParts, fmt.Sprintf("%d unresolved comments", unresolvedCount))
+			}
+		}
+
+		if len(summaryParts) > 0 {
+			result.CompletionSummary = "⏳ Incomplete: " + strings.Join(summaryParts, ", ")
+		} else {
+			result.CompletionSummary = "⏳ Status unclear"
+		}
+	}
+
+	// Collect unresolved task IDs
+	for _, task := range tasks {
+		if task.Status == "todo" || task.Status == "doing" || task.Status == "pending" {
+			result.UnresolvedTasks = append(result.UnresolvedTasks, task.ID)
+		}
+	}
+
+	// Collect unresolved comment IDs
+	if unresolvedReport != nil {
+		for _, comment := range unresolvedReport.UnanalyzedComments {
+			result.UnresolvedComments = append(result.UnresolvedComments, fmt.Sprintf("comment-%d", comment.ID))
+		}
+		for _, comment := range unresolvedReport.InProgressComments {
+			result.UnresolvedComments = append(result.UnresolvedComments, fmt.Sprintf("comment-%d", comment.ID))
+		}
+	}
+
+	return result
 }
 
 func init() {

@@ -190,7 +190,9 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 			}
 			if cmd.Process != nil {
 				// Process is still running, kill it
-				cmd.Process.Kill()
+				if killErr := cmd.Process.Kill(); killErr != nil {
+					fmt.Fprintf(os.Stderr, "WARNING: Failed to kill timed out process: %v\n", killErr)
+				}
 			}
 			return "", fmt.Errorf("%s execution timed out after %d seconds (input length: %d bytes)",
 				c.providerConf.CommandName, timeoutSeconds, len(input))
