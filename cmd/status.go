@@ -174,9 +174,9 @@ func runAIMode(storageManager *storage.Manager, specificPR int) error {
 	}
 
 	if statusShort {
-		return displayAIModeContentShort(allTasks, contextDescription, unresolvedReport, completionDetection)
+		return displayAIModeContentShort(allTasks, contextDescription, unresolvedReport, completionDetection, targetPR)
 	}
-	return displayAIModeContent(allTasks, contextDescription, unresolvedReport, completionDetection)
+	return displayAIModeContent(allTasks, contextDescription, unresolvedReport, completionDetection, targetPR)
 }
 
 // displayAIModeEmpty shows empty state in AI mode format
@@ -211,7 +211,7 @@ func displayAIModeEmpty() error {
 }
 
 // displayAIModeContent shows tasks in AI mode format
-func displayAIModeContent(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult) error {
+func displayAIModeContent(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult, prNumber int) error {
 	storageManager := storage.NewManager()
 
 	// Check for incomplete analysis before showing task content
@@ -307,7 +307,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 	if unresolvedReport != nil && !unresolvedReport.IsComplete() {
 		if len(unresolvedReport.UnanalyzedComments) > 0 {
 			fmt.Println(ui.Warning("You have unresolved review comments"))
-			fmt.Println(ui.Indent("reviewtask analyze", 2))
+			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask %d", prNumber), 2))
 		} else if len(doingTasks) > 0 {
 			fmt.Println(ui.Next("Continue with current task"))
 			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask show %s", doingTasks[0].ID), 2))
@@ -344,7 +344,7 @@ func displayAIModeEmptyShort() error {
 }
 
 // displayAIModeContentShort shows tasks in brief format
-func displayAIModeContentShort(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult) error {
+func displayAIModeContentShort(allTasks []storage.Task, contextDescription string, unresolvedReport *github.UnresolvedCommentsReport, completionDetection *CompletionDetectionResult, prNumber int) error {
 	stats := tasks.CalculateTaskStats(allTasks)
 	total := len(allTasks)
 	completed := stats.StatusCounts["done"] + stats.StatusCounts["cancel"]
@@ -435,7 +435,7 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 			}
 			fmt.Printf("  PR #%d: %d/%d comments processed, %d remaining (%.1f%% pending)\n",
 				info.PRNumber, info.ProcessedCount, info.TotalComments, remaining, percentage)
-			fmt.Printf("    %s Continue with: reviewtask analyze %d\n", ui.SymbolNext, info.PRNumber)
+			fmt.Printf("    %s Continue with: reviewtask %d\n", ui.SymbolNext, info.PRNumber)
 		}
 		fmt.Println()
 	}

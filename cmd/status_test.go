@@ -520,7 +520,7 @@ func TestDisplayAIModeContent(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := displayAIModeContent(testTasks, "test context", nil, nil)
+	err := displayAIModeContent(testTasks, "test context", nil, nil, 0)
 	require.NoError(t, err)
 
 	w.Close()
@@ -606,7 +606,7 @@ func TestEnglishMessagesInAIModeNoActiveTasks(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := displayAIModeContent(tc.tasks, "test", nil, nil)
+			err := displayAIModeContent(tc.tasks, "test", nil, nil, 0)
 			require.NoError(t, err)
 
 			w.Close()

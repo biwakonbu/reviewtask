@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"reviewtask/internal/ai"
 	"reviewtask/internal/config"
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
@@ -323,13 +324,36 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	if totalComments > 0 {
 		fmt.Printf("📊 Found %d comments ready for analysis\n", totalComments)
 		fmt.Println()
-		fmt.Println("📋 Ready for task generation!")
-		fmt.Printf("🔄 Run: reviewtask analyze %d\n", prNumber)
+
+		// Automatically run analysis (integrated workflow)
+		fmt.Println("🔄 Analyzing reviews and generating tasks...")
 		fmt.Println()
-		fmt.Printf("💡 Tip: Analysis will process 5 comments at a time for better control.\n")
-		fmt.Printf("    Run the analyze command multiple times to process all comments.\n")
+
+		// Call the analyze function directly
+		return runAnalyzeIntegrated(cmd, prNumber, cfg)
 	} else {
 		fmt.Printf("ℹ️  No comments found in the reviews\n")
+	}
+
+	return nil
+}
+
+// runAnalyzeIntegrated runs the analysis workflow automatically after fetch
+func runAnalyzeIntegrated(cmd *cobra.Command, prNumber int, cfg *config.Config) error {
+	// Import AI package
+	analyzer := ai.NewAnalyzer(cfg)
+	storageManager := storage.NewManager()
+
+	// Load saved reviews
+	reviews, err := storageManager.LoadReviews(prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to load reviews: %w", err)
+	}
+
+	// Generate tasks with realtime saving
+	_, err = analyzer.GenerateTasksWithRealtimeSaving(reviews, prNumber, storageManager)
+	if err != nil {
+		return fmt.Errorf("failed to generate tasks: %w", err)
 	}
 
 	return nil
