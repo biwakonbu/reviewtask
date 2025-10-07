@@ -422,7 +422,10 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 		fmt.Println(ui.SectionDivider("Incomplete Analysis"))
 		for _, info := range incompletePRs {
 			remaining := info.TotalComments - info.ProcessedCount
-			percentage := float64(remaining) / float64(info.TotalComments) * 100
+			percentage := 0.0
+			if info.TotalComments > 0 {
+				percentage = float64(remaining) / float64(info.TotalComments) * 100
+			}
 			fmt.Printf("  PR #%d: %d/%d comments processed, %d remaining (%.1f%% pending)\n",
 				info.PRNumber, info.ProcessedCount, info.TotalComments, remaining, percentage)
 			fmt.Printf("    %s Continue with: reviewtask analyze %d\n", ui.SymbolNext, info.PRNumber)
@@ -433,7 +436,7 @@ func displayIncompleteAnalysis(storageManager *storage.Manager) error {
 	// Check for unresolved comments
 	if err := displayUnresolvedComments(storageManager); err != nil {
 		// Non-fatal error
-		fmt.Printf("⚠️  Warning: Failed to check for unresolved comments: %v\n\n", err)
+		fmt.Printf("%s Warning: Failed to check for unresolved comments: %v\n\n", ui.SymbolWarning, err)
 	}
 
 	return nil
