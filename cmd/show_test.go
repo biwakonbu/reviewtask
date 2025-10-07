@@ -52,13 +52,13 @@ func TestShowCommand(t *testing.T) {
 			name:        "show current task",
 			args:        []string{},
 			expectError: false,
-			expectOut:   []string{"Task ID:", "Status:", "Priority:"},
+			expectOut:   []string{"Task Overview", "ID:", "Status:", "Priority:"},
 		},
 		{
 			name:        "show specific task by ID",
 			args:        []string{"test-task-1"},
 			expectError: false,
-			expectOut:   []string{"Task ID:"},
+			expectOut:   []string{"Task Overview", "ID:"},
 		},
 		{
 			name:        "show non-existent task",
@@ -207,7 +207,7 @@ func TestShowSpecificTask(t *testing.T) {
 			name:        "show existing task",
 			taskID:      "test-task-1",
 			expectError: false,
-			expectOut:   []string{"Task ID:", "Status:"},
+			expectOut:   []string{"Task Overview", "ID:", "Status:"},
 		},
 		{
 			name:        "show non-existent task",
