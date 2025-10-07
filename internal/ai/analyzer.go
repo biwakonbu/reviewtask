@@ -81,9 +81,10 @@ type TaskRequest struct {
 	SourceCommentID int64  `json:"source_comment_id"` // Required: specific comment ID
 	File            string `json:"file"`
 	Line            int    `json:"line"`
-	Status          string `json:"status"`
-	TaskIndex       int    `json:"task_index"` // New: index within comment (0, 1, 2...)
-	URL             string `json:"url"`        // GitHub comment URL for direct navigation
+	Status          string `json:"status"`         // For legacy responses and direct status setting
+	InitialStatus   string `json:"initial_status"` // AI-assigned status from impact assessment (todo/pending)
+	TaskIndex       int    `json:"task_index"`     // New: index within comment (0, 1, 2...)
+	URL             string `json:"url"`            // GitHub comment URL for direct navigation
 }
 
 type ValidationResult struct {
@@ -1188,8 +1189,11 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	for _, task := range tasks {
-		// Use AI-assigned initial status if available, otherwise fall back to config defaults
-		status := task.Status
+		// Priority order: InitialStatus (AI impact assessment) > Status (legacy) > fallback patterns
+		status := task.InitialStatus
+		if status == "" {
+			status = task.Status
+		}
 		if status == "" {
 			// Fallback: Determine initial status based on low-priority patterns
 			status = a.config.TaskSettings.DefaultStatus
