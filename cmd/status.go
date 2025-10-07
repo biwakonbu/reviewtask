@@ -74,10 +74,15 @@ func runAIMode(storageManager *storage.Manager, specificPR int) error {
 	ctx := context.Background()
 
 	// Initialize GitHub client for comment tracking
-	githubClient, err := github.NewClient()
-	if err != nil {
-		// Continue without GitHub client - status can work without it
-		fmt.Fprintf(os.Stderr, "Warning: Failed to initialize GitHub client: %v\n", err)
+	// Skip in test mode to avoid git/network dependencies
+	var githubClient *github.Client
+	var err error
+	if os.Getenv("REVIEWTASK_TEST_MODE") != "true" {
+		githubClient, err = github.NewClient()
+		if err != nil {
+			// Continue without GitHub client - status can work without it
+			fmt.Fprintf(os.Stderr, "Warning: Failed to initialize GitHub client: %v\n", err)
+		}
 	}
 
 	// Determine which PR to analyze for unresolved comments
