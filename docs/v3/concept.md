@@ -530,10 +530,20 @@ internal/
 ### Backward Compatibility
 
 Maintain `update` for backward compatibility (v3.0.0):
+
+1) Update task status to doing:
 ```bash
-reviewtask update <id> doing  # Delegates to 'start'
-reviewtask update <id> done   # Delegates to 'done'
-reviewtask update <id> pending  # Delegates to 'hold'
+reviewtask update <id> doing
+```
+
+2) Update task status to done:
+```bash
+reviewtask update <id> done
+```
+
+3) Update task status to pending:
+```bash
+reviewtask update <id> pending
 ```
 
 ## Success Metrics
