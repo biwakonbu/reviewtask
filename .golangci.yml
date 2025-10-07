@@ -1,11 +1,19 @@
 # golangci-lint configuration
 # https://golangci-lint.run/usage/configuration/
 
-version: 2
+version: "2"
 
 run:
   timeout: 5m
-  go: '1.24'
+  go: "1.24"
+  skip-dirs:
+    - .pr-review
+    - dist
+    - site
+    - demos
+  skip-files:
+    - ".*_generated\\.go$"
+    - ".*\\.pb\\.go$"
 
 linters:
   enable:
@@ -17,7 +25,7 @@ linters:
     - unused        # 未使用のコード検出
     # typecheck is built-in and always enabled in golangci-lint v2
 
-linters-settings:
+settings:
   govet:
     disable:
       - shadow      # 変数のシャドーイングは許容
@@ -27,38 +35,13 @@ linters-settings:
     check-blank: false
 
 issues:
-  exclude-dirs:
-    - .pr-review
-    - dist
-    - site
-    - demos
-  exclude-files:
-    - ".*_generated\\.go$"
-    - ".*\\.pb\\.go$"
-  exclude-rules:
-    # テストファイルは緩く
-    - path: _test\.go
-      linters:
-        - errcheck
-        - govet
-    # testutilパッケージも緩く
-    - path: testutil/
-      linters:
-        - errcheck
-        - govet
-    # 未使用コードの警告を一部除外
-    - linters:
-        - unused
-      text: "is unused"
-    - path: internal/github/client\.go
-      linters:
-        - unused
-    # その他の除外ルール
-    - linters:
-        - staticcheck
-      text: "SA9003"  # empty branch
-    - linters:
-        - govet
-      text: "unusedwrite"
   max-issues-per-linter: 50
   max-same-issues: 10
+  exclude-patterns:
+    - "is unused"  # 未使用コードの警告を一部除外
+    - "SA9003"     # empty branch
+    - "unusedwrite"
+  exclude-files:
+    - "_test\\.go$"
+    - "testutil/"
+    - "internal/github/client\\.go"
