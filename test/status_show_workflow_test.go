@@ -111,8 +111,8 @@ func TestStatusShowWorkflowUnitTest(t *testing.T) {
 			io.Copy(&taskBuf, r)
 			taskOutput := taskBuf.String()
 
-			// Verify the show command displays the same UUID
-			assert.Contains(t, taskOutput, "Task ID: "+task.ID,
+			// Verify the show command displays the same UUID (Modern UI format)
+			assert.Contains(t, taskOutput, "ID: "+task.ID,
 				"Show command should display the same UUID that status command shows")
 			assert.Contains(t, taskOutput, task.Description,
 				"Show command should display the correct task description")
@@ -237,8 +237,8 @@ func TestStatusShowUUIDCompatibility(t *testing.T) {
 			io.Copy(&showBuf, r)
 			showOutput := showBuf.String()
 
-			// Verify show command accepts and displays the UUID correctly
-			assert.Contains(t, showOutput, "Task ID: "+tc.task.ID,
+			// Verify show command accepts and displays the UUID correctly (Modern UI format)
+			assert.Contains(t, showOutput, "ID: "+tc.task.ID,
 				"Show command should display the task UUID: %s", tc.task.ID)
 			assert.Contains(t, showOutput, tc.task.Description,
 				"Show command should display the task description")
