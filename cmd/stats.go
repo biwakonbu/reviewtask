@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"reviewtask/internal/ai"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/ui"
 )
 
 var (
@@ -90,17 +91,18 @@ func showAllPRsStatistics(storageManager *storage.Manager, statsManager *ai.Stat
 	}
 
 	if len(prNumbers) == 0 {
-		fmt.Println("📊 No PRs found")
+		fmt.Println("No PRs found")
 		return nil
 	}
 
-	fmt.Printf("📊 Task Statistics for All PRs (%d total)\n\n", len(prNumbers))
+	fmt.Println(ui.SectionDivider(fmt.Sprintf("Task Statistics for All PRs (%d total)", len(prNumbers))))
+	fmt.Println()
 
 	var totalStats storage.StatusSummary
 	for _, prNumber := range prNumbers {
 		stats, err := statsManager.GenerateTaskStatistics(prNumber)
 		if err != nil {
-			fmt.Printf("⚠️ Failed to get stats for PR #%d: %v\n", prNumber, err)
+			fmt.Printf("%s Failed to get stats for PR #%d: %v\n", ui.SymbolWarning, prNumber, err)
 			continue
 		}
 
@@ -116,12 +118,13 @@ func showAllPRsStatistics(storageManager *storage.Manager, statsManager *ai.Stat
 			stats.StatusSummary.Doing, stats.StatusSummary.Todo)
 	}
 
-	fmt.Println("\nOverall Summary:")
-	fmt.Printf("  ✅ Done: %d\n", totalStats.Done)
-	fmt.Printf("  🔄 Doing: %d\n", totalStats.Doing)
-	fmt.Printf("  📋 Todo: %d\n", totalStats.Todo)
-	fmt.Printf("  ⏸️ Pending: %d\n", totalStats.Pending)
-	fmt.Printf("  ❌ Cancelled: %d\n", totalStats.Cancelled)
+	fmt.Println()
+	fmt.Println(ui.SectionDivider("Overall Summary"))
+	fmt.Printf("Done: %d\n", totalStats.Done)
+	fmt.Printf("Doing: %d\n", totalStats.Doing)
+	fmt.Printf("Todo: %d\n", totalStats.Todo)
+	fmt.Printf("Pending: %d\n", totalStats.Pending)
+	fmt.Printf("Cancelled: %d\n", totalStats.Cancelled)
 
 	return nil
 }
@@ -129,27 +132,29 @@ func showAllPRsStatistics(storageManager *storage.Manager, statsManager *ai.Stat
 func displayStatistics(stats *storage.TaskStatistics) {
 	// Display header based on whether it's PR-specific or branch-specific
 	if stats.BranchName != "" {
-		fmt.Printf("📊 Task Statistics for Branch '%s'\n\n", stats.BranchName)
+		fmt.Println(ui.SectionDivider(fmt.Sprintf("Task Statistics for Branch '%s'", stats.BranchName)))
 	} else {
-		fmt.Printf("📊 Task Statistics for PR #%d\n\n", stats.PRNumber)
+		fmt.Println(ui.SectionDivider(fmt.Sprintf("Task Statistics for PR #%d", stats.PRNumber)))
 	}
 
 	fmt.Printf("Total Comments: %d\n", stats.TotalComments)
-	fmt.Printf("Total Tasks: %d\n\n", stats.TotalTasks)
+	fmt.Printf("Total Tasks: %d\n", stats.TotalTasks)
+	fmt.Println()
 
-	fmt.Println("Status Summary:")
-	fmt.Printf("  ✅ Done: %d\n", stats.StatusSummary.Done)
-	fmt.Printf("  🔄 Doing: %d\n", stats.StatusSummary.Doing)
-	fmt.Printf("  📋 Todo: %d\n", stats.StatusSummary.Todo)
-	fmt.Printf("  ⏸️ Pending: %d\n", stats.StatusSummary.Pending)
-	fmt.Printf("  ❌ Cancelled: %d\n\n", stats.StatusSummary.Cancelled)
+	fmt.Println(ui.SectionDivider("Status Summary"))
+	fmt.Printf("Done: %d\n", stats.StatusSummary.Done)
+	fmt.Printf("Doing: %d\n", stats.StatusSummary.Doing)
+	fmt.Printf("Todo: %d\n", stats.StatusSummary.Todo)
+	fmt.Printf("Pending: %d\n", stats.StatusSummary.Pending)
+	fmt.Printf("Cancelled: %d\n", stats.StatusSummary.Cancelled)
+	fmt.Println()
 
 	if len(stats.CommentStats) > 0 {
-		fmt.Println("By Comment:")
+		fmt.Println(ui.SectionDivider("By Comment"))
 		for _, comment := range stats.CommentStats {
-			fmt.Printf("  Comment #%d (%s:%d) - %d tasks\n",
+			fmt.Printf("Comment #%d (%s:%d) - %d tasks\n",
 				comment.CommentID, comment.File, comment.Line, comment.TotalTasks)
-			fmt.Printf("    Done: %d, Doing: %d, Todo: %d\n",
+			fmt.Printf("  Done: %d, Doing: %d, Todo: %d\n",
 				comment.CompletedTasks, comment.InProgressTasks, comment.PendingTasks)
 
 			// Show first 50 characters of origin text for context
@@ -157,7 +162,8 @@ func displayStatistics(stats *storage.TaskStatistics) {
 			if len(originPreview) > 50 {
 				originPreview = originPreview[:50] + "..."
 			}
-			fmt.Printf("    Text: %s\n\n", originPreview)
+			fmt.Printf("  Text: %s\n", originPreview)
+			fmt.Println()
 		}
 	}
 }
