@@ -76,6 +76,8 @@ type AISettings struct {
 	SkipClaudeAuthCheck      bool    `json:"skip_claude_auth_check"`     // Skip Claude CLI authentication check (helps with frequent logout issues) (default: false)
 	AutoResolveThreads       bool    `json:"auto_resolve_threads"`       // Auto-resolve GitHub review threads when tasks are marked as done (default: false)
 	AutoResolveMode          string  `json:"auto_resolve_mode"`          // Auto-resolve mode: "immediate" (resolve each task), "complete" (resolve when all comment tasks done), "disabled" (default: "disabled")
+	MaxConcurrentRequests    int     `json:"max_concurrent_requests"`    // Maximum concurrent API requests for parallel processing (default: 5)
+	BatchSize                int     `json:"batch_size"`                 // Number of comments to process per batch (default: 4)
 }
 
 type VerificationSettings struct {
@@ -158,6 +160,8 @@ func defaultConfig() *Config {
 			StreamProcessingEnabled:  true,
 			AutoSummarizeEnabled:     true,
 			RealtimeSavingEnabled:    true,
+			MaxConcurrentRequests:    5,
+			BatchSize:                4,
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",

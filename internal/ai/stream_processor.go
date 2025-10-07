@@ -182,11 +182,25 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	results := make(chan result, len(comments))
 	var wg sync.WaitGroup
 
-	// Process all comments in parallel
+	// Create semaphore channel for concurrency control
+	maxConcurrent := sp.analyzer.config.AISettings.MaxConcurrentRequests
+	if maxConcurrent <= 0 {
+		maxConcurrent = 5 // Fallback to default
+	}
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	// Show initial progress message
+	fmt.Printf("Processing %d comments in parallel (%d concurrent)...\n", len(comments), maxConcurrent)
+
+	// Process all comments in parallel with concurrency limit
 	for _, commentCtx := range comments {
 		wg.Add(1)
 		go func(ctx CommentContext) {
 			defer wg.Done()
+
+			// Acquire semaphore (blocks if max concurrent requests reached)
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }() // Release semaphore
 
 			if sp.analyzer.config.AISettings.VerboseMode {
 				fmt.Printf("🔍 Starting processing of comment ID %d\n", ctx.Comment.ID)
@@ -218,11 +232,14 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	// Process results as they arrive
 	var allTasks []storage.Task
 	failedComments := make([]storage.FailedComment, 0)
+	processedCount := 0
+	totalComments := len(comments)
 
 	if sp.analyzer.config.AISettings.VerboseMode {
 		fmt.Printf("🔍 Starting to collect results from %d comments\n", len(comments))
 	}
 	for res := range results {
+		processedCount++
 		if sp.analyzer.config.AISettings.VerboseMode {
 			fmt.Printf("🔍 Processing result for comment ID %d\n", res.context.Comment.ID)
 		}
@@ -270,6 +287,11 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 				fmt.Printf("  ✅ Comment %d processed: %d tasks generated and queued\n",
 					res.context.Comment.ID, len(res.tasks))
 			}
+		}
+
+		// Show real-time progress (every comment, or every 5th for large batches)
+		if !sp.analyzer.config.AISettings.VerboseMode && (totalComments <= 10 || processedCount%5 == 0 || processedCount == totalComments) {
+			fmt.Printf("⚡ Processed %d/%d comments...\n", processedCount, totalComments)
 		}
 	}
 
