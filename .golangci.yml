@@ -14,8 +14,8 @@ linters:
     - govet         # go vetの各種チェック
     - ineffassign   # 無駄な代入を検出
     - staticcheck   # 静的解析
-    - typecheck     # 型チェック
     - unused        # 未使用のコード検出
+    # typecheck is built-in and always enabled in golangci-lint v2
 
 linters-settings:
   govet:
