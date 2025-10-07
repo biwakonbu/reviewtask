@@ -320,108 +320,11 @@ func TestDisplayTaskDetails(t *testing.T) {
 	}
 }
 
-// TestGetStatusIndicator tests the getStatusIndicator function
-func TestGetStatusIndicator(t *testing.T) {
-	t.Skip("Skipping due to emoji differences")
-	tests := []struct {
-		name     string
-		status   string
-		expected string
-	}{
-		{"todo status", "todo", "📝"},
-		{"doing status", "doing", "🔄"},
-		{"done status", "done", "✅"},
-		{"pending status", "pending", "⏸️"},
-		{"cancel status", "cancel", "❌"},
-		{"unknown status", "unknown", "❓"},
-		{"empty status", "", "❓"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getStatusIndicator(tt.status)
-			if result != tt.expected {
-				t.Errorf("getStatusIndicator(%q) = %q, expected %q", tt.status, result, tt.expected)
-			}
-		})
-	}
-}
-
-// TestGetPriorityIndicator tests the getPriorityIndicator function
-func TestGetPriorityIndicator(t *testing.T) {
-	tests := []struct {
-		name     string
-		priority string
-		expected string
-	}{
-		{"critical priority", "critical", "🔴"},
-		{"high priority", "high", "🟠"},
-		{"medium priority", "medium", "🟡"},
-		{"low priority", "low", "🟢"},
-		{"unknown priority", "unknown", "⚪"},
-		{"empty priority", "", "⚪"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getPriorityIndicator(tt.priority)
-			if result != tt.expected {
-				t.Errorf("getPriorityIndicator(%q) = %q, expected %q", tt.priority, result, tt.expected)
-			}
-		})
-	}
-}
-
-// TestGetImplementationIndicator tests the getImplementationIndicator function
-func TestGetImplementationIndicator(t *testing.T) {
-	t.Skip("Skipping due to emoji differences")
-	tests := []struct {
-		name     string
-		status   string
-		expected string
-	}{
-		{"implemented status", "implemented", "✅"},
-		{"not_implemented status", "not_implemented", "❌"},
-		{"empty status", "", "❌"},
-		{"unknown status", "unknown", "❌"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getImplementationIndicator(tt.status)
-			if result != tt.expected {
-				t.Errorf("getImplementationIndicator(%q) = %q, expected %q",
-					tt.status, result, tt.expected)
-			}
-		})
-	}
-}
-
-// TestGetVerificationIndicator tests the getVerificationIndicator function
-func TestGetVerificationIndicator(t *testing.T) {
-	t.Skip("Skipping due to emoji differences")
-	tests := []struct {
-		name     string
-		status   string
-		expected string
-	}{
-		{"verified status", "verified", "✔️"},
-		{"not_verified status", "not_verified", "❓"},
-		{"failed status", "failed", "⚠️"},
-		{"empty status", "", "❓"},
-		{"unknown status", "unknown", "❓"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getVerificationIndicator(tt.status)
-			if result != tt.expected {
-				t.Errorf("getVerificationIndicator(%q) = %q, expected %q",
-					tt.status, result, tt.expected)
-			}
-		})
-	}
-}
+// Note: Removed TestGetStatusIndicator, TestGetPriorityIndicator,
+// TestGetImplementationIndicator, and TestGetVerificationIndicator
+// as these functions have been removed in favor of modern UI design (#205).
+// The modern UI uses section dividers and status symbols from the ui package
+// instead of emoji indicators.
 
 // TestShowCommandErrorHandling tests error handling in show command
 func TestShowCommandErrorHandling(t *testing.T) {

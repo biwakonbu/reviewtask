@@ -276,7 +276,6 @@ func displayTaskDetails(cmd *cobra.Command, task storage.Task, jsonOut, briefOut
 	return nil
 }
 
-
 // displayTaskAsJSON outputs the task in JSON format
 func displayTaskAsJSON(cmd *cobra.Command, task storage.Task) error {
 	// Create a simplified JSON representation of the task

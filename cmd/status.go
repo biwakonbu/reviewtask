@@ -311,10 +311,10 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 			fmt.Println(ui.Indent("reviewtask analyze", 2))
 		} else if len(doingTasks) > 0 {
 			fmt.Println(ui.Next("Continue with current task"))
-			fmt.Printf(ui.Indent(fmt.Sprintf("reviewtask show %s", doingTasks[0].ID), 2))
+			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask show %s", doingTasks[0].ID), 2))
 		} else if len(todoTasks) > 0 {
 			fmt.Println(ui.Next("Start next task"))
-			fmt.Printf(ui.Indent(fmt.Sprintf("reviewtask start %s", todoTasks[0].ID), 2))
+			fmt.Println(ui.Indent(fmt.Sprintf("reviewtask start %s", todoTasks[0].ID), 2))
 		}
 	} else if len(doingTasks) > 0 {
 		fmt.Println(ui.Next("Complete current task"))
