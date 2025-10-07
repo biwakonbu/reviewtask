@@ -328,9 +328,9 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 
 	// Context-aware guidance
 	detector := guidance.NewDetector(storageManager)
-	ctx, err := detector.DetectContext()
+	gctx, err := detector.DetectContext()
 	if err == nil {
-		guide := ctx.Generate()
+		guide := gctx.Generate()
 		fmt.Print(guide.Format())
 	}
 
