@@ -485,8 +485,8 @@ reviewtask done abc123
 cmd/
   start.go          # start command
   done.go           # done command (automation routine)
-  hold.go           # hold command
-  pending.go        # pending task dialog
+  hold.go           # hold command (manages pending status)
+  cancel.go         # cancel command with GitHub comment posting
   status.go         # status command (unresolved comment detection added)
 
 internal/

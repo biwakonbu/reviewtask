@@ -68,12 +68,18 @@ reviewtask/
 │   └── version.go         # Version management and updates
 ├── internal/              # Private implementation packages
 │   ├── ai/               # AI integration and task generation
-│   ├── github/           # GitHub API client and authentication
-│   ├── storage/          # Data persistence and task management
 │   ├── config/           # Configuration management
+│   ├── git/              # Git operations and commit generation
+│   ├── github/           # GitHub API client and authentication
+│   ├── guidance/         # Context-aware guidance system (v3.0.0)
+│   ├── progress/         # Progress tracking and reporting
 │   ├── setup/            # Repository initialization
+│   ├── storage/          # Data persistence and task management
 │   ├── tasks/            # Task management utilities
-│   ├── verification/     # Data validation and integrity
+│   ├── threads/          # GitHub review thread resolution
+│   ├── tui/              # Terminal UI components
+│   ├── ui/               # UI components and formatting
+│   ├── verification/     # Task verification and quality checks
 │   └── version/          # Version checking and updates
 ├── docs/                 # Documentation
 ├── scripts/              # Build, release, and installation scripts

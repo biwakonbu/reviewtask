@@ -16,18 +16,26 @@ Main v3.0.0 design document covering:
 
 v3.0.0 is tracked through the following issues:
 
-### Phase 1: Foundation (Week 1-2)
-- [#191](https://github.com/biwakonbu/reviewtask/issues/191) - Implement unresolved review comment detection
-- [#194](https://github.com/biwakonbu/reviewtask/issues/194) - Implement modern UI and guidance system
+### Phase 1: Foundation (Week 1-2) ✅ COMPLETED
+- [#191](https://github.com/biwakonbu/reviewtask/issues/191) - ✅ Implement unresolved review comment detection
+- [#194](https://github.com/biwakonbu/reviewtask/issues/194) - ✅ Implement modern UI and guidance system
 
-### Phase 2: Core Features (Week 3-5)
-- [#192](https://github.com/biwakonbu/reviewtask/issues/192) - Implement comprehensive comment analysis with AI impact assessment
+### Phase 2: Core Features (Week 3-5) ✅ COMPLETED
+- [#192](https://github.com/biwakonbu/reviewtask/issues/192) - ✅ Implement comprehensive comment analysis with AI impact assessment
 
-### Phase 3: Integration (Week 6-8)
-- [#193](https://github.com/biwakonbu/reviewtask/issues/193) - Command integration and flag simplification (v3.0.0)
+### Phase 3: Integration (Week 6-8) ✅ COMPLETED
+- [#193](https://github.com/biwakonbu/reviewtask/issues/193) - ✅ Command integration and flag simplification (v3.0.0)
 
-### Phase 4: Automation (Week 9-11)
-- [#195](https://github.com/biwakonbu/reviewtask/issues/195) - Implement done command automation routine
+### Phase 4: Automation (Week 9-11) ✅ COMPLETED
+- [#195](https://github.com/biwakonbu/reviewtask/issues/195) - ✅ Implement done command automation routine
+
+### Phase 5: Guidance Enhancement ✅ COMPLETED
+- [#206](https://github.com/biwakonbu/reviewtask/issues/206) - ✅ Implement context-aware guidance system for all commands
+
+### Remaining for v3.0.0 Final Release 🚧
+- [#215](https://github.com/biwakonbu/reviewtask/issues/215) - 🚧 Implement integrated reviewtask command (fetch + analyze)
+- [#216](https://github.com/biwakonbu/reviewtask/issues/216) - 🚧 Remove or deprecate analyze command flags
+- [#217](https://github.com/biwakonbu/reviewtask/issues/217) - 🚧 Deprecate complete command in favor of done
 
 ## Release Timeline
 
