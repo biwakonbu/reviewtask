@@ -191,21 +191,27 @@ Tasks are automatically assigned priority levels that determine processing order
 - **§medium§** - Moderate improvements, refactoring suggestions
 - **§low§** - Minor improvements, style suggestions
 
-## Initial Setup (Execute Once Per Command Invocation):
+## Initial Setup (Execute ALWAYS at Start):
 
-**Fetch and Analyze Reviews**: The integrated workflow automatically handles both steps:
+**CRITICAL: Always fetch latest reviews first to detect new comments and ensure local data is up-to-date.**
+
+Run the integrated workflow to sync with GitHub:
 
 - §reviewtask§ - Fetches PR reviews from GitHub and analyzes them with AI to generate actionable tasks
 - §reviewtask [PR_NUMBER]§ - Same workflow for a specific PR number
 
-Run this command to ensure you're working with the most current review feedback and tasks.
+**This step is MANDATORY even if you think you have the latest data.** New review comments may have been added since your last check, and the tool will automatically:
+- Detect new unresolved comment threads
+- Generate new tasks from new review feedback
+- Update task counts and progress tracking
+- Identify any discrepancies between local and remote state
 
-After completing the initial setup, follow this exact workflow:
+After fetching the latest reviews, follow this exact workflow:
 
 ## Workflow Steps:
 
 1. **Check Status**: Use §reviewtask status§ to check current task status and identify any tasks in progress
-   - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
+   - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Check if new comments exist by running §reviewtask§ again
    - **If only pending tasks remain**: Review each pending task and decide action (see Step 2d)
    - **Continue only if todo, doing, or pending tasks exist**
 
