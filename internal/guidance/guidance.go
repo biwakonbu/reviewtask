@@ -129,35 +129,30 @@ func (c *Context) allCompleteGuidance() *Guidance {
 }
 
 func (c *Context) pendingTasksGuidance() *Guidance {
-	message := fmt.Sprintf("All TODO tasks completed\n\nYou have %d PENDING tasks requiring your decision", c.PendingCount)
+	message := fmt.Sprintf("! All TODO tasks completed\n\nYou have %d PENDING tasks requiring your decision:", c.PendingCount)
 
 	return &Guidance{
 		Title: "Next Steps",
 		Steps: []Step{
 			{
 				Action:      ui.Warning(message),
-				Command:     "reviewtask status",
-				Description: "Review pending tasks list",
-			},
-			{
-				Action:      "Review each PENDING task details",
-				Command:     "reviewtask show <pending-task-id>",
-				Description: "See full context and requirements",
-			},
-			{
-				Action:      "Decide: start or cancel each pending task",
 				Command:     "",
 				Description: "",
 			},
 			{
-				Action:      "  • If implementing: reviewtask update <task-id> doing",
-				Command:     "",
-				Description: "",
+				Action:      "→ Review PENDING tasks",
+				Command:     "reviewtask show <task-id>",
+				Description: "View details and assess implementation effort",
 			},
 			{
-				Action:      "  • If deferring: reviewtask cancel <task-id> --reason \"<explanation>\"",
-				Command:     "",
-				Description: "",
+				Action:      "→ Decide: start or cancel",
+				Command:     "reviewtask start <task-id>",
+				Description: "Start working on the task",
+			},
+			{
+				Action:      "  or",
+				Command:     "reviewtask cancel <task-id> --reason \"<explanation>\"",
+				Description: "Skip this task with explanation",
 			},
 		},
 	}
