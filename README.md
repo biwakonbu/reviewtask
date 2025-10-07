@@ -392,10 +392,7 @@ Tasks
 # Cancel all pending tasks at once
 ./reviewtask cancel --all-pending --reason "Deferring to follow-up PR #125"
 
-# Alternative: Complete task with verification only (no automation)
-./reviewtask complete <task-id>
-
-# Verify task implementation quality
+# Verify task implementation quality (before completing)
 ./reviewtask verify <task-id>
 ```
 
@@ -424,9 +421,7 @@ Tasks
 ### Core Workflow Commands
 | Command | Description |
 |---------|-------------|
-| `reviewtask [PR_NUMBER]` | Analyze current branch's PR or specific PR |
-| `reviewtask fetch [PR_NUMBER]` | Fetch PR reviews from GitHub and save locally |
-| `reviewtask analyze [PR_NUMBER]` | Analyze saved reviews and generate tasks using AI |
+| `reviewtask [PR_NUMBER]` | Fetch reviews and analyze with AI (integrated workflow) |
 | `reviewtask status [PR_NUMBER]` | Show task status, completion progress, and unresolved comment detection for current branch or specific PR |
 | `reviewtask show [task-id]` | Show current/next task or specific task details |
 | `reviewtask update <id> <status>` | Update task status (todo/doing/done/pending/cancel) |
@@ -440,8 +435,6 @@ Tasks
 | `reviewtask cancel <task-id> --reason "..."` | Cancel task and post reason to GitHub review thread |
 | `reviewtask cancel --all-pending --reason "..."` | Cancel all pending tasks with same reason |
 | `reviewtask verify <task-id>` | Run verification checks before task completion |
-| `reviewtask complete <task-id>` | Complete task with automatic verification (alternative to done) |
-| `reviewtask complete <task-id> --skip-verification` | Complete task without verification |
 
 ### Thread Management Commands
 | Command | Description |

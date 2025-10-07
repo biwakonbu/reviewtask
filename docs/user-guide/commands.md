@@ -470,7 +470,7 @@ reviewtask status         # Overall progress across all PRs
 reviewtask show <task-id> # Full context for current task
 # Work on the task...
 reviewtask verify <task-id>         # Verify implementation quality
-reviewtask complete <task-id>       # Complete with automatic verification
+reviewtask done <task-id>           # Complete with full automation
 
 # Alternative: Cancel unnecessary tasks
 reviewtask cancel <task-id> --reason "Already addressed in commit abc1234"
@@ -535,12 +535,14 @@ Most commands support these global options:
 - `--help` - Show command help
 - `--version` - Show version information (for main command)
 
-## Command Aliases
+## Command Shortcuts
 
-Some commands have aliases for convenience:
+The main `reviewtask` command without arguments analyzes the current branch's PR automatically.
 
-- `reviewtask fetch` - Alias for main `reviewtask` command
-- `reviewtask` (no arguments) - Analyzes current branch's PR
+```bash
+reviewtask        # Auto-detects PR from current branch
+reviewtask 123    # Analyzes specific PR #123
+```
 
 ## Exit Codes
 
