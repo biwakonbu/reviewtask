@@ -154,8 +154,8 @@ func displayStatistics(stats *storage.TaskStatistics) {
 		for _, comment := range stats.CommentStats {
 			fmt.Printf("Comment #%d (%s:%d) - %d tasks\n",
 				comment.CommentID, comment.File, comment.Line, comment.TotalTasks)
-			fmt.Printf("  Done: %d, Doing: %d, Todo: %d\n",
-				comment.CompletedTasks, comment.InProgressTasks, comment.PendingTasks)
+			fmt.Printf("  Done: %d, Doing: %d, Pending: %d, Cancel: %d\n",
+				comment.CompletedTasks, comment.InProgressTasks, comment.PendingTasks, comment.CancelledTasks)
 
 			// Show first 50 characters of origin text for context
 			originPreview := comment.OriginText
