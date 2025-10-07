@@ -240,7 +240,7 @@ reviewtask verify task-uuid-here
 
 #### `reviewtask complete <task-id> [options]` **[DEPRECATED]**
 
-> **⚠️ Deprecation Notice**: This command will be removed in v3.0.0. Use `reviewtask done` instead for full workflow automation.
+> **⚠️ Deprecation Notice**: Deprecated in v3.0.0 (remains available for backward compatibility). Use `reviewtask done` instead for full workflow automation.
 
 Complete task with automatic verification (limited functionality).
 
