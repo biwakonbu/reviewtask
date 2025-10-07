@@ -1546,15 +1546,21 @@ func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleT
 	// Find the highest priority and most restrictive status
 	highestPriority := "low"
 	priorityOrder := map[string]int{"critical": 4, "high": 3, "medium": 2, "low": 1}
-	consolidatedStatus := "todo" // Default to todo
+	consolidatedStatus := "" // Empty by default to allow fallback logic
 
 	for _, task := range tasks {
 		if priorityOrder[task.Priority] > priorityOrder[highestPriority] {
 			highestPriority = task.Priority
 		}
-		// If any task is pending, the consolidated task should be pending
-		if task.InitialStatus == "pending" {
-			consolidatedStatus = "pending"
+		// Use explicit status from any source task
+		if task.InitialStatus != "" {
+			// If any task is pending, the consolidated task should be pending
+			if task.InitialStatus == "pending" {
+				consolidatedStatus = "pending"
+			} else if consolidatedStatus == "" {
+				// Use first non-empty status found
+				consolidatedStatus = task.InitialStatus
+			}
 		}
 	}
 
