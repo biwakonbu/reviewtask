@@ -1,47 +1,16 @@
-# golangci-lint configuration
-# https://golangci-lint.run/usage/configuration/
+# golangci-lint v2 configuration
+# Minimal config for compatibility
 
 version: "2"
 
 run:
   timeout: 5m
-  go: "1.24"
-  skip-dirs:
-    - .pr-review
-    - dist
-    - site
-    - demos
-  skip-files:
-    - ".*_generated\\.go$"
-    - ".*\\.pb\\.go$"
 
 linters:
   enable:
-    - errcheck      # エラーチェック漏れを検出
-    - gosimple      # コードの簡略化を提案
-    - govet         # go vetの各種チェック
-    - ineffassign   # 無駄な代入を検出
-    - staticcheck   # 静的解析
-    - unused        # 未使用のコード検出
-    # typecheck is built-in and always enabled in golangci-lint v2
-
-settings:
-  govet:
-    disable:
-      - shadow      # 変数のシャドーイングは許容
-      - fieldalignment  # フィールドの並び順は気にしない
-  errcheck:
-    check-type-assertions: false
-    check-blank: false
-
-issues:
-  max-issues-per-linter: 50
-  max-same-issues: 10
-  exclude-patterns:
-    - "is unused"  # 未使用コードの警告を一部除外
-    - "SA9003"     # empty branch
-    - "unusedwrite"
-  exclude-files:
-    - "_test\\.go$"
-    - "testutil/"
-    - "internal/github/client\\.go"
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
