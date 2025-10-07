@@ -40,22 +40,22 @@ func SetVersionInfo(version, commitHash, buildDate string) {
 // This prevents shared state issues in concurrent tests
 func NewRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "reviewtask",
+		Use:   "reviewtask [PR_NUMBER]",
 		Short: "AI-powered PR review management tool",
 		Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
+When called without subcommands, reviewtask runs the integrated workflow:
+fetch → analyze → generate tasks with AI impact assessment.
+
 Examples:
-  reviewtask fetch        # Check reviews for current branch's PR
-  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask              # Analyze current branch's PR (integrated workflow)
+  reviewtask 123          # Analyze PR #123 (integrated workflow)
   reviewtask status       # Show current task status
   reviewtask show         # Show current/next task details
-  reviewtask show <task-id>  # Show specific task details
-  reviewtask update <task-id> doing  # Update task status`,
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
-		},
+  reviewtask done <id>    # Complete task with automation`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: runReviewTask,
 	}
 
 	// Add all subcommands
@@ -84,22 +84,26 @@ Examples:
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "reviewtask",
+	Use:   "reviewtask [PR_NUMBER]",
 	Short: "AI-powered PR review management tool",
 	Long: `reviewtask fetches GitHub Pull Request reviews, saves them locally,
 and uses AI to analyze review content for task generation.
 
+When called without subcommands, reviewtask runs the integrated workflow:
+fetch → analyze → generate tasks with AI impact assessment.
+
 Examples:
-  reviewtask fetch        # Check reviews for current branch's PR
-  reviewtask fetch 123    # Check reviews for PR #123
+  reviewtask              # Analyze current branch's PR (integrated workflow)
+  reviewtask 123          # Analyze PR #123 (integrated workflow)
   reviewtask status       # Show current task status
   reviewtask show         # Show current/next task details
-  reviewtask show <task-id>  # Show specific task details
-  reviewtask update <task-id> doing  # Update task status`,
-	Args: cobra.NoArgs,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return cmd.Help()
-	},
+  reviewtask done <id>    # Complete task with automation
+
+For legacy commands, see:
+  reviewtask fetch --help
+  reviewtask analyze --help`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runReviewTask,
 }
 
 func Execute() error {

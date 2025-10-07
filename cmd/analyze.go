@@ -23,27 +23,35 @@ var (
 
 var analyzeCmd = &cobra.Command{
 	Use:   "analyze [PR_NUMBER]",
-	Short: "Analyze PR reviews and generate tasks in batches",
-	Long: `Analyze GitHub Pull Request reviews and generate tasks using AI.
-This command processes comments in small batches to provide better
-control and progress visibility.
+	Short: "[DEPRECATED] Integrated into 'reviewtask' command",
+	Long: `⚠️  DEPRECATION NOTICE: This command will be removed in v3.0.0
 
-The command will process a limited number of batches per execution
-and automatically save progress. Run the command again to continue
-processing remaining comments.
+The 'analyze' command functionality is now integrated into the main reviewtask command.
 
-Examples:
-  reviewtask analyze        # Analyze current branch's PR
-  reviewtask analyze 123    # Analyze PR #123
-  reviewtask analyze 123 --batch-size 3 --max-batches 2`,
+Please use instead:
+  reviewtask              # Analyze current branch's PR
+  reviewtask 123          # Analyze PR #123
+
+The integrated command provides:
+- Automatic fetch + analyze workflow
+- AI-powered task generation
+- Auto-optimization (no manual flags needed)
+- Context-aware guidance
+
+Migration:
+  reviewtask analyze     →  reviewtask
+  reviewtask analyze 123 →  reviewtask 123
+
+Flags like --batch-size, --max-batches, and --async are no longer needed
+as the integrated command handles optimization automatically.`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runAnalyzeCommand,
 }
 
 func init() {
-	analyzeCmd.Flags().IntVar(&batchSize, "batch-size", 1, "Number of comments to process per batch (recommended: 1 for stability)")
-	analyzeCmd.Flags().IntVar(&maxBatches, "max-batches", 1, "Maximum number of batches to process per command")
-	analyzeCmd.Flags().BoolVar(&async, "async", false, "Run analysis in background (output will be logged to stderr)")
+	analyzeCmd.Flags().IntVar(&batchSize, "batch-size", 1, "[DEPRECATED] Auto-optimization handles batch sizing")
+	analyzeCmd.Flags().IntVar(&maxBatches, "max-batches", 1, "[DEPRECATED] Processing continues automatically")
+	analyzeCmd.Flags().BoolVar(&async, "async", false, "[DEPRECATED] Background processing handled automatically")
 	rootCmd.AddCommand(analyzeCmd)
 }
 

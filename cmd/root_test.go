@@ -125,7 +125,7 @@ func TestCommandStructure(t *testing.T) {
 	root := NewRootCmd()
 
 	// Test root command properties
-	if root.Use != "reviewtask" {
+	if root.Use != "reviewtask [PR_NUMBER]" {
 		t.Errorf("Unexpected root command Use: %s", root.Use)
 	}
 

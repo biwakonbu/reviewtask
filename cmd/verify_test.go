@@ -58,10 +58,10 @@ func TestVerifyCommandHelp(t *testing.T) {
 	// Check for key phrases in help text
 	expectedPhrases := []string{
 		"verification checks",
-		"Build verification",
-		"Test execution",
-		"Lint/format checks",
-		"Custom verification",
+		"build verification",
+		"test execution",
+		"lint/format checks",
+		"custom verification",
 		"Examples:",
 	}
 

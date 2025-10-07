@@ -1,25 +1,37 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 )
 
 var fetchCmd = &cobra.Command{
 	Use:   "fetch [PR_NUMBER]",
-	Short: "Fetch GitHub Pull Request reviews and generate tasks",
-	Long: `Fetch GitHub Pull Request reviews, save them locally,
-and use AI to analyze review content for task generation.
+	Short: "[DEPRECATED] Use 'reviewtask [PR_NUMBER]' instead",
+	Long: `⚠️  DEPRECATION NOTICE: This command will be removed in v3.0.0
 
-The command automatically optimizes performance based on PR size:
-- Uses batch processing for large PRs
-- Caches API responses to reduce redundant calls  
-- Supports automatic resume if interrupted
+The 'fetch' command has been integrated into the main reviewtask command.
 
-Examples:
-  reviewtask fetch        # Check reviews for current branch's PR
-  reviewtask fetch 123    # Check reviews for PR #123`,
+Please use instead:
+  reviewtask              # Analyze current branch's PR
+  reviewtask 123          # Analyze PR #123
+
+The integrated command provides the same functionality with:
+- Automatic fetch + analyze workflow
+- AI-powered task generation
+- No need to run separate commands
+
+Migration:
+  reviewtask fetch     →  reviewtask
+  reviewtask fetch 123 →  reviewtask 123`,
 	Args: cobra.MaximumNArgs(1),
-	RunE: runReviewTask,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Println("⚠️  Warning: 'reviewtask fetch' is deprecated")
+		fmt.Println("⚠️  Use 'reviewtask [PR_NUMBER]' instead for the integrated workflow")
+		fmt.Println()
+		return runReviewTask(cmd, args)
+	},
 }
 
 func init() {

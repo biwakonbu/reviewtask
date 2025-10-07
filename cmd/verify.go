@@ -15,10 +15,10 @@ var verifyCmd = &cobra.Command{
 	Long: `Verify that a task meets completion requirements before marking it as done.
 
 This command runs configured verification checks such as:
-  - Build verification (compile/build checks)
-  - Test execution (run relevant tests)
-  - Lint/format checks (code quality standards)
-  - Custom verification (project-specific commands)
+  - build verification (compile/build checks)
+  - test execution (run relevant tests)
+  - lint/format checks (code quality standards)
+  - custom verification (project-specific commands)
 
 Examples:
   reviewtask verify task-1

@@ -9,18 +9,31 @@ import (
 
 var completeCmd = &cobra.Command{
 	Use:   "complete <task-id>",
-	Short: "Complete task with verification",
-	Long: `Complete a task after running verification checks to ensure the work is properly implemented.
+	Short: "[DEPRECATED] Use 'reviewtask done' instead",
+	Long: `⚠️  DEPRECATION NOTICE: This command will be removed in v3.0.0
 
-This command performs the following steps:
-1. Runs all configured verification checks (build, test, lint, etc.)
-2. If all verifications pass, marks the task as 'done'
-3. If any verification fails, provides detailed error information
+The 'complete' command has been superseded by the 'done' command with full workflow automation.
 
-Examples:
-  reviewtask complete task-1
-  reviewtask complete task-2 --verify
-  reviewtask complete task-3 --skip-verification`,
+Please use instead:
+  reviewtask done <task-id>      # Complete task with full automation
+
+The 'done' command provides:
+- Verification (build/test/lint checks)
+- Status update to "done"
+- Auto-commit with structured message
+- Review thread resolution
+- Next task suggestion
+
+To skip specific automation phases:
+  reviewtask done <task-id> --skip-verification
+  reviewtask done <task-id> --skip-commit
+  reviewtask done <task-id> --skip-resolve
+  reviewtask done <task-id> --skip-suggestion
+
+Migration:
+  reviewtask complete task-1                  →  reviewtask done task-1
+  reviewtask complete task-1 --verify         →  reviewtask done task-1
+  reviewtask complete task-1 --skip-verification  →  reviewtask done task-1 --skip-verification`,
 	Args: cobra.ExactArgs(1),
 	RunE: runComplete,
 }
@@ -38,6 +51,11 @@ func init() {
 }
 
 func runComplete(cmd *cobra.Command, args []string) error {
+	// Display deprecation warning
+	fmt.Println("⚠️  Warning: 'reviewtask complete' is deprecated")
+	fmt.Println("⚠️  Use 'reviewtask done' instead for full workflow automation")
+	fmt.Println()
+
 	// Display AI provider info
 	_, err := DisplayAIProviderIfNeeded()
 	if err != nil {

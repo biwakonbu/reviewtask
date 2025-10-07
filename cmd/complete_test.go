@@ -12,8 +12,8 @@ func TestCompleteCommand(t *testing.T) {
 		t.Errorf("Expected Use 'complete <task-id>', got %q", cmd.Use)
 	}
 
-	if cmd.Short != "Complete task with verification" {
-		t.Errorf("Expected Short description about task completion, got %q", cmd.Short)
+	if cmd.Short != "[DEPRECATED] Use 'reviewtask done' instead" {
+		t.Errorf("Expected deprecation message in Short description, got %q", cmd.Short)
 	}
 
 	// Test args validation
@@ -72,9 +72,9 @@ func TestCompleteCommandHelp(t *testing.T) {
 
 	// Check for key phrases in help text
 	expectedPhrases := []string{
-		"verification checks",
-		"marks the task as 'done'",
-		"Examples:",
+		"DEPRECATION NOTICE",
+		"reviewtask done",
+		"Migration:",
 	}
 
 	for _, phrase := range expectedPhrases {
@@ -87,11 +87,11 @@ func TestCompleteCommandHelp(t *testing.T) {
 func TestCompleteCommandExamples(t *testing.T) {
 	cmd := completeCmd
 
-	// Test that examples are present in the help text
+	// Test that migration examples are present in the help text
 	expectedExamples := []string{
-		"reviewtask complete task-1",
-		"reviewtask complete task-2 --verify",
-		"reviewtask complete task-3 --skip-verification",
+		"reviewtask done <task-id>",
+		"reviewtask done task-1",
+		"--skip-verification",
 	}
 
 	for _, example := range expectedExamples {
@@ -172,6 +172,11 @@ func containsPhrase(text, phrase string) bool {
 		return false
 	}
 
-	// Simple substring check - in real implementation would use strings.Contains
-	return len(text) > len(phrase) // Simplified for test
+	// Use strings.Contains for actual substring checking
+	for i := 0; i <= len(text)-len(phrase); i++ {
+		if text[i:i+len(phrase)] == phrase {
+			return true
+		}
+	}
+	return false
 }
