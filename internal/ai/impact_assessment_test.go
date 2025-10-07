@@ -35,24 +35,27 @@ func TestImpactAssessment_InitialStatusFromAI(t *testing.T) {
 			expectedStatus: "pending",
 		},
 		{
-			name: "Empty initial_status defaults to TODO",
+			name: "Empty initial_status uses fallback logic (default status)",
 			simpleTask: SimpleTaskRequest{
 				Description:   "Add error handling",
 				Priority:      "medium",
 				InitialStatus: "",
 			},
-			expectedStatus: "todo",
+			expectedStatus: "todo", // Fallback uses default status from config
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &config.Config{
+				TaskSettings: config.TaskSettings{
+					DefaultStatus: "todo",
+				},
 				AISettings: config.AISettings{
 					UserLanguage: "English",
 				},
 			}
-			_ = NewAnalyzer(cfg) // Create analyzer for config setup
+			analyzer := NewAnalyzer(cfg)
 
 			// Create comment context
 			ctx := CommentContext{
@@ -68,15 +71,13 @@ func TestImpactAssessment_InitialStatusFromAI(t *testing.T) {
 				},
 			}
 
-			// Convert simple task to full task
+			// Convert simple task to full task (matching actual implementation)
 			fullTasks := []TaskRequest{}
 			tasks := []SimpleTaskRequest{tt.simpleTask}
 			for i, simpleTask := range tasks {
-				// Use AI-assigned initial status, default to "todo" if not specified
+				// Use AI-assigned initial status if provided
+				// If empty, convertToStorageTasks will handle fallback logic
 				initialStatus := simpleTask.InitialStatus
-				if initialStatus == "" {
-					initialStatus = "todo"
-				}
 
 				fullTask := TaskRequest{
 					Description:     simpleTask.Description,
@@ -86,15 +87,18 @@ func TestImpactAssessment_InitialStatusFromAI(t *testing.T) {
 					SourceCommentID: ctx.Comment.ID,
 					File:            ctx.Comment.File,
 					Line:            ctx.Comment.Line,
-					Status:          initialStatus,
+					Status:          initialStatus, // May be empty
 					TaskIndex:       i,
 					URL:             ctx.Comment.URL,
 				}
 				fullTasks = append(fullTasks, fullTask)
 			}
 
-			require.Len(t, fullTasks, 1)
-			assert.Equal(t, tt.expectedStatus, fullTasks[0].Status)
+			// Convert to storage tasks to test fallback logic
+			storageTasks := analyzer.convertToStorageTasks(fullTasks)
+
+			require.Len(t, storageTasks, 1)
+			assert.Equal(t, tt.expectedStatus, storageTasks[0].Status)
 		})
 	}
 }

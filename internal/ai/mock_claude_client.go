@@ -68,20 +68,22 @@ func (m *MockClaudeClient) Execute(ctx context.Context, input string, outputForm
 	var tasks []SimpleTaskRequest
 	if strings.Contains(input, "nit:") || strings.Contains(input, "minor:") {
 		// Generate a task with low priority
+		// Leave InitialStatus empty to let pattern-based detection work
 		tasks = []SimpleTaskRequest{
 			{
 				Description:   "Fix minor issue",
 				Priority:      "low",
-				InitialStatus: "todo", // Minor issues default to TODO
+				InitialStatus: "", // Empty status triggers fallback pattern detection
 			},
 		}
 	} else {
 		// Default task generation
+		// Leave InitialStatus empty to let pattern-based detection work
 		tasks = []SimpleTaskRequest{
 			{
 				Description:   "Fix the issue mentioned in the comment",
 				Priority:      "medium",
-				InitialStatus: "todo", // Default to TODO
+				InitialStatus: "", // Empty status triggers fallback pattern detection
 			},
 		}
 	}

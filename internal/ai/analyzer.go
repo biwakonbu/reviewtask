@@ -669,8 +669,8 @@ func (a *Analyzer) buildAnalysisPromptV2(reviews []github.Review, profile string
 	reviewsDataStr := a.renderReviewsData(reviews, detail)
 	a.promptSizeTracker.TrackReviewsData(reviewsDataStr, reviews)
 
-	// Enhanced schema with unified task generation philosophy
-	systemPrompt := `You are analyzing GitHub PR review comments to produce actionable developer tasks.
+	// Enhanced schema with unified task generation philosophy and impact assessment
+	systemPrompt := `You are analyzing GitHub PR review comments to produce actionable developer tasks with AI-powered impact assessment.
 
 ===== TASK GENERATION PHILOSOPHY =====
 
@@ -684,6 +684,32 @@ CRITICAL RULES:
 4. Focus on the END GOAL, not implementation steps
 5. Think from the reviewer's perspective: "What outcome do they want to see?"
 
+===== COMPREHENSIVE COMMENT ANALYSIS =====
+
+ANALYZE ALL REVIEW COMMENTS without filtering:
+- Include nitpicks (minor suggestions like typos, variable naming, formatting)
+- Include questions that may need code changes or documentation
+- Include all suggestions and recommendations regardless of size
+- Include all feedback, even seemingly trivial items
+
+===== AI-POWERED IMPACT ASSESSMENT =====
+
+For EACH task, evaluate the implementation effort/impact and assign initial_status:
+
+**TODO (Small/Medium Impact) - Assign when:**
+- Changes to existing code < 50 lines
+- No architecture or design changes required
+- No new dependencies needed
+- Quick fixes and improvements
+- Examples: typo fixes, variable renaming, adding comments, formatting changes, simple logic fixes, adding error handling, adding validation
+
+**PENDING (Large Impact) - Assign when:**
+- Changes to existing code > 50 lines expected
+- Architecture or design changes required
+- New dependencies or major refactoring needed
+- Requires significant discussion or planning
+- Examples: design changes, new features, major refactoring, API changes
+
 ===== SPECIAL HANDLING FOR CODERABBIT COMMENTS =====
 
 When CodeRabbit provides "Prompt for AI Agents" sections:
@@ -696,6 +722,7 @@ Return ONLY a valid JSON array. Each element MUST contain exactly these fields:
 - description (string): actionable instruction capturing the reviewer's OVERALL GOAL
 - origin_text (string): verbatim original review comment text
 - priority (string): one of critical|high|medium|low
+- initial_status (string): "todo" or "pending" based on impact assessment
 - source_review_id (number)
 - source_comment_id (number)
 - file (string): file path or empty if not applicable
@@ -709,6 +736,7 @@ Rules:
 - Preserve origin_text exactly; do not translate or summarize it
 - Focus on WHAT needs to be achieved, not step-by-step implementation details
 - When in doubt, create ONE comprehensive task rather than multiple small ones
+- ALWAYS assign initial_status based on impact assessment criteria above
 
 CRITICAL JSON FORMATTING RULES:
 - Return RAW JSON only - NO markdown code blocks, NO ` + "```json" + ` wrappers, NO explanations
@@ -1160,10 +1188,14 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	for _, task := range tasks {
-		// Determine initial status based on low-priority patterns
-		status := a.config.TaskSettings.DefaultStatus
-		if a.isLowPriorityComment(task.OriginText) {
-			status = a.config.TaskSettings.LowPriorityStatus
+		// Use AI-assigned initial status if available, otherwise fall back to config defaults
+		status := task.Status
+		if status == "" {
+			// Fallback: Determine initial status based on low-priority patterns
+			status = a.config.TaskSettings.DefaultStatus
+			if a.isLowPriorityComment(task.OriginText) {
+				status = a.config.TaskSettings.LowPriorityStatus
+			}
 		}
 
 		// Override priority for nitpick comments if configured
@@ -1183,7 +1215,7 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 			TaskIndex:       task.TaskIndex,
 			File:            task.File,
 			Line:            task.Line,
-			Status:          status,
+			Status:          status, // Now respects AI-assigned initial status
 			CreatedAt:       now,
 			UpdatedAt:       now,
 			URL:             task.URL,
@@ -1472,11 +1504,9 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 	// Convert simple tasks to full TaskRequest objects
 	var fullTasks []TaskRequest
 	for i, simpleTask := range consolidatedTasks {
-		// Use AI-assigned initial status, default to "todo" if not specified
+		// Use AI-assigned initial status if provided
+		// If empty, convertToStorageTasks will handle fallback logic
 		initialStatus := simpleTask.InitialStatus
-		if initialStatus == "" {
-			initialStatus = "todo"
-		}
 
 		fullTask := TaskRequest{
 			Description:     simpleTask.Description,
@@ -1486,7 +1516,7 @@ func (a *Analyzer) processCommentSimple(ctx CommentContext) ([]TaskRequest, erro
 			SourceCommentID: ctx.Comment.ID,
 			File:            ctx.Comment.File,
 			Line:            ctx.Comment.Line,
-			Status:          initialStatus, // Use AI-assigned status
+			Status:          initialStatus, // Use AI-assigned status (may be empty)
 			TaskIndex:       i,
 			URL:             ctx.Comment.URL,
 		}
@@ -1516,15 +1546,21 @@ func (a *Analyzer) consolidateTasksIfNeeded(tasks []SimpleTaskRequest) []SimpleT
 	// Find the highest priority and most restrictive status
 	highestPriority := "low"
 	priorityOrder := map[string]int{"critical": 4, "high": 3, "medium": 2, "low": 1}
-	consolidatedStatus := "todo" // Default to todo
+	consolidatedStatus := "" // Empty by default to allow fallback logic
 
 	for _, task := range tasks {
 		if priorityOrder[task.Priority] > priorityOrder[highestPriority] {
 			highestPriority = task.Priority
 		}
-		// If any task is pending, the consolidated task should be pending
-		if task.InitialStatus == "pending" {
-			consolidatedStatus = "pending"
+		// Use explicit status from any source task
+		if task.InitialStatus != "" {
+			// If any task is pending, the consolidated task should be pending
+			if task.InitialStatus == "pending" {
+				consolidatedStatus = "pending"
+			} else if consolidatedStatus == "" {
+				// Use first non-empty status found
+				consolidatedStatus = task.InitialStatus
+			}
 		}
 	}
 

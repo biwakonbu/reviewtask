@@ -286,8 +286,9 @@ func TestConvertToStorageTasksPreservesAllFields(t *testing.T) {
 	if task.Line != testTask.Line {
 		t.Errorf("Line mismatch: expected %d, got %d", testTask.Line, task.Line)
 	}
-	if task.Status != cfg.TaskSettings.DefaultStatus {
-		t.Errorf("Status mismatch: expected '%s', got '%s'", cfg.TaskSettings.DefaultStatus, task.Status)
+	// Verify Status is preserved from TaskRequest, not overridden by DefaultStatus
+	if task.Status != testTask.Status {
+		t.Errorf("Status mismatch: expected '%s', got '%s'", testTask.Status, task.Status)
 	}
 
 	// Verify ID is a valid UUID
