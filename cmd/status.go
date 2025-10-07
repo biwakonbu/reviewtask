@@ -277,8 +277,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 	// Current Task (single active task)
 	doingTasks := tasks.FilterTasksByStatus(allTasks, "doing")
 	if len(doingTasks) > 0 {
-		fmt.Println("Current Task")
-		fmt.Println("────────────")
+		fmt.Println(ui.SectionDivider("Current Task"))
 		task := doingTasks[0]
 		fmt.Printf("  %s  %s    %s\n", task.ID, strings.ToUpper(task.Priority), task.Description)
 		fmt.Println()
@@ -289,8 +288,7 @@ func displayAIModeContent(allTasks []storage.Task, contextDescription string, un
 	tasks.SortTasksByPriority(todoTasks)
 
 	if len(todoTasks) > 0 {
-		fmt.Println("Next Tasks")
-		fmt.Println("──────────")
+		fmt.Println(ui.SectionDivider("Next Tasks"))
 		maxDisplay := 5
 		if len(todoTasks) < maxDisplay {
 			maxDisplay = len(todoTasks)
