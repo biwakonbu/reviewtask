@@ -153,10 +153,8 @@ func (a *Analyzer) GenerateTasksIncremental(reviews []github.Review, prNumber in
 		// Increment batch counter
 		processedBatches++
 
-		// Add small delay to prevent API rate limiting
-		if !opts.FastMode && i+opts.BatchSize < len(remainingComments) {
-			time.Sleep(500 * time.Millisecond)
-		}
+		// Note: Artificial delays removed - rely on Claude API's built-in rate limiting
+		// and semaphore-based concurrency control instead
 	}
 
 	// Check if we stopped due to batch limit
@@ -338,11 +336,23 @@ func (a *Analyzer) processBatchStandard(batch []CommentContext) ([]storage.Task,
 	results := make(chan commentResult, len(batch))
 	var wg sync.WaitGroup
 
-	// Process each comment in parallel
+	// Create semaphore channel for concurrency control
+	maxConcurrent := a.config.AISettings.MaxConcurrentRequests
+	if maxConcurrent <= 0 {
+		maxConcurrent = 5 // Fallback to default
+	}
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	// Process each comment in parallel with concurrency limit
 	for i, commentCtx := range batch {
 		wg.Add(1)
 		go func(index int, ctx CommentContext) {
 			defer wg.Done()
+
+			// Acquire semaphore (blocks if max concurrent requests reached)
+			// No timeout - wait indefinitely to avoid dropping queued comments
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }() // Release semaphore
 
 			tasks, err := a.processComment(ctx)
 			results <- commentResult{
