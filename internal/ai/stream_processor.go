@@ -1,13 +1,11 @@
 package ai
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"reviewtask/internal/storage"
 )
@@ -201,24 +199,10 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		go func(ctx CommentContext) {
 			defer wg.Done()
 
-			// Acquire semaphore with timeout (blocks if max concurrent requests reached)
-			acquireCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			select {
-			case semaphore <- struct{}{}:
-				defer func() { <-semaphore }() // Release semaphore
-			case <-acquireCtx.Done():
-				if sp.analyzer.config.AISettings.VerboseMode {
-					fmt.Printf("⚠️  Timeout acquiring semaphore for comment ID %d\n", ctx.Comment.ID)
-				}
-				results <- result{
-					tasks:   nil,
-					err:     fmt.Errorf("timeout acquiring semaphore after 5 minutes"),
-					context: ctx,
-				}
-				return
-			}
+			// Acquire semaphore (blocks if max concurrent requests reached)
+			// No timeout - wait indefinitely to avoid dropping queued comments
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }() // Release semaphore
 
 			if sp.analyzer.config.AISettings.VerboseMode {
 				fmt.Printf("🔍 Starting processing of comment ID %d\n", ctx.Comment.ID)
