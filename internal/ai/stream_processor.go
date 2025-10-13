@@ -184,7 +184,9 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 	}
 
 	// Show initial progress message
-	fmt.Printf("Processing %d comments using Worker Pool (%d workers)...\n", len(comments), maxConcurrent)
+	if sp.analyzer.config.AISettings.VerboseMode {
+		fmt.Printf("Processing %d comments using Worker Pool (%d workers)...\n", len(comments), maxConcurrent)
+	}
 
 	// Create channels for Worker Pool pattern
 	jobs := make(chan CommentContext, len(comments))
