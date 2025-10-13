@@ -141,10 +141,10 @@ func TestUpdateThreadResolutionStatus_UseBatchAPI(t *testing.T) {
 
 			// Create mock GitHub client with injected GraphQL client
 			mockClient := &Client{
-				owner:                   "test-owner",
-				repo:                    "test-repo",
-				client:                  nil, // Not needed for this test
-				graphQLClientForTesting: graphQLClient,
+				owner:         "test-owner",
+				repo:          "test-repo",
+				client:        nil, // Not needed for this test
+				graphqlClient: graphQLClient,
 			}
 
 			// Create tracker with mock client
@@ -213,10 +213,10 @@ func TestUpdateThreadResolutionStatus_Integration(t *testing.T) {
 
 		// Create a mock client with injected GraphQL client
 		mockClient := &Client{
-			owner:                   "test-owner",
-			repo:                    "test-repo",
-			client:                  nil, // Not needed for this test
-			graphQLClientForTesting: graphQLClient,
+			owner:         "test-owner",
+			repo:          "test-repo",
+			client:        nil, // Not needed for this test
+			graphqlClient: graphQLClient,
 		}
 
 		// Create tracker with the mock client
