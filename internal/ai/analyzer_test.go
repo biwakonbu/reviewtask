@@ -968,3 +968,282 @@ func TestValidationModeParallelProcessingPerformance(t *testing.T) {
 
 	t.Logf("Parallel processing completed in %v with %d Claude calls", duration, mockClient.CallCount)
 }
+
+// TestIsCommentResolved_GitHubThreadResolvedField tests that isCommentResolved
+// properly checks the GitHubThreadResolved field before falling back to text markers.
+// This addresses Issue #233: isCommentResolved not checking GitHubThreadResolved field.
+func TestIsCommentResolved_GitHubThreadResolvedField(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	tests := []struct {
+		name     string
+		comment  github.Comment
+		expected bool
+	}{
+		{
+			name: "GitHubThreadResolved is true - should return true immediately",
+			comment: github.Comment{
+				ID:                   1,
+				Body:                 "This is a comment without any resolution markers",
+				GitHubThreadResolved: true,
+			},
+			expected: true,
+		},
+		{
+			name: "GitHubThreadResolved is false with no markers - should return false",
+			comment: github.Comment{
+				ID:                   2,
+				Body:                 "This is an unresolved comment",
+				GitHubThreadResolved: false,
+			},
+			expected: false,
+		},
+		{
+			name: "GitHubThreadResolved is false but has resolution marker - should return true",
+			comment: github.Comment{
+				ID:                   3,
+				Body:                 "✅ Addressed in commit abc123",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "GitHubThreadResolved is true with resolution marker - should return true",
+			comment: github.Comment{
+				ID:                   4,
+				Body:                 "✅ Fixed in commit def456",
+				GitHubThreadResolved: true,
+			},
+			expected: true,
+		},
+		{
+			name: "Empty body with GitHubThreadResolved true - should return true",
+			comment: github.Comment{
+				ID:                   5,
+				Body:                 "",
+				GitHubThreadResolved: true,
+			},
+			expected: true,
+		},
+		{
+			name: "Empty body with GitHubThreadResolved false - should return false",
+			comment: github.Comment{
+				ID:                   6,
+				Body:                 "",
+				GitHubThreadResolved: false,
+			},
+			expected: false,
+		},
+		{
+			name: "GitHubThreadResolved false with reply containing resolution marker",
+			comment: github.Comment{
+				ID:                   7,
+				Body:                 "This needs fixing",
+				GitHubThreadResolved: false,
+				Replies: []github.Reply{
+					{
+						ID:   701,
+						Body: "Fixed in commit xyz789",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "GitHubThreadResolved true even without text markers",
+			comment: github.Comment{
+				ID:                   8,
+				Body:                 "This comment is resolved on GitHub but has no text marker",
+				GitHubThreadResolved: true,
+				Replies:              []github.Reply{},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := analyzer.isCommentResolved(tt.comment)
+			if result != tt.expected {
+				t.Errorf("isCommentResolved(%+v) = %v, expected %v", tt.comment, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestIsCommentResolved_TextMarkerFallback tests that text marker detection
+// still works as a fallback when GitHubThreadResolved is false.
+func TestIsCommentResolved_TextMarkerFallback(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	tests := []struct {
+		name     string
+		comment  github.Comment
+		expected bool
+	}{
+		{
+			name: "Comment with ✅ Addressed marker",
+			comment: github.Comment{
+				ID:                   1,
+				Body:                 "✅ Addressed in commit abc123",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Comment with ✅ Fixed marker",
+			comment: github.Comment{
+				ID:                   2,
+				Body:                 "✅ Fixed in commit def456",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Comment with ✅ Resolved marker",
+			comment: github.Comment{
+				ID:                   3,
+				Body:                 "✅ Resolved in commit ghi789",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Comment with plain Addressed marker (no emoji)",
+			comment: github.Comment{
+				ID:                   4,
+				Body:                 "Addressed in commit jkl012",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Comment with plain Fixed marker (no emoji)",
+			comment: github.Comment{
+				ID:                   5,
+				Body:                 "Fixed in commit mno345",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Comment with plain Resolved marker (no emoji)",
+			comment: github.Comment{
+				ID:                   6,
+				Body:                 "Resolved in commit pqr678",
+				GitHubThreadResolved: false,
+			},
+			expected: true,
+		},
+		{
+			name: "Reply with resolution marker",
+			comment: github.Comment{
+				ID:                   7,
+				Body:                 "This needs to be fixed",
+				GitHubThreadResolved: false,
+				Replies: []github.Reply{
+					{
+						ID:   701,
+						Body: "✅ Fixed in commit stu901",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Multiple replies with one containing marker",
+			comment: github.Comment{
+				ID:                   8,
+				Body:                 "Multiple issues here",
+				GitHubThreadResolved: false,
+				Replies: []github.Reply{
+					{
+						ID:   801,
+						Body: "Working on it",
+					},
+					{
+						ID:   802,
+						Body: "Addressed in commit vwx234",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "Comment and reply without markers",
+			comment: github.Comment{
+				ID:                   9,
+				Body:                 "This is an issue",
+				GitHubThreadResolved: false,
+				Replies: []github.Reply{
+					{
+						ID:   901,
+						Body: "I'm looking into this",
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := analyzer.isCommentResolved(tt.comment)
+			if result != tt.expected {
+				t.Errorf("isCommentResolved() = %v, expected %v\nComment: %+v", result, tt.expected, tt.comment)
+			}
+		})
+	}
+}
+
+// TestIsCommentResolved_PriorityOrder tests that GitHubThreadResolved
+// is checked before text markers for performance optimization.
+func TestIsCommentResolved_PriorityOrder(t *testing.T) {
+	cfg := &config.Config{
+		TaskSettings: config.TaskSettings{
+			DefaultStatus: "todo",
+		},
+	}
+	analyzer := NewAnalyzer(cfg)
+
+	// This comment has GitHubThreadResolved=true, so it should return true
+	// immediately without needing to check the body or replies
+	comment := github.Comment{
+		ID:                   1,
+		Body:                 "This is a very long comment body that would take time to parse",
+		GitHubThreadResolved: true,
+		Replies: []github.Reply{
+			{ID: 101, Body: "Reply 1"},
+			{ID: 102, Body: "Reply 2"},
+			{ID: 103, Body: "Reply 3"},
+		},
+	}
+
+	result := analyzer.isCommentResolved(comment)
+	if !result {
+		t.Errorf("isCommentResolved() should return true for GitHubThreadResolved=true, got false")
+	}
+
+	// This comment has GitHubThreadResolved=false but has a resolution marker
+	// It should still return true by checking the fallback text markers
+	comment2 := github.Comment{
+		ID:                   2,
+		Body:                 "✅ Fixed in commit abc123",
+		GitHubThreadResolved: false,
+	}
+
+	result2 := analyzer.isCommentResolved(comment2)
+	if !result2 {
+		t.Errorf("isCommentResolved() should return true for resolution marker, got false")
+	}
+}
