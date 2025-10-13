@@ -437,14 +437,27 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		}
 	}
 
-	// Get reviews
-	reviews, _, err := c.client.PullRequests.ListReviews(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get reviews: %w", err)
+	// Get reviews with pagination to handle PRs with >30 reviews
+	var allReviews []*github.PullRequestReview
+	opts := &github.ListOptions{
+		PerPage: 100, // GitHub max per page
+	}
+
+	for {
+		reviews, resp, err := c.client.PullRequests.ListReviews(ctx, c.owner, c.repo, prNumber, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get reviews: %w", err)
+		}
+		allReviews = append(allReviews, reviews...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
 
 	result := []Review{}
-	for _, review := range reviews {
+	for _, review := range allReviews {
 		reviewBody := review.GetBody()
 		reviewer := review.GetUser().GetLogin()
 		submittedAt := review.GetSubmittedAt().Format("2006-01-02T15:04:05Z")
@@ -508,14 +521,29 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		Comments:    []Comment{},
 	}
 
-	// Get issue comments from the PR author
-	issueComments, _, err := c.client.Issues.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get issue comments: %w", err)
+	// Get issue comments from the PR author with pagination
+	var allIssueComments []*github.IssueComment
+	issueOpts := &github.IssueListCommentsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100, // GitHub max per page
+		},
+	}
+
+	for {
+		issueComments, resp, err := c.client.Issues.ListComments(ctx, c.owner, c.repo, prNumber, issueOpts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get issue comments: %w", err)
+		}
+		allIssueComments = append(allIssueComments, issueComments...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		issueOpts.Page = resp.NextPage
 	}
 
 	// Filter and add issue comments from the author
-	for _, comment := range issueComments {
+	for _, comment := range allIssueComments {
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
@@ -530,10 +558,25 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		}
 	}
 
-	// Get PR review comments from the author
-	allPRComments, _, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PR comments: %w", err)
+	// Get PR review comments from the author with pagination
+	var allPRComments []*github.PullRequestComment
+	prOpts := &github.PullRequestListCommentsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100, // GitHub max per page
+		},
+	}
+
+	for {
+		prComments, resp, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, prOpts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get PR comments: %w", err)
+		}
+		allPRComments = append(allPRComments, prComments...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		prOpts.Page = resp.NextPage
 	}
 
 	// Filter and add PR comments from the author
@@ -580,14 +623,28 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 		}
 	}
 
-	// If we don't have comments from cache, fetch them
+	// If we don't have comments from cache, fetch them with pagination
 	if allComments == nil {
-		// Get all PR review comments
-		var err error
-		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get PR comments: %w", err)
+		// Get all PR review comments with pagination to handle PRs with >30 comments
+		opts := &github.PullRequestListCommentsOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100, // GitHub max per page
+			},
 		}
+
+		for {
+			comments, resp, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get PR comments: %w", err)
+			}
+			allComments = append(allComments, comments...)
+
+			if resp.NextPage == 0 {
+				break
+			}
+			opts.Page = resp.NextPage
+		}
+
 		// Cache the raw comments (ignore cache error)
 		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
