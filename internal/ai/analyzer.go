@@ -2203,7 +2203,14 @@ func (a *Analyzer) generateTasksParallelWithValidation(comments []CommentContext
 
 // isCommentResolved checks if a comment has been marked as resolved/addressed
 func (a *Analyzer) isCommentResolved(comment github.Comment) bool {
-	// Check for common resolution markers in the comment body or replies
+	// Check GitHub thread resolved status first
+	// This is the authoritative source of truth from GitHub API
+	if comment.GitHubThreadResolved {
+		return true
+	}
+
+	// Fallback: Check for common resolution markers in the comment body or replies
+	// This handles cases where reviews.json hasn't been updated yet
 	resolvedMarkers := []string{
 		"✅ Addressed in commit",
 		"✅ Fixed in commit",
