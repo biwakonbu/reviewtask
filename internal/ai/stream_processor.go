@@ -152,13 +152,10 @@ func (sp *StreamProcessor) ProcessCommentsStream(comments []CommentContext, proc
 	return dedupedTasks, nil
 }
 
-// ProcessCommentsWithRealtimeSaving processes comments in parallel with real-time task saving
+// ProcessCommentsWithRealtimeSaving processes comments using Worker Pool pattern with real-time task saving
 func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentContext, storageManager *storage.Manager, prNumber int) ([]storage.Task, error) {
 	if sp.analyzer.config.AISettings.VerboseMode {
 		fmt.Printf("🔍 ProcessCommentsWithRealtimeSaving started with %d comments\n", len(comments))
-	}
-	if sp.analyzer.config.AISettings.VerboseMode {
-		fmt.Printf("Processing %d comments in parallel with real-time saving...\n", len(comments))
 	}
 
 	// Create and start write worker if not provided
@@ -180,52 +177,69 @@ func (sp *StreamProcessor) ProcessCommentsWithRealtimeSaving(comments []CommentC
 		context CommentContext
 	}
 
-	results := make(chan result, len(comments))
-	var wg sync.WaitGroup
-
-	// Create semaphore channel for concurrency control
+	// Determine number of workers
 	maxConcurrent := sp.analyzer.config.AISettings.MaxConcurrentRequests
 	if maxConcurrent <= 0 {
 		maxConcurrent = 5 // Fallback to default
 	}
-	semaphore := make(chan struct{}, maxConcurrent)
 
 	// Show initial progress message
-	fmt.Printf("Processing %d comments in parallel (%d concurrent)...\n", len(comments), maxConcurrent)
+	fmt.Printf("Processing %d comments using Worker Pool (%d workers)...\n", len(comments), maxConcurrent)
 
-	// Process all comments in parallel with concurrency limit
-	for _, commentCtx := range comments {
+	// Create channels for Worker Pool pattern
+	jobs := make(chan CommentContext, len(comments))
+	results := make(chan result, len(comments))
+
+	// Start fixed number of worker goroutines
+	var wg sync.WaitGroup
+	for w := 0; w < maxConcurrent; w++ {
 		wg.Add(1)
-		go func(ctx CommentContext) {
+		go func(workerID int) {
 			defer wg.Done()
+			if sp.analyzer.config.AISettings.VerboseMode {
+				fmt.Printf("🔧 Worker %d started\n", workerID)
+			}
 
-			// Acquire semaphore (blocks if max concurrent requests reached)
-			// No timeout - wait indefinitely to avoid dropping queued comments
-			semaphore <- struct{}{}
-			defer func() { <-semaphore }() // Release semaphore
+			// Worker processes jobs from the jobs channel
+			for ctx := range jobs {
+				if sp.analyzer.config.AISettings.VerboseMode {
+					fmt.Printf("🔍 Worker %d: Processing comment ID %d\n", workerID, ctx.Comment.ID)
+				}
+
+				tasks, err := sp.analyzer.processComment(ctx)
+
+				if err != nil {
+					if sp.analyzer.config.AISettings.VerboseMode {
+						fmt.Printf("🔍 Worker %d: Comment ID %d failed: %v\n", workerID, ctx.Comment.ID, err)
+					}
+				} else {
+					if sp.analyzer.config.AISettings.VerboseMode {
+						fmt.Printf("🔍 Worker %d: Comment ID %d completed (%d tasks)\n", workerID, ctx.Comment.ID, len(tasks))
+					}
+				}
+
+				results <- result{
+					tasks:   tasks,
+					err:     err,
+					context: ctx,
+				}
+			}
 
 			if sp.analyzer.config.AISettings.VerboseMode {
-				fmt.Printf("🔍 Starting processing of comment ID %d\n", ctx.Comment.ID)
+				fmt.Printf("🔧 Worker %d finished\n", workerID)
 			}
-			tasks, err := sp.analyzer.processComment(ctx)
-			if err != nil {
-				if sp.analyzer.config.AISettings.VerboseMode {
-					fmt.Printf("🔍 Finished processing comment ID %d with error: %v\n", ctx.Comment.ID, err)
-				}
-			} else {
-				if sp.analyzer.config.AISettings.VerboseMode {
-					fmt.Printf("🔍 Finished processing comment ID %d successfully, generated %d tasks\n", ctx.Comment.ID, len(tasks))
-				}
-			}
-			results <- result{
-				tasks:   tasks,
-				err:     err,
-				context: ctx,
-			}
-		}(commentCtx)
+		}(w)
 	}
 
-	// Close results channel when all goroutines complete
+	// Send all jobs to the jobs channel
+	go func() {
+		for _, commentCtx := range comments {
+			jobs <- commentCtx
+		}
+		close(jobs) // Close jobs channel when all jobs are sent
+	}()
+
+	// Close results channel when all workers complete
 	go func() {
 		wg.Wait()
 		close(results)
