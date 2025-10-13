@@ -13,6 +13,7 @@ import (
 type GraphQLClient struct {
 	token      string
 	httpClient *http.Client
+	endpoint   string // Allow overriding the endpoint for testing
 }
 
 // GraphQLRequest represents a GraphQL request
@@ -38,6 +39,7 @@ func NewGraphQLClient(token string) *GraphQLClient {
 	return &GraphQLClient{
 		token:      token,
 		httpClient: &http.Client{},
+		endpoint:   "https://api.github.com/graphql",
 	}
 }
 
@@ -53,7 +55,7 @@ func (c *GraphQLClient) Execute(ctx context.Context, query string, variables map
 		return fmt.Errorf("failed to marshal GraphQL request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.github.com/graphql", bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
