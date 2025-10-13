@@ -147,6 +147,68 @@ func BuildThreadCommentsResponse(comments []MockComment, hasNextPage bool, endCu
 	}
 }
 
+// BuildReviewThreadIDResponse builds a response for GetReviewThreadID query
+func BuildReviewThreadIDResponse(threads []MockThread, hasNextPage bool, endCursor string) map[string]interface{} {
+	threadNodes := make([]map[string]interface{}, len(threads))
+	for i, thread := range threads {
+		commentNodes := make([]map[string]interface{}, len(thread.Comments))
+		for j, comment := range thread.Comments {
+			commentNodes[j] = map[string]interface{}{
+				"id":         comment.ID,
+				"databaseId": comment.DatabaseID,
+			}
+		}
+
+		threadNodes[i] = map[string]interface{}{
+			"id": thread.ID,
+			"comments": map[string]interface{}{
+				"pageInfo": map[string]interface{}{
+					"hasNextPage": thread.CommentsHasNextPage,
+					"endCursor":   thread.CommentsEndCursor,
+				},
+				"nodes": commentNodes,
+			},
+		}
+	}
+
+	return map[string]interface{}{
+		"repository": map[string]interface{}{
+			"pullRequest": map[string]interface{}{
+				"reviewThreads": map[string]interface{}{
+					"pageInfo": map[string]interface{}{
+						"hasNextPage": hasNextPage,
+						"endCursor":   endCursor,
+					},
+					"nodes": threadNodes,
+				},
+			},
+		},
+	}
+}
+
+// BuildThreadCommentsIDResponse builds a response for paginated thread comments query (GetReviewThreadID)
+func BuildThreadCommentsIDResponse(comments []MockComment, hasNextPage bool, endCursor string) map[string]interface{} {
+	commentNodes := make([]map[string]interface{}, len(comments))
+	for i, comment := range comments {
+		commentNodes[i] = map[string]interface{}{
+			"id":         comment.ID,
+			"databaseId": comment.DatabaseID,
+		}
+	}
+
+	return map[string]interface{}{
+		"node": map[string]interface{}{
+			"comments": map[string]interface{}{
+				"pageInfo": map[string]interface{}{
+					"hasNextPage": hasNextPage,
+					"endCursor":   endCursor,
+				},
+				"nodes": commentNodes,
+			},
+		},
+	}
+}
+
 // MockThread represents a mock review thread
 type MockThread struct {
 	ID                  string
