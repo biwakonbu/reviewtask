@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestUpdateThreadResolutionStatus_UseBatchAPI(t *testing.T) {
@@ -136,29 +135,33 @@ func TestUpdateThreadResolutionStatus_UseBatchAPI(t *testing.T) {
 			})
 			defer mockServer.Close()
 
-			// Create mock client
+			// Create mock GraphQL client
 			graphQLClient := NewMockGraphQLClient(mockServer, "test-token")
 
-			// Mock GetAllThreadStates by creating a test helper
-			ctx := context.Background()
-			threadStateMap, err := graphQLClient.GetAllThreadStates(ctx, "test-owner", "test-repo", 123)
-			if err != nil {
-				t.Fatalf("Failed to get thread states: %v", err)
+			// Create mock GitHub client with injected GraphQL client
+			mockClient := &Client{
+				owner:                   "test-owner",
+				repo:                    "test-repo",
+				client:                  nil, // Not needed for this test
+				graphQLClientForTesting: graphQLClient,
 			}
 
-			// Manually map results since we're testing the logic
-			var statuses []ReviewThreadStatus
-			for _, comment := range tt.comments {
-				isResolved, found := threadStateMap[comment.ID]
-				if !found {
-					isResolved = false
+			// Create tracker with mock client
+			tracker := NewThreadResolutionTracker(mockClient)
+
+			// Call the actual production method
+			ctx := context.Background()
+			statuses, err := tracker.UpdateThreadResolutionStatus(ctx, 123, tt.comments)
+
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("Expected error but got none")
 				}
-				statuses = append(statuses, ReviewThreadStatus{
-					CommentID:            comment.ID,
-					GitHubThreadResolved: isResolved,
-					LastCheckedAt:        time.Now(),
-					InReplyToID:          0,
-				})
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
 			}
 
 			// Verify GraphQL call count (should be minimal for batch API)
@@ -207,15 +210,15 @@ func TestUpdateThreadResolutionStatus_Integration(t *testing.T) {
 
 		graphQLClient := NewMockGraphQLClient(mockServer, "test-token")
 
-		// Create a mock client that uses the GraphQL client
+		// Create a mock client with injected GraphQL client
 		mockClient := &Client{
-			owner:  "test-owner",
-			repo:   "test-repo",
-			client: nil, // Not needed for this test
+			owner:                   "test-owner",
+			repo:                    "test-repo",
+			client:                  nil, // Not needed for this test
+			graphQLClientForTesting: graphQLClient,
 		}
 
-		// Override the NewGraphQLClient method by creating a custom test helper
-		// This simulates injecting the mock GraphQL client
+		// Create tracker with the mock client
 		tracker := NewThreadResolutionTracker(mockClient)
 
 		// Define test comments
@@ -224,32 +227,14 @@ func TestUpdateThreadResolutionStatus_Integration(t *testing.T) {
 			{ID: 101, Body: "Comment 2"},
 		}
 
-		// Since we can't directly inject the GraphQL client into the tracker,
-		// we'll test the batch API behavior directly via the Client's GetAllThreadStates
+		// Call the actual production method
 		ctx := context.Background()
-
-		// Use the mock GraphQL client to simulate what UpdateThreadResolutionStatus would do
-		threadStates, err := graphQLClient.GetAllThreadStates(ctx, "test-owner", "test-repo", 123)
+		statuses, err := tracker.UpdateThreadResolutionStatus(ctx, 123, comments)
 		if err != nil {
-			t.Fatalf("GetAllThreadStates failed: %v", err)
+			t.Fatalf("UpdateThreadResolutionStatus failed: %v", err)
 		}
 
-		// Manually construct what UpdateThreadResolutionStatus would return
-		var statuses []ReviewThreadStatus
-		for _, comment := range comments {
-			isResolved, found := threadStates[comment.ID]
-			if !found {
-				isResolved = false
-			}
-			statuses = append(statuses, ReviewThreadStatus{
-				CommentID:            comment.ID,
-				GitHubThreadResolved: isResolved,
-				LastCheckedAt:        time.Now(),
-				InReplyToID:          0,
-			})
-		}
-
-		// Verify results as if UpdateThreadResolutionStatus was called
+		// Verify results
 		if len(statuses) != 2 {
 			t.Errorf("Expected 2 statuses, got %d", len(statuses))
 		}

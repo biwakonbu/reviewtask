@@ -24,6 +24,10 @@ type Client struct {
 	owner  string
 	repo   string
 	cache  *APICache
+
+	// graphQLClientForTesting allows injecting a mock GraphQL client for testing
+	// When set, GetAllThreadStates uses this instead of creating a new client
+	graphQLClientForTesting *GraphQLClient
 }
 
 type PRInfo struct {
@@ -693,9 +697,17 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 // GetAllThreadStates fetches all thread resolution states for a PR in batch
 // This is the optimized batch version that avoids N+1 query problem
 func (c *Client) GetAllThreadStates(ctx context.Context, prNumber int) (map[int64]bool, error) {
-	graphqlClient, err := c.NewGraphQLClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create GraphQL client: %w", err)
+	var graphqlClient *GraphQLClient
+	var err error
+
+	// Use injected mock client for testing if available
+	if c.graphQLClientForTesting != nil {
+		graphqlClient = c.graphQLClientForTesting
+	} else {
+		graphqlClient, err = c.NewGraphQLClient()
+		if err != nil {
+			return nil, fmt.Errorf("failed to create GraphQL client: %w", err)
+		}
 	}
 
 	return graphqlClient.GetAllThreadStates(ctx, c.owner, c.repo, prNumber)
