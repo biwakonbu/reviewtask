@@ -439,6 +439,103 @@ func TestGraphQLClient_Execute(t *testing.T) {
 	}
 }
 
+// TestNewGraphQLClientWithEndpoint tests the custom endpoint constructor
+func TestNewGraphQLClientWithEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		endpoint string
+	}{
+		{
+			name:     "custom endpoint for mock server",
+			token:    "test-token",
+			endpoint: "http://localhost:8080/graphql",
+		},
+		{
+			name:     "self-hosted GitHub Enterprise",
+			token:    "enterprise-token",
+			endpoint: "https://github.enterprise.com/api/graphql",
+		},
+		{
+			name:     "empty token",
+			token:    "",
+			endpoint: "https://api.github.com/graphql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewGraphQLClientWithEndpoint(tt.token, tt.endpoint)
+
+			// Verify client is created with correct values
+			if client == nil {
+				t.Fatal("Expected client to be non-nil")
+			}
+			if client.token != tt.token {
+				t.Errorf("Expected token %q, got %q", tt.token, client.token)
+			}
+			if client.endpoint != tt.endpoint {
+				t.Errorf("Expected endpoint %q, got %q", tt.endpoint, client.endpoint)
+			}
+			if client.httpClient == nil {
+				t.Error("Expected httpClient to be non-nil")
+			}
+		})
+	}
+}
+
+// TestNewGraphQLClient_DefaultEndpoint tests that default constructor uses standard GitHub endpoint
+func TestNewGraphQLClient_DefaultEndpoint(t *testing.T) {
+	token := "test-token"
+	client := NewGraphQLClient(token)
+
+	expectedEndpoint := "https://api.github.com/graphql"
+	if client.endpoint != expectedEndpoint {
+		t.Errorf("Expected default endpoint %q, got %q", expectedEndpoint, client.endpoint)
+	}
+	if client.token != token {
+		t.Errorf("Expected token %q, got %q", token, client.token)
+	}
+}
+
+// TestGraphQLClientWithEndpoint_Execute tests execution with custom endpoint
+func TestGraphQLClientWithEndpoint_Execute(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock server
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		return map[string]interface{}{
+			"viewer": map[string]interface{}{
+				"login": "testuser",
+			},
+		}, nil
+	})
+	defer mockServer.Close()
+
+	// Create client using NewGraphQLClientWithEndpoint
+	client := NewGraphQLClientWithEndpoint("test-token", mockServer.Server.URL)
+	client.httpClient = mockServer.Server.Client()
+
+	// Execute query
+	var result map[string]interface{}
+	query := "query { viewer { login } }"
+	err := client.Execute(ctx, query, nil, &result)
+
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// Verify result
+	viewer, ok := result["viewer"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected viewer field in result")
+	}
+	login, ok := viewer["login"].(string)
+	if !ok || login != "testuser" {
+		t.Errorf("Expected login='testuser', got %v", login)
+	}
+}
+
 // TestGraphQLClient_Authentication tests that authentication header is set correctly with mock server
 func TestGraphQLClient_Authentication(t *testing.T) {
 	ctx := context.Background()
