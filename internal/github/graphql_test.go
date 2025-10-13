@@ -8,138 +8,241 @@ import (
 	"testing"
 )
 
-// TestGetAllThreadStates_SinglePage tests batch fetching with single page
+// TestGetAllThreadStates_SinglePage tests batch fetching with single page using mock server
 func TestGetAllThreadStates_SinglePage(t *testing.T) {
-	// Mock GraphQL server
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response := map[string]interface{}{
-			"data": map[string]interface{}{
-				"repository": map[string]interface{}{
-					"pullRequest": map[string]interface{}{
-						"reviewThreads": map[string]interface{}{
-							"pageInfo": map[string]interface{}{
-								"hasNextPage": false,
-								"endCursor":   "",
-							},
-							"nodes": []map[string]interface{}{
-								{
-									"id":         "thread1",
-									"isResolved": true,
-									"comments": map[string]interface{}{
-										"nodes": []map[string]interface{}{
-											{"databaseId": 101},
-											{"databaseId": 102},
-										},
-									},
-								},
-								{
-									"id":         "thread2",
-									"isResolved": false,
-									"comments": map[string]interface{}{
-										"nodes": []map[string]interface{}{
-											{"databaseId": 201},
-										},
-									},
-								},
-							},
-						},
-					},
+	ctx := context.Background()
+
+	// Create mock server
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		// Build response with two threads
+		threads := []MockThread{
+			{
+				ID:         "thread1",
+				IsResolved: true,
+				Comments: []MockComment{
+					{DatabaseID: 101},
+					{DatabaseID: 102},
 				},
+				CommentsHasNextPage: false,
+				CommentsEndCursor:   "",
+			},
+			{
+				ID:         "thread2",
+				IsResolved: false,
+				Comments: []MockComment{
+					{DatabaseID: 201},
+				},
+				CommentsHasNextPage: false,
+				CommentsEndCursor:   "",
 			},
 		}
 
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-	}))
-	defer server.Close()
+		return BuildThreadStatesResponse(threads, false, ""), nil
+	})
+	defer mockServer.Close()
 
-	// Note: This test would need to be adapted to work with the actual GraphQL client
-	// For now, we'll verify the expected behavior
+	// Create client using mock server
+	client := NewMockGraphQLClient(mockServer, "test-token")
 
+	// Execute the actual GetAllThreadStates method
+	states, err := client.GetAllThreadStates(ctx, "owner", "repo", 123)
+	if err != nil {
+		t.Fatalf("GetAllThreadStates failed: %v", err)
+	}
+
+	// Verify results
 	expectedStates := map[int64]bool{
 		101: true,  // thread1 is resolved
 		102: true,  // thread1 is resolved
 		201: false, // thread2 is unresolved
 	}
 
-	// Verify expected states
-	if len(expectedStates) != 3 {
-		t.Errorf("Expected 3 comment states, got %d", len(expectedStates))
+	if len(states) != len(expectedStates) {
+		t.Errorf("Expected %d comment states, got %d", len(expectedStates), len(states))
 	}
 
-	if expectedStates[101] != true {
-		t.Error("Comment 101 should be resolved")
-	}
-	if expectedStates[102] != true {
-		t.Error("Comment 102 should be resolved")
-	}
-	if expectedStates[201] != false {
-		t.Error("Comment 201 should be unresolved")
+	for commentID, expectedResolved := range expectedStates {
+		if actualResolved, exists := states[commentID]; !exists {
+			t.Errorf("Comment %d not found in results", commentID)
+		} else if actualResolved != expectedResolved {
+			t.Errorf("Comment %d: expected resolved=%v, got %v", commentID, expectedResolved, actualResolved)
+		}
 	}
 }
 
-// TestGetAllThreadStates_Pagination tests batch fetching with pagination
+// TestGetAllThreadStates_Pagination tests batch fetching with thread pagination using mock server
 func TestGetAllThreadStates_Pagination(t *testing.T) {
-	tests := []struct {
-		name          string
-		threadStates  map[int64]bool
-		expectedCount int
-	}{
-		{
-			name: "single page with multiple threads",
-			threadStates: map[int64]bool{
-				1: true,
-				2: false,
-				3: true,
-			},
-			expectedCount: 3,
-		},
-		{
-			name: "multiple pages",
-			threadStates: map[int64]bool{
-				1: true,
-				2: false,
-				3: true,
-				4: false,
-			},
-			expectedCount: 4,
-		},
-		{
-			name:          "large number of threads (>100)",
-			threadStates:  createThreadStates(1, 150, true),
-			expectedCount: 150,
-		},
-	}
+	ctx := context.Background()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if len(tt.threadStates) != tt.expectedCount {
-				t.Errorf("Expected %d thread states, got %d", tt.expectedCount, len(tt.threadStates))
+	// Track which page we're on
+	pageNumber := 0
+
+	// Create mock server that simulates pagination
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		// Check if this is a paginated request
+		_, hasCursor := variables["threadCursor"]
+
+		if !hasCursor {
+			// First page: threads 1-2
+			pageNumber = 0
+			threads := []MockThread{
+				{
+					ID:         "thread1",
+					IsResolved: true,
+					Comments: []MockComment{
+						{DatabaseID: 1},
+					},
+					CommentsHasNextPage: false,
+				},
+				{
+					ID:         "thread2",
+					IsResolved: false,
+					Comments: []MockComment{
+						{DatabaseID: 2},
+					},
+					CommentsHasNextPage: false,
+				},
 			}
-		})
+			return BuildThreadStatesResponse(threads, true, "cursor1"), nil
+		} else {
+			// Second page: threads 3-4
+			pageNumber++
+			threads := []MockThread{
+				{
+					ID:         "thread3",
+					IsResolved: true,
+					Comments: []MockComment{
+						{DatabaseID: 3},
+					},
+					CommentsHasNextPage: false,
+				},
+				{
+					ID:         "thread4",
+					IsResolved: false,
+					Comments: []MockComment{
+						{DatabaseID: 4},
+					},
+					CommentsHasNextPage: false,
+				},
+			}
+			return BuildThreadStatesResponse(threads, false, ""), nil
+		}
+	})
+	defer mockServer.Close()
+
+	// Create client using mock server
+	client := NewMockGraphQLClient(mockServer, "test-token")
+
+	// Execute the actual GetAllThreadStates method
+	states, err := client.GetAllThreadStates(ctx, "owner", "repo", 123)
+	if err != nil {
+		t.Fatalf("GetAllThreadStates failed: %v", err)
+	}
+
+	// Verify results from both pages
+	expectedStates := map[int64]bool{
+		1: true,  // page 1
+		2: false, // page 1
+		3: true,  // page 2
+		4: false, // page 2
+	}
+
+	if len(states) != len(expectedStates) {
+		t.Errorf("Expected %d comment states, got %d", len(expectedStates), len(states))
+	}
+
+	for commentID, expectedResolved := range expectedStates {
+		if actualResolved, exists := states[commentID]; !exists {
+			t.Errorf("Comment %d not found in results", commentID)
+		} else if actualResolved != expectedResolved {
+			t.Errorf("Comment %d: expected resolved=%v, got %v", commentID, expectedResolved, actualResolved)
+		}
+	}
+
+	// Verify that pagination actually happened
+	if pageNumber < 1 {
+		t.Error("Expected pagination to occur, but only one page was fetched")
 	}
 }
 
-// TestGetAllThreadStates_EmptyResult tests handling of PRs with no review threads
+// TestGetAllThreadStates_EmptyResult tests handling of PRs with no review threads using mock server
 func TestGetAllThreadStates_EmptyResult(t *testing.T) {
-	// Mock empty response
-	emptyStates := make(map[int64]bool)
+	ctx := context.Background()
 
-	if len(emptyStates) != 0 {
-		t.Errorf("Expected empty map, got %d entries", len(emptyStates))
+	// Create mock server with empty response
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		// Return empty threads
+		return BuildThreadStatesResponse([]MockThread{}, false, ""), nil
+	})
+	defer mockServer.Close()
+
+	// Create client using mock server
+	client := NewMockGraphQLClient(mockServer, "test-token")
+
+	// Execute the actual GetAllThreadStates method
+	states, err := client.GetAllThreadStates(ctx, "owner", "repo", 123)
+	if err != nil {
+		t.Fatalf("GetAllThreadStates failed: %v", err)
+	}
+
+	// Verify empty result
+	if len(states) != 0 {
+		t.Errorf("Expected empty map, got %d entries", len(states))
 	}
 }
 
-// TestGetAllThreadStates_MixedResolutionStates tests mixed resolved/unresolved threads
+// TestGetAllThreadStates_MixedResolutionStates tests mixed resolved/unresolved threads using mock server
 func TestGetAllThreadStates_MixedResolutionStates(t *testing.T) {
-	states := map[int64]bool{
-		1: true,
-		2: false,
-		3: true,
-		4: false,
-		5: true,
+	ctx := context.Background()
+
+	// Create mock server with mixed resolved/unresolved threads
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		threads := []MockThread{
+			{
+				ID:                  "thread1",
+				IsResolved:          true,
+				Comments:            []MockComment{{DatabaseID: 1}},
+				CommentsHasNextPage: false,
+			},
+			{
+				ID:                  "thread2",
+				IsResolved:          false,
+				Comments:            []MockComment{{DatabaseID: 2}},
+				CommentsHasNextPage: false,
+			},
+			{
+				ID:                  "thread3",
+				IsResolved:          true,
+				Comments:            []MockComment{{DatabaseID: 3}},
+				CommentsHasNextPage: false,
+			},
+			{
+				ID:                  "thread4",
+				IsResolved:          false,
+				Comments:            []MockComment{{DatabaseID: 4}},
+				CommentsHasNextPage: false,
+			},
+			{
+				ID:                  "thread5",
+				IsResolved:          true,
+				Comments:            []MockComment{{DatabaseID: 5}},
+				CommentsHasNextPage: false,
+			},
+		}
+		return BuildThreadStatesResponse(threads, false, ""), nil
+	})
+	defer mockServer.Close()
+
+	// Create client using mock server
+	client := NewMockGraphQLClient(mockServer, "test-token")
+
+	// Execute the actual GetAllThreadStates method
+	states, err := client.GetAllThreadStates(ctx, "owner", "repo", 123)
+	if err != nil {
+		t.Fatalf("GetAllThreadStates failed: %v", err)
 	}
 
+	// Count resolved and unresolved
 	resolvedCount := 0
 	unresolvedCount := 0
 
@@ -162,11 +265,9 @@ func TestGetAllThreadStates_MixedResolutionStates(t *testing.T) {
 // TestGetAllThreadStates_CommentPagination tests that comments within threads are paginated correctly
 func TestGetAllThreadStates_CommentPagination(t *testing.T) {
 	// This test verifies the fix for Issue #222 - ensuring that threads with >100 comments
-	// are fully processed by paginating through all comment pages
+	// are fully processed by paginating through all comment pages using the mock server
 
-	// Mock scenario: Thread with 150 comments (requires 2 pages)
-	// First page: comments 1-100
-	// Second page: comments 101-150
+	ctx := context.Background()
 
 	tests := []struct {
 		name                  string
@@ -181,60 +282,86 @@ func TestGetAllThreadStates_CommentPagination(t *testing.T) {
 			expectedTotalComments: 150,
 		},
 		{
-			name:                  "3 threads with 120 comments each",
-			commentsPerThread:     120,
-			threadsCount:          3,
-			expectedTotalComments: 360, // 3 * 120
-		},
-		{
 			name:                  "thread with exactly 100 comments (1 page)",
 			commentsPerThread:     100,
 			threadsCount:          1,
 			expectedTotalComments: 100,
 		},
-		{
-			name:                  "thread with 250 comments (3 pages)",
-			commentsPerThread:     250,
-			threadsCount:          1,
-			expectedTotalComments: 250,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Simulate the expected state map that would be created
-			// by paginating through all comments
-			stateMap := make(map[int64]bool)
+			// Track pagination requests
+			requestCount := 0
 
-			for threadIdx := 0; threadIdx < tt.threadsCount; threadIdx++ {
-				isResolved := threadIdx%2 == 0 // Alternate resolved/unresolved
+			// Create mock server that simulates comment pagination
+			mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+				requestCount++
 
-				for commentIdx := 0; commentIdx < tt.commentsPerThread; commentIdx++ {
-					commentID := int64(threadIdx*1000 + commentIdx + 1)
-					stateMap[commentID] = isResolved
+				// Check if this is the thread-scoped comment pagination query
+				if _, hasThreadID := variables["threadId"]; hasThreadID {
+					// This is a comment pagination request
+					// Return second page of comments (101-150)
+					comments := []MockComment{}
+					for i := 101; i <= tt.commentsPerThread; i++ {
+						comments = append(comments, MockComment{DatabaseID: int64(i)})
+					}
+					return BuildThreadCommentsResponse(comments, false, ""), nil
 				}
+
+				// Initial request - return thread with first page of comments
+				threads := []MockThread{}
+				for threadIdx := 0; threadIdx < tt.threadsCount; threadIdx++ {
+					comments := []MockComment{}
+					// First page: comments 1-100 (or all if <= 100)
+					maxFirstPage := tt.commentsPerThread
+					if maxFirstPage > 100 {
+						maxFirstPage = 100
+					}
+					for i := 1; i <= maxFirstPage; i++ {
+						comments = append(comments, MockComment{DatabaseID: int64(threadIdx*1000 + i)})
+					}
+
+					thread := MockThread{
+						ID:                  "thread1",
+						IsResolved:          true,
+						Comments:            comments,
+						CommentsHasNextPage: tt.commentsPerThread > 100,
+						CommentsEndCursor:   "cursor1",
+					}
+					threads = append(threads, thread)
+				}
+
+				return BuildThreadStatesResponse(threads, false, ""), nil
+			})
+			defer mockServer.Close()
+
+			// Create client using mock server
+			client := NewMockGraphQLClient(mockServer, "test-token")
+
+			// Execute the actual GetAllThreadStates method
+			states, err := client.GetAllThreadStates(ctx, "owner", "repo", 123)
+			if err != nil {
+				t.Fatalf("GetAllThreadStates failed: %v", err)
 			}
 
 			// Verify all comments were included
-			if len(stateMap) != tt.expectedTotalComments {
+			if len(states) != tt.expectedTotalComments {
 				t.Errorf("Expected %d comments in state map, got %d",
-					tt.expectedTotalComments, len(stateMap))
+					tt.expectedTotalComments, len(states))
 			}
 
-			// Verify that resolution states are correctly preserved for all comments
-			for threadIdx := 0; threadIdx < tt.threadsCount; threadIdx++ {
-				expectedResolved := threadIdx%2 == 0
-
-				for commentIdx := 0; commentIdx < tt.commentsPerThread; commentIdx++ {
-					commentID := int64(threadIdx*1000 + commentIdx + 1)
-
-					if actualResolved, exists := stateMap[commentID]; !exists {
-						t.Errorf("Comment %d not found in state map", commentID)
-					} else if actualResolved != expectedResolved {
-						t.Errorf("Comment %d: expected resolved=%v, got %v",
-							commentID, expectedResolved, actualResolved)
-					}
+			// Verify all comments are marked as resolved (matching thread state)
+			for commentID, isResolved := range states {
+				if !isResolved {
+					t.Errorf("Comment %d: expected resolved=true, got false", commentID)
 				}
+			}
+
+			// Verify pagination happened when expected
+			if tt.commentsPerThread > 100 && requestCount < 2 {
+				t.Errorf("Expected at least 2 requests for %d comments, got %d",
+					tt.commentsPerThread, requestCount)
 			}
 		})
 	}
@@ -250,78 +377,115 @@ func createThreadStates(startID int64, count int, resolved bool) map[int64]bool 
 	return states
 }
 
-// TestGraphQLClient_Execute tests basic GraphQL execution
+// TestGraphQLClient_Execute tests basic GraphQL execution with mock server
 func TestGraphQLClient_Execute(t *testing.T) {
+	ctx := context.Background()
+
 	tests := []struct {
-		name           string
-		responseStatus int
-		responseBody   string
-		expectError    bool
+		name        string
+		handler     func(string, map[string]interface{}) (interface{}, []GraphQLError)
+		expectError bool
 	}{
 		{
-			name:           "successful query",
-			responseStatus: http.StatusOK,
-			responseBody:   `{"data": {"repository": {"name": "test"}}}`,
-			expectError:    false,
+			name: "successful query",
+			handler: func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+				return map[string]interface{}{
+					"repository": map[string]interface{}{
+						"name": "test",
+					},
+				}, nil
+			},
+			expectError: false,
 		},
 		{
-			name:           "GraphQL error response",
-			responseStatus: http.StatusOK,
-			responseBody:   `{"errors": [{"message": "Field not found"}]}`,
-			expectError:    true,
-		},
-		{
-			name:           "HTTP error",
-			responseStatus: http.StatusInternalServerError,
-			responseBody:   `Internal Server Error`,
-			expectError:    true,
+			name: "GraphQL error response",
+			handler: func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+				return nil, []GraphQLError{
+					{Message: "Field not found", Type: "NOT_FOUND"},
+				}
+			},
+			expectError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(tt.responseStatus)
-				w.Write([]byte(tt.responseBody))
-			}))
-			defer server.Close()
+			// Create mock server
+			mockServer := NewMockGraphQLServer(t, tt.handler)
+			defer mockServer.Close()
 
-			// Create a client with custom endpoint pointing to test server
-			client := NewGraphQLClient("test-token")
-			// Override the httpClient with one that uses the test server
-			client.httpClient = server.Client()
+			// Create client using mock server
+			client := NewMockGraphQLClient(mockServer, "test-token")
 
-			// We need to modify the Execute method to use the test server URL
-			// For now, skip this test as it requires more mocking infrastructure
-			t.Skip("Skipping test that requires GraphQL client URL override")
+			// Execute a simple query
+			var result map[string]interface{}
+			err := client.Execute(ctx, "query { repository { name } }", nil, &result)
+
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Unexpected error: %v", err)
+			}
+			if !tt.expectError {
+				// Verify the result structure
+				if repo, ok := result["repository"].(map[string]interface{}); !ok {
+					t.Error("Expected repository field in result")
+				} else if name, ok := repo["name"].(string); !ok || name != "test" {
+					t.Errorf("Expected repository.name='test', got %v", name)
+				}
+			}
 		})
 	}
 }
 
-// TestGraphQLClient_Authentication tests that authentication header is set correctly
+// TestGraphQLClient_Authentication tests that authentication header is set correctly with mock server
 func TestGraphQLClient_Authentication(t *testing.T) {
-	// Skip this test as it requires GraphQL client URL override infrastructure
-	t.Skip("Skipping test that requires GraphQL client URL override")
-
+	ctx := context.Background()
 	expectedToken := "test-token-12345"
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		expectedHeader := "Bearer " + expectedToken
+	// Variable to capture the auth header from the request
+	var capturedAuthHeader string
 
-		if authHeader != expectedHeader {
-			t.Errorf("Expected Authorization header '%s', got '%s'", expectedHeader, authHeader)
+	// Create a custom mock server to capture headers
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedAuthHeader = r.Header.Get("Authorization")
+
+		// Verify it's a POST request with correct headers
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST request, got %s", r.Method)
 		}
 
+		contentType := r.Header.Get("Content-Type")
+		if contentType != "application/json" {
+			t.Errorf("Expected Content-Type 'application/json', got '%s'", contentType)
+		}
+
+		// Send success response
+		response := GraphQLResponse{
+			Data: map[string]interface{}{},
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"data": {}}`))
+		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
+	// Create client with custom token and endpoint
 	client := NewGraphQLClient(expectedToken)
+	client.endpoint = server.URL
+	client.httpClient = server.Client()
 
+	// Execute a query
 	var result map[string]interface{}
-	_ = client.Execute(context.Background(), "query {}", nil, &result)
+	err := client.Execute(ctx, "query {}", nil, &result)
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// Verify the Authorization header
+	expectedHeader := "Bearer " + expectedToken
+	if capturedAuthHeader != expectedHeader {
+		t.Errorf("Expected Authorization header '%s', got '%s'", expectedHeader, capturedAuthHeader)
+	}
 }
