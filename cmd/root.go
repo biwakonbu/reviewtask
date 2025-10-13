@@ -324,7 +324,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 
 		// Show warnings if any
-		if cfg.AISettings.VerboseMode && len(reconcileResult.Warnings) > 0 {
+		if len(reconcileResult.Warnings) > 0 {
 			for _, warning := range reconcileResult.Warnings {
 				fmt.Printf("  %s\n", warning)
 			}
