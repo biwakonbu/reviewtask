@@ -130,6 +130,21 @@ This workflow helps maintain consistent semantic versioning.`
 }
 
 func getPRReviewPromptTemplate() string {
+	// Try to read from external file first (preferred method for keeping in sync)
+	possiblePaths := []string{
+		".cursor/commands/pr-review/review-task-workflow.md",
+		".claude/commands/pr-review/review-task-workflow.md",
+		"../.cursor/commands/pr-review/review-task-workflow.md",
+		"../.claude/commands/pr-review/review-task-workflow.md",
+	}
+
+	for _, path := range possiblePaths {
+		if content, err := os.ReadFile(path); err == nil {
+			return string(content)
+		}
+	}
+
+	// Fallback to embedded template if external files not found
 	// IMPORTANT: This template must be kept in sync with:
 	// - .claude/commands/pr-review/review-task-workflow.md
 	// - .cursor/commands/pr-review/review-task-workflow.md
