@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -65,7 +66,7 @@ func TestUpdateThreadResolutionStatus_UseBatchAPI(t *testing.T) {
 				threads := make([]MockThread, 50)
 				for i := 0; i < 50; i++ {
 					threads[i] = MockThread{
-						ID:         "thread_" + string(rune(i)),
+						ID:         "thread_" + strconv.Itoa(i),
 						IsResolved: i%2 == 0, // Alternate resolved status
 						Comments: []MockComment{
 							{DatabaseID: int64(i*2 + 1)},
