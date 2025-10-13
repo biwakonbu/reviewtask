@@ -36,7 +36,7 @@ func TestEnrichCommentsWithPreloadedThreadState(t *testing.T) {
 			wantResolved: 2,
 		},
 		{
-			name: "Empty comments",
+			name:     "Empty comments",
 			comments: []Comment{},
 			threadStates: map[int64]bool{
 				1: true,
