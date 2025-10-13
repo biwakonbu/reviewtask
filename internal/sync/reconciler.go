@@ -58,7 +58,9 @@ func (r *Reconciler) ReconcileWithGitHub(ctx context.Context, prNumber int, revi
 	// Step 1: Get all thread states from GitHub in batch
 	threadStates, err := r.githubClient.GetAllThreadStates(ctx, prNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thread states from GitHub: %w", err)
+		// Log error but continue with empty threadStates - enrichment should be non-fatal
+		fmt.Printf("  ⚠️  Warning: failed to get thread states from GitHub: %v\n", err)
+		threadStates = make(map[int64]bool)
 	}
 
 	// Count total comments and resolved threads
@@ -154,7 +156,9 @@ func (r *Reconciler) UpdateCommentResolutionStates(ctx context.Context, prNumber
 	// Get all thread states from GitHub in batch
 	threadStates, err := r.githubClient.GetAllThreadStates(ctx, prNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get thread states: %w", err)
+		// Log error but continue with empty threadStates - enrichment should be non-fatal
+		fmt.Printf("  ⚠️  Warning: failed to get thread states: %v\n", err)
+		threadStates = make(map[int64]bool)
 	}
 
 	// Update resolution state for each comment

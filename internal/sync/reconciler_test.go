@@ -265,10 +265,16 @@ func TestReconcileWithGitHub_ErrorHandling(t *testing.T) {
 		mockStorage := NewMockStorageManager()
 
 		reconciler := NewReconciler(mockGitHub, mockStorage)
-		_, err := reconciler.ReconcileWithGitHub(ctx, 1, []github.Review{})
+		result, err := reconciler.ReconcileWithGitHub(ctx, 1, []github.Review{})
 
-		if err == nil {
-			t.Error("Expected error when GetAllThreadStates fails")
+		// Should not return error - enrichment should be non-fatal
+		if err != nil {
+			t.Errorf("Should not return error for GetAllThreadStates failure, got: %v", err)
+		}
+
+		// Should still return a valid result with zero values
+		if result == nil {
+			t.Error("Expected non-nil result even when GetAllThreadStates fails")
 		}
 	})
 
