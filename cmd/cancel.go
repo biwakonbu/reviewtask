@@ -151,6 +151,14 @@ func runCancel(cmd *cobra.Command, args []string) error {
 			}
 			return fmt.Errorf("failed to cancel %d task(s)", failureCount)
 		}
+
+		// Print batch resolution guidance
+		fmt.Println()
+		fmt.Println("📝 Thread Resolution Guidance:")
+		fmt.Println("   If these cancellations fully address the reviewer's feedback,")
+		fmt.Println("   consider resolving all related review threads:")
+		fmt.Println()
+		fmt.Println("     reviewtask resolve --all")
 	}
 
 	return nil
@@ -184,6 +192,10 @@ func cancelTask(cmd *cobra.Command, storageManager *storage.Manager, githubClien
 	}
 
 	fmt.Printf("✓ Cancelled task '%s' and posted reason to PR #%d\n", task.ID, task.PRNumber)
+
+	// Provide guidance on thread resolution
+	printThreadResolutionGuidance(task.ID)
+
 	return nil
 }
 
@@ -281,4 +293,18 @@ func countOtherActiveTasksFromSameComment(storageManager *storage.Manager, curre
 	}
 
 	return count
+}
+
+// printThreadResolutionGuidance prints guidance on when and how to resolve review threads
+func printThreadResolutionGuidance(taskID string) {
+	fmt.Println()
+	fmt.Println("📝 Thread Resolution Guidance:")
+	fmt.Println("   If this cancellation fully addresses the reviewer's feedback")
+	fmt.Println("   (e.g., by referencing a follow-up Issue or PR), consider resolving")
+	fmt.Println("   the review thread:")
+	fmt.Println()
+	fmt.Printf("     reviewtask resolve %s\n", taskID)
+	fmt.Println()
+	fmt.Println("   Or resolve all done/cancelled tasks at once:")
+	fmt.Println("     reviewtask resolve --all")
 }

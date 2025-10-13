@@ -184,6 +184,7 @@ Notes:
 - Run `reviewtask` immediately after receiving reviews
 - Update task statuses as you complete work
 - Never manually edit `.pr-review/` files
+- **When deferring tasks to follow-up PR**: ALWAYS create a GitHub Issue first, then reference it in cancellation reason
 
 **For Reviewers:**
 - Write actionable, specific feedback
@@ -194,6 +195,30 @@ Notes:
 - Integrate task status into standup discussions
 - Use task completion as PR readiness indicator
 - Treat persistent `pending` tasks as team blockers
+
+**Task Cancellation Best Practices:**
+When cancelling tasks that will be addressed in a follow-up PR:
+1. **ALWAYS create a GitHub Issue first** to track the deferred work
+   ```bash
+   gh issue create --title "..." --body "Deferred from PR #X..."
+   ```
+2. **Reference the Issue number** in the cancellation reason
+   ```bash
+   reviewtask cancel <task-id> --reason "Deferring to follow-up PR. Tracked in Issue #Y"
+   ```
+3. **Consider resolving the review thread** when cancellation fully addresses feedback:
+   ```bash
+   reviewtask resolve <task-id>
+   # Or resolve all done/cancelled tasks at once:
+   reviewtask resolve --all
+   ```
+4. This ensures transparency, trackability, and prevents lost feedback
+
+**Thread Resolution Guidance:**
+After cancelling tasks, the tool provides clear guidance on when and how to resolve review threads:
+- If cancellation fully addresses reviewer feedback (e.g., Issue/PR reference), resolve the thread
+- The tool displays explicit commands for both single-task and batch resolution
+- This avoids complex automatic resolution logic while empowering users to make decisions
 
 ## Technology Stack and Architecture Decisions
 
@@ -293,6 +318,9 @@ internal/              # Private implementation packages
 - User language preferences honored throughout
 
 **AI Processing Configuration:**
+- **Worker Pool Pattern**: Configurable concurrency via `max_concurrent_requests` setting (default: 5)
+- **Pagination Support**: Automatic pagination for GitHub API calls prevents data loss on large PRs
+- **Process Cleanup**: Platform-specific (Unix/Windows) process group management prevents resource leaks
 - **Verbose Mode**: `"verbose_mode": true` enables detailed logging and debugging output
 - **Validation Mode**: `"validation_enabled": true` enables AI-powered task validation with retries
 - **Comment Chunking**: Automatic for comments >20KB, configurable chunk size
