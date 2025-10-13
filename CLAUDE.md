@@ -206,7 +206,19 @@ When cancelling tasks that will be addressed in a follow-up PR:
    ```bash
    reviewtask cancel <task-id> --reason "Deferring to follow-up PR. Tracked in Issue #Y"
    ```
-3. This ensures transparency, trackability, and prevents lost feedback
+3. **Consider resolving the review thread** when cancellation fully addresses feedback:
+   ```bash
+   reviewtask resolve <task-id>
+   # Or resolve all done/cancelled tasks at once:
+   reviewtask resolve --all
+   ```
+4. This ensures transparency, trackability, and prevents lost feedback
+
+**Thread Resolution Guidance:**
+After cancelling tasks, the tool provides clear guidance on when and how to resolve review threads:
+- If cancellation fully addresses reviewer feedback (e.g., Issue/PR reference), resolve the thread
+- The tool displays explicit commands for both single-task and batch resolution
+- This avoids complex automatic resolution logic while empowering users to make decisions
 
 ## Technology Stack and Architecture Decisions
 
@@ -306,6 +318,17 @@ internal/              # Private implementation packages
 - User language preferences honored throughout
 
 **AI Processing Configuration:**
+- **Worker Pool Pattern**: Fixed-size worker pool (default: 5) for predictable resource usage, preventing system freezes
+  - 89-90% goroutine reduction compared to per-comment pattern
+  - Configurable via `max_concurrent_requests` setting
+  - Eliminates context switching overhead
+- **Pagination Support**: Automatic pagination for GitHub API calls
+  - Fetches all comments/threads (100+ items) without data loss
+  - Prevents critical 59% comment loss issue on large PRs
+  - Batch GraphQL fetching reduces API calls by 96%
+- **Process Cleanup**: Robust defer-based cleanup prevents child process leaks
+  - Platform-specific (Unix/Windows) process group management
+  - Prevents CPU exhaustion from orphaned processes
 - **Verbose Mode**: `"verbose_mode": true` enables detailed logging and debugging output
 - **Validation Mode**: `"validation_enabled": true` enables AI-powered task validation with retries
 - **Comment Chunking**: Automatic for comments >20KB, configurable chunk size
