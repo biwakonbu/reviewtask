@@ -140,11 +140,25 @@ Use `reviewtask cancel <task-id> --reason "explanation"` for tasks that are:
 
 **Important**: Always provide a clear cancellation reason to help reviewers understand why feedback wasn't addressed. The reason will be posted as a comment on the GitHub review thread.
 
+**For tasks deferred to follow-up PR**:
+1. **ALWAYS create a GitHub Issue first** to track the deferred work
+2. **Reference the Issue number** in the cancellation reason
+3. This ensures transparency and trackability
+
 **Examples**:
 ```bash
+# Already completed
 reviewtask cancel task-abc123 --reason "This was already addressed in commit 1a2b3c4"
+
+# Duplicate task
 reviewtask cancel task-xyz789 --reason "Duplicate of task-def456 which is already completed"
-reviewtask cancel --all-pending --reason "Deferring all remaining tasks to follow-up PR #125"
+
+# Deferring to follow-up PR (RECOMMENDED: Create Issue first!)
+# Step 1: Create Issue
+gh issue create --title "Improve error handling in API client" --body "Deferred from PR #42..."
+
+# Step 2: Cancel with Issue reference
+reviewtask cancel --all-pending --reason "Deferring to follow-up PR. Tracked in Issue #125"
 ```
 
 ### When to PENDING Tasks:

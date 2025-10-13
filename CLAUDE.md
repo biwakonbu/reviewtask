@@ -184,6 +184,7 @@ Notes:
 - Run `reviewtask` immediately after receiving reviews
 - Update task statuses as you complete work
 - Never manually edit `.pr-review/` files
+- **When deferring tasks to follow-up PR**: ALWAYS create a GitHub Issue first, then reference it in cancellation reason
 
 **For Reviewers:**
 - Write actionable, specific feedback
@@ -194,6 +195,18 @@ Notes:
 - Integrate task status into standup discussions
 - Use task completion as PR readiness indicator
 - Treat persistent `pending` tasks as team blockers
+
+**Task Cancellation Best Practices:**
+When cancelling tasks that will be addressed in a follow-up PR:
+1. **ALWAYS create a GitHub Issue first** to track the deferred work
+   ```bash
+   gh issue create --title "..." --body "Deferred from PR #X..."
+   ```
+2. **Reference the Issue number** in the cancellation reason
+   ```bash
+   reviewtask cancel <task-id> --reason "Deferring to follow-up PR. Tracked in Issue #Y"
+   ```
+3. This ensures transparency, trackability, and prevents lost feedback
 
 ## Technology Stack and Architecture Decisions
 
