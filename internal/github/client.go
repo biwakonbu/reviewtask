@@ -350,6 +350,36 @@ func NewClientWithProviders(authProvider AuthTokenProvider, repoProvider RepoInf
 	}, nil
 }
 
+// NewClientWithGraphQL creates a client with a custom GraphQL client injected
+// This is primarily useful for testing with mock GraphQL clients
+func NewClientWithGraphQL(authProvider AuthTokenProvider, repoProvider RepoInfoProvider, graphqlClient GraphQLClientInterface) (*Client, error) {
+	token, err := authProvider.GetToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GitHub token: %w", err)
+	}
+
+	// Get repository info
+	owner, repo, err := repoProvider.GetRepoInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	// Create GitHub client with authentication
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(context.Background(), ts)
+	client := github.NewClient(tc)
+
+	return &Client{
+		client:        client,
+		owner:         owner,
+		repo:          repo,
+		cache:         NewAPICache(5 * time.Minute),
+		graphqlClient: graphqlClient,
+	}, nil
+}
+
 func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 	// Get current branch
 	cmd := exec.Command("git", "branch", "--show-current")
