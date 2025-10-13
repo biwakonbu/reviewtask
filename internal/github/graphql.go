@@ -50,12 +50,18 @@ type GraphQLError struct {
 	Type    string `json:"type,omitempty"`
 }
 
-// NewGraphQLClient creates a new GraphQL client
+// NewGraphQLClient creates a new GraphQL client with default GitHub API endpoint
 func NewGraphQLClient(token string) *GraphQLClient {
+	return NewGraphQLClientWithEndpoint(token, "https://api.github.com/graphql")
+}
+
+// NewGraphQLClientWithEndpoint creates a new GraphQL client with a custom endpoint
+// This is useful for testing with mock servers or connecting to self-hosted GitHub Enterprise
+func NewGraphQLClientWithEndpoint(token, endpoint string) *GraphQLClient {
 	return &GraphQLClient{
 		token:      token,
 		httpClient: &http.Client{},
-		endpoint:   "https://api.github.com/graphql",
+		endpoint:   endpoint,
 	}
 }
 

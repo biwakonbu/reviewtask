@@ -439,6 +439,224 @@ func TestGraphQLClient_Execute(t *testing.T) {
 	}
 }
 
+// TestNewGraphQLClientWithEndpoint tests the custom endpoint constructor
+func TestNewGraphQLClientWithEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		endpoint string
+	}{
+		{
+			name:     "custom endpoint for mock server",
+			token:    "test-token",
+			endpoint: "http://localhost:8080/graphql",
+		},
+		{
+			name:     "self-hosted GitHub Enterprise",
+			token:    "enterprise-token",
+			endpoint: "https://github.enterprise.com/api/graphql",
+		},
+		{
+			name:     "empty token",
+			token:    "",
+			endpoint: "https://api.github.com/graphql",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewGraphQLClientWithEndpoint(tt.token, tt.endpoint)
+
+			// Verify client is created with correct values
+			if client == nil {
+				t.Fatal("Expected client to be non-nil")
+			}
+			if client.token != tt.token {
+				t.Errorf("Expected token %q, got %q", tt.token, client.token)
+			}
+			if client.endpoint != tt.endpoint {
+				t.Errorf("Expected endpoint %q, got %q", tt.endpoint, client.endpoint)
+			}
+			if client.httpClient == nil {
+				t.Error("Expected httpClient to be non-nil")
+			}
+		})
+	}
+}
+
+// TestNewGraphQLClient_DefaultEndpoint tests that default constructor uses standard GitHub endpoint
+func TestNewGraphQLClient_DefaultEndpoint(t *testing.T) {
+	token := "test-token"
+	client := NewGraphQLClient(token)
+
+	expectedEndpoint := "https://api.github.com/graphql"
+	if client.endpoint != expectedEndpoint {
+		t.Errorf("Expected default endpoint %q, got %q", expectedEndpoint, client.endpoint)
+	}
+	if client.token != token {
+		t.Errorf("Expected token %q, got %q", token, client.token)
+	}
+}
+
+// TestGraphQLClientWithEndpoint_Execute tests execution with custom endpoint
+func TestGraphQLClientWithEndpoint_Execute(t *testing.T) {
+	ctx := context.Background()
+
+	// Create mock server
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		return map[string]interface{}{
+			"viewer": map[string]interface{}{
+				"login": "testuser",
+			},
+		}, nil
+	})
+	defer mockServer.Close()
+
+	// Create client using NewGraphQLClientWithEndpoint
+	client := NewGraphQLClientWithEndpoint("test-token", mockServer.Server.URL)
+	client.httpClient = mockServer.Server.Client()
+
+	// Execute query
+	var result map[string]interface{}
+	query := "query { viewer { login } }"
+	err := client.Execute(ctx, query, nil, &result)
+
+	if err != nil {
+		t.Fatalf("Execute failed: %v", err)
+	}
+
+	// Verify result
+	viewer, ok := result["viewer"].(map[string]interface{})
+	if !ok {
+		t.Fatal("Expected viewer field in result")
+	}
+	login, ok := viewer["login"].(string)
+	if !ok || login != "testuser" {
+		t.Errorf("Expected login='testuser', got %v", login)
+	}
+}
+
+// TestGraphQLClientWithEndpoint_GitHubEnterpriseIntegration demonstrates real-world usage
+// This test simulates connecting to a self-hosted GitHub Enterprise instance
+func TestGraphQLClientWithEndpoint_GitHubEnterpriseIntegration(t *testing.T) {
+	ctx := context.Background()
+
+	// Simulate GitHub Enterprise endpoint
+	enterpriseEndpoint := "https://github.mycompany.com/api/graphql"
+
+	// Create mock server that simulates GitHub Enterprise
+	mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		// Simulate a typical GitHub Enterprise query response
+		if owner, hasOwner := variables["owner"]; hasOwner && owner == "mycompany" {
+			if repo, hasRepo := variables["repo"]; hasRepo && repo == "myrepo" {
+				// Return thread states for a PR
+				threads := []MockThread{
+					{
+						ID:         "MDEyOlJldmlld1RocmVhZDEyMzQ1",
+						IsResolved: true,
+						Comments: []MockComment{
+							{DatabaseID: 100},
+							{DatabaseID: 101},
+						},
+						CommentsHasNextPage: false,
+					},
+					{
+						ID:         "MDEyOlJldmlld1RocmVhZDEyMzQ2",
+						IsResolved: false,
+						Comments: []MockComment{
+							{DatabaseID: 200},
+						},
+						CommentsHasNextPage: false,
+					},
+				}
+				return BuildThreadStatesResponse(threads, false, ""), nil
+			}
+		}
+		return map[string]interface{}{}, nil
+	})
+	defer mockServer.Close()
+
+	// Create client for GitHub Enterprise using custom endpoint
+	enterpriseToken := "ghp_enterprise_token_abc123"
+	client := NewGraphQLClientWithEndpoint(enterpriseToken, mockServer.Server.URL)
+	client.httpClient = mockServer.Server.Client()
+
+	// Execute GetAllThreadStates as you would in production
+	states, err := client.GetAllThreadStates(ctx, "mycompany", "myrepo", 42)
+	if err != nil {
+		t.Fatalf("GetAllThreadStates failed: %v", err)
+	}
+
+	// Verify the results match expected enterprise data
+	expectedStates := map[int64]bool{
+		100: true,  // resolved thread
+		101: true,  // resolved thread
+		200: false, // unresolved thread
+	}
+
+	if len(states) != len(expectedStates) {
+		t.Errorf("Expected %d thread states, got %d", len(expectedStates), len(states))
+	}
+
+	for commentID, expectedResolved := range expectedStates {
+		actualResolved, exists := states[commentID]
+		if !exists {
+			t.Errorf("Comment %d not found in results", commentID)
+		} else if actualResolved != expectedResolved {
+			t.Errorf("Comment %d: expected resolved=%v, got %v", commentID, expectedResolved, actualResolved)
+		}
+	}
+
+	t.Logf("Successfully queried GitHub Enterprise at %s", enterpriseEndpoint)
+}
+
+// TestGraphQLClientWithEndpoint_MultipleEndpoints demonstrates using different endpoints
+func TestGraphQLClientWithEndpoint_MultipleEndpoints(t *testing.T) {
+	ctx := context.Background()
+
+	// Create multiple mock servers for different environments
+	prodServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		return map[string]interface{}{
+			"environment": "production",
+		}, nil
+	})
+	defer prodServer.Close()
+
+	stagingServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+		return map[string]interface{}{
+			"environment": "staging",
+		}, nil
+	})
+	defer stagingServer.Close()
+
+	// Create clients for different environments
+	prodClient := NewGraphQLClientWithEndpoint("prod-token", prodServer.Server.URL)
+	prodClient.httpClient = prodServer.Server.Client()
+
+	stagingClient := NewGraphQLClientWithEndpoint("staging-token", stagingServer.Server.URL)
+	stagingClient.httpClient = stagingServer.Server.Client()
+
+	// Execute queries against different endpoints
+	var prodResult, stagingResult map[string]interface{}
+
+	if err := prodClient.Execute(ctx, "query { environment }", nil, &prodResult); err != nil {
+		t.Fatalf("Production query failed: %v", err)
+	}
+
+	if err := stagingClient.Execute(ctx, "query { environment }", nil, &stagingResult); err != nil {
+		t.Fatalf("Staging query failed: %v", err)
+	}
+
+	// Verify each client hit its respective endpoint
+	if prodEnv := prodResult["environment"]; prodEnv != "production" {
+		t.Errorf("Expected production environment, got %v", prodEnv)
+	}
+
+	if stagingEnv := stagingResult["environment"]; stagingEnv != "staging" {
+		t.Errorf("Expected staging environment, got %v", stagingEnv)
+	}
+}
+
 // TestGraphQLClient_Authentication tests that authentication header is set correctly with mock server
 func TestGraphQLClient_Authentication(t *testing.T) {
 	ctx := context.Background()
