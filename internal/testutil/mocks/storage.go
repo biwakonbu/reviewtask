@@ -6,19 +6,21 @@ import "reviewtask/internal/storage"
 // This consolidates the duplicate implementations from test/integration_test.go
 // and internal/ai/statistics_test.go to ensure consistency and reduce maintenance overhead.
 type MockStorageManager struct {
-	tasks         map[int][]storage.Task
-	prBranches    map[string][]int
-	currentBranch string
-	allPRNumbers  []int
+	tasks          map[int][]storage.Task
+	prBranches     map[string][]int
+	currentBranch  string
+	allPRNumbers   []int
+	failedComments []storage.FailedComment
 }
 
 // NewMockStorageManager creates a new MockStorageManager with default values
 func NewMockStorageManager() *MockStorageManager {
 	return &MockStorageManager{
-		tasks:         make(map[int][]storage.Task),
-		prBranches:    make(map[string][]int),
-		currentBranch: "main",
-		allPRNumbers:  []int{},
+		tasks:          make(map[int][]storage.Task),
+		prBranches:     make(map[string][]int),
+		currentBranch:  "main",
+		allPRNumbers:   []int{},
+		failedComments: []storage.FailedComment{},
 	}
 }
 
@@ -86,4 +88,15 @@ func (m *MockStorageManager) SetCurrentBranch(branch string) {
 // SetAllPRNumbers sets the explicit list of all PR numbers
 func (m *MockStorageManager) SetAllPRNumbers(prNumbers []int) {
 	m.allPRNumbers = prNumbers
+}
+
+// SaveFailedComment saves a failed comment
+func (m *MockStorageManager) SaveFailedComment(comment storage.FailedComment) error {
+	m.failedComments = append(m.failedComments, comment)
+	return nil
+}
+
+// GetFailedComments returns all failed comments
+func (m *MockStorageManager) GetFailedComments() []storage.FailedComment {
+	return m.failedComments
 }
