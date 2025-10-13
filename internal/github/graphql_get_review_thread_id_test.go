@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -186,7 +187,7 @@ func TestGetReviewThreadID_Unit_CommentPagination(t *testing.T) {
 				comments := []MockComment{}
 				for i := 101; i <= 150; i++ {
 					comments = append(comments, MockComment{
-						ID:         "comment" + string(rune(i)),
+						ID:         fmt.Sprintf("comment%d", i),
 						DatabaseID: int64(i),
 					})
 				}
@@ -200,7 +201,7 @@ func TestGetReviewThreadID_Unit_CommentPagination(t *testing.T) {
 		thread1Comments := []MockComment{}
 		for i := 1; i <= 100; i++ {
 			thread1Comments = append(thread1Comments, MockComment{
-				ID:         "comment" + string(rune(i)),
+				ID:         fmt.Sprintf("comment%d", i),
 				DatabaseID: int64(i),
 			})
 		}
@@ -254,7 +255,7 @@ func TestGetReviewThreadID_Unit_PerThreadCursorIsolation(t *testing.T) {
 				comments := []MockComment{}
 				for i := 101; i <= 150; i++ {
 					comments = append(comments, MockComment{
-						ID:         "comment" + string(rune(i)),
+						ID:         fmt.Sprintf("comment%d", i),
 						DatabaseID: int64(i),
 					})
 				}
@@ -264,7 +265,7 @@ func TestGetReviewThreadID_Unit_PerThreadCursorIsolation(t *testing.T) {
 				comments := []MockComment{}
 				for i := 201; i <= 250; i++ {
 					comments = append(comments, MockComment{
-						ID:         "comment" + string(rune(i)),
+						ID:         fmt.Sprintf("comment%d", i),
 						DatabaseID: int64(i),
 					})
 				}
@@ -281,7 +282,7 @@ func TestGetReviewThreadID_Unit_PerThreadCursorIsolation(t *testing.T) {
 		thread1Comments := []MockComment{}
 		for i := 1; i <= 100; i++ {
 			thread1Comments = append(thread1Comments, MockComment{
-				ID:         "comment" + string(rune(i)),
+				ID:         fmt.Sprintf("comment%d", i),
 				DatabaseID: int64(i),
 			})
 		}
@@ -289,7 +290,7 @@ func TestGetReviewThreadID_Unit_PerThreadCursorIsolation(t *testing.T) {
 		thread2Comments := []MockComment{}
 		for i := 1; i <= 100; i++ {
 			thread2Comments = append(thread2Comments, MockComment{
-				ID:         "comment" + string(rune(i+100)),
+				ID:         fmt.Sprintf("comment%d", i+100),
 				DatabaseID: int64(i + 100),
 			})
 		}
@@ -361,7 +362,7 @@ func TestGetReviewThreadID_Unit_FirstCommentInPaginatedThread(t *testing.T) {
 		comments := []MockComment{}
 		for i := 1; i <= 100; i++ {
 			comments = append(comments, MockComment{
-				ID:         "comment" + string(rune(i)),
+				ID:         fmt.Sprintf("comment%d", i),
 				DatabaseID: int64(i),
 			})
 		}
