@@ -359,7 +359,7 @@ func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commen
 // Supports pagination for both threads (>100) and comments within threads (>100)
 func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo string, prNumber int) (map[int64]bool, error) {
 	query := `
-		query($owner: String!, $repo: String!, $prNumber: Int!, $threadCursor: String, $commentCursor: String) {
+		query($owner: String!, $repo: String!, $prNumber: Int!, $threadCursor: String) {
 			repository(owner: $owner, name: $repo) {
 				pullRequest(number: $prNumber) {
 					reviewThreads(first: 100, after: $threadCursor) {
@@ -370,7 +370,7 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 						nodes {
 							id
 							isResolved
-							comments(first: 100, after: $commentCursor) {
+							comments(first: 100) {
 								pageInfo {
 									hasNextPage
 									endCursor
@@ -444,37 +444,60 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 			}
 
 			// Paginate through remaining comments in this thread if needed
+			// Use thread-scoped query to avoid cursor conflicts between threads
 			for currentComments.PageInfo.HasNextPage {
-				commentCursor := currentComments.PageInfo.EndCursor
-				variables["commentCursor"] = commentCursor
+				threadCommentCursor := currentComments.PageInfo.EndCursor
 
-				// Fetch next page of comments for this thread
-				if err := c.Execute(ctx, query, variables, &result); err != nil {
-					return nil, fmt.Errorf("failed to fetch comment page: %w", err)
-				}
-
-				// Find the same thread in the new result
-				found := false
-				for _, t := range result.Repository.PullRequest.ReviewThreads.Nodes {
-					if t.ID == threadID {
-						currentComments = t.Comments
-						found = true
-
-						// Process comments in this page
-						for _, comment := range currentComments.Nodes {
-							threadStateMap[comment.DatabaseID] = isResolved
+				// Use thread-scoped query to paginate comments independently
+				threadQuery := `
+					query($threadId: ID!, $commentCursor: String!) {
+						node(id: $threadId) {
+							... on PullRequestReviewThread {
+								comments(first: 100, after: $commentCursor) {
+									pageInfo {
+										hasNextPage
+										endCursor
+									}
+									nodes {
+										databaseId
+									}
+								}
+							}
 						}
-						break
 					}
+				`
+
+				threadVariables := map[string]interface{}{
+					"threadId":      threadID,
+					"commentCursor": threadCommentCursor,
 				}
 
-				if !found {
-					return nil, fmt.Errorf("thread %s not found in paginated results", threadID)
+				var threadResult struct {
+					Node struct {
+						Comments struct {
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								DatabaseID int64 `json:"databaseId"`
+							} `json:"nodes"`
+						} `json:"comments"`
+					} `json:"node"`
+				}
+
+				// Fetch next page of comments for this specific thread
+				if err := c.Execute(ctx, threadQuery, threadVariables, &threadResult); err != nil {
+					return nil, fmt.Errorf("failed to fetch comment page for thread %s: %w", threadID, err)
+				}
+
+				currentComments = threadResult.Node.Comments
+
+				// Process comments in this page
+				for _, comment := range currentComments.Nodes {
+					threadStateMap[comment.DatabaseID] = isResolved
 				}
 			}
-
-			// Reset comment cursor for next thread
-			delete(variables, "commentCursor")
 		}
 
 		// Check if there are more threads to fetch
