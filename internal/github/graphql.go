@@ -387,7 +387,8 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 	`
 
 	threadStateMap := make(map[int64]bool)
-	var threadCursor *string
+	var threadCursor string
+	hasThreadCursor := false
 
 	// Paginate through review threads
 	for {
@@ -396,8 +397,8 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 			"repo":     repo,
 			"prNumber": prNumber,
 		}
-		if threadCursor != nil {
-			variables["threadCursor"] = *threadCursor
+		if hasThreadCursor {
+			variables["threadCursor"] = threadCursor
 		}
 
 		var result struct {
@@ -482,7 +483,8 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 		}
 
 		// Move to next page of threads
-		threadCursor = &result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		threadCursor = result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		hasThreadCursor = true
 	}
 
 	return threadStateMap, nil
