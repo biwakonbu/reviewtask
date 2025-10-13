@@ -146,8 +146,8 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v8
       with:
-        version: v1.64
-        args: --timeout=5m --verbose
+        version: v2
+        args: --timeout=5m
 
   format:
     name: Format Check
