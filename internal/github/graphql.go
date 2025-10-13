@@ -356,12 +356,13 @@ func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commen
 // GetAllThreadStates fetches all thread resolution states for a PR in batch
 // Returns a map of comment ID -> isResolved for efficient lookups
 // This avoids N+1 query problem by fetching all threads and their states at once
+// Supports pagination for both threads (>100) and comments within threads (>100)
 func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo string, prNumber int) (map[int64]bool, error) {
 	query := `
-		query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
+		query($owner: String!, $repo: String!, $prNumber: Int!, $threadCursor: String, $commentCursor: String) {
 			repository(owner: $owner, name: $repo) {
 				pullRequest(number: $prNumber) {
-					reviewThreads(first: 100, after: $cursor) {
+					reviewThreads(first: 100, after: $threadCursor) {
 						pageInfo {
 							hasNextPage
 							endCursor
@@ -369,7 +370,11 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 						nodes {
 							id
 							isResolved
-							comments(first: 100) {
+							comments(first: 100, after: $commentCursor) {
+								pageInfo {
+									hasNextPage
+									endCursor
+								}
 								nodes {
 									databaseId
 								}
@@ -382,16 +387,17 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 	`
 
 	threadStateMap := make(map[int64]bool)
-	var cursor *string
+	var threadCursor *string
 
+	// Paginate through review threads
 	for {
 		variables := map[string]interface{}{
 			"owner":    owner,
 			"repo":     repo,
 			"prNumber": prNumber,
 		}
-		if cursor != nil {
-			variables["cursor"] = *cursor
+		if threadCursor != nil {
+			variables["threadCursor"] = *threadCursor
 		}
 
 		var result struct {
@@ -406,6 +412,10 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 							ID         string `json:"id"`
 							IsResolved bool   `json:"isResolved"`
 							Comments   struct {
+								PageInfo struct {
+									HasNextPage bool   `json:"hasNextPage"`
+									EndCursor   string `json:"endCursor"`
+								} `json:"pageInfo"`
 								Nodes []struct {
 									DatabaseID int64 `json:"databaseId"`
 								} `json:"nodes"`
@@ -421,17 +431,58 @@ func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo stri
 		}
 
 		// Map comment IDs to thread resolution state
+		// Need to paginate through comments within each thread
 		for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
-			for _, comment := range thread.Comments.Nodes {
-				threadStateMap[comment.DatabaseID] = thread.IsResolved
+			threadID := thread.ID
+			isResolved := thread.IsResolved
+			currentComments := thread.Comments
+
+			// Process comments in the first page
+			for _, comment := range currentComments.Nodes {
+				threadStateMap[comment.DatabaseID] = isResolved
 			}
+
+			// Paginate through remaining comments in this thread if needed
+			for currentComments.PageInfo.HasNextPage {
+				commentCursor := currentComments.PageInfo.EndCursor
+				variables["commentCursor"] = commentCursor
+
+				// Fetch next page of comments for this thread
+				if err := c.Execute(ctx, query, variables, &result); err != nil {
+					return nil, fmt.Errorf("failed to fetch comment page: %w", err)
+				}
+
+				// Find the same thread in the new result
+				found := false
+				for _, t := range result.Repository.PullRequest.ReviewThreads.Nodes {
+					if t.ID == threadID {
+						currentComments = t.Comments
+						found = true
+
+						// Process comments in this page
+						for _, comment := range currentComments.Nodes {
+							threadStateMap[comment.DatabaseID] = isResolved
+						}
+						break
+					}
+				}
+
+				if !found {
+					return nil, fmt.Errorf("thread %s not found in paginated results", threadID)
+				}
+			}
+
+			// Reset comment cursor for next thread
+			delete(variables, "commentCursor")
 		}
 
+		// Check if there are more threads to fetch
 		if !result.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage {
 			break
 		}
 
-		cursor = &result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		// Move to next page of threads
+		threadCursor = &result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
 	}
 
 	return threadStateMap, nil
