@@ -437,14 +437,27 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		}
 	}
 
-	// Get reviews
-	reviews, _, err := c.client.PullRequests.ListReviews(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get reviews: %w", err)
+	// Get reviews with pagination to handle PRs with >30 reviews
+	var allReviews []*github.PullRequestReview
+	opts := &github.ListOptions{
+		PerPage: 100, // GitHub max per page
+	}
+
+	for {
+		reviews, resp, err := c.client.PullRequests.ListReviews(ctx, c.owner, c.repo, prNumber, opts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get reviews: %w", err)
+		}
+		allReviews = append(allReviews, reviews...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
 
 	result := []Review{}
-	for _, review := range reviews {
+	for _, review := range allReviews {
 		reviewBody := review.GetBody()
 		reviewer := review.GetUser().GetLogin()
 		submittedAt := review.GetSubmittedAt().Format("2006-01-02T15:04:05Z")
@@ -472,6 +485,8 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 			return nil, fmt.Errorf("failed to get comments for review %d: %w", review.GetID(), err)
 		}
 		if comments != nil {
+			// Enrich comments with thread resolution state from GraphQL
+			comments = c.enrichCommentsWithThreadState(ctx, prNumber, comments)
 			r.Comments = comments
 		}
 
@@ -508,14 +523,29 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		Comments:    []Comment{},
 	}
 
-	// Get issue comments from the PR author
-	issueComments, _, err := c.client.Issues.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get issue comments: %w", err)
+	// Get issue comments from the PR author with pagination
+	var allIssueComments []*github.IssueComment
+	issueOpts := &github.IssueListCommentsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100, // GitHub max per page
+		},
+	}
+
+	for {
+		issueComments, resp, err := c.client.Issues.ListComments(ctx, c.owner, c.repo, prNumber, issueOpts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get issue comments: %w", err)
+		}
+		allIssueComments = append(allIssueComments, issueComments...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		issueOpts.Page = resp.NextPage
 	}
 
 	// Filter and add issue comments from the author
-	for _, comment := range issueComments {
+	for _, comment := range allIssueComments {
 		if comment.GetUser().GetLogin() == prAuthor {
 			selfReview.Comments = append(selfReview.Comments, Comment{
 				ID:        comment.GetID(),
@@ -530,10 +560,25 @@ func (c *Client) GetSelfReviews(ctx context.Context, prNumber int, prAuthor stri
 		}
 	}
 
-	// Get PR review comments from the author
-	allPRComments, _, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PR comments: %w", err)
+	// Get PR review comments from the author with pagination
+	var allPRComments []*github.PullRequestComment
+	prOpts := &github.PullRequestListCommentsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100, // GitHub max per page
+		},
+	}
+
+	for {
+		prComments, resp, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, prOpts)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get PR comments: %w", err)
+		}
+		allPRComments = append(allPRComments, prComments...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		prOpts.Page = resp.NextPage
 	}
 
 	// Filter and add PR comments from the author
@@ -580,14 +625,28 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 		}
 	}
 
-	// If we don't have comments from cache, fetch them
+	// If we don't have comments from cache, fetch them with pagination
 	if allComments == nil {
-		// Get all PR review comments
-		var err error
-		allComments, _, err = c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get PR comments: %w", err)
+		// Get all PR review comments with pagination to handle PRs with >30 comments
+		opts := &github.PullRequestListCommentsOptions{
+			ListOptions: github.ListOptions{
+				PerPage: 100, // GitHub max per page
+			},
 		}
+
+		for {
+			comments, resp, err := c.client.PullRequests.ListComments(ctx, c.owner, c.repo, prNumber, opts)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get PR comments: %w", err)
+			}
+			allComments = append(allComments, comments...)
+
+			if resp.NextPage == 0 {
+				break
+			}
+			opts.Page = resp.NextPage
+		}
+
 		// Cache the raw comments (ignore cache error)
 		_ = c.cache.Set("ListComments", c.owner, c.repo, allComments, cacheKey)
 	}
@@ -629,6 +688,55 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	}
 
 	return result, nil
+}
+
+// GetAllThreadStates fetches all thread resolution states for a PR in batch
+// This is the optimized batch version that avoids N+1 query problem
+func (c *Client) GetAllThreadStates(ctx context.Context, prNumber int) (map[int64]bool, error) {
+	graphqlClient, err := c.NewGraphQLClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GraphQL client: %w", err)
+	}
+
+	return graphqlClient.GetAllThreadStates(ctx, c.owner, c.repo, prNumber)
+}
+
+// enrichCommentsWithThreadState enriches comments with GitHub thread resolution state
+// Uses optimized batch GraphQL API call to fetch all thread states at once
+func (c *Client) enrichCommentsWithThreadState(ctx context.Context, prNumber int, comments []Comment) []Comment {
+	// Skip if no comments to enrich
+	if len(comments) == 0 {
+		return comments
+	}
+
+	// Fetch all thread states in batch (single GraphQL call with pagination)
+	threadStates, err := c.GetAllThreadStates(ctx, prNumber)
+	if err != nil {
+		// Log error but continue - return comments without enrichment
+		// In production, this could be logged to stderr or a logging system
+		return comments
+	}
+
+	// Create a copy of comments to avoid modifying the original slice
+	enriched := make([]Comment, len(comments))
+	copy(enriched, comments)
+
+	// Enrich each comment with thread state from the batch result
+	now := time.Now().Format("2006-01-02T15:04:05Z")
+	for i := range enriched {
+		// Skip if comment ID is 0 (shouldn't happen but defensive coding)
+		if enriched[i].ID == 0 {
+			continue
+		}
+
+		// Look up thread resolution state from batch result
+		if isResolved, exists := threadStates[enriched[i].ID]; exists {
+			enriched[i].GitHubThreadResolved = isResolved
+			enriched[i].LastCheckedAt = now
+		}
+	}
+
+	return enriched
 }
 
 func getRepoInfo() (string, string, error) {

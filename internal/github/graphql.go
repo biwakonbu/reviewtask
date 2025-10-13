@@ -352,3 +352,163 @@ func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commen
 
 	return result.Node.IsResolved, nil
 }
+
+// GetAllThreadStates fetches all thread resolution states for a PR in batch
+// Returns a map of comment ID -> isResolved for efficient lookups
+// This avoids N+1 query problem by fetching all threads and their states at once
+// Supports pagination for both threads (>100) and comments within threads (>100)
+func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo string, prNumber int) (map[int64]bool, error) {
+	query := `
+		query($owner: String!, $repo: String!, $prNumber: Int!, $threadCursor: String) {
+			repository(owner: $owner, name: $repo) {
+				pullRequest(number: $prNumber) {
+					reviewThreads(first: 100, after: $threadCursor) {
+						pageInfo {
+							hasNextPage
+							endCursor
+						}
+						nodes {
+							id
+							isResolved
+							comments(first: 100) {
+								pageInfo {
+									hasNextPage
+									endCursor
+								}
+								nodes {
+									databaseId
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	`
+
+	threadStateMap := make(map[int64]bool)
+	var threadCursor string
+	hasThreadCursor := false
+
+	// Paginate through review threads
+	for {
+		variables := map[string]interface{}{
+			"owner":    owner,
+			"repo":     repo,
+			"prNumber": prNumber,
+		}
+		if hasThreadCursor {
+			variables["threadCursor"] = threadCursor
+		}
+
+		var result struct {
+			Repository struct {
+				PullRequest struct {
+					ReviewThreads struct {
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+						Nodes []struct {
+							ID         string `json:"id"`
+							IsResolved bool   `json:"isResolved"`
+							Comments   struct {
+								PageInfo struct {
+									HasNextPage bool   `json:"hasNextPage"`
+									EndCursor   string `json:"endCursor"`
+								} `json:"pageInfo"`
+								Nodes []struct {
+									DatabaseID int64 `json:"databaseId"`
+								} `json:"nodes"`
+							} `json:"comments"`
+						} `json:"nodes"`
+					} `json:"reviewThreads"`
+				} `json:"pullRequest"`
+			} `json:"repository"`
+		}
+
+		if err := c.Execute(ctx, query, variables, &result); err != nil {
+			return nil, fmt.Errorf("failed to fetch thread states: %w", err)
+		}
+
+		// Map comment IDs to thread resolution state
+		// Need to paginate through comments within each thread
+		for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
+			threadID := thread.ID
+			isResolved := thread.IsResolved
+			currentComments := thread.Comments
+
+			// Process comments in the first page
+			for _, comment := range currentComments.Nodes {
+				threadStateMap[comment.DatabaseID] = isResolved
+			}
+
+			// Paginate through remaining comments in this thread if needed
+			// Use thread-scoped query to avoid cursor conflicts between threads
+			for currentComments.PageInfo.HasNextPage {
+				threadCommentCursor := currentComments.PageInfo.EndCursor
+
+				// Use thread-scoped query to paginate comments independently
+				threadQuery := `
+					query($threadId: ID!, $commentCursor: String!) {
+						node(id: $threadId) {
+							... on PullRequestReviewThread {
+								comments(first: 100, after: $commentCursor) {
+									pageInfo {
+										hasNextPage
+										endCursor
+									}
+									nodes {
+										databaseId
+									}
+								}
+							}
+						}
+					}
+				`
+
+				threadVariables := map[string]interface{}{
+					"threadId":      threadID,
+					"commentCursor": threadCommentCursor,
+				}
+
+				var threadResult struct {
+					Node struct {
+						Comments struct {
+							PageInfo struct {
+								HasNextPage bool   `json:"hasNextPage"`
+								EndCursor   string `json:"endCursor"`
+							} `json:"pageInfo"`
+							Nodes []struct {
+								DatabaseID int64 `json:"databaseId"`
+							} `json:"nodes"`
+						} `json:"comments"`
+					} `json:"node"`
+				}
+
+				// Fetch next page of comments for this specific thread
+				if err := c.Execute(ctx, threadQuery, threadVariables, &threadResult); err != nil {
+					return nil, fmt.Errorf("failed to fetch comment page for thread %s: %w", threadID, err)
+				}
+
+				currentComments = threadResult.Node.Comments
+
+				// Process comments in this page
+				for _, comment := range currentComments.Nodes {
+					threadStateMap[comment.DatabaseID] = isResolved
+				}
+			}
+		}
+
+		// Check if there are more threads to fetch
+		if !result.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage {
+			break
+		}
+
+		// Move to next page of threads
+		threadCursor = result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+		hasThreadCursor = true
+	}
+
+	return threadStateMap, nil
+}

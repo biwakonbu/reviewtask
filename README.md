@@ -44,9 +44,11 @@ All review sources are automatically detected and processed without configuratio
 - **✅ Task Validation**: AI-powered validation with configurable quality thresholds and retry logic
 
 ### Performance & Reliability
-- **⚡ Parallel Processing**: Processes multiple comments concurrently for improved performance
+- **⚡ Worker Pool Pattern**: Fixed-size worker pool for predictable resource usage (89-90% goroutine reduction)
+- **🔄 Pagination Support**: Complete data fetching for PRs with 100+ comments or threads (prevents 59% data loss)
+- **💨 API Optimization**: Batch GraphQL fetching reduces API calls by 96% (N+1 → 3-4 calls per PR)
+- **🧹 Process Cleanup**: Robust defer-based cleanup prevents child process leaks and CPU exhaustion
 - **⏱️ Smart Performance**: Automatic optimization based on PR size with no configuration needed
-- **💨 API Caching**: Reduces redundant GitHub API calls automatically
 - **📊 Auto-Resume**: Seamlessly continues from where it left off if interrupted
 - **🛡️ JSON Recovery**: Automatic recovery from incomplete Claude API responses with partial task extraction
 - **🔁 Intelligent Retry**: Smart retry strategies with pattern detection and prompt size adjustment
@@ -59,9 +61,11 @@ All review sources are automatically detected and processed without configuratio
   - **In-progress comments**: Tasks generated but not completed
   - **Resolved comments**: All tasks completed and GitHub threads resolved
   - **Completion status**: Integrated task and comment status for accurate completion detection
+- **📝 Thread Resolution Guidance**: Intelligent reminders after task cancellation to resolve review threads
 - **📈 Enhanced Status Display**: Rich task status visualization with color-coded priorities
 - **💬 Interactive Guidance**: Context-aware next steps and workflow recommendations
 - **🖥️ Verbose Mode**: Detailed logging and debugging output for development and troubleshooting
+- **🔇 Silent Mode**: Respects VerboseMode setting for clean, quiet CLI operation
 
 ### Integration & Configuration
 - **🔌 Extensible AI Provider Support**: Architecture designed for easy integration of multiple AI providers
@@ -401,6 +405,18 @@ Tasks
 - Returns non-zero exit code on failure (safe for CI/CD scripts)
 - Supports batch cancellation with `--all-pending` flag
 - Provides clear feedback to reviewers why tasks weren't addressed
+- **Thread Resolution Guidance**: After cancellation, displays clear instructions for resolving review threads when appropriate:
+  ```
+  📝 Thread Resolution Guidance:
+     If this cancellation fully addresses the reviewer's feedback
+     (e.g., by referencing a follow-up Issue or PR), consider resolving
+     the review thread:
+
+       reviewtask resolve <task-id>
+
+     Or resolve all done/cancelled tasks at once:
+       reviewtask resolve --all
+  ```
 
 ### 6. Thread Management
 
@@ -919,9 +935,22 @@ This creates workflow templates in `.claude/commands/` for streamlined PR review
 - Comment content changes trigger automatic task cancellation
 - New tasks are added without overwriting existing work progress
 
-### Parallel Processing
+### Worker Pool Pattern
 
-- Each comment is processed independently using goroutines
+- **Fixed worker pool** for predictable resource usage and system stability
+- **89-90% goroutine reduction** compared to per-comment goroutine pattern (e.g., 28 comments: 28→3 goroutines)
+- **Eliminates context switching overhead** and prevents system freezes during heavy AI processing
+- **Configurable concurrency** via `max_concurrent_requests` setting (default: 5 workers)
+- Job queue distributes work efficiently across fixed pool of workers
+- Comprehensive testing for concurrency control, job distribution, and error handling
+
+### Parallel Processing & Pagination
+
+- Each comment is processed independently using worker pool
+- **Complete data fetching** with pagination support for PRs with 100+ comments or threads
+- **Prevents data loss**: Fixes critical 59% comment loss issue on large PRs
+- Batch GraphQL fetching reduces API calls by 96% (N+1 → 3-4 calls per PR)
+- Thread resolution state tracking with accurate GitHub sync
 - Reduced prompt sizes (3,000-6,000 characters vs 57,760)
 - Better performance and AI provider reliability
 

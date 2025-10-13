@@ -49,6 +49,17 @@ func outputPRReviewPromptToStdout(cmd *cobra.Command) error {
 	return nil
 }
 
+// loadTemplateFromPaths attempts to load a template from the given file paths.
+// Returns the content if successful, or an empty string if all paths fail.
+func loadTemplateFromPaths(paths []string) string {
+	for _, path := range paths {
+		if content, err := os.ReadFile(path); err == nil {
+			return string(content)
+		}
+	}
+	return ""
+}
+
 // getPRReviewPromptTemplate returns the PR review workflow prompt template
 // This is shared between claude.go and prompt_stdout.go to maintain consistency
 func getIssueToPRTemplate() string {
@@ -60,10 +71,8 @@ func getIssueToPRTemplate() string {
 		"../../.claude/commands/issue-to-pr.md",
 	}
 
-	for _, path := range possiblePaths {
-		if content, err := os.ReadFile(path); err == nil {
-			return string(content)
-		}
+	if content := loadTemplateFromPaths(possiblePaths); content != "" {
+		return content
 	}
 
 	// Return a minimal working template if file not found
@@ -97,10 +106,8 @@ func getLabelIssuesTemplate() string {
 		"../../.claude/commands/label-issues.md",
 	}
 
-	for _, path := range possiblePaths {
-		if content, err := os.ReadFile(path); err == nil {
-			return string(content)
-		}
+	if content := loadTemplateFromPaths(possiblePaths); content != "" {
+		return content
 	}
 
 	// Return a minimal working template if file not found
@@ -130,6 +137,19 @@ This workflow helps maintain consistent semantic versioning.`
 }
 
 func getPRReviewPromptTemplate() string {
+	// Try to read from external file first (preferred method for keeping in sync)
+	possiblePaths := []string{
+		".cursor/commands/pr-review/review-task-workflow.md",
+		".claude/commands/pr-review/review-task-workflow.md",
+		"../.cursor/commands/pr-review/review-task-workflow.md",
+		"../.claude/commands/pr-review/review-task-workflow.md",
+	}
+
+	if content := loadTemplateFromPaths(possiblePaths); content != "" {
+		return content
+	}
+
+	// Fallback to embedded template if external files not found
 	// IMPORTANT: This template must be kept in sync with:
 	// - .claude/commands/pr-review/review-task-workflow.md
 	// - .cursor/commands/pr-review/review-task-workflow.md

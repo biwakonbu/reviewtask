@@ -171,6 +171,16 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 		cmd := exec.CommandContext(timeoutCtx, c.cliPath, cursorArgs...)
 		cmd.Stdin = strings.NewReader(input)
 
+		// Set process group to allow killing all child processes
+		setProcessGroup(cmd)
+
+		// Ensure process group is killed on function exit, regardless of success/failure
+		defer func() {
+			if cmd.Process != nil {
+				_ = killProcessGroup(cmd)
+			}
+		}()
+
 		var stdout, stderr bytes.Buffer
 		cmd.Stdout = &stdout
 		cmd.Stderr = &stderr
@@ -186,13 +196,7 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 		// Check if this was a timeout
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			if os.Getenv("REVIEWTASK_DEBUG") == "true" {
-				fmt.Fprintf(os.Stderr, "DEBUG: Command timed out, force killing process\n")
-			}
-			if cmd.Process != nil {
-				// Process is still running, kill it
-				if killErr := cmd.Process.Kill(); killErr != nil {
-					fmt.Fprintf(os.Stderr, "WARNING: Failed to kill timed out process: %v\n", killErr)
-				}
+				fmt.Fprintf(os.Stderr, "DEBUG: Command timed out (cleanup handled by defer)\n")
 			}
 			return "", fmt.Errorf("%s execution timed out after %d seconds (input length: %d bytes)",
 				c.providerConf.CommandName, timeoutSeconds, len(input))
@@ -262,6 +266,16 @@ func (c *BaseCLIClient) Execute(ctx context.Context, input string, outputFormat 
 	}
 
 	cmd := c.buildCommand(ctx, args)
+
+	// Set process group for proper cleanup
+	setProcessGroup(cmd)
+
+	// Ensure process group is killed on function exit, regardless of success/failure
+	defer func() {
+		if cmd.Process != nil {
+			_ = killProcessGroup(cmd)
+		}
+	}()
 
 	// Set stdin
 	cmd.Stdin = strings.NewReader(input)
