@@ -158,7 +158,7 @@ func (r *Reconciler) UpdateCommentResolutionStates(ctx context.Context, prNumber
 	}
 
 	// Update resolution state for each comment
-	now := time.Now().Format("2006-01-02T15:04:05Z")
+	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	for i := range reviews {
 		for j := range reviews[i].Comments {
 			comment := &reviews[i].Comments[j]

@@ -281,7 +281,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 	}
 
 	// Update resolution state for all comments
-	now := time.Now().Format("2006-01-02T15:04:05Z")
+	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	unresolvedCount := 0
 	for i := range reviews {
 		for j := range reviews[i].Comments {
