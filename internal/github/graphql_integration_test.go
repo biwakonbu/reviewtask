@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -236,7 +237,7 @@ func TestGetAllThreadStates_LargeResponse(t *testing.T) {
 			}
 
 			threads = append(threads, MockThread{
-				ID:                  "thread" + string(rune(i)),
+				ID:                  "thread" + strconv.Itoa(i),
 				IsResolved:          i%2 == 0, // Alternate resolved/unresolved
 				Comments:            comments,
 				CommentsHasNextPage: false,
