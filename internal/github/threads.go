@@ -27,46 +27,35 @@ type ReviewThreadStatus struct {
 }
 
 // UpdateThreadResolutionStatus fetches and updates the thread resolution status from GitHub
+// Uses optimized batch API to fetch all thread states in one or few GraphQL queries
 func (tr *ThreadResolutionTracker) UpdateThreadResolutionStatus(ctx context.Context, prNumber int, comments []Comment) ([]ReviewThreadStatus, error) {
 	var threadStatuses []ReviewThreadStatus
 
-	// Get current thread resolution status from GitHub
+	// Fetch all thread states in batch using optimized GraphQL API
+	// This avoids N+1 query problem by fetching all states at once
+	threadStateMap, err := tr.client.GetAllThreadStates(ctx, prNumber)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch thread states in batch: %w", err)
+	}
+
+	// Map the batch results to ReviewThreadStatus for each comment
 	for _, comment := range comments {
-		status, err := tr.getThreadStatusFromGitHub(ctx, prNumber, comment.ID)
-		if err != nil {
-			// Log error but continue with other comments
-			continue
+		isResolved, found := threadStateMap[comment.ID]
+		if !found {
+			// Comment not found in GitHub threads - might be a non-thread comment
+			// or deleted comment. Default to not resolved.
+			isResolved = false
 		}
 
 		threadStatuses = append(threadStatuses, ReviewThreadStatus{
 			CommentID:            comment.ID,
-			GitHubThreadResolved: status.Resolved,
+			GitHubThreadResolved: isResolved,
 			LastCheckedAt:        time.Now(),
-			InReplyToID:          status.InReplyToID,
+			InReplyToID:          0, // Batch API doesn't provide InReplyToID, but it's not used
 		})
 	}
 
 	return threadStatuses, nil
-}
-
-// threadStatusFromGitHub represents the GitHub API response for thread status
-type threadStatusFromGitHub struct {
-	Resolved    bool  `json:"resolved"`
-	InReplyToID int64 `json:"in_reply_to_id,omitempty"`
-}
-
-// getThreadStatusFromGitHub fetches thread resolution status from GitHub API
-func (tr *ThreadResolutionTracker) getThreadStatusFromGitHub(ctx context.Context, prNumber int, commentID int64) (*threadStatusFromGitHub, error) {
-	// Use GitHub's GraphQL API to get thread resolution status
-	// This is a simplified implementation - in practice, you'd need to implement
-	// the actual GraphQL query to fetch thread resolution status
-
-	// For now, return a default status indicating not resolved
-	// TODO: Implement actual GitHub GraphQL query
-	return &threadStatusFromGitHub{
-		Resolved:    false,
-		InReplyToID: 0,
-	}, nil
 }
 
 // DetectUnresolvedComments compares local comment state with GitHub state
