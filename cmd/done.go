@@ -270,6 +270,14 @@ func runThreadResolutionPhase(cfg *config.Config, storageManager *storage.Manage
 		return fmt.Errorf("failed to resolve thread: %w", err)
 	}
 
+	// Update reviews.json to mark the comment as resolved
+	// This ensures future task generation will skip this comment
+	if err := storageManager.MarkCommentThreadAsResolved(task.PRNumber, task.SourceCommentID); err != nil {
+		// Log error but don't fail the operation - the thread is already resolved on GitHub
+		fmt.Printf("  ⚠️  Warning: Failed to update local reviews.json: %v\n", err)
+		fmt.Println("     (Thread is resolved on GitHub, but local state may be inconsistent)")
+	}
+
 	fmt.Println("  ✓ Thread resolved (all tasks from this comment completed)")
 	fmt.Println()
 	return nil

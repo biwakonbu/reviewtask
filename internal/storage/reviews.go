@@ -261,3 +261,37 @@ func (m *Manager) GetUnresolvedCommentsReport(prNumber int) (*github.UnresolvedC
 
 	return report, nil
 }
+
+// MarkCommentThreadAsResolved updates the GitHubThreadResolved field for a comment
+// This should be called after successfully resolving a thread on GitHub to keep
+// the local reviews.json in sync with GitHub's state
+func (m *Manager) MarkCommentThreadAsResolved(prNumber int, commentID int64) error {
+	extendedFile, err := m.LoadExtendedReviews(prNumber)
+	if err != nil {
+		return fmt.Errorf("failed to load extended reviews: %w", err)
+	}
+
+	// Find and update the comment
+	commentUpdated := false
+	for i := range extendedFile.Reviews {
+		for j := range extendedFile.Reviews[i].Comments {
+			if extendedFile.Reviews[i].Comments[j].ID == commentID {
+				extendedFile.Reviews[i].Comments[j].GitHubThreadResolved = true
+				extendedFile.Reviews[i].Comments[j].LastCheckedAt = time.Now().Format("2006-01-02T15:04:05Z")
+				commentUpdated = true
+				break
+			}
+		}
+		if commentUpdated {
+			break
+		}
+	}
+
+	if !commentUpdated {
+		return fmt.Errorf("comment %d not found in PR %d", commentID, prNumber)
+	}
+
+	// Save updated file
+	extendedFile.LastSyncAt = time.Now().Format("2006-01-02T15:04:05Z")
+	return m.SaveExtendedReviews(prNumber, extendedFile.Reviews)
+}
