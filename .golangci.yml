@@ -1,48 +1,28 @@
-# golangci-lint configuration
-# https://golangci-lint.run/usage/configuration/
+# golangci-lint v2 configuration
+# https://golangci-lint.run/docs/product/migration-guide
 
-version: 2
-
-run:
-  timeout: 5m
+version: "2"
 
 linters:
-  # v2 compatibility: minimal linter set to pass CI
-  # TODO: Re-enable errcheck, unused, staticcheck after fixing issues
-  disable:
-    - errcheck    # Requires fixing 500+ unchecked errors
-    - unused      # Requires cleanup of intentionally unused code
-    - staticcheck # Requires fixing SA9003 empty branch patterns
+  default: none  # Start with no linters
   enable:
     - govet
     - ineffassign
+  # Disabled for now - require significant fixes:
+  # - errcheck (500+ unchecked errors)
+  # - unused (30+ intentionally unused code)
+  # - staticcheck (11 SA9003 empty branch issues)
+  exclusions:
+    paths:
+      - ".*_test\\.go$"
+      - ".pr-review"
+      - "dist"
+      - "site"
+      - "demos"
+      - ".*_generated\\.go$"
+      - ".*\\.pb\\.go$"
+    generated: strict
 
-linters-settings:
-  govet:
-    disable:
-      - shadow      # 変数のシャドーイングは許容
-      - fieldalignment  # フィールドの並び順は気にしない
-  staticcheck:
-    checks: ["-SA9003", "-QF1008"]  # Disable empty branch and embedded field warnings
-
-issues:
-  exclude-dirs:
-    - .pr-review
-    - dist
-    - site
-    - demos
-  exclude-files:
-    - ".*_generated\\.go$"
-    - ".*\\.pb\\.go$"
-  exclude-rules:
-    # Exclude all linters in test files
-    - path: _test\.go$
-      linters:
-        - govet
-        - staticcheck
-    # Exclude specific staticcheck rules
-    - text: "(SA9003|QF1008)"  # empty branch, embedded field selector
-      linters:
-        - staticcheck
-  max-issues-per-linter: 0
-  max-same-issues: 0
+run:
+  go: '1.24'
+  timeout: 5m
