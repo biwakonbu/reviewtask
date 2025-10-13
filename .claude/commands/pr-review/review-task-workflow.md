@@ -162,8 +162,11 @@ reviewtask cancel task-xyz789 --reason "Duplicate of task-def456 which is alread
 # Step 1: Create Issue
 gh issue create --title "Improve error handling in API client" --body "Deferred from PR #42..."
 
-# Step 2: Cancel with Issue reference
-reviewtask cancel --all-pending --reason "Deferring to follow-up PR. Tracked in Issue #125"
+# Step 2: Cancel with Issue reference (use specific task ID to avoid accidental bulk cancellation)
+reviewtask cancel task-abc456 --reason "Deferring to follow-up PR. Tracked in Issue #125"
+
+# WARNING: Only use --all-pending if you intentionally want to cancel ALL pending tasks
+# reviewtask cancel --all-pending --reason "Deferring to follow-up PR. Tracked in Issue #125"
 ```
 
 ### When to PENDING Tasks:
