@@ -352,3 +352,87 @@ func (c *Client) GetCommentThreadState(ctx context.Context, prNumber int, commen
 
 	return result.Node.IsResolved, nil
 }
+
+// GetAllThreadStates fetches all thread resolution states for a PR in batch
+// Returns a map of comment ID -> isResolved for efficient lookups
+// This avoids N+1 query problem by fetching all threads and their states at once
+func (c *GraphQLClient) GetAllThreadStates(ctx context.Context, owner, repo string, prNumber int) (map[int64]bool, error) {
+	query := `
+		query($owner: String!, $repo: String!, $prNumber: Int!, $cursor: String) {
+			repository(owner: $owner, name: $repo) {
+				pullRequest(number: $prNumber) {
+					reviewThreads(first: 100, after: $cursor) {
+						pageInfo {
+							hasNextPage
+							endCursor
+						}
+						nodes {
+							id
+							isResolved
+							comments(first: 100) {
+								nodes {
+									databaseId
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	`
+
+	threadStateMap := make(map[int64]bool)
+	var cursor *string
+
+	for {
+		variables := map[string]interface{}{
+			"owner":    owner,
+			"repo":     repo,
+			"prNumber": prNumber,
+		}
+		if cursor != nil {
+			variables["cursor"] = *cursor
+		}
+
+		var result struct {
+			Repository struct {
+				PullRequest struct {
+					ReviewThreads struct {
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+						Nodes []struct {
+							ID         string `json:"id"`
+							IsResolved bool   `json:"isResolved"`
+							Comments   struct {
+								Nodes []struct {
+									DatabaseID int64 `json:"databaseId"`
+								} `json:"nodes"`
+							} `json:"comments"`
+						} `json:"nodes"`
+					} `json:"reviewThreads"`
+				} `json:"pullRequest"`
+			} `json:"repository"`
+		}
+
+		if err := c.Execute(ctx, query, variables, &result); err != nil {
+			return nil, fmt.Errorf("failed to fetch thread states: %w", err)
+		}
+
+		// Map comment IDs to thread resolution state
+		for _, thread := range result.Repository.PullRequest.ReviewThreads.Nodes {
+			for _, comment := range thread.Comments.Nodes {
+				threadStateMap[comment.DatabaseID] = thread.IsResolved
+			}
+		}
+
+		if !result.Repository.PullRequest.ReviewThreads.PageInfo.HasNextPage {
+			break
+		}
+
+		cursor = &result.Repository.PullRequest.ReviewThreads.PageInfo.EndCursor
+	}
+
+	return threadStateMap, nil
+}

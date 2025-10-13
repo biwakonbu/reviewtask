@@ -485,6 +485,8 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 			return nil, fmt.Errorf("failed to get comments for review %d: %w", review.GetID(), err)
 		}
 		if comments != nil {
+			// Enrich comments with thread resolution state from GraphQL
+			comments = c.enrichCommentsWithThreadState(ctx, prNumber, comments)
 			r.Comments = comments
 		}
 
@@ -686,6 +688,55 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 	}
 
 	return result, nil
+}
+
+// GetAllThreadStates fetches all thread resolution states for a PR in batch
+// This is the optimized batch version that avoids N+1 query problem
+func (c *Client) GetAllThreadStates(ctx context.Context, prNumber int) (map[int64]bool, error) {
+	graphqlClient, err := c.NewGraphQLClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GraphQL client: %w", err)
+	}
+
+	return graphqlClient.GetAllThreadStates(ctx, c.owner, c.repo, prNumber)
+}
+
+// enrichCommentsWithThreadState enriches comments with GitHub thread resolution state
+// Uses optimized batch GraphQL API call to fetch all thread states at once
+func (c *Client) enrichCommentsWithThreadState(ctx context.Context, prNumber int, comments []Comment) []Comment {
+	// Skip if no comments to enrich
+	if len(comments) == 0 {
+		return comments
+	}
+
+	// Fetch all thread states in batch (single GraphQL call with pagination)
+	threadStates, err := c.GetAllThreadStates(ctx, prNumber)
+	if err != nil {
+		// Log error but continue - return comments without enrichment
+		// In production, this could be logged to stderr or a logging system
+		return comments
+	}
+
+	// Create a copy of comments to avoid modifying the original slice
+	enriched := make([]Comment, len(comments))
+	copy(enriched, comments)
+
+	// Enrich each comment with thread state from the batch result
+	now := time.Now().Format("2006-01-02T15:04:05Z")
+	for i := range enriched {
+		// Skip if comment ID is 0 (shouldn't happen but defensive coding)
+		if enriched[i].ID == 0 {
+			continue
+		}
+
+		// Look up thread resolution state from batch result
+		if isResolved, exists := threadStates[enriched[i].ID]; exists {
+			enriched[i].GitHubThreadResolved = isResolved
+			enriched[i].LastCheckedAt = now
+		}
+	}
+
+	return enriched
 }
 
 func getRepoInfo() (string, string, error) {
