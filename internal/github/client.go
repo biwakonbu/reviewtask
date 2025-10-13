@@ -25,9 +25,10 @@ type Client struct {
 	repo   string
 	cache  *APICache
 
-	// graphQLClientForTesting allows injecting a mock GraphQL client for testing
-	// When set, GetAllThreadStates uses this instead of creating a new client
-	graphQLClientForTesting *GraphQLClient
+	// graphqlClient allows injecting a custom GraphQL client for testing
+	// When set, Client methods use this instead of creating a new client
+	// This enables dependency injection of mock GraphQL clients
+	graphqlClient GraphQLClientInterface
 }
 
 type PRInfo struct {
@@ -349,6 +350,36 @@ func NewClientWithProviders(authProvider AuthTokenProvider, repoProvider RepoInf
 	}, nil
 }
 
+// NewClientWithGraphQL creates a client with a custom GraphQL client injected
+// This is primarily useful for testing with mock GraphQL clients
+func NewClientWithGraphQL(authProvider AuthTokenProvider, repoProvider RepoInfoProvider, graphqlClient GraphQLClientInterface) (*Client, error) {
+	token, err := authProvider.GetToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get GitHub token: %w", err)
+	}
+
+	// Get repository info
+	owner, repo, err := repoProvider.GetRepoInfo()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get repository info: %w", err)
+	}
+
+	// Create GitHub client with authentication
+	ts := oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: token},
+	)
+	tc := oauth2.NewClient(context.Background(), ts)
+	client := github.NewClient(tc)
+
+	return &Client{
+		client:        client,
+		owner:         owner,
+		repo:          repo,
+		cache:         NewAPICache(5 * time.Minute),
+		graphqlClient: graphqlClient,
+	}, nil
+}
+
 func (c *Client) GetCurrentBranchPR(ctx context.Context) (int, error) {
 	// Get current branch
 	cmd := exec.Command("git", "branch", "--show-current")
@@ -460,6 +491,15 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 		opts.Page = resp.NextPage
 	}
 
+	// Fetch all thread states once for the entire PR (optimization to avoid N+M problem)
+	// This is called once instead of once per review, significantly improving performance
+	threadStates, err := c.GetAllThreadStates(ctx, prNumber)
+	if err != nil {
+		// Log error but continue without thread state enrichment
+		// Create empty map to avoid nil checks later
+		threadStates = make(map[int64]bool)
+	}
+
 	result := []Review{}
 	for _, review := range allReviews {
 		reviewBody := review.GetBody()
@@ -489,8 +529,8 @@ func (c *Client) GetPRReviews(ctx context.Context, prNumber int) ([]Review, erro
 			return nil, fmt.Errorf("failed to get comments for review %d: %w", review.GetID(), err)
 		}
 		if comments != nil {
-			// Enrich comments with thread resolution state from GraphQL
-			comments = c.enrichCommentsWithThreadState(ctx, prNumber, comments)
+			// Enrich comments with preloaded thread states (avoids redundant API calls)
+			comments = enrichCommentsWithPreloadedThreadState(comments, threadStates)
 			r.Comments = comments
 		}
 
@@ -697,13 +737,14 @@ func (c *Client) getReviewComments(ctx context.Context, prNumber int, reviewID i
 // GetAllThreadStates fetches all thread resolution states for a PR in batch
 // This is the optimized batch version that avoids N+1 query problem
 func (c *Client) GetAllThreadStates(ctx context.Context, prNumber int) (map[int64]bool, error) {
-	var graphqlClient *GraphQLClient
+	var graphqlClient GraphQLClientInterface
 	var err error
 
-	// Use injected mock client for testing if available
-	if c.graphQLClientForTesting != nil {
-		graphqlClient = c.graphQLClientForTesting
+	// Use injected GraphQL client if available (for testing or custom implementations)
+	if c.graphqlClient != nil {
+		graphqlClient = c.graphqlClient
 	} else {
+		// Create default production GraphQL client
 		graphqlClient, err = c.NewGraphQLClient()
 		if err != nil {
 			return nil, fmt.Errorf("failed to create GraphQL client: %w", err)
@@ -715,6 +756,7 @@ func (c *Client) GetAllThreadStates(ctx context.Context, prNumber int) (map[int6
 
 // enrichCommentsWithThreadState enriches comments with GitHub thread resolution state
 // Uses optimized batch GraphQL API call to fetch all thread states at once
+// DEPRECATED: Use enrichCommentsWithPreloadedThreadState instead to avoid redundant API calls
 func (c *Client) enrichCommentsWithThreadState(ctx context.Context, prNumber int, comments []Comment) []Comment {
 	// Skip if no comments to enrich
 	if len(comments) == 0 {
@@ -729,11 +771,22 @@ func (c *Client) enrichCommentsWithThreadState(ctx context.Context, prNumber int
 		return comments
 	}
 
+	return enrichCommentsWithPreloadedThreadState(comments, threadStates)
+}
+
+// enrichCommentsWithPreloadedThreadState enriches comments with preloaded thread states
+// This avoids redundant GetAllThreadStates API calls when processing multiple reviews
+func enrichCommentsWithPreloadedThreadState(comments []Comment, threadStates map[int64]bool) []Comment {
+	// Skip if no comments to enrich
+	if len(comments) == 0 {
+		return comments
+	}
+
 	// Create a copy of comments to avoid modifying the original slice
 	enriched := make([]Comment, len(comments))
 	copy(enriched, comments)
 
-	// Enrich each comment with thread state from the batch result
+	// Enrich each comment with thread state from the preloaded result
 	now := time.Now().Format("2006-01-02T15:04:05Z")
 	for i := range enriched {
 		// Skip if comment ID is 0 (shouldn't happen but defensive coding)
@@ -741,7 +794,7 @@ func (c *Client) enrichCommentsWithThreadState(ctx context.Context, prNumber int
 			continue
 		}
 
-		// Look up thread resolution state from batch result
+		// Look up thread resolution state from preloaded result
 		if isResolved, exists := threadStates[enriched[i].ID]; exists {
 			enriched[i].GitHubThreadResolved = isResolved
 			enriched[i].LastCheckedAt = now

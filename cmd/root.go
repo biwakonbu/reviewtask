@@ -248,7 +248,7 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to fetch PR info: %w", err)
 	}
 
-	// Fetch PR reviews
+	// Fetch PR reviews (includes thread resolution state enrichment)
 	fmt.Println("  Fetching PR reviews and comments...")
 	reviews, err := ghClient.GetPRReviews(ctx, prNumber)
 	if err != nil {
@@ -269,19 +269,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Fetch thread resolution state for all comments using batch API
+	// Count unresolved threads from already-enriched comments
+	// (thread resolution state was fetched in GetPRReviews)
 	fmt.Println("  Checking thread resolution state...")
-
-	// Use batch fetch for better performance (Issue #222)
-	threadStates, err := ghClient.GetAllThreadStates(ctx, prNumber)
-	if err != nil {
-		fmt.Printf("  ⚠️  Warning: failed to fetch thread states: %v\n", err)
-		// Continue without thread state information
-		threadStates = make(map[int64]bool)
-	}
-
-	// Update resolution state for all comments
-	now := time.Now().UTC().Format("2006-01-02T15:04:05Z")
 	unresolvedCount := 0
 	for i := range reviews {
 		for j := range reviews[i].Comments {
@@ -291,14 +281,9 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			// Get resolution state from batch result
-			if isResolved, exists := threadStates[comment.ID]; exists {
-				comment.GitHubThreadResolved = isResolved
-				comment.LastCheckedAt = now
-
-				if !isResolved {
-					unresolvedCount++
-				}
+			// Count unresolved threads (state was already enriched in GetPRReviews)
+			if !comment.GitHubThreadResolved && comment.LastCheckedAt != "" {
+				unresolvedCount++
 			}
 		}
 	}

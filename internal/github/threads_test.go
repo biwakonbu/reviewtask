@@ -2,6 +2,7 @@ package github
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"testing"
@@ -139,12 +140,12 @@ func TestUpdateThreadResolutionStatus_UseBatchAPI(t *testing.T) {
 			// Create mock GraphQL client
 			graphQLClient := NewMockGraphQLClient(mockServer, "test-token")
 
-			// Create mock GitHub client with injected GraphQL client
-			mockClient := &Client{
-				owner:                   "test-owner",
-				repo:                    "test-repo",
-				client:                  nil, // Not needed for this test
-				graphQLClientForTesting: graphQLClient,
+			// Create mock GitHub client with injected GraphQL client using NewClientWithGraphQL
+			mockAuth := &MockAuthTokenProvider{token: "test-token"}
+			mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+			mockClient, err := NewClientWithGraphQL(mockAuth, mockRepo, graphQLClient)
+			if err != nil {
+				t.Fatalf("Failed to create client with GraphQL: %v", err)
 			}
 
 			// Create tracker with mock client
@@ -211,12 +212,12 @@ func TestUpdateThreadResolutionStatus_Integration(t *testing.T) {
 
 		graphQLClient := NewMockGraphQLClient(mockServer, "test-token")
 
-		// Create a mock client with injected GraphQL client
-		mockClient := &Client{
-			owner:                   "test-owner",
-			repo:                    "test-repo",
-			client:                  nil, // Not needed for this test
-			graphQLClientForTesting: graphQLClient,
+		// Create a mock client with injected GraphQL client using NewClientWithGraphQL
+		mockAuth := &MockAuthTokenProvider{token: "test-token"}
+		mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+		mockClient, err := NewClientWithGraphQL(mockAuth, mockRepo, graphQLClient)
+		if err != nil {
+			t.Fatalf("Failed to create client with GraphQL: %v", err)
 		}
 
 		// Create tracker with the mock client
@@ -250,6 +251,196 @@ func TestUpdateThreadResolutionStatus_Integration(t *testing.T) {
 		if tracker.client != mockClient {
 			t.Errorf("Tracker client not set correctly")
 		}
+	})
+}
+
+// TestNewClientWithGraphQL_DependencyInjection tests the NewClientWithGraphQL constructor
+func TestNewClientWithGraphQL_DependencyInjection(t *testing.T) {
+	t.Run("Successfully creates client with injected GraphQL client", func(t *testing.T) {
+		// Create mock GraphQL server
+		mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+			threads := []MockThread{
+				{
+					ID:         "thread1",
+					IsResolved: true,
+					Comments: []MockComment{
+						{DatabaseID: 100},
+					},
+					CommentsHasNextPage: false,
+				},
+			}
+			return BuildThreadStatesResponse(threads, false, ""), nil
+		})
+		defer mockServer.Close()
+
+		// Create mock GraphQL client
+		mockGraphQL := NewMockGraphQLClient(mockServer, "test-token")
+
+		// Create client using NewClientWithGraphQL
+		mockAuth := &MockAuthTokenProvider{token: "test-token"}
+		mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+		client, err := NewClientWithGraphQL(mockAuth, mockRepo, mockGraphQL)
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
+		}
+
+		// Verify client was created correctly
+		if client == nil {
+			t.Fatal("Client should not be nil")
+		}
+		if client.owner != "test-owner" {
+			t.Errorf("Expected owner 'test-owner', got '%s'", client.owner)
+		}
+		if client.repo != "test-repo" {
+			t.Errorf("Expected repo 'test-repo', got '%s'", client.repo)
+		}
+		if client.graphqlClient == nil {
+			t.Fatal("GraphQL client should be injected")
+		}
+
+		// Test that the injected GraphQL client is actually used
+		ctx := context.Background()
+		threadStates, err := client.GetAllThreadStates(ctx, 123)
+		if err != nil {
+			t.Fatalf("GetAllThreadStates failed: %v", err)
+		}
+
+		// Verify the mock GraphQL client was used
+		if len(threadStates) == 0 {
+			t.Error("Expected thread states from mock GraphQL client")
+		}
+		if resolved, exists := threadStates[100]; !exists || !resolved {
+			t.Error("Expected comment 100 to be resolved")
+		}
+	})
+
+	t.Run("Fails with invalid auth provider", func(t *testing.T) {
+		mockAuth := &MockAuthTokenProvider{token: "", err: fmt.Errorf("auth error")}
+		mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+		mockGraphQL := &MockGraphQLClientWithCounter{}
+
+		_, err := NewClientWithGraphQL(mockAuth, mockRepo, mockGraphQL)
+		if err == nil {
+			t.Error("Expected error with invalid auth provider")
+		}
+	})
+
+	t.Run("Fails with invalid repo provider", func(t *testing.T) {
+		mockAuth := &MockAuthTokenProvider{token: "test-token"}
+		mockRepo := &MockRepoInfoProvider{owner: "", repo: "", err: fmt.Errorf("repo error")}
+		mockGraphQL := &MockGraphQLClientWithCounter{}
+
+		_, err := NewClientWithGraphQL(mockAuth, mockRepo, mockGraphQL)
+		if err == nil {
+			t.Error("Expected error with invalid repo provider")
+		}
+	})
+}
+
+// TestGraphQLClientInterface_Integration tests the full integration of GraphQL client interface
+func TestGraphQLClientInterface_Integration(t *testing.T) {
+	t.Run("Real workflow: UpdateThreadResolutionStatus via injected client", func(t *testing.T) {
+		// Create mock GraphQL server with realistic data
+		callCount := 0
+		mockServer := NewMockGraphQLServer(t, func(query string, variables map[string]interface{}) (interface{}, []GraphQLError) {
+			callCount++
+			threads := []MockThread{
+				{
+					ID:         "thread1",
+					IsResolved: true,
+					Comments: []MockComment{
+						{DatabaseID: 1},
+						{DatabaseID: 2},
+					},
+					CommentsHasNextPage: false,
+				},
+				{
+					ID:         "thread2",
+					IsResolved: false,
+					Comments: []MockComment{
+						{DatabaseID: 3},
+					},
+					CommentsHasNextPage: false,
+				},
+			}
+			return BuildThreadStatesResponse(threads, false, ""), nil
+		})
+		defer mockServer.Close()
+
+		// Setup: Create client with injected mock GraphQL client
+		mockGraphQL := NewMockGraphQLClient(mockServer, "test-token")
+		mockAuth := &MockAuthTokenProvider{token: "test-token"}
+		mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+
+		client, err := NewClientWithGraphQL(mockAuth, mockRepo, mockGraphQL)
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
+		}
+
+		// Create tracker with the DI-enabled client
+		tracker := NewThreadResolutionTracker(client)
+
+		// Execute: Call production method
+		ctx := context.Background()
+		comments := []Comment{
+			{ID: 1, Body: "Fix this"},
+			{ID: 2, Body: "Also fix this"},
+			{ID: 3, Body: "And this"},
+		}
+
+		statuses, err := tracker.UpdateThreadResolutionStatus(ctx, 123, comments)
+		if err != nil {
+			t.Fatalf("UpdateThreadResolutionStatus failed: %v", err)
+		}
+
+		// Verify: Results match expected behavior
+		if len(statuses) != 3 {
+			t.Errorf("Expected 3 statuses, got %d", len(statuses))
+		}
+
+		// Verify resolution states
+		expectedResolved := map[int64]bool{
+			1: true,  // thread1
+			2: true,  // thread1
+			3: false, // thread2
+		}
+
+		for _, status := range statuses {
+			expected := expectedResolved[status.CommentID]
+			if status.GitHubThreadResolved != expected {
+				t.Errorf("Comment %d: expected resolved=%v, got %v",
+					status.CommentID, expected, status.GitHubThreadResolved)
+			}
+		}
+
+		// Verify: Only 1 GraphQL call was made (batch API optimization)
+		if callCount != 1 {
+			t.Errorf("Expected 1 GraphQL call, got %d (N+1 problem!)", callCount)
+		}
+	})
+
+	t.Run("Fallback to production client when no GraphQL client injected", func(t *testing.T) {
+		// Create client without GraphQL injection (uses NewClientWithProviders)
+		mockAuth := &MockAuthTokenProvider{token: "test-token"}
+		mockRepo := &MockRepoInfoProvider{owner: "test-owner", repo: "test-repo"}
+
+		client, err := NewClientWithProviders(mockAuth, mockRepo)
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
+		}
+
+		// Verify: Client should work without injected GraphQL client
+		if client == nil {
+			t.Fatal("Client should not be nil")
+		}
+
+		// The graphqlClient field should be nil, indicating fallback behavior
+		if client.graphqlClient != nil {
+			t.Error("Expected nil graphqlClient for non-injected client")
+		}
+
+		// Note: We can't call GetAllThreadStates here without a real GitHub token
+		// This test just verifies the client is created correctly
 	})
 }
 
