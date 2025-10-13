@@ -15,6 +15,7 @@ import (
 	"reviewtask/internal/github"
 	"reviewtask/internal/setup"
 	"reviewtask/internal/storage"
+	"reviewtask/internal/sync"
 	"reviewtask/internal/version"
 
 	"github.com/spf13/cobra"
@@ -268,8 +269,18 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Fetch thread resolution state for all comments
+	// Fetch thread resolution state for all comments using batch API
 	fmt.Println("  Checking thread resolution state...")
+
+	// Use batch fetch for better performance (Issue #222)
+	threadStates, err := ghClient.GetAllThreadStates(ctx, prNumber)
+	if err != nil {
+		fmt.Printf("  ⚠️  Warning: failed to fetch thread states: %v\n", err)
+		// Continue without thread state information
+		threadStates = make(map[int64]bool)
+	}
+
+	// Update resolution state for all comments
 	now := time.Now().Format("2006-01-02T15:04:05Z")
 	unresolvedCount := 0
 	for i := range reviews {
@@ -280,28 +291,44 @@ func runReviewTask(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			// Fetch thread resolution state
-			isResolved, err := ghClient.GetCommentThreadState(ctx, prNumber, comment.ID)
-			if err != nil {
-				// Log warning but continue - not all comments have threads
-				if cfg.AISettings.VerboseMode {
-					fmt.Printf("  ⚠️  Could not fetch thread state for comment %d: %v\n", comment.ID, err)
+			// Get resolution state from batch result
+			if isResolved, exists := threadStates[comment.ID]; exists {
+				comment.GitHubThreadResolved = isResolved
+				comment.LastCheckedAt = now
+
+				if !isResolved {
+					unresolvedCount++
 				}
-				continue
-			}
-
-			// Populate thread resolution fields
-			comment.GitHubThreadResolved = isResolved
-			comment.LastCheckedAt = now
-
-			if !isResolved {
-				unresolvedCount++
 			}
 		}
 	}
 
 	if unresolvedCount > 0 {
 		fmt.Printf("  Found %d unresolved comment threads\n", unresolvedCount)
+	}
+
+	// Reconcile local task state with GitHub thread state
+	fmt.Println("  Reconciling local task state with GitHub...")
+	reconciler := sync.NewReconciler(ghClient, storageManager)
+	reconcileResult, err := reconciler.ReconcileWithGitHub(ctx, prNumber, reviews)
+	if err != nil {
+		fmt.Printf("  ⚠️  Warning: failed to reconcile with GitHub: %v\n", err)
+	} else {
+		// Show reconciliation results
+		if reconcileResult.LocalTasksNeedingResolve > 0 {
+			fmt.Printf("  ✓ Resolved %d threads that were completed locally\n", len(reconcileResult.ResolvedThreads))
+		}
+
+		if reconcileResult.CancelTasksWithoutReply > 0 {
+			fmt.Printf("  ⚠️  Found %d cancelled tasks without reply comments\n", reconcileResult.CancelTasksWithoutReply)
+		}
+
+		// Show warnings if any
+		if cfg.AISettings.VerboseMode && len(reconcileResult.Warnings) > 0 {
+			for _, warning := range reconcileResult.Warnings {
+				fmt.Printf("  %s\n", warning)
+			}
+		}
 	}
 
 	// Save PR info and reviews
