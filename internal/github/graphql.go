@@ -9,6 +9,22 @@ import (
 	"net/http"
 )
 
+// GraphQLClientInterface defines the interface for GraphQL operations
+// This enables dependency injection of mock clients for testing
+type GraphQLClientInterface interface {
+	// Execute executes a GraphQL query with variables and unmarshals the result
+	Execute(ctx context.Context, query string, variables map[string]interface{}, result interface{}) error
+
+	// ResolveReviewThread resolves a review thread by its thread ID
+	ResolveReviewThread(ctx context.Context, threadID string) error
+
+	// GetReviewThreadID gets the review thread ID for a review comment
+	GetReviewThreadID(ctx context.Context, owner, repo string, prNumber int, commentID int64) (string, error)
+
+	// GetAllThreadStates fetches all thread resolution states for a PR in batch
+	GetAllThreadStates(ctx context.Context, owner, repo string, prNumber int) (map[int64]bool, error)
+}
+
 // GraphQLClient provides GraphQL API operations
 type GraphQLClient struct {
 	token      string
