@@ -318,17 +318,9 @@ internal/              # Private implementation packages
 - User language preferences honored throughout
 
 **AI Processing Configuration:**
-- **Worker Pool Pattern**: Fixed-size worker pool (default: 5) for predictable resource usage, preventing system freezes
-  - 89-90% goroutine reduction compared to per-comment pattern
-  - Configurable via `max_concurrent_requests` setting
-  - Eliminates context switching overhead
-- **Pagination Support**: Automatic pagination for GitHub API calls
-  - Fetches all comments/threads (100+ items) without data loss
-  - Prevents critical 59% comment loss issue on large PRs
-  - Batch GraphQL fetching reduces API calls by 96%
-- **Process Cleanup**: Robust defer-based cleanup prevents child process leaks
-  - Platform-specific (Unix/Windows) process group management
-  - Prevents CPU exhaustion from orphaned processes
+- **Worker Pool Pattern**: Configurable concurrency via `max_concurrent_requests` setting (default: 5)
+- **Pagination Support**: Automatic pagination for GitHub API calls prevents data loss on large PRs
+- **Process Cleanup**: Platform-specific (Unix/Windows) process group management prevents resource leaks
 - **Verbose Mode**: `"verbose_mode": true` enables detailed logging and debugging output
 - **Validation Mode**: `"validation_enabled": true` enables AI-powered task validation with retries
 - **Comment Chunking**: Automatic for comments >20KB, configurable chunk size
