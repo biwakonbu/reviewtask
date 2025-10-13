@@ -83,6 +83,7 @@ After completing the initial setup, follow this exact workflow:
       - First, evaluate if the task is needed using the **Task Classification Guidelines** below
       - If needed: Use `reviewtask show` to get the next recommended task, then run `reviewtask update <task-id> doing`
       - If duplicate/unnecessary: Use `reviewtask cancel <task-id> --reason "explanation"` to cancel and notify reviewers
+      - If deferring to follow-up PR: ⚠️ Create Issue FIRST, then cancel with Issue reference (see step 2d)
       - If uncertain: Update to `pending` with `reviewtask update <task-id> pending`
 
    d) **For pending-only scenario**:
@@ -91,6 +92,9 @@ After completing the initial setup, follow this exact workflow:
         - `doing`: If you can now resolve the blocking issue
         - `todo`: If the task should be attempted again
         - `cancel`: If the task is no longer relevant or cannot be completed
+      - ⚠️ **CRITICAL**: When cancelling to defer to follow-up PR:
+        1. Create GitHub Issue FIRST: `gh issue create --title "..." --body "Deferred from PR #X..."`
+        2. Then cancel with reference: `reviewtask cancel <task-id> --reason "Tracked in Issue #Y"`
       - Update task status: `reviewtask update <task-id> <new-status>`
 
 3. **Verify Task Start**: Confirm the status change was successful before proceeding
@@ -126,6 +130,7 @@ After completing the initial setup, follow this exact workflow:
    - Check status again with `reviewtask status`
    - **If all tasks are completed (no todo, doing, or pending tasks remaining)**: Stop here - all work is done!
    - **If only pending tasks remain**: Handle pending tasks as described in Step 2d
+     - ⚠️ **If deferring to follow-up PR**: Create GitHub Issue FIRST, then cancel with Issue reference
    - **If todo or doing tasks remain**: Repeat this entire workflow from step 1
 
 ## Task Classification Guidelines:
@@ -261,6 +266,10 @@ This workflow leverages the full capabilities of the current reviewtask implemen
 - **Provide clear reasons**: Cancellation reasons are posted to GitHub to notify reviewers why feedback wasn't addressed
 - **Batch cancellation**: Use `--all-pending` flag to cancel multiple tasks with the same reason
 - **Error handling**: Cancel command returns non-zero exit code on failure (safe for CI/CD scripts)
+- **⚠️ CRITICAL: For deferred tasks**: When deferring work to a follow-up PR, you MUST:
+  1. Create a GitHub Issue first: `gh issue create --title "..." --body "Deferred from PR #X..."`
+  2. Reference the Issue number in cancellation reason: `--reason "Deferring to follow-up PR. Tracked in Issue #Y"`
+  3. This ensures transparency and prevents lost feedback
 
 ### Task Completion:
 - **Recommended approach**: Use `reviewtask done <task-id>` for full automation
@@ -363,6 +372,10 @@ You can now safely complete this task with: reviewtask done task-001
    Remaining: 2 tasks (1 critical, 1 high priority)
 
 Next: reviewtask done task-002
+
+⚠️ Note: If deferring remaining tasks to follow-up PR, create Issue first:
+   gh issue create --title "..." --body "Deferred from PR #X..."
+   reviewtask cancel <task-id> --reason "Tracked in Issue #Y"
 ```
 
 **`reviewtask cancel` output example:**
