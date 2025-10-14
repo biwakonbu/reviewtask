@@ -1173,17 +1173,51 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	return tasks, nil
 }
 
+// generateDeterministicTaskID generates a deterministic UUID v5 based on comment ID and task index.
+// This ensures that the same comment and task index always produce the same ID across multiple runs,
+// preventing duplicate task creation while maintaining UUID compatibility.
+//
+// UUID v5 Generation Strategy:
+// - Uses SHA-1 based UUID v5 (deterministic) instead of v4 (random)
+// - Namespace: Standard DNS namespace (6ba7b810-9dad-11d1-80b4-00c04fd430c8)
+// - Name: "comment-{commentID}-task-{taskIndex}"
+// - Same input always produces same output (idempotent)
+// - Compatible with existing UUID infrastructure
+// - No database schema changes needed
+//
+// Benefits:
+// - Prevents duplicate tasks from same comment across multiple reviewtask runs
+// - Leverages existing WriteWorker deduplication logic
+// - Maintains RFC 4122 compliance
+// - Provides stable task references
+//
+// Example:
+//
+//	generateDeterministicTaskID(12345, 0) → "a1b2c3d4-e5f6-5789-abcd-ef0123456789"
+//	generateDeterministicTaskID(12345, 0) → "a1b2c3d4-e5f6-5789-abcd-ef0123456789" (same ID)
+//	generateDeterministicTaskID(12345, 1) → "f1e2d3c4-b5a6-5987-dcba-fe9876543210" (different task index)
+func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int) string {
+	// Standard DNS namespace UUID for v5 generation
+	namespace := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+	// Create deterministic name from comment ID and task index
+	name := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
+
+	// Generate UUID v5 (SHA-1 based, deterministic)
+	return uuid.NewSHA1(namespace, []byte(name)).String()
+}
+
 // convertToStorageTasks converts AI-generated TaskRequest objects to storage.Task objects.
 //
-// SPECIFICATION: UUID-based Task ID Generation
-// Task IDs are generated using UUIDs (via uuid.New().String()) to ensure:
-// 1. Global uniqueness guarantee - no collisions possible
-// 2. Unpredictability for security - cannot be guessed
-// 3. No dependency on other field values - future-proof design
-// 4. Standards compliance - follows RFC 4122
+// SPECIFICATION: Deterministic UUID-based Task ID Generation
+// Task IDs are generated using UUID v5 (deterministic) to ensure:
+// 1. Idempotency - same comment + task index = same ID across runs
+// 2. Deduplication - prevents duplicate tasks when reviewtask runs multiple times
+// 3. Standards compliance - follows RFC 4122
+// 4. Compatibility - works with existing UUID infrastructure
 //
-// WARNING: DO NOT revert to comment-based ID formats like "comment-%d-task-%d".
-// Such approaches are fundamentally flawed and create collision risks.
+// This implementation fixes Issue #247 by ensuring the same comment always generates
+// the same task ID, allowing WriteWorker to properly deduplicate tasks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -1209,8 +1243,9 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 		}
 
 		storageTask := storage.Task{
-			// UUID-based ID generation ensures global uniqueness and security
-			ID:              uuid.New().String(),
+			// Deterministic UUID generation based on comment ID and task index
+			// This ensures idempotency: same comment always generates same task ID
+			ID:              a.generateDeterministicTaskID(task.SourceCommentID, task.TaskIndex),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        priority,
