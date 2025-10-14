@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"sync"
+	"time"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -128,9 +129,24 @@ func setProcessGroup(cmd *exec.Cmd) {
 	processJobs[cmd] = jobInfo
 	processJobsMu.Unlock()
 
-	// Note: We don't use CREATE_SUSPENDED because it requires manually resuming threads
-	// Instead, we assign the process to the job in killProcessGroup when it's terminated
-	// This is simpler and works well since Windows allows assigning running processes
+	// Try to assign ASAP after Start() to minimize race with child creation.
+	go func(ji *processJobInfo) {
+		// Poll briefly for Process to be set by cmd.Start().
+		for i := 0; i < 100; i++ { // ~1s total
+			p := ji.cmd.Process
+			if p != nil {
+				h, err := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, uint32(p.Pid))
+				if err == nil {
+					ret, _, _ := procAssignProcessToJobObject.Call(uintptr(ji.jobHandle), uintptr(h))
+					windows.CloseHandle(h)
+					if ret != 0 {
+						return
+					}
+				}
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}(jobInfo)
 }
 
 // killProcessGroup kills the entire job object (parent + all children)
