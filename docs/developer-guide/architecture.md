@@ -192,10 +192,61 @@ type TaskRequest struct {
 - Mechanical fields populated programmatically
 - Complete origin text preservation
 
-#### Task Generation
+#### Task ID Generation Strategy
+
+**Deterministic UUID v5 Generation** (Issue #247):
+
+```go
+func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int) string {
+    // Standard DNS namespace UUID for v5 generation (RFC 4122)
+    namespace := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+    // Create deterministic name from comment ID and task index
+    name := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
+
+    // Generate UUID v5 (SHA-1 based, deterministic)
+    return uuid.NewSHA1(namespace, []byte(name)).String()
+}
+```
+
+**Design Rationale:**
+- **UUID v5 (not v4)**: SHA-1 based, deterministic, RFC 4122 compliant
+- **Idempotency**: Same comment + task index always produces same UUID
+- **Uniqueness**: Different comments or task indexes produce different UUIDs
+- **Collision-resistant**: SHA-1 hash ensures extremely low collision probability
+- **Backward compatible**: Co-exists with legacy random UUID v4 tasks
+
+**Key Benefits:**
+1. **Prevents duplicate tasks**: Running `reviewtask` multiple times on same PR doesn't create duplicates
+2. **Leverages existing deduplication**: WriteWorker's ID-based deduplication works automatically
+3. **No migration needed**: Old random UUIDs and new deterministic UUIDs work together
+4. **RFC compliance**: Standard UUID format, works with all UUID tooling
+
+**Input Parameters:**
+- `commentID`: GitHub comment ID (stable, unique identifier)
+- `taskIndex`: Task position within comment (0, 1, 2...)
+
+**Example:**
+```go
+// Comment 12345, Task 0
+generateDeterministicTaskID(12345, 0)
+// => "485370cd-3594-5380-896e-0d646eb34ac4" (always the same)
+
+// Comment 12345, Task 1
+generateDeterministicTaskID(12345, 1)
+// => "a1b2c3d4-5678-5901-234e-56789abcdef0" (different from task 0)
+```
+
+**Implementation Details:**
+- Namespace: DNS namespace UUID (`6ba7b810-9dad-11d1-80b4-00c04fd430c8`)
+- Name format: `"comment-{commentID}-task-{taskIndex}"`
+- Hash algorithm: SHA-1 (UUID v5 standard)
+- Output format: Standard UUID string representation
+
+#### Task Data Structure
 ```go
 type Task struct {
-    ID          string    `json:"id"`
+    ID          string    `json:"id"`           // Deterministic UUID v5
     Title       string    `json:"title"`
     Description string    `json:"description"`
     Priority    string    `json:"priority"`
