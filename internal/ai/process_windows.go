@@ -5,6 +5,7 @@ package ai
 import (
 	"fmt"
 	"os/exec"
+	"strconv"
 	"sync"
 	"unsafe"
 
@@ -152,20 +153,29 @@ func killProcessGroup(process *exec.Cmd) error {
 		// If the process has started, try to assign it to the job before terminating
 		// This handles the case where the process started but wasn't assigned yet
 		if process.Process != nil {
-			processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, uint32(process.Process.Pid))
+			// Use minimal required rights instead of PROCESS_ALL_ACCESS
+			processHandle, err := windows.OpenProcess(windows.PROCESS_SET_QUOTA|windows.PROCESS_TERMINATE, false, uint32(process.Process.Pid))
 			if err == nil {
-				// Try to assign - this might fail if already assigned, which is fine
-				procAssignProcessToJobObject.Call(
-					uintptr(jobInfo.jobHandle),
-					uintptr(processHandle),
-				)
+				// Try to assign - ignore "already assigned" failures
+				procAssignProcessToJobObject.Call(uintptr(jobInfo.jobHandle), uintptr(processHandle))
 				windows.CloseHandle(processHandle)
 			}
 		}
 
 		// Terminate all processes in the job with exit code 1
-		procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
+		ret, _, termErr := procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
 		windows.CloseHandle(jobInfo.jobHandle)
+
+		if ret == 0 {
+			// TerminateJobObject failed, use taskkill as fallback
+			if process.Process != nil {
+				// Best-effort tree kill using Windows taskkill command
+				_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(process.Process.Pid)).Run()
+			}
+			if termErr != nil {
+				return fmt.Errorf("TerminateJobObject failed: %w", termErr)
+			}
+		}
 		return nil
 	}
 
