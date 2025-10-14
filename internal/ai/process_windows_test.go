@@ -154,12 +154,18 @@ func TestKillProcessGroup_WithChildProcesses(t *testing.T) {
 	// Check that the parent process is no longer running
 	checkCmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(parentPID))
 	output, _ := checkCmd.Output()
+	if len(output) > 0 && bytes.Contains(output, []byte(strconv.Itoa(parentPID))) {
+		t.Error("Parent process still running after kill")
+	}
 
-	// If the job object worked correctly, the process should not be found
-	// Note: This is a basic check; in production, child processes should also be verified
-	_ = output // We can't easily verify child termination without additional tooling
-
-	t.Log("Parent and child processes should be terminated")
+	// Verify child processes were also terminated
+	// Query for processes whose parent was parentPID
+	psCmd := exec.Command("powershell", "-Command",
+		"Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq "+strconv.Itoa(parentPID)+" } | Select-Object ProcessId")
+	childOutput, _ := psCmd.Output()
+	if len(childOutput) > 0 && bytes.Contains(childOutput, []byte("ProcessId")) {
+		t.Error("Child processes still running after parent kill via job object")
+	}
 }
 
 // TestProcessJobInfo_Concurrency tests concurrent access to job info
