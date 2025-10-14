@@ -77,9 +77,13 @@ func TestKillProcessGroup_NoJobObject(t *testing.T) {
 
 	// Verify process is terminated
 	time.Sleep(100 * time.Millisecond)
-	if cmd.ProcessState == nil {
-		// Force wait to get process state
-		cmd.Wait()
+	cmd.Wait() // Wait for termination
+
+	// Verify process is no longer running
+	checkCmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(cmd.Process.Pid))
+	output, _ := checkCmd.Output()
+	if len(output) > 0 && bytes.Contains(output, []byte(strconv.Itoa(cmd.Process.Pid))) {
+		t.Error("Process still running after kill")
 	}
 }
 
