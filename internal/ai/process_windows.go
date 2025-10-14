@@ -181,16 +181,12 @@ func killProcessGroup(process *exec.Cmd) error {
 		// Terminate all processes in the job with exit code 1
 		ret, _, termErr := procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
 		windows.CloseHandle(jobInfo.jobHandle)
-
-		if ret == 0 {
-			// TerminateJobObject failed, use taskkill as fallback
-			if process.Process != nil {
-				// Best-effort tree kill using Windows taskkill command
-				_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(process.Process.Pid)).Run()
-			}
-			if termErr != nil {
-				return fmt.Errorf("TerminateJobObject failed: %w", termErr)
-			}
+		// Best-effort tree kill in case children weren't in the job yet.
+		if process.Process != nil {
+			_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(process.Process.Pid)).Run()
+		}
+		if ret == 0 && termErr != nil {
+			return fmt.Errorf("TerminateJobObject failed: %w", termErr)
 		}
 		return nil
 	}
