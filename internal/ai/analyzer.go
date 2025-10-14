@@ -1265,6 +1265,16 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	return result
 }
 
+// ConvertToStorageTasksForTesting is a test helper that exposes convertToStorageTasks for integration tests
+func (a *Analyzer) ConvertToStorageTasksForTesting(taskRequests []TaskRequest, prNumber int) []storage.Task {
+	tasks := a.convertToStorageTasks(taskRequests)
+	// Set PR number for all tasks
+	for i := range tasks {
+		tasks[i].PRNumber = prNumber
+	}
+	return tasks
+}
+
 // IsLowPriorityComment checks if a comment body contains any low-priority patterns (public for testing)
 func (a *Analyzer) IsLowPriorityComment(commentBody string) bool {
 	return a.isLowPriorityComment(commentBody)
