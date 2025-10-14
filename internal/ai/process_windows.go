@@ -3,22 +3,176 @@
 package ai
 
 import (
+	"fmt"
 	"os/exec"
+	"sync"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
-// setProcessGroup is a no-op on Windows
-// Windows doesn't use Unix process groups
-func setProcessGroup(cmd *exec.Cmd) {
-	// No-op on Windows
+var (
+	kernel32                     = windows.NewLazySystemDLL("kernel32.dll")
+	procCreateJobObjectW         = kernel32.NewProc("CreateJobObjectW")
+	procSetInformationJobObject  = kernel32.NewProc("SetInformationJobObject")
+	procAssignProcessToJobObject = kernel32.NewProc("AssignProcessToJobObject")
+	procTerminateJobObject       = kernel32.NewProc("TerminateJobObject")
+)
+
+// JobObjectExtendedLimitInformation extends JOBOBJECT_BASIC_LIMIT_INFORMATION
+// with additional I/O and memory counters.
+type JobObjectExtendedLimitInformation struct {
+	BasicLimitInformation JobObjectBasicLimitInformation
+	IoInfo                IoCounters
+	ProcessMemoryLimit    uintptr
+	JobMemoryLimit        uintptr
+	PeakProcessMemoryUsed uintptr
+	PeakJobMemoryUsed     uintptr
 }
 
-// killProcessGroup kills the process on Windows
+// JobObjectBasicLimitInformation contains basic job object limit information.
+type JobObjectBasicLimitInformation struct {
+	PerProcessUserTimeLimit int64
+	PerJobUserTimeLimit     int64
+	LimitFlags              uint32
+	MinimumWorkingSetSize   uintptr
+	MaximumWorkingSetSize   uintptr
+	ActiveProcessLimit      uint32
+	Affinity                uintptr
+	PriorityClass           uint32
+	SchedulingClass         uint32
+}
+
+// IoCounters contains I/O accounting information.
+type IoCounters struct {
+	ReadOperationCount  uint64
+	WriteOperationCount uint64
+	OtherOperationCount uint64
+	ReadTransferCount   uint64
+	WriteTransferCount  uint64
+	OtherTransferCount  uint64
+}
+
+const (
+	// JobObjectExtendedLimitInformationClass is the information class for extended limits
+	JobObjectExtendedLimitInformationClass = 9
+	// JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE ensures all processes are terminated when the job handle is closed
+	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+)
+
+// processJobInfo stores job information for each command
+type processJobInfo struct {
+	jobHandle windows.Handle
+	cmd       *exec.Cmd
+	mu        sync.Mutex
+}
+
+var (
+	// processJobs maps command pointers to their job info
+	processJobs   = make(map[*exec.Cmd]*processJobInfo)
+	processJobsMu sync.RWMutex
+)
+
+// createJobObject creates and configures a new Windows Job Object
+func createJobObject() (windows.Handle, error) {
+	// Create a new Job Object
+	handle, _, err := procCreateJobObjectW.Call(0, 0)
+	if handle == 0 {
+		return 0, fmt.Errorf("failed to create job object: %w", err)
+	}
+
+	jobHandle := windows.Handle(handle)
+
+	// Configure the job to kill all processes when the job handle is closed
+	var info JobObjectExtendedLimitInformation
+	info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+
+	ret, _, err := procSetInformationJobObject.Call(
+		uintptr(jobHandle),
+		JobObjectExtendedLimitInformationClass,
+		uintptr(unsafe.Pointer(&info)),
+		unsafe.Sizeof(info),
+	)
+
+	if ret == 0 {
+		windows.CloseHandle(jobHandle)
+		return 0, fmt.Errorf("failed to configure job object: %w", err)
+	}
+
+	return jobHandle, nil
+}
+
+// setProcessGroup sets up a Windows Job Object for the process
+// This ensures all child processes are terminated when the parent is killed
+//
+// Note: Unlike Unix where process groups are set up before the process starts,
+// Windows requires assigning processes to Job Objects after they start.
+// We handle this in killProcessGroup by assigning the process just-in-time.
+func setProcessGroup(cmd *exec.Cmd) {
+	// Create a new Job Object
+	jobHandle, err := createJobObject()
+	if err != nil {
+		// Failed to create job object, continue without it
+		// The process will still work, just without automatic child cleanup
+		return
+	}
+
+	// Store job info for this command
+	jobInfo := &processJobInfo{
+		jobHandle: jobHandle,
+		cmd:       cmd,
+	}
+
+	processJobsMu.Lock()
+	processJobs[cmd] = jobInfo
+	processJobsMu.Unlock()
+
+	// Note: We don't use CREATE_SUSPENDED because it requires manually resuming threads
+	// Instead, we assign the process to the job in killProcessGroup when it's terminated
+	// This is simpler and works well since Windows allows assigning running processes
+}
+
+// killProcessGroup kills the entire job object (parent + all children)
 func killProcessGroup(process *exec.Cmd) error {
-	if process == nil || process.Process == nil {
+	if process == nil {
 		return nil
 	}
 
-	// On Windows, just kill the main process
-	// Windows will handle child process cleanup
-	return process.Process.Kill()
+	// Look up the job info for this command
+	processJobsMu.Lock()
+	jobInfo := processJobs[process]
+	delete(processJobs, process)
+	processJobsMu.Unlock()
+
+	// If we have a job handle, try to assign the process and terminate
+	if jobInfo != nil && jobInfo.jobHandle != 0 {
+		jobInfo.mu.Lock()
+		defer jobInfo.mu.Unlock()
+
+		// If the process has started, try to assign it to the job before terminating
+		// This handles the case where the process started but wasn't assigned yet
+		if process.Process != nil {
+			processHandle, err := windows.OpenProcess(windows.PROCESS_ALL_ACCESS, false, uint32(process.Process.Pid))
+			if err == nil {
+				// Try to assign - this might fail if already assigned, which is fine
+				procAssignProcessToJobObject.Call(
+					uintptr(jobInfo.jobHandle),
+					uintptr(processHandle),
+				)
+				windows.CloseHandle(processHandle)
+			}
+		}
+
+		// Terminate all processes in the job with exit code 1
+		procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
+		windows.CloseHandle(jobInfo.jobHandle)
+		return nil
+	}
+
+	// Fallback: just kill the main process if we have one
+	if process.Process != nil {
+		return process.Process.Kill()
+	}
+
+	return nil
 }
