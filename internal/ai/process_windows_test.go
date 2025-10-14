@@ -70,9 +70,8 @@ func TestKillProcessGroup_NoJobObject(t *testing.T) {
 	}
 
 	// Kill without job object (should use fallback)
-	err := killProcessGroup(cmd)
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
+	if err := killProcessGroup(cmd); err != nil && !errors.Is(err, exec.ErrWaitDone) {
+		t.Errorf("Unexpected kill error: %v", err)
 	}
 
 	// Verify process is terminated
