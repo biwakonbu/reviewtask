@@ -4,6 +4,7 @@ package ai
 
 import (
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 
@@ -145,7 +146,7 @@ func TestKillProcessGroup_WithChildProcesses(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 
 	// Check that the parent process is no longer running
-	checkCmd := exec.Command("tasklist", "/FI", "PID eq "+string(rune(parentPID)))
+	checkCmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(parentPID))
 	output, _ := checkCmd.Output()
 
 	// If the job object worked correctly, the process should not be found
