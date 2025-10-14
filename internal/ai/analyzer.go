@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -1173,35 +1175,44 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	return tasks, nil
 }
 
-// generateDeterministicTaskID generates a deterministic UUID v5 based on comment ID and task index.
-// This ensures that the same comment and task index always produce the same ID across multiple runs,
-// preventing duplicate task creation while maintaining UUID compatibility.
+// generateDeterministicTaskID generates a deterministic UUID v5 based on comment ID, task index,
+// and comment content hash. This ensures that the same comment content and task index always produce
+// the same ID, but edited comments generate new IDs, preventing task loss while maintaining deduplication.
 //
 // UUID v5 Generation Strategy:
 // - Uses SHA-1 based UUID v5 (deterministic) instead of v4 (random)
 // - Namespace: Standard DNS namespace (6ba7b810-9dad-11d1-80b4-00c04fd430c8)
-// - Name: "comment-{commentID}-task-{taskIndex}"
+// - Name: "comment-{commentID}-task-{taskIndex}-content-{contentHash}"
 // - Same input always produces same output (idempotent)
+// - Comment edits change contentHash, generating new task IDs
 // - Compatible with existing UUID infrastructure
 // - No database schema changes needed
 //
 // Benefits:
 // - Prevents duplicate tasks from same comment across multiple reviewtask runs
+// - Allows MergeTasks to properly handle comment edits (new IDs → new tasks)
 // - Leverages existing WriteWorker deduplication logic
 // - Maintains RFC 4122 compliance
-// - Provides stable task references
+// - Provides stable task references until comment is edited
 //
 // Example:
 //
-//	generateDeterministicTaskID(12345, 0) → "a1b2c3d4-e5f6-5789-abcd-ef0123456789"
-//	generateDeterministicTaskID(12345, 0) → "a1b2c3d4-e5f6-5789-abcd-ef0123456789" (same ID)
-//	generateDeterministicTaskID(12345, 1) → "f1e2d3c4-b5a6-5987-dcba-fe9876543210" (different task index)
-func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int) string {
+//	generateDeterministicTaskID(12345, 0, "Fix bug") → "a1b2c3d4-e5f6-5789-abcd-ef0123456789"
+//	generateDeterministicTaskID(12345, 0, "Fix bug") → "a1b2c3d4-e5f6-5789-abcd-ef0123456789" (same)
+//	generateDeterministicTaskID(12345, 0, "Fix bug X") → "b2c3d4e5-f6a7-5890-bcde-f12345678901" (edited)
+func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int, commentContent string) string {
 	// Standard DNS namespace UUID for v5 generation
 	namespace := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
-	// Create deterministic name from comment ID and task index
-	name := fmt.Sprintf("comment-%d-task-%d", commentID, taskIndex)
+	// Create SHA-256 hash of comment content for stable content-based ID component
+	contentHashBytes := sha256.Sum256([]byte(commentContent))
+	contentHash := hex.EncodeToString(contentHashBytes[:8]) // Use first 8 bytes (16 hex chars)
+
+	// Create deterministic name including comment ID, task index, and content hash
+	// This ensures:
+	// 1. Same comment content → same ID (deduplication)
+	// 2. Edited comment → different ID (allows new tasks)
+	name := fmt.Sprintf("comment-%d-task-%d-content-%s", commentID, taskIndex, contentHash)
 
 	// Generate UUID v5 (SHA-1 based, deterministic)
 	return uuid.NewSHA1(namespace, []byte(name)).String()
@@ -1243,9 +1254,10 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 		}
 
 		storageTask := storage.Task{
-			// Deterministic UUID generation based on comment ID and task index
-			// This ensures idempotency: same comment always generates same task ID
-			ID:              a.generateDeterministicTaskID(task.SourceCommentID, task.TaskIndex),
+			// Deterministic UUID generation based on comment ID, task index, and content hash
+			// This ensures idempotency: same comment content generates same task ID
+			// But edited comments generate new IDs, allowing MergeTasks to handle updates properly
+			ID:              a.generateDeterministicTaskID(task.SourceCommentID, task.TaskIndex, task.OriginText),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        priority,

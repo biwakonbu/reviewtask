@@ -8,8 +8,8 @@ import (
 	"reviewtask/internal/config"
 )
 
-// TestGenerateDeterministicTaskID_Idempotency verifies that the same comment ID
-// and task index always produce the same task ID (idempotency guarantee).
+// TestGenerateDeterministicTaskID_Idempotency verifies that the same comment ID,
+// task index, and comment content always produce the same task ID (idempotency guarantee).
 func TestGenerateDeterministicTaskID_Idempotency(t *testing.T) {
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
@@ -21,10 +21,11 @@ func TestGenerateDeterministicTaskID_Idempotency(t *testing.T) {
 	// Generate ID multiple times with same inputs
 	commentID := int64(12345)
 	taskIndex := 0
+	commentContent := "Fix bug in handler"
 
-	id1 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
-	id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
-	id3 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+	id1 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
+	id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
+	id3 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 
 	// All IDs should be identical
 	assert.Equal(t, id1, id2, "Same inputs should produce same ID")
@@ -47,20 +48,27 @@ func TestGenerateDeterministicTaskID_Uniqueness(t *testing.T) {
 	}
 	analyzer := NewAnalyzer(cfg)
 
+	commentContent := "Fix bug in handler"
+
 	// Test different comment IDs
-	id1 := analyzer.generateDeterministicTaskID(12345, 0)
-	id2 := analyzer.generateDeterministicTaskID(67890, 0)
+	id1 := analyzer.generateDeterministicTaskID(12345, 0, commentContent)
+	id2 := analyzer.generateDeterministicTaskID(67890, 0, commentContent)
 	assert.NotEqual(t, id1, id2, "Different comment IDs should produce different IDs")
 
 	// Test different task indexes
-	id3 := analyzer.generateDeterministicTaskID(12345, 0)
-	id4 := analyzer.generateDeterministicTaskID(12345, 1)
+	id3 := analyzer.generateDeterministicTaskID(12345, 0, commentContent)
+	id4 := analyzer.generateDeterministicTaskID(12345, 1, commentContent)
 	assert.NotEqual(t, id3, id4, "Different task indexes should produce different IDs")
 
-	// Test both different
-	id5 := analyzer.generateDeterministicTaskID(12345, 0)
-	id6 := analyzer.generateDeterministicTaskID(67890, 1)
-	assert.NotEqual(t, id5, id6, "Different inputs should produce different IDs")
+	// Test different comment content
+	id5 := analyzer.generateDeterministicTaskID(12345, 0, "Fix bug in handler")
+	id6 := analyzer.generateDeterministicTaskID(12345, 0, "Fix bug in handler - updated")
+	assert.NotEqual(t, id5, id6, "Different comment content should produce different IDs")
+
+	// Test all different
+	id7 := analyzer.generateDeterministicTaskID(12345, 0, "Comment A")
+	id8 := analyzer.generateDeterministicTaskID(67890, 1, "Comment B")
+	assert.NotEqual(t, id7, id8, "Different inputs should produce different IDs")
 }
 
 // TestGenerateDeterministicTaskID_RFCCompliance verifies UUID RFC 4122 compliance.
@@ -73,18 +81,19 @@ func TestGenerateDeterministicTaskID_RFCCompliance(t *testing.T) {
 	analyzer := NewAnalyzer(cfg)
 
 	testCases := []struct {
-		commentID int64
-		taskIndex int
+		commentID      int64
+		taskIndex      int
+		commentContent string
 	}{
-		{12345, 0},
-		{67890, 1},
-		{99999, 10},
-		{1, 0},
-		{1000000, 999},
+		{12345, 0, "Fix bug"},
+		{67890, 1, "Add test"},
+		{99999, 10, "Refactor code"},
+		{1, 0, "Update docs"},
+		{1000000, 999, "Improve performance"},
 	}
 
 	for _, tc := range testCases {
-		id := analyzer.generateDeterministicTaskID(tc.commentID, tc.taskIndex)
+		id := analyzer.generateDeterministicTaskID(tc.commentID, tc.taskIndex, tc.commentContent)
 
 		// Verify valid UUID format
 		parsedUUID, err := uuid.Parse(id)
@@ -147,8 +156,8 @@ func TestConvertToStorageTasks_DeterministicIDs(t *testing.T) {
 		"Different task indexes should produce different IDs")
 }
 
-// TestDeterministicID_MultipleRunsPreventsD uplicates verifies the fix for Issue #247:
-// Running reviewtask multiple times should not create duplicate tasks.
+// TestDeterministicID_MultipleRunsPreventsDuplicates verifies the fix for Issue #247:
+// Running reviewtask multiple times should not create duplicate tasks when comment is unchanged.
 func TestDeterministicID_MultipleRunsPreventsDuplicates(t *testing.T) {
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
@@ -160,20 +169,26 @@ func TestDeterministicID_MultipleRunsPreventsDuplicates(t *testing.T) {
 	// Simulate same comment being processed multiple times
 	commentID := int64(12345)
 	taskIndex := 0
+	commentContent := "Fix bug in handler"
 
 	// Run 1: Generate task ID
-	id1 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+	id1 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 
 	// Run 2: Generate task ID again (simulating reviewtask running again)
-	id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+	id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 
 	// Run 3: Generate task ID again
-	id3 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+	id3 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 
 	// All runs should produce the same ID, allowing WriteWorker to deduplicate
 	assert.Equal(t, id1, id2, "Multiple runs should produce same ID (prevents duplicates)")
 	assert.Equal(t, id2, id3, "Multiple runs should produce same ID (prevents duplicates)")
 	assert.Equal(t, id1, id3, "Multiple runs should produce same ID (prevents duplicates)")
+
+	// But if comment is edited, should generate different ID
+	editedContent := "Fix bug in handler - updated"
+	id4 := analyzer.generateDeterministicTaskID(commentID, taskIndex, editedContent)
+	assert.NotEqual(t, id1, id4, "Edited comment should produce different ID (allows new tasks)")
 }
 
 // TestDeterministicID_StabilityAcrossLargeRange verifies ID generation stability
@@ -189,12 +204,13 @@ func TestDeterministicID_StabilityAcrossLargeRange(t *testing.T) {
 	// Test with realistic comment ID ranges
 	commentIDs := []int64{1, 1000, 10000, 100000, 1000000, 9999999999}
 	taskIndexes := []int{0, 1, 5, 10, 50, 100}
+	commentContent := "Sample comment text"
 
 	idMap := make(map[string]bool)
 
 	for _, commentID := range commentIDs {
 		for _, taskIndex := range taskIndexes {
-			id := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+			id := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 
 			// Verify uniqueness
 			key := id
@@ -208,7 +224,7 @@ func TestDeterministicID_StabilityAcrossLargeRange(t *testing.T) {
 			assert.NoError(t, err, "Invalid UUID for comment=%d, task=%d", commentID, taskIndex)
 
 			// Verify idempotency by generating again
-			id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex)
+			id2 := analyzer.generateDeterministicTaskID(commentID, taskIndex, commentContent)
 			assert.Equal(t, id, id2, "Same inputs should always produce same ID")
 		}
 	}
