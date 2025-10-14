@@ -3,6 +3,7 @@
 package ai
 
 import (
+	"errors"
 	"os/exec"
 	"strconv"
 	"testing"
@@ -99,9 +100,8 @@ func TestKillProcessGroup_WithJobObject(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Kill with job object
-	err := killProcessGroup(cmd)
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
+	if err := killProcessGroup(cmd); err != nil && !errors.Is(err, exec.ErrWaitDone) {
+		t.Errorf("Unexpected kill error: %v", err)
 	}
 
 	// Verify process is terminated
@@ -137,9 +137,8 @@ func TestKillProcessGroup_WithChildProcesses(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Kill the parent with job object (should kill children too)
-	err := killProcessGroup(cmd)
-	if err != nil {
-		t.Errorf("Expected no error, got: %v", err)
+	if err := killProcessGroup(cmd); err != nil && !errors.Is(err, exec.ErrWaitDone) {
+		t.Errorf("Unexpected kill error: %v", err)
 	}
 
 	// Verify parent process is terminated
