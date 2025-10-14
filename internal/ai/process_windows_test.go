@@ -3,6 +3,7 @@
 package ai
 
 import (
+	"bytes"
 	"errors"
 	"os/exec"
 	"strconv"
@@ -105,6 +106,13 @@ func TestKillProcessGroup_WithJobObject(t *testing.T) {
 
 	// Verify process is terminated
 	time.Sleep(200 * time.Millisecond)
+
+	// Check process no longer exists
+	checkCmd := exec.Command("tasklist", "/FI", "PID eq "+strconv.Itoa(cmd.Process.Pid))
+	output, _ := checkCmd.Output()
+	if len(output) > 0 && bytes.Contains(output, []byte(strconv.Itoa(cmd.Process.Pid))) {
+		t.Error("Process still running after kill with job object")
+	}
 
 	// Verify job info was cleaned up
 	processJobsMu.RLock()
