@@ -332,9 +332,10 @@ func TestTaskIDFormatSpecification(t *testing.T) {
 		t.Errorf("Task ID '%s' is not a valid UUID: %v", task.ID, err)
 	}
 
-	// Test 2: UUID version verification (should be version 4)
-	if parsedUUID.Version() != 4 {
-		t.Errorf("Task ID '%s' is not UUID version 4, got version %d", task.ID, parsedUUID.Version())
+	// Test 2: UUID version verification (should be version 5 for deterministic generation)
+	// Changed from v4 (random) to v5 (deterministic) to fix Issue #247
+	if parsedUUID.Version() != 5 {
+		t.Errorf("Task ID '%s' is not UUID version 5, got version %d", task.ID, parsedUUID.Version())
 	}
 
 	// Test 3: UUID length verification (36 characters with hyphens)
@@ -383,19 +384,20 @@ func TestTaskIDUniquenessAcrossMultipleGenerations(t *testing.T) {
 	}
 	analyzer := NewAnalyzer(cfg)
 
-	// Generate multiple batches of task IDs to test uniqueness across time
+	// Test deterministic ID generation: same inputs should produce same IDs (idempotency)
+	// This is the desired behavior to fix Issue #247
 	const numBatches = 10
 	const tasksPerBatch = 100
 	allIDs := make(map[string]bool)
-	totalTasks := 0
+	firstBatchIDs := make([]string, tasksPerBatch)
 
 	for batch := 0; batch < numBatches; batch++ {
-		// Create identical tasks for each batch
+		// Create identical tasks for each batch (same comment ID + task index)
 		testTasks := make([]TaskRequest, tasksPerBatch)
 		for i := 0; i < tasksPerBatch; i++ {
 			testTasks[i] = TaskRequest{
-				Description:     "Uniqueness test task",
-				OriginText:      "Original comment for uniqueness testing",
+				Description:     "Deterministic ID test task",
+				OriginText:      "Original comment for deterministic testing",
 				Priority:        "medium",
 				SourceReviewID:  12345,
 				SourceCommentID: 67890,
@@ -409,40 +411,36 @@ func TestTaskIDUniquenessAcrossMultipleGenerations(t *testing.T) {
 		// Convert to storage tasks
 		storageTasks := analyzer.convertToStorageTasks(testTasks)
 
-		// Verify all IDs in this batch are unique
-		batchIDs := make(map[string]bool)
-		for _, task := range storageTasks {
-			// Check uniqueness within batch
-			if batchIDs[task.ID] {
-				t.Errorf("Batch %d: Duplicate ID within batch: %s", batch, task.ID)
+		// Verify all IDs in this batch match first batch (deterministic behavior)
+		for i, task := range storageTasks {
+			if batch == 0 {
+				// Store first batch IDs for comparison
+				firstBatchIDs[i] = task.ID
+			} else {
+				// Verify subsequent batches produce identical IDs
+				if task.ID != firstBatchIDs[i] {
+					t.Errorf("Batch %d: Expected deterministic ID %s for task %d, got %s",
+						batch, firstBatchIDs[i], i, task.ID)
+				}
 			}
-			batchIDs[task.ID] = true
 
-			// Check uniqueness across all batches
-			if allIDs[task.ID] {
-				t.Errorf("Batch %d: ID collision across batches: %s", batch, task.ID)
-			}
-			allIDs[task.ID] = true
-			totalTasks++
-
-			// Verify ID format for each task
+			// Verify ID format
 			_, err := uuid.Parse(task.ID)
 			if err != nil {
 				t.Errorf("Batch %d: Invalid UUID format: %s", batch, task.ID)
 			}
+
+			// Collect unique IDs (should only be tasksPerBatch unique IDs total)
+			allIDs[task.ID] = true
 		}
 	}
 
-	expectedTotal := numBatches * tasksPerBatch
-	if totalTasks != expectedTotal {
-		t.Errorf("Expected %d total tasks, got %d", expectedTotal, totalTasks)
+	// Verify deterministic behavior: all batches should produce same IDs
+	if len(allIDs) != tasksPerBatch {
+		t.Errorf("Expected %d unique IDs for deterministic generation, got %d", tasksPerBatch, len(allIDs))
 	}
 
-	if len(allIDs) != totalTasks {
-		t.Errorf("UUID uniqueness failed: expected %d unique IDs, got %d", totalTasks, len(allIDs))
-	}
-
-	t.Logf("Successfully generated %d unique UUID task IDs across %d batches", totalTasks, numBatches)
+	t.Logf("Successfully verified deterministic ID generation: %d unique IDs across %d batches", len(allIDs), numBatches)
 }
 
 func TestIsLowPriorityComment(t *testing.T) {
