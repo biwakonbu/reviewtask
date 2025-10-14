@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -58,7 +59,7 @@ func TestProcessCleanup_Integration(t *testing.T) {
 	if err == nil {
 		// On Unix, we can send signal 0 to check
 		if runtime.GOOS != "windows" {
-			if err := process.Signal(os.Signal(nil)); err == nil {
+			if err := process.Signal(syscall.Signal(0)); err == nil {
 				t.Error("Process should not be running after killProcessGroup")
 			}
 		}
@@ -118,7 +119,7 @@ func TestProcessCleanup_MultipleProcesses(t *testing.T) {
 	for i, pid := range pids {
 		process, err := os.FindProcess(pid)
 		if err == nil && runtime.GOOS != "windows" {
-			if err := process.Signal(os.Signal(nil)); err == nil {
+			if err := process.Signal(syscall.Signal(0)); err == nil {
 				t.Errorf("Process %d (PID %d) should not be running", i, pid)
 			}
 		}
@@ -224,7 +225,7 @@ func TestProcessCleanup_ContextCancellation(t *testing.T) {
 
 	process, err := os.FindProcess(pid)
 	if err == nil && runtime.GOOS != "windows" {
-		if err := process.Signal(os.Signal(nil)); err == nil {
+		if err := process.Signal(syscall.Signal(0)); err == nil {
 			t.Error("Process should not be running after context cancellation and cleanup")
 		}
 	}
