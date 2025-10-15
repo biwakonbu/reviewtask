@@ -228,27 +228,6 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 		return []storage.Task{}, nil
 	}
 
-	// Load existing tasks to check which comments already have tasks
-	existingTasks, err := storageManager.GetTasksByPR(prNumber)
-	if err != nil && a.config.AISettings.VerboseMode {
-		fmt.Printf("⚠️  Could not load existing tasks: %v\n", err)
-	}
-
-	// Build set of comment IDs that already have non-cancelled tasks
-	taskedCommentIDs := make(map[int64]bool)
-	if existingTasks != nil {
-		for _, task := range existingTasks {
-			// Only count non-cancelled tasks as "already tasked"
-			if task.Status != "cancel" {
-				taskedCommentIDs[task.SourceCommentID] = true
-			}
-		}
-	}
-
-	if a.config.AISettings.VerboseMode && len(taskedCommentIDs) > 0 {
-		fmt.Printf("📋 Found %d comments that already have tasks\n", len(taskedCommentIDs))
-	}
-
 	// Extract all comments from all reviews, filtering out resolved comments
 	var allComments []CommentContext
 	resolvedCommentCount := 0
