@@ -228,6 +228,27 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 		return []storage.Task{}, nil
 	}
 
+	// Load existing tasks to check which comments already have tasks
+	existingTasks, err := storageManager.GetTasksByPR(prNumber)
+	if err != nil && a.config.AISettings.VerboseMode {
+		fmt.Printf("⚠️  Could not load existing tasks: %v\n", err)
+	}
+
+	// Build set of comment IDs that already have non-cancelled tasks
+	taskedCommentIDs := make(map[int64]bool)
+	if existingTasks != nil {
+		for _, task := range existingTasks {
+			// Only count non-cancelled tasks as "already tasked"
+			if task.Status != "cancel" {
+				taskedCommentIDs[task.SourceCommentID] = true
+			}
+		}
+	}
+
+	if a.config.AISettings.VerboseMode && len(taskedCommentIDs) > 0 {
+		fmt.Printf("📋 Found %d comments that already have tasks\n", len(taskedCommentIDs))
+	}
+
 	// Extract all comments from all reviews, filtering out resolved comments
 	var allComments []CommentContext
 	resolvedCommentCount := 0
@@ -1222,12 +1243,12 @@ func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int, c
 //
 // SPECIFICATION: Deterministic UUID-based Task ID Generation
 // Task IDs are generated using UUID v5 (deterministic) to ensure:
-// 1. Idempotency - same comment + task index = same ID across runs
+// 1. Idempotency - same comment content (content hash) + task index = same ID across runs
 // 2. Deduplication - prevents duplicate tasks when reviewtask runs multiple times
 // 3. Standards compliance - follows RFC 4122
 // 4. Compatibility - works with existing UUID infrastructure
 //
-// This implementation fixes Issue #247 by ensuring the same comment always generates
+// This implementation fixes Issue #247 by ensuring the same comment content always generates
 // the same task ID, allowing WriteWorker to properly deduplicate tasks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
