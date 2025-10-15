@@ -62,11 +62,34 @@ const (
 	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 )
 
-// processJobInfo stores job information for each command
+// processJobInfo stores job information for each command.
+// The jobHandle must be explicitly cleaned up via killProcessGroup.
 type processJobInfo struct {
 	jobHandle windows.Handle
 	cmd       *exec.Cmd
 	mu        sync.Mutex
+}
+
+// Close releases the job handle explicitly.
+// This method is idempotent and safe to call multiple times.
+// Should be called via killProcessGroup or defer for deterministic cleanup.
+func (ji *processJobInfo) Close() error {
+	if ji == nil {
+		return nil
+	}
+	ji.mu.Lock()
+	defer ji.mu.Unlock()
+	return ji.closeUnlocked()
+}
+
+// closeUnlocked releases the job handle without acquiring the mutex.
+// MUST be called with ji.mu already held.
+func (ji *processJobInfo) closeUnlocked() error {
+	if ji.jobHandle != 0 {
+		windows.CloseHandle(ji.jobHandle)
+		ji.jobHandle = 0
+	}
+	return nil
 }
 
 var (
@@ -125,6 +148,15 @@ func setProcessGroup(cmd *exec.Cmd) {
 		cmd:       cmd,
 	}
 
+	// Note: We do NOT use runtime.SetFinalizer here because the processJobs map
+	// holds a strong reference to jobInfo, preventing GC from ever running the finalizer.
+	// Instead, cleanup relies on:
+	// 1. killProcessGroup explicitly removing the entry and closing the handle (preferred)
+	// 2. JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE flag ensuring processes die when handle closes
+	// All current callers properly use defer killProcessGroup, so handles are cleaned up
+	// deterministically. If a caller forgets killProcessGroup, the handle leaks but
+	// processes still terminate when the program exits.
+
 	processJobsMu.Lock()
 	processJobs[cmd] = jobInfo
 	processJobsMu.Unlock()
@@ -180,7 +212,11 @@ func killProcessGroup(process *exec.Cmd) error {
 
 		// Terminate all processes in the job with exit code 1
 		ret, _, termErr := procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
-		windows.CloseHandle(jobInfo.jobHandle)
+
+		// Explicitly close the job handle using unlocked helper to avoid deadlock
+		// (we already hold the mutex from Lock() above)
+		jobInfo.closeUnlocked()
+
 		// Best-effort tree kill in case children weren't in the job yet.
 		if process.Process != nil {
 			_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(process.Process.Pid)).Run()

@@ -251,3 +251,204 @@ func BenchmarkSetProcessGroup(b *testing.B) {
 		processJobsMu.Unlock()
 	}
 }
+
+// TestProcessJobInfo_Close tests the Close method
+func TestProcessJobInfo_Close(t *testing.T) {
+	// Create a job handle
+	handle, err := createJobObject()
+	if err != nil {
+		t.Fatalf("Failed to create job object: %v", err)
+	}
+
+	jobInfo := &processJobInfo{
+		jobHandle: handle,
+		cmd:       exec.Command("cmd.exe", "/c", "echo test"),
+	}
+
+	// Verify handle is non-zero before Close
+	if jobInfo.jobHandle == 0 {
+		t.Fatal("Expected non-zero job handle before Close")
+	}
+
+	// Call Close
+	err = jobInfo.Close()
+	if err != nil {
+		t.Errorf("Close returned error: %v", err)
+	}
+
+	// Verify handle was zeroed out
+	if jobInfo.jobHandle != 0 {
+		t.Error("Expected job handle to be zeroed after Close")
+	}
+}
+
+// TestProcessJobInfo_Close_Idempotent tests that Close can be called multiple times
+func TestProcessJobInfo_Close_Idempotent(t *testing.T) {
+	handle, err := createJobObject()
+	if err != nil {
+		t.Fatalf("Failed to create job object: %v", err)
+	}
+
+	jobInfo := &processJobInfo{
+		jobHandle: handle,
+		cmd:       exec.Command("cmd.exe", "/c", "echo test"),
+	}
+
+	// Call Close multiple times
+	for i := 0; i < 3; i++ {
+		err = jobInfo.Close()
+		if err != nil {
+			t.Errorf("Close call %d returned error: %v", i+1, err)
+		}
+	}
+
+	// Verify handle remains zero
+	if jobInfo.jobHandle != 0 {
+		t.Error("Expected job handle to remain zero after multiple Close calls")
+	}
+}
+
+// TestProcessJobInfo_Close_Nil tests Close with nil receiver
+func TestProcessJobInfo_Close_Nil(t *testing.T) {
+	var jobInfo *processJobInfo = nil
+	err := jobInfo.Close()
+	if err != nil {
+		t.Errorf("Close on nil receiver returned error: %v", err)
+	}
+}
+
+// TestProcessJobInfo_Close_Concurrency tests concurrent Close calls
+func TestProcessJobInfo_Close_Concurrency(t *testing.T) {
+	handle, err := createJobObject()
+	if err != nil {
+		t.Fatalf("Failed to create job object: %v", err)
+	}
+
+	jobInfo := &processJobInfo{
+		jobHandle: handle,
+		cmd:       exec.Command("cmd.exe", "/c", "echo test"),
+	}
+
+	const numGoroutines = 10
+	done := make(chan bool, numGoroutines)
+
+	// Launch concurrent Close calls
+	for i := 0; i < numGoroutines; i++ {
+		go func() {
+			err := jobInfo.Close()
+			if err != nil {
+				t.Errorf("Concurrent Close returned error: %v", err)
+			}
+			done <- true
+		}()
+	}
+
+	// Wait for all goroutines
+	for i := 0; i < numGoroutines; i++ {
+		select {
+		case <-done:
+			// Success
+		case <-time.After(5 * time.Second):
+			t.Fatal("Test timed out waiting for concurrent Close calls")
+		}
+	}
+
+	// Verify handle is zero
+	if jobInfo.jobHandle != 0 {
+		t.Error("Expected job handle to be zero after concurrent Close calls")
+	}
+}
+
+// TestKillProcessGroup_RemovesMapEntry tests that map entry is removed
+func TestKillProcessGroup_RemovesMapEntry(t *testing.T) {
+	cmd := exec.Command("cmd.exe", "/c", "timeout /t 1 /nobreak")
+
+	// Set up job object
+	setProcessGroup(cmd)
+
+	// Start the process
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start process: %v", err)
+	}
+
+	// Small delay
+	time.Sleep(100 * time.Millisecond)
+
+	// Get job info before kill
+	processJobsMu.RLock()
+	jobInfo := processJobs[cmd]
+	processJobsMu.RUnlock()
+
+	if jobInfo == nil {
+		t.Fatal("Expected job info to exist before kill")
+	}
+
+	// Kill should remove map entry and close the handle
+	err := killProcessGroup(cmd)
+	if err != nil && !errors.Is(err, exec.ErrWaitDone) {
+		t.Errorf("Unexpected kill error: %v", err)
+	}
+
+	// Verify job info was cleaned up from map
+	processJobsMu.RLock()
+	jobInfo = processJobs[cmd]
+	processJobsMu.RUnlock()
+
+	if jobInfo != nil {
+		t.Error("Expected job info to be removed from map after kill")
+	}
+}
+
+// TestSetProcessGroup_CreatesJobInfo tests that job info is created
+func TestSetProcessGroup_CreatesJobInfo(t *testing.T) {
+	cmd := exec.Command("cmd.exe", "/c", "echo test")
+
+	// Set up process group
+	setProcessGroup(cmd)
+
+	// Verify job info exists
+	processJobsMu.RLock()
+	jobInfo := processJobs[cmd]
+	processJobsMu.RUnlock()
+
+	if jobInfo == nil {
+		t.Fatal("Expected job info to be stored")
+	}
+
+	if jobInfo.jobHandle == 0 {
+		t.Fatal("Expected non-zero job handle")
+	}
+
+	// Clean up manually since we're not calling killProcessGroup
+	processJobsMu.Lock()
+	delete(processJobs, cmd)
+	processJobsMu.Unlock()
+	jobInfo.Close()
+}
+
+// TestProcessJobInfo_Close_ExplicitCleanup demonstrates explicit cleanup pattern
+func TestProcessJobInfo_Close_ExplicitCleanup(t *testing.T) {
+	// This test demonstrates explicit cleanup via Close() which is the
+	// required pattern since we don't use finalizers (they're ineffective
+	// due to the processJobs map holding strong references)
+
+	handle, err := createJobObject()
+	if err != nil {
+		t.Fatalf("Failed to create job object: %v", err)
+	}
+
+	jobInfo := &processJobInfo{
+		jobHandle: handle,
+		cmd:       exec.Command("cmd.exe", "/c", "echo test"),
+	}
+
+	// Explicit cleanup - deterministic and immediate
+	err = jobInfo.Close()
+	if err != nil {
+		t.Errorf("Explicit Close failed: %v", err)
+	}
+
+	if jobInfo.jobHandle != 0 {
+		t.Error("Handle should be zero after explicit Close")
+	}
+}
