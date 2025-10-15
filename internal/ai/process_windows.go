@@ -5,7 +5,6 @@ package ai
 import (
 	"fmt"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -64,7 +63,7 @@ const (
 )
 
 // processJobInfo stores job information for each command.
-// The jobHandle is automatically cleaned up via runtime finalizer or explicit Close().
+// The jobHandle must be explicitly cleaned up via killProcessGroup.
 type processJobInfo struct {
 	jobHandle windows.Handle
 	cmd       *exec.Cmd
@@ -73,8 +72,7 @@ type processJobInfo struct {
 
 // Close releases the job handle explicitly.
 // This method is idempotent and safe to call multiple times.
-// It's automatically called via finalizer as a safety fallback, but explicit
-// calls via killProcessGroup or defer are preferred for deterministic cleanup.
+// Should be called via killProcessGroup or defer for deterministic cleanup.
 func (ji *processJobInfo) Close() error {
 	if ji == nil {
 		return nil
@@ -150,11 +148,14 @@ func setProcessGroup(cmd *exec.Cmd) {
 		cmd:       cmd,
 	}
 
-	// Register finalizer for best-effort cleanup in case killProcessGroup is not called.
-	// This is a defensive safety measure - explicit cleanup via killProcessGroup is preferred.
-	runtime.SetFinalizer(jobInfo, func(ji *processJobInfo) {
-		ji.Close()
-	})
+	// Note: We do NOT use runtime.SetFinalizer here because the processJobs map
+	// holds a strong reference to jobInfo, preventing GC from ever running the finalizer.
+	// Instead, cleanup relies on:
+	// 1. killProcessGroup explicitly removing the entry and closing the handle (preferred)
+	// 2. JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE flag ensuring processes die when handle closes
+	// All current callers properly use defer killProcessGroup, so handles are cleaned up
+	// deterministically. If a caller forgets killProcessGroup, the handle leaks but
+	// processes still terminate when the program exits.
 
 	processJobsMu.Lock()
 	processJobs[cmd] = jobInfo
@@ -194,9 +195,6 @@ func killProcessGroup(process *exec.Cmd) error {
 
 	// If we have a job handle, try to assign the process and terminate
 	if jobInfo != nil && jobInfo.jobHandle != 0 {
-		// Clear the finalizer since we're doing explicit cleanup
-		runtime.SetFinalizer(jobInfo, nil)
-
 		jobInfo.mu.Lock()
 		defer jobInfo.mu.Unlock()
 

@@ -359,11 +359,11 @@ func TestProcessJobInfo_Close_Concurrency(t *testing.T) {
 	}
 }
 
-// TestKillProcessGroup_ClearsFinalizer tests that finalizer is cleared
-func TestKillProcessGroup_ClearsFinalizer(t *testing.T) {
+// TestKillProcessGroup_RemovesMapEntry tests that map entry is removed
+func TestKillProcessGroup_RemovesMapEntry(t *testing.T) {
 	cmd := exec.Command("cmd.exe", "/c", "timeout /t 1 /nobreak")
 
-	// Set up job object with finalizer
+	// Set up job object
 	setProcessGroup(cmd)
 
 	// Start the process
@@ -383,7 +383,7 @@ func TestKillProcessGroup_ClearsFinalizer(t *testing.T) {
 		t.Fatal("Expected job info to exist before kill")
 	}
 
-	// Kill should clear the finalizer and close the handle
+	// Kill should remove map entry and close the handle
 	err := killProcessGroup(cmd)
 	if err != nil && !errors.Is(err, exec.ErrWaitDone) {
 		t.Errorf("Unexpected kill error: %v", err)
@@ -399,8 +399,8 @@ func TestKillProcessGroup_ClearsFinalizer(t *testing.T) {
 	}
 }
 
-// TestSetProcessGroup_RegistersFinalizer tests that finalizer is registered
-func TestSetProcessGroup_RegistersFinalizer(t *testing.T) {
+// TestSetProcessGroup_CreatesJobInfo tests that job info is created
+func TestSetProcessGroup_CreatesJobInfo(t *testing.T) {
 	cmd := exec.Command("cmd.exe", "/c", "echo test")
 
 	// Set up process group
@@ -419,9 +419,6 @@ func TestSetProcessGroup_RegistersFinalizer(t *testing.T) {
 		t.Fatal("Expected non-zero job handle")
 	}
 
-	// Note: We can't directly verify finalizer registration, but we can verify
-	// that the jobInfo has a valid handle that would be cleaned up by the finalizer
-
 	// Clean up manually since we're not calling killProcessGroup
 	processJobsMu.Lock()
 	delete(processJobs, cmd)
@@ -429,56 +426,29 @@ func TestSetProcessGroup_RegistersFinalizer(t *testing.T) {
 	jobInfo.Close()
 }
 
-// TestProcessJobInfo_Close_ExplicitVsFinalizer demonstrates explicit cleanup pattern
-func TestProcessJobInfo_Close_ExplicitVsFinalizer(t *testing.T) {
-	// This test demonstrates that explicit cleanup via Close() is preferred
-	// over relying on the finalizer
+// TestProcessJobInfo_Close_ExplicitCleanup demonstrates explicit cleanup pattern
+func TestProcessJobInfo_Close_ExplicitCleanup(t *testing.T) {
+	// This test demonstrates explicit cleanup via Close() which is the
+	// required pattern since we don't use finalizers (they're ineffective
+	// due to the processJobs map holding strong references)
 
-	// Test 1: Explicit cleanup (preferred pattern)
-	t.Run("ExplicitCleanup", func(t *testing.T) {
-		handle, err := createJobObject()
-		if err != nil {
-			t.Fatalf("Failed to create job object: %v", err)
-		}
+	handle, err := createJobObject()
+	if err != nil {
+		t.Fatalf("Failed to create job object: %v", err)
+	}
 
-		jobInfo := &processJobInfo{
-			jobHandle: handle,
-			cmd:       exec.Command("cmd.exe", "/c", "echo test"),
-		}
+	jobInfo := &processJobInfo{
+		jobHandle: handle,
+		cmd:       exec.Command("cmd.exe", "/c", "echo test"),
+	}
 
-		// Explicit cleanup - deterministic and immediate
-		err = jobInfo.Close()
-		if err != nil {
-			t.Errorf("Explicit Close failed: %v", err)
-		}
+	// Explicit cleanup - deterministic and immediate
+	err = jobInfo.Close()
+	if err != nil {
+		t.Errorf("Explicit Close failed: %v", err)
+	}
 
-		if jobInfo.jobHandle != 0 {
-			t.Error("Handle should be zero after explicit Close")
-		}
-	})
-
-	// Test 2: Finalizer cleanup (fallback pattern)
-	t.Run("FinalizerFallback", func(t *testing.T) {
-		// Create job info that goes out of scope without explicit cleanup
-		// The finalizer should eventually clean it up (non-deterministic)
-		createJobInfoWithoutCleanup := func() {
-			handle, err := createJobObject()
-			if err != nil {
-				t.Fatalf("Failed to create job object: %v", err)
-			}
-
-			jobInfo := &processJobInfo{
-				jobHandle: handle,
-				cmd:       exec.Command("cmd.exe", "/c", "echo test"),
-			}
-
-			// Register finalizer (simulating setProcessGroup behavior)
-			jobInfo.Close() // Clean up immediately for test purposes
-			// In real scenario without Close(), finalizer would eventually run
-		}
-
-		createJobInfoWithoutCleanup()
-		// Note: We can't reliably test finalizer execution timing
-		// This test primarily documents the fallback pattern
-	})
+	if jobInfo.jobHandle != 0 {
+		t.Error("Handle should be zero after explicit Close")
+	}
 }
