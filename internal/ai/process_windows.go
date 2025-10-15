@@ -5,6 +5,7 @@ package ai
 import (
 	"fmt"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -62,11 +63,29 @@ const (
 	JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
 )
 
-// processJobInfo stores job information for each command
+// processJobInfo stores job information for each command.
+// The jobHandle is automatically cleaned up via runtime finalizer or explicit Close().
 type processJobInfo struct {
 	jobHandle windows.Handle
 	cmd       *exec.Cmd
 	mu        sync.Mutex
+}
+
+// Close releases the job handle explicitly.
+// This method is idempotent and safe to call multiple times.
+// It's automatically called via finalizer as a safety fallback, but explicit
+// calls via killProcessGroup or defer are preferred for deterministic cleanup.
+func (ji *processJobInfo) Close() error {
+	if ji == nil {
+		return nil
+	}
+	ji.mu.Lock()
+	defer ji.mu.Unlock()
+	if ji.jobHandle != 0 {
+		windows.CloseHandle(ji.jobHandle)
+		ji.jobHandle = 0
+	}
+	return nil
 }
 
 var (
@@ -125,6 +144,12 @@ func setProcessGroup(cmd *exec.Cmd) {
 		cmd:       cmd,
 	}
 
+	// Register finalizer for best-effort cleanup in case killProcessGroup is not called.
+	// This is a defensive safety measure - explicit cleanup via killProcessGroup is preferred.
+	runtime.SetFinalizer(jobInfo, func(ji *processJobInfo) {
+		ji.Close()
+	})
+
 	processJobsMu.Lock()
 	processJobs[cmd] = jobInfo
 	processJobsMu.Unlock()
@@ -163,6 +188,9 @@ func killProcessGroup(process *exec.Cmd) error {
 
 	// If we have a job handle, try to assign the process and terminate
 	if jobInfo != nil && jobInfo.jobHandle != 0 {
+		// Clear the finalizer since we're doing explicit cleanup
+		runtime.SetFinalizer(jobInfo, nil)
+
 		jobInfo.mu.Lock()
 		defer jobInfo.mu.Unlock()
 
@@ -180,7 +208,10 @@ func killProcessGroup(process *exec.Cmd) error {
 
 		// Terminate all processes in the job with exit code 1
 		ret, _, termErr := procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
-		windows.CloseHandle(jobInfo.jobHandle)
+
+		// Explicitly close the job handle
+		jobInfo.Close()
+
 		// Best-effort tree kill in case children weren't in the job yet.
 		if process.Process != nil {
 			_ = exec.Command("taskkill", "/T", "/F", "/PID", strconv.Itoa(process.Process.Pid)).Run()
