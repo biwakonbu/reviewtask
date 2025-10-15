@@ -161,7 +161,8 @@ For backward compatibility, the following detailed format is also supported:
     "stream_processing_enabled": true,
     "auto_summarize_enabled": true,
     "realtime_saving_enabled": true,
-    "skip_claude_auth_check": false
+    "skip_claude_auth_check": false,
+    "enable_batch_processing": false
   }
 }
 ```
@@ -181,6 +182,7 @@ For backward compatibility, the following detailed format is also supported:
 | `similarity_threshold` | float | `0.8` | Task similarity threshold | Lower to catch more duplicates |
 | `process_nitpick_comments` | bool | `true` | Process CodeRabbit nitpick comments | Disable to skip minor issues |
 | `process_self_reviews` | bool | `false` | Process PR author's own reviews | Enable for self-review workflows |
+| `enable_batch_processing` | bool | `false` | **v3.x only:** Batch processing with existing task awareness (will be default in v4.0) | Enable to prevent duplicate tasks via AI semantic comparison |
 
 **Note:** Thread auto-resolution is now configured via `done_workflow.enable_auto_resolve` setting. See [Done Workflow Settings](#done-workflow-settings) for details.
 
@@ -203,6 +205,66 @@ For backward compatibility, the following detailed format is also supported:
 3. **Standard GitHub Reviews**
    - Direct comment processing
    - Thread auto-resolution supported
+
+#### Batch Processing (v3.x Temporary Flag)
+
+**Feature:** `enable_batch_processing`
+
+**Note:** This is a v3.x-only configuration flag that will be removed in v4.0 when batch processing becomes the default behavior.
+
+Batch processing with existing task awareness uses AI to prevent duplicate task generation through semantic comparison.
+
+**How It Works:**
+1. Loads all existing tasks for the PR
+2. Groups existing tasks by comment ID
+3. Creates a single markdown prompt containing all comments with their existing tasks
+4. AI analyzes each comment and determines if new tasks are needed
+5. Returns only truly new tasks, avoiding semantic duplicates
+
+**Benefits:**
+- **Prevents Duplicates:** AI understands semantic equivalence (e.g., "Fix memory leak" = "Fix the memory leak")
+- **Efficient:** Single AI call for multiple comments instead of individual calls
+- **Context-Aware:** Shows AI what tasks already exist before generating new ones
+
+**When to Enable:**
+- You frequently re-run `reviewtask` after adding new review comments
+- You want to avoid generating duplicate tasks when reviews are updated
+- You prefer AI-based semantic duplicate detection over technical hashing
+
+**Configuration:**
+```json
+{
+  "ai_settings": {
+    "enable_batch_processing": true
+  }
+}
+```
+
+**Important Notes:**
+- **v3.x temporary flag** (default: `false` in v3.x, will be removed in v4.0)
+- This flag allows gradual rollout during v3.x lifecycle
+- In v4.0, batch processing will be the only mode (no configuration needed)
+- Works best with verbose mode for debugging: `"verbose_mode": true`
+- Existing stream processor is still used when disabled (default behavior in v3.x)
+- All existing tasks are shown to AI with status icons (✅ done, 🔄 doing, 📝 todo, etc.)
+
+**Example AI Prompt Structure:**
+```markdown
+## Comment #1: 1001
+
+**File:** parser.go:42
+**Content:**
+Please fix the memory leak in the parser
+
+### Existing Tasks for Comment #1
+
+1. ✅ **DONE** - Fix memory leak in parser
+   - Priority: high
+2. 🔄 **DOING** - Add unit test for parser
+   - Priority: medium
+
+AI Response: [] (no new tasks needed, existing tasks are sufficient)
+```
 
 ### Done Workflow Settings
 
