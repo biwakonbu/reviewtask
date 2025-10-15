@@ -81,6 +81,12 @@ func (ji *processJobInfo) Close() error {
 	}
 	ji.mu.Lock()
 	defer ji.mu.Unlock()
+	return ji.closeUnlocked()
+}
+
+// closeUnlocked releases the job handle without acquiring the mutex.
+// MUST be called with ji.mu already held.
+func (ji *processJobInfo) closeUnlocked() error {
 	if ji.jobHandle != 0 {
 		windows.CloseHandle(ji.jobHandle)
 		ji.jobHandle = 0
@@ -209,8 +215,9 @@ func killProcessGroup(process *exec.Cmd) error {
 		// Terminate all processes in the job with exit code 1
 		ret, _, termErr := procTerminateJobObject.Call(uintptr(jobInfo.jobHandle), 1)
 
-		// Explicitly close the job handle
-		jobInfo.Close()
+		// Explicitly close the job handle using unlocked helper to avoid deadlock
+		// (we already hold the mutex from Lock() above)
+		jobInfo.closeUnlocked()
 
 		// Best-effort tree kill in case children weren't in the job yet.
 		if process.Process != nil {
