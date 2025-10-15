@@ -2900,12 +2900,12 @@ func (a *Analyzer) callClaudeForBatchTasks(prompt string) (string, error) {
 // callClaudeCodeWithPrompt calls Claude and returns raw response (for batch processing)
 func (a *Analyzer) callClaudeCodeWithPrompt(prompt string) (string, error) {
 	ctx := context.Background()
-	
+
 	// Use existing Claude client
 	response, err := a.claudeClient.Execute(ctx, prompt, "text")
 	if err != nil {
 		return "", fmt.Errorf("failed to execute Claude: %w", err)
 	}
-	
+
 	return response, nil
 }
