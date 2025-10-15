@@ -78,6 +78,7 @@ type AISettings struct {
 	AutoResolveMode          string  `json:"auto_resolve_mode"`          // Auto-resolve mode: "immediate" (resolve each task), "complete" (resolve when all comment tasks done), "disabled" (default: "disabled")
 	MaxConcurrentRequests    int     `json:"max_concurrent_requests"`    // Maximum concurrent API requests for parallel processing (default: 5, recommended: 3-10, max: 20). Lower values reduce API rate limiting, higher values improve throughput.
 	BatchSize                int     `json:"batch_size"`                 // Number of comments to process per batch (default: 4). With default concurrency (5), can efficiently process 20 comments (4 batches × 5 concurrent = 20 total).
+	EnableBatchProcessing    bool    `json:"enable_batch_processing"`    // v3.x temporary flag: Enable batch processing with existing task awareness (default: false, will be removed in v4.0)
 }
 
 type VerificationSettings struct {
@@ -162,6 +163,7 @@ func defaultConfig() *Config {
 			RealtimeSavingEnabled:    true,
 			MaxConcurrentRequests:    5,
 			BatchSize:                4,
+			EnableBatchProcessing:    false, // v3.x temporary flag: batch processing with existing task awareness (will be removed in v4.0)
 		},
 		VerificationSettings: VerificationSettings{
 			BuildCommand:    "go build ./...",
@@ -379,6 +381,10 @@ func mergeWithDefaults(config *Config, rawConfig map[string]interface{}) {
 	}
 	if !hasField(rawConfig, "ai_settings", "realtime_saving_enabled") {
 		config.AISettings.RealtimeSavingEnabled = defaults.AISettings.RealtimeSavingEnabled
+	}
+	// EnableBatchProcessing is a v3.x temporary flag and defaults to false (will be removed in v4.0)
+	if !hasField(rawConfig, "ai_settings", "enable_batch_processing") {
+		config.AISettings.EnableBatchProcessing = defaults.AISettings.EnableBatchProcessing
 	}
 
 	// Merge boolean pointer fields

@@ -368,7 +368,8 @@ internal/              # Private implementation packages
     "enable_json_recovery": true,          // Enable recovery from incomplete JSON responses
     "max_recovery_attempts": 3,            // Maximum attempts to recover valid tasks
     "partial_response_threshold": 0.7,     // Minimum ratio for accepting partial responses
-    "log_truncated_responses": true        // Log truncated responses for debugging
+    "log_truncated_responses": true,       // Log truncated responses for debugging
+    "enable_batch_processing": false       // v3.x only: Batch processing with existing task awareness (default in v4.0)
   }
 }
 ```

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -302,7 +304,16 @@ func (a *Analyzer) GenerateTasksWithRealtimeSaving(reviews []github.Review, prNu
 	if a.config.AISettings.VerboseMode {
 		fmt.Printf("🔍 Processing %d comments with real-time saving\n", len(allComments))
 	}
-	// Use stream processor with real-time saving
+
+	// Check if batch processing with existing task awareness is enabled
+	if a.config.AISettings.EnableBatchProcessing {
+		if a.config.AISettings.VerboseMode {
+			fmt.Printf("🚀 Using batch processing with existing task awareness\n")
+		}
+		return a.ProcessCommentsWithBatchAI(allComments, storageManager, prNumber)
+	}
+
+	// Use stream processor with real-time saving (default behavior)
 	streamProcessor := NewStreamProcessor(a)
 	return streamProcessor.ProcessCommentsWithRealtimeSaving(allComments, storageManager, prNumber)
 }
@@ -1173,17 +1184,60 @@ func (a *Analyzer) callClaudeCodeWithRetryStrategy(originalPrompt string, attemp
 	return tasks, nil
 }
 
+// generateDeterministicTaskID generates a deterministic UUID v5 based on comment ID, task index,
+// and comment content hash. This ensures that the same comment content and task index always produce
+// the same ID, but edited comments generate new IDs, preventing task loss while maintaining deduplication.
+//
+// UUID v5 Generation Strategy:
+// - Uses SHA-1 based UUID v5 (deterministic) instead of v4 (random)
+// - Namespace: Standard DNS namespace (6ba7b810-9dad-11d1-80b4-00c04fd430c8)
+// - Name: "comment-{commentID}-task-{taskIndex}-content-{contentHash}"
+// - Same input always produces same output (idempotent)
+// - Comment edits change contentHash, generating new task IDs
+// - Compatible with existing UUID infrastructure
+// - No database schema changes needed
+//
+// Benefits:
+// - Prevents duplicate tasks from same comment across multiple reviewtask runs
+// - Allows MergeTasks to properly handle comment edits (new IDs → new tasks)
+// - Leverages existing WriteWorker deduplication logic
+// - Maintains RFC 4122 compliance
+// - Provides stable task references until comment is edited
+//
+// Example:
+//
+//	generateDeterministicTaskID(12345, 0, "Fix bug") → "a1b2c3d4-e5f6-5789-abcd-ef0123456789"
+//	generateDeterministicTaskID(12345, 0, "Fix bug") → "a1b2c3d4-e5f6-5789-abcd-ef0123456789" (same)
+//	generateDeterministicTaskID(12345, 0, "Fix bug X") → "b2c3d4e5-f6a7-5890-bcde-f12345678901" (edited)
+func (a *Analyzer) generateDeterministicTaskID(commentID int64, taskIndex int, commentContent string) string {
+	// Standard DNS namespace UUID for v5 generation
+	namespace := uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
+
+	// Create SHA-256 hash of comment content for stable content-based ID component
+	contentHashBytes := sha256.Sum256([]byte(commentContent))
+	contentHash := hex.EncodeToString(contentHashBytes[:8]) // Use first 8 bytes (16 hex chars)
+
+	// Create deterministic name including comment ID, task index, and content hash
+	// This ensures:
+	// 1. Same comment content → same ID (deduplication)
+	// 2. Edited comment → different ID (allows new tasks)
+	name := fmt.Sprintf("comment-%d-task-%d-content-%s", commentID, taskIndex, contentHash)
+
+	// Generate UUID v5 (SHA-1 based, deterministic)
+	return uuid.NewSHA1(namespace, []byte(name)).String()
+}
+
 // convertToStorageTasks converts AI-generated TaskRequest objects to storage.Task objects.
 //
-// SPECIFICATION: UUID-based Task ID Generation
-// Task IDs are generated using UUIDs (via uuid.New().String()) to ensure:
-// 1. Global uniqueness guarantee - no collisions possible
-// 2. Unpredictability for security - cannot be guessed
-// 3. No dependency on other field values - future-proof design
-// 4. Standards compliance - follows RFC 4122
+// SPECIFICATION: Deterministic UUID-based Task ID Generation
+// Task IDs are generated using UUID v5 (deterministic) to ensure:
+// 1. Idempotency - same comment content (content hash) + task index = same ID across runs
+// 2. Deduplication - prevents duplicate tasks when reviewtask runs multiple times
+// 3. Standards compliance - follows RFC 4122
+// 4. Compatibility - works with existing UUID infrastructure
 //
-// WARNING: DO NOT revert to comment-based ID formats like "comment-%d-task-%d".
-// Such approaches are fundamentally flawed and create collision risks.
+// This implementation fixes Issue #247 by ensuring the same comment content always generates
+// the same task ID, allowing WriteWorker to properly deduplicate tasks.
 func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	var result []storage.Task
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -1209,8 +1263,10 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 		}
 
 		storageTask := storage.Task{
-			// UUID-based ID generation ensures global uniqueness and security
-			ID:              uuid.New().String(),
+			// Deterministic UUID generation based on comment ID, task index, and content hash
+			// This ensures idempotency: same comment content generates same task ID
+			// But edited comments generate new IDs, allowing MergeTasks to handle updates properly
+			ID:              a.generateDeterministicTaskID(task.SourceCommentID, task.TaskIndex, task.OriginText),
 			Description:     task.Description,
 			OriginText:      task.OriginText,
 			Priority:        priority,
@@ -1228,6 +1284,16 @@ func (a *Analyzer) convertToStorageTasks(tasks []TaskRequest) []storage.Task {
 	}
 
 	return result
+}
+
+// ConvertToStorageTasksForTesting is a test helper that exposes convertToStorageTasks for integration tests
+func (a *Analyzer) ConvertToStorageTasksForTesting(taskRequests []TaskRequest, prNumber int) []storage.Task {
+	tasks := a.convertToStorageTasks(taskRequests)
+	// Set PR number for all tasks
+	for i := range tasks {
+		tasks[i].PRNumber = prNumber
+	}
+	return tasks
 }
 
 // IsLowPriorityComment checks if a comment body contains any low-priority patterns (public for testing)
@@ -2586,4 +2652,260 @@ func (a *Analyzer) getPriorityValue(priority string) int {
 	default:
 		return 4
 	}
+}
+
+// ============================================================================
+// Batch Processing with Existing Task Awareness
+// ============================================================================
+
+// BatchTaskResponse represents AI response for a single comment
+type BatchTaskResponse struct {
+	CommentID int64 `json:"comment_id"`
+	Tasks     []struct {
+		Description string `json:"description"`
+		Priority    string `json:"priority"`
+	} `json:"tasks"`
+}
+
+// buildBatchPromptWithExistingTasks creates a single markdown prompt for all comments
+func (a *Analyzer) buildBatchPromptWithExistingTasks(
+	comments []CommentContext,
+	existingTasksByComment map[int64][]storage.Task,
+) string {
+	var buf strings.Builder
+
+	// Header
+	buf.WriteString("# PR Review Task Generation Request\n\n")
+	buf.WriteString("You are a GitHub PR review assistant. Analyze multiple review comments and generate necessary tasks for each comment.\n\n")
+
+	// Instructions
+	buf.WriteString("## Important Instructions\n\n")
+	buf.WriteString("1. **Avoid duplicates with existing tasks**\n")
+	buf.WriteString("   - Each comment lists its existing tasks\n")
+	buf.WriteString("   - If existing tasks are sufficient, return empty array `[]`\n")
+	buf.WriteString("   - Semantically identical tasks (different wording) are duplicates\n")
+	buf.WriteString("   - Example: \"Fix memory leak\" and \"Fix the memory leak\" are the same\n\n")
+
+	buf.WriteString("2. **Generate only new tasks**\n")
+	buf.WriteString("   - Add only truly missing tasks\n")
+	buf.WriteString("   - Priorities: critical (security/data loss), high (bugs/performance), medium (improvements), low (style/naming)\n\n")
+
+	// Language instruction
+	if a.config.AISettings.UserLanguage != "" && a.config.AISettings.UserLanguage != "English" {
+		buf.WriteString(fmt.Sprintf("3. **Language**: Generate all task descriptions in %s\n\n", a.config.AISettings.UserLanguage))
+	}
+
+	buf.WriteString("---\n\n")
+
+	// Process each comment
+	for i, ctx := range comments {
+		buf.WriteString(fmt.Sprintf("## Comment #%d: %d\n\n", i+1, ctx.Comment.ID))
+		buf.WriteString(fmt.Sprintf("**File:** %s", ctx.Comment.File))
+		if ctx.Comment.Line > 0 {
+			buf.WriteString(fmt.Sprintf(":%d", ctx.Comment.Line))
+		}
+		buf.WriteString("\n")
+		buf.WriteString(fmt.Sprintf("**Author:** %s\n", ctx.Comment.Author))
+		buf.WriteString(fmt.Sprintf("**Content:**\n```\n%s\n```\n\n", ctx.Comment.Body))
+
+		// Existing tasks
+		existingTasks := existingTasksByComment[ctx.Comment.ID]
+		buf.WriteString(fmt.Sprintf("### Existing Tasks for Comment #%d\n\n", i+1))
+
+		if len(existingTasks) == 0 {
+			buf.WriteString("*No existing tasks for this comment.*\n\n")
+		} else {
+			for j, task := range existingTasks {
+				statusIcon := getStatusIcon(task.Status)
+				buf.WriteString(fmt.Sprintf("%d. %s **%s** - %s\n",
+					j+1, statusIcon, strings.ToUpper(task.Status), task.Description))
+				buf.WriteString(fmt.Sprintf("   - Priority: %s\n", task.Priority))
+				if task.Status == "cancel" && task.CancelReason != "" {
+					buf.WriteString(fmt.Sprintf("   - Cancelled: %s\n", task.CancelReason))
+				}
+				buf.WriteString("\n")
+			}
+		}
+
+		buf.WriteString("---\n\n")
+	}
+
+	// Footer - Response format
+	buf.WriteString("# Response Format\n\n")
+	buf.WriteString("Return a JSON array with responses for ALL comments above.\n")
+	buf.WriteString("For each comment, return only NEW tasks that don't duplicate existing ones.\n\n")
+	buf.WriteString("```json\n")
+	buf.WriteString("[\n")
+	buf.WriteString("  {\n")
+	buf.WriteString("    \"comment_id\": 12345,\n")
+	buf.WriteString("    \"tasks\": [\n")
+	buf.WriteString("      {\"description\": \"Task description\", \"priority\": \"high\"},\n")
+	buf.WriteString("      {\"description\": \"Another task\", \"priority\": \"medium\"}\n")
+	buf.WriteString("    ]\n")
+	buf.WriteString("  },\n")
+	buf.WriteString("  {\n")
+	buf.WriteString("    \"comment_id\": 67890,\n")
+	buf.WriteString("    \"tasks\": []\n")
+	buf.WriteString("  }\n")
+	buf.WriteString("]\n")
+	buf.WriteString("```\n\n")
+	buf.WriteString("Return ONLY the JSON array. No explanations, no markdown wrapper, just the raw JSON.\n")
+
+	return buf.String()
+}
+
+// getStatusIcon returns an emoji icon for task status
+func getStatusIcon(status string) string {
+	switch status {
+	case "done":
+		return "✅"
+	case "doing":
+		return "🔄"
+	case "todo":
+		return "📝"
+	case "pending":
+		return "⏸️"
+	case "cancel":
+		return "❌"
+	default:
+		return "•"
+	}
+}
+
+// parseBatchTaskResponse parses AI response into structured data
+func (a *Analyzer) parseBatchTaskResponse(response string) ([]BatchTaskResponse, error) {
+	// Clean up response (remove markdown wrapper if present)
+	response = strings.TrimSpace(response)
+	response = strings.TrimPrefix(response, "```json")
+	response = strings.TrimPrefix(response, "```")
+	response = strings.TrimSuffix(response, "```")
+	response = strings.TrimSpace(response)
+
+	var batchResponses []BatchTaskResponse
+	if err := json.Unmarshal([]byte(response), &batchResponses); err != nil {
+		return nil, fmt.Errorf("failed to parse batch response: %w", err)
+	}
+
+	return batchResponses, nil
+}
+
+// ProcessCommentsWithBatchAI processes all comments in a single AI call with existing task context
+func (a *Analyzer) ProcessCommentsWithBatchAI(
+	comments []CommentContext,
+	storageManager *storage.Manager,
+	prNumber int,
+) ([]storage.Task, error) {
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("🔍 Processing %d comments with batch AI (existing task awareness)\n", len(comments))
+	}
+
+	// Load existing tasks
+	existingTasks, err := storageManager.GetTasksByPR(prNumber)
+	if err != nil && a.config.AISettings.VerboseMode {
+		fmt.Printf("⚠️  Could not load existing tasks: %v\n", err)
+	}
+
+	// Group existing tasks by comment ID
+	existingTasksByComment := make(map[int64][]storage.Task)
+	for _, task := range existingTasks {
+		if task.SourceCommentID != 0 {
+			existingTasksByComment[task.SourceCommentID] = append(
+				existingTasksByComment[task.SourceCommentID],
+				task,
+			)
+		}
+	}
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("📋 Loaded %d existing tasks from %d comments\n",
+			len(existingTasks), len(existingTasksByComment))
+	}
+
+	// Build batch prompt
+	batchPrompt := a.buildBatchPromptWithExistingTasks(comments, existingTasksByComment)
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("📝 Generated batch prompt: %d chars\n", len(batchPrompt))
+	}
+
+	// Call AI once for all comments
+	response, err := a.callClaudeForBatchTasks(batchPrompt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call AI for batch processing: %w", err)
+	}
+
+	// Parse response
+	batchResponses, err := a.parseBatchTaskResponse(response)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse batch response: %w", err)
+	}
+
+	if a.config.AISettings.VerboseMode {
+		totalNewTasks := 0
+		for _, resp := range batchResponses {
+			totalNewTasks += len(resp.Tasks)
+		}
+		fmt.Printf("✅ AI generated %d new tasks across %d comments\n",
+			totalNewTasks, len(batchResponses))
+	}
+
+	// Convert to TaskRequest objects
+	var allTaskRequests []TaskRequest
+	commentMap := make(map[int64]CommentContext)
+	for _, ctx := range comments {
+		commentMap[ctx.Comment.ID] = ctx
+	}
+
+	for _, batchResp := range batchResponses {
+		ctx, exists := commentMap[batchResp.CommentID]
+		if !exists {
+			if a.config.AISettings.VerboseMode {
+				fmt.Printf("⚠️  Comment ID %d not found in original comments\n", batchResp.CommentID)
+			}
+			continue
+		}
+
+		for i, taskData := range batchResp.Tasks {
+			taskReq := TaskRequest{
+				Description:     taskData.Description,
+				Priority:        taskData.Priority,
+				OriginText:      ctx.Comment.Body,
+				SourceReviewID:  ctx.SourceReview.ID,
+				SourceCommentID: ctx.Comment.ID,
+				File:            ctx.Comment.File,
+				Line:            ctx.Comment.Line,
+				TaskIndex:       i,
+				URL:             ctx.Comment.URL,
+			}
+			allTaskRequests = append(allTaskRequests, taskReq)
+		}
+	}
+
+	// Convert to storage tasks
+	storageTasks := a.convertToStorageTasks(allTaskRequests)
+
+	if a.config.AISettings.VerboseMode {
+		fmt.Printf("✅ Converted to %d storage tasks\n", len(storageTasks))
+	}
+
+	return storageTasks, nil
+}
+
+// callClaudeForBatchTasks calls Claude with batch prompt
+func (a *Analyzer) callClaudeForBatchTasks(prompt string) (string, error) {
+	// Reuse existing Claude Code CLI integration
+	return a.callClaudeCodeWithPrompt(prompt)
+}
+
+// callClaudeCodeWithPrompt calls Claude and returns raw response (for batch processing)
+func (a *Analyzer) callClaudeCodeWithPrompt(prompt string) (string, error) {
+	ctx := context.Background()
+
+	// Use existing Claude client
+	response, err := a.claudeClient.Execute(ctx, prompt, "text")
+	if err != nil {
+		return "", fmt.Errorf("failed to execute Claude: %w", err)
+	}
+
+	return response, nil
 }

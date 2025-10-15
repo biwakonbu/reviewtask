@@ -70,9 +70,9 @@ func TestTaskGenerationIntegrationWithUUIDs(t *testing.T) {
 			t.Errorf("Integration test task %d has invalid UUID '%s': %v", i, task.ID, err)
 		}
 
-		// Verify UUID version (should be v4)
-		if parsedUUID.Version() != 4 {
-			t.Errorf("Integration test task %d UUID '%s' is not version 4", i, task.ID)
+		// Verify UUID version (should be v5 for deterministic generation - Issue #247)
+		if parsedUUID.Version() != 5 {
+			t.Errorf("Integration test task %d UUID '%s' is not version 5, got version %d", i, task.ID, parsedUUID.Version())
 		}
 
 		// Verify uniqueness
@@ -157,8 +157,9 @@ func TestUUIDGenerationPerformance(t *testing.T) {
 	t.Logf("Performance test: Generated %d unique UUIDs in %v", numTasks, duration)
 }
 
-// TestUUIDCollisionResistance tests that UUID generation is collision-resistant
-func TestUUIDCollisionResistance(t *testing.T) {
+// TestUUIDDeterministicGeneration tests that UUID generation is deterministic (Issue #247)
+// Same comment ID + task index should always produce the same UUID across multiple runs
+func TestUUIDDeterministicGeneration(t *testing.T) {
 	cfg := &config.Config{
 		TaskSettings: config.TaskSettings{
 			DefaultStatus: "todo",
@@ -170,15 +171,15 @@ func TestUUIDCollisionResistance(t *testing.T) {
 	const numIterations = 100
 	const numTasksPerIteration = 50
 
-	allGeneratedIDs := make(map[string]bool)
-	totalIDs := 0
+	// Store first iteration results as baseline
+	var baselineIDs []string
 
 	for iteration := 0; iteration < numIterations; iteration++ {
 		// Create identical task requests for each iteration
 		taskRequests := make([]TaskRequest, numTasksPerIteration)
 		for i := 0; i < numTasksPerIteration; i++ {
 			taskRequests[i] = TaskRequest{
-				Description:     "Collision test task",
+				Description:     "Deterministic test task",
 				OriginText:      "Identical original comment text",
 				Priority:        "medium",
 				SourceReviewID:  12345,
@@ -192,35 +193,41 @@ func TestUUIDCollisionResistance(t *testing.T) {
 		// Convert to storage tasks
 		storageTasks := analyzer.convertToStorageTasks(taskRequests)
 
-		// Check for collisions within this iteration
-		iterationIDs := make(map[string]bool)
-		for _, task := range storageTasks {
-			if iterationIDs[task.ID] {
-				t.Errorf("Collision test: duplicate UUID within iteration %d: %s", iteration, task.ID)
+		if iteration == 0 {
+			// Store baseline IDs from first iteration
+			for _, task := range storageTasks {
+				baselineIDs = append(baselineIDs, task.ID)
 			}
-			iterationIDs[task.ID] = true
+		} else {
+			// Verify all subsequent iterations produce identical IDs
+			if len(storageTasks) != len(baselineIDs) {
+				t.Fatalf("Iteration %d produced %d tasks, expected %d",
+					iteration, len(storageTasks), len(baselineIDs))
+			}
 
-			// Check for collisions across all iterations
-			if allGeneratedIDs[task.ID] {
-				t.Errorf("Collision test: UUID collision across iterations: %s", task.ID)
+			for i, task := range storageTasks {
+				if task.ID != baselineIDs[i] {
+					t.Errorf("Iteration %d, task %d: ID mismatch. Expected %s, got %s (deterministic generation failed)",
+						iteration, i, baselineIDs[i], task.ID)
+				}
 			}
-			allGeneratedIDs[task.ID] = true
-			totalIDs++
+		}
+
+		// Verify all IDs are valid UUID v5
+		for i, task := range storageTasks {
+			parsedUUID, err := uuid.Parse(task.ID)
+			if err != nil {
+				t.Errorf("Iteration %d, task %d has invalid UUID '%s': %v", iteration, i, task.ID, err)
+			}
+			if parsedUUID.Version() != 5 {
+				t.Errorf("Iteration %d, task %d has wrong UUID version: expected v5, got v%d",
+					iteration, i, parsedUUID.Version())
+			}
 		}
 	}
 
-	expectedTotalIDs := numIterations * numTasksPerIteration
-	if totalIDs != expectedTotalIDs {
-		t.Errorf("Collision test: expected %d total IDs, got %d", expectedTotalIDs, totalIDs)
-	}
-
-	if len(allGeneratedIDs) != totalIDs {
-		t.Errorf("Collision test: UUID uniqueness failed - expected %d unique IDs, got %d",
-			totalIDs, len(allGeneratedIDs))
-	}
-
-	t.Logf("Collision test: Generated %d unique UUIDs across %d iterations with identical input data",
-		totalIDs, numIterations)
+	t.Logf("Deterministic generation test: Verified %d iterations produced identical UUIDs for identical inputs",
+		numIterations)
 }
 
 // TestTaskGenerationWithVariousCommentStructures tests UUID generation with different comment structures

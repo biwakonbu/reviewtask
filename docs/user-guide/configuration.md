@@ -370,7 +370,8 @@ Two-stage validation with retry logic and quality scoring.
     "enable_json_recovery": true,        // Enable JSON recovery for incomplete responses
     "max_recovery_attempts": 3,          // Maximum JSON recovery attempts
     "partial_response_threshold": 0.7,   // Minimum threshold for partial responses
-"log_truncated_responses": true      // Log truncated responses for debugging
+    "log_truncated_responses": true,     // Log truncated responses for debugging
+    "enable_batch_processing": false     // v3.x only: Batch processing with existing task awareness (default in v4.0)
   }
 }
 ```
