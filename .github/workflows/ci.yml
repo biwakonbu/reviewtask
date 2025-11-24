@@ -15,7 +15,7 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         go-version: ['1.24.7']
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     
     - name: Set up Go
       uses: actions/setup-go@v6.0.0
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - name: Set up Go
       uses: actions/setup-go@v6
@@ -154,7 +154,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     
     - name: Set up Go
       uses: actions/setup-go@v6.0.0
@@ -193,7 +193,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     
     - name: Set up Go
       uses: actions/setup-go@v6.0.0
@@ -233,7 +233,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   
   #   steps:
-  #   - uses: actions/checkout@v5
+  #   - uses: actions/checkout@v6
   #   
   #   - name: Set up Go
   #     uses: actions/setup-go@v4
@@ -253,7 +253,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
         
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
     
     - name: Set up Go
       uses: actions/setup-go@v6.0.0
